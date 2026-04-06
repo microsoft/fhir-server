@@ -555,14 +555,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             foreach (var item in items)
             {
-                string itemString = $", {(item.included ? "[Include] " : string.Empty)}{item.resourceType}/{item.resourceId}";
+                string itemString = $"{(item.included ? "[Include] " : string.Empty)}{item.resourceType}/{item.resourceId}";
+                string separator = currentBatch.Length > 0 ? ", " : string.Empty;
 
-                if (currentBatch.Length > 0 && currentBatch.Length + itemString.Length > maxAffectedItemsSize)
+                if (currentBatch.Length > 0 && currentBatch.Length + separator.Length + itemString.Length > maxAffectedItemsSize)
                 {
                     batches.Add(currentBatch.ToString());
                     currentBatch.Clear();
+                    separator = string.Empty;
                 }
 
+                currentBatch.Append(separator);
                 currentBatch.Append(itemString);
             }
 

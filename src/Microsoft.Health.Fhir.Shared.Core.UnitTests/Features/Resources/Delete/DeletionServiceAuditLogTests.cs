@@ -82,15 +82,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var items = new List<(string resourceType, string resourceId, bool included)>();
             int currentLength = 0;
 
-            while (true)
+            for (int i = 0; ; i++)
             {
-                string nextItem = ", Patient/id" + items.Count;
+                string nextItem = (i == 0 ? string.Empty : ", ") + "Patient/id" + i;
                 if (currentLength + nextItem.Length > MaxAffectedItemsSize)
                 {
                     break;
                 }
 
-                items.Add(("Patient", "id" + items.Count, false));
+                items.Add(("Patient", "id" + i, false));
                 currentLength += nextItem.Length;
             }
 
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         }
 
         [Fact]
-        public void GivenBatchesSplit_WhenCreatingBatches_ThenEachBatchStartsWithComma()
+        public void GivenBatchesSplit_WhenCreatingBatches_ThenNoBatchStartsWithComma()
         {
             // Create enough items to force multiple batches
             var items = new List<(string resourceType, string resourceId, bool included)>();
@@ -133,10 +133,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             Assert.True(batches.Count > 1);
 
-            // Each batch should start with ", " to maintain consistent formatting
+            // No batch should start with ", "
             foreach (string batch in batches)
             {
-                Assert.StartsWith(", ", batch);
+                Assert.False(batch.StartsWith(", "), "Batch should not start with a leading comma separator.");
             }
         }
 
