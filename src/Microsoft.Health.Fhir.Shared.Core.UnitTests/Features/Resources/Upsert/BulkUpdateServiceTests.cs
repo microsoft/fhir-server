@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid;
@@ -972,6 +973,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(ex.PartialResults.ResourcesPatchFailed.Count == 1);
             Assert.True(ex.PartialResults.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
             Assert.True(ex.PartialResults.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenResultsReturned_ThenAuditLoggerIsCalledWithBatchedAffectedItems()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var readNextPage = false;
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+
+            var dummyRequestContext = new FhirRequestContext(
+                "POST",
+                "https://localhost/Patient",
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>());
+            _contextAccessor.RequestContext.Returns(dummyRequestContext);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                isIncludesRequest).Returns((x) =>
+                {
+                    return System.Threading.Tasks.Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 } }, "continuationToken"));
+                });
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
+
+            // Allow Task.Run-based audit logging to complete
+            await System.Threading.Tasks.Task.Delay(500);
+
+            // Assert - verify audit logger was called with "Affected Items" property (produced by BulkOperationAuditLogHelper)
+            _auditLogger.Received().LogAudit(
+                Arg.Any<AuditAction>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<Uri>(),
+                Arg.Any<HttpStatusCode?>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                Arg.Any<IReadOnlyDictionary<string, string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
         }
 
         private SearchResult GenerateSearchResult(
