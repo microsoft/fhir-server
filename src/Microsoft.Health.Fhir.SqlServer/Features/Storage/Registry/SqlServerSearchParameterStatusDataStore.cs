@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 // There is always a time gap of several milliseconds to several seconds between search indexes generation and surrogate ids assignment.
                 // We need to make sure that during this time search param cache does not change.
-                // Hence we check that last updated is identical on last to update events.
+                // Hence we check that last updated is identical on last two update events.
                 if (eventsByHosts.TryGetValue(hostName, out var value) && value.Count == 2 && value[0].lastUpdated == value[1].lastUpdated)
                 {
                     updatedHosts.Add(hostName, value[0].lastUpdated);
