@@ -551,22 +551,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             int maxAffectedItemsSize = MaxAuditLogSize - AuditLogOverheadSize;
             var batches = new List<string>();
-            var currentBatch = string.Empty;
+            var currentBatch = new System.Text.StringBuilder();
 
             foreach (var item in items)
             {
-                string itemString = ", " + (item.included ? "[Include] " : string.Empty) + item.resourceType + "/" + item.resourceId;
+                string itemString = $", {(item.included ? "[Include] " : string.Empty)}{item.resourceType}/{item.resourceId}";
 
                 if (currentBatch.Length > 0 && currentBatch.Length + itemString.Length > maxAffectedItemsSize)
                 {
-                    batches.Add(currentBatch);
-                    currentBatch = string.Empty;
+                    batches.Add(currentBatch.ToString());
+                    currentBatch.Clear();
                 }
 
-                currentBatch += itemString;
+                currentBatch.Append(itemString);
             }
 
-            batches.Add(currentBatch);
+            batches.Add(currentBatch.ToString());
 
             return batches;
         }
