@@ -10,20 +10,20 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.BulkDelete)]
-    public class DeletionServiceAuditLogTests
+    public class BulkOperationAuditLogHelperTests
     {
-        private const int MaxAffectedItemsSize = DeletionService.MaxAuditLogSize - DeletionService.AuditLogOverheadSize;
+        private const int MaxAffectedItemsSize = BulkOperationAuditLogHelper.MaxAuditLogSize - BulkOperationAuditLogHelper.AuditLogOverheadSize;
 
         [Fact]
         public void GivenEmptyItemsList_WhenCreatingBatches_ThenSingleEmptyBatchIsReturned()
         {
             var items = new List<(string resourceType, string resourceId, bool included)>();
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Equal(string.Empty, batches[0]);
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 ("Encounter", "789", true),
             };
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains("Patient/123", batches[0]);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 items.Add(("Patient", $"resource-id-{i:D10}", false));
             }
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.True(batches.Count > 1, "Expected multiple batches for a large items list.");
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 currentLength += nextItem.Length;
             }
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.True(batches[0].Length <= MaxAffectedItemsSize);
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 ("Patient", "3", true),
             };
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains("[Include] Patient/1", batches[0]);
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 items.Add(("Patient", $"resource-id-{i:D10}", false));
             }
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.True(batches.Count > 1);
 
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 ("Patient", longId, false),
             };
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains($"Patient/{longId}", batches[0]);
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 items.Add(("Patient", $"id-{i}", i % 3 == 0));
             }
 
-            IList<string> batches = DeletionService.CreateAffectedItemBatches(items);
+            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             // Verify no items are lost by counting occurrences
             string allContent = string.Concat(batches);

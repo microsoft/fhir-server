@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
-        internal const int MaxAuditLogSize = 16000;
-        internal const int AuditLogOverheadSize = 1000;
         private const int MaxParallelThreads = 64;
 
         public DeletionService(
@@ -521,7 +519,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     _logger.LogWarning(ex, "Failed to read request URI from the request context during delete audit logging.");
                 }
 
-                var batches = CreateAffectedItemBatches(items.ToList());
+                var batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items.ToList());
 
                 foreach (var batch in batches)
                 {
@@ -545,33 +543,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             });
 
             return auditTask;
-        }
-
-        internal static IList<string> CreateAffectedItemBatches(IList<(string resourceType, string resourceId, bool included)> items)
-        {
-            int maxAffectedItemsSize = MaxAuditLogSize - AuditLogOverheadSize;
-            var batches = new List<string>();
-            var currentBatch = new System.Text.StringBuilder();
-
-            foreach (var item in items)
-            {
-                string itemString = $"{(item.included ? "[Include] " : string.Empty)}{item.resourceType}/{item.resourceId}";
-                string separator = currentBatch.Length > 0 ? ", " : string.Empty;
-
-                if (currentBatch.Length > 0 && currentBatch.Length + separator.Length + itemString.Length > maxAffectedItemsSize)
-                {
-                    batches.Add(currentBatch.ToString());
-                    currentBatch.Clear();
-                    separator = string.Empty;
-                }
-
-                currentBatch.Append(separator);
-                currentBatch.Append(itemString);
-            }
-
-            batches.Add(currentBatch.ToString());
-
-            return batches;
         }
 
         private async Task RemoveReferences(SearchResultEntry resource, ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
