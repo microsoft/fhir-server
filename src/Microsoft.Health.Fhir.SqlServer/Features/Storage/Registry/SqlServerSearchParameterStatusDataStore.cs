@@ -189,52 +189,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.MergeSearchParams";
-            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
-
             if (_schemaInformation.Current >= 109)
             {
-                cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", false);
-                cmd.Parameters.Add(new SqlParameter("@TransactionId", SqlDbType.BigInt) { Value = DBNull.Value });
-
-                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, Array.Empty<ResourceListRow>());
-                new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, Array.Empty<ResourceWriteClaimListRow>());
-                new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceSearchParamListRow>());
-                new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenSearchParamListRow>());
-                new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, Array.Empty<TokenTextListRow>());
-                new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, Array.Empty<StringSearchParamListRow>());
-                new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, Array.Empty<UriSearchParamListRow>());
-                new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, Array.Empty<NumberSearchParamListRow>());
-                new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, Array.Empty<QuantitySearchParamListRow>());
-                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, Array.Empty<DateTimeSearchParamListRow>());
-                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceTokenCompositeSearchParamListRow>());
-                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenTokenCompositeSearchParamListRow>());
-                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenDateTimeCompositeSearchParamListRow>());
-                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenQuantityCompositeSearchParamListRow>());
-                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenStringCompositeSearchParamListRow>());
-                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenNumberNumberCompositeSearchParamListRow>());
+                cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
             }
-
-            var results = await cmd.ExecuteReaderAsync(
-                _sqlRetryService,
-                (reader) => { return reader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri, VLatest.SearchParam.LastUpdated); },
-                _logger,
-                cancellationToken);
-
-            foreach (var result in results)
+            else
             {
-                (short searchParamId, string searchParamUri, DateTimeOffset lastUpdated) = result;
-
-                // Add the new search parameters to the FHIR model dictionary.
-                _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
-
-                // Update the LastUpdated in our original collection for future operations
-                var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
-                if (matchingStatus != null)
-                {
-                    matchingStatus.LastUpdated = lastUpdated;
-                }
+                cmd.CommandText = "dbo.MergeSearchParams";
             }
+
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
+
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         // Synchronize the FHIR model dictionary with the data in SQL search parameter status table

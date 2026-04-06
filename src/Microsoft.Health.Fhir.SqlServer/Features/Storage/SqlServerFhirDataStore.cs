@@ -801,9 +801,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandType = CommandType.StoredProcedure;
             bool hasPendingStatuses = pendingStatuses?.Count > 0;
 
-            if (hasPendingStatuses)
+            if (hasPendingStatuses && _schemaInformation.Current >= 109)
             {
-                cmd.CommandText = "dbo.MergeSearchParams";
+                cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses.ToList()));
             }
             else

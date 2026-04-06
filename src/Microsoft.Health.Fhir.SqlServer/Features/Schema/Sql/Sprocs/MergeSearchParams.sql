@@ -1,31 +1,12 @@
 ﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
-           ,@IsResourceChangeCaptureEnabled bit = 0
-           ,@TransactionId bigint = NULL
-           ,@Resources dbo.ResourceList READONLY
-           ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
-           ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
-           ,@TokenSearchParams dbo.TokenSearchParamList READONLY
-           ,@TokenTexts dbo.TokenTextList READONLY
-           ,@StringSearchParams dbo.StringSearchParamList READONLY
-           ,@UriSearchParams dbo.UriSearchParamList READONLY
-           ,@NumberSearchParams dbo.NumberSearchParamList READONLY
-           ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
-           ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
-           ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
-           ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
-           ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
-           ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
-           ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
-           ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
+       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)
        ,@Rows int
-       ,@AffectedRows int = 0
        ,@Uri varchar(4000)
        ,@Status varchar(20)
 
@@ -34,7 +15,7 @@ INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
 WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
 BEGIN
   SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Status='+@Status+' Uri='+@Uri
+  SET @msg = 'Uri='+@Uri+' Status='+@Status
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
   DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
 END
@@ -58,34 +39,6 @@ BEGIN TRY
     THROW 50001, @msg, 1
   END
 
-  IF EXISTS (SELECT * FROM @Resources)
-  BEGIN
-    EXECUTE dbo.MergeResources
-     @AffectedRows = @AffectedRows OUTPUT
-    ,@RaiseExceptionOnConflict = 1
-    ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
-    ,@TransactionId = @TransactionId
-    ,@SingleTransaction = 1
-    ,@Resources = @Resources
-    ,@ResourceWriteClaims = @ResourceWriteClaims
-    ,@ReferenceSearchParams = @ReferenceSearchParams
-    ,@TokenSearchParams = @TokenSearchParams
-    ,@TokenTexts = @TokenTexts
-    ,@StringSearchParams = @StringSearchParams
-    ,@UriSearchParams = @UriSearchParams
-    ,@NumberSearchParams = @NumberSearchParams
-    ,@QuantitySearchParams = @QuantitySearchParams
-    ,@DateTimeSearchParms = @DateTimeSearchParms
-    ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
-    ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
-    ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
-    ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
-    ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
-    ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
-
-    SET @Rows = @Rows + @AffectedRows;
-  END
-
   MERGE INTO dbo.SearchParam S
     USING @SearchParams I ON I.Uri = S.Uri
     WHEN MATCHED THEN 
@@ -104,7 +57,7 @@ BEGIN TRY
         ,S.LastUpdated
     FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
     WHERE C.Operation = 'INSERT'
-  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' INSERT='+convert(varchar,@@rowcount)
+  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
 
   COMMIT TRANSACTION
 
