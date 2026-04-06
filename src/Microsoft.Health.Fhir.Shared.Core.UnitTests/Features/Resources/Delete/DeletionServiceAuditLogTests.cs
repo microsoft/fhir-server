@@ -133,8 +133,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             // Act
             await _service.DeleteMultipleAsync(request, CancellationToken.None);
 
-            // Allow Task.Run-based audit logging to complete
-            await Task.Delay(500);
+            // Wait for Task.Run-based audit logging to complete (poll for the expected call)
+            await WaitForAuditLogCall();
 
             // Assert - verify audit logger was called with "Affected Items" property (produced by BulkOperationAuditLogHelper)
             _auditLogger.Received().LogAudit(
@@ -150,6 +150,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+        }
+
+        private async Task WaitForAuditLogCall(int timeoutMs = 5000, int pollIntervalMs = 50)
+        {
+            int elapsed = 0;
+            while (elapsed < timeoutMs)
+            {
+                try
+                {
+                    _auditLogger.Received().LogAudit(
+                        Arg.Any<AuditAction>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<Uri>(),
+                        Arg.Any<HttpStatusCode?>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                        Arg.Any<IReadOnlyDictionary<string, string>>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+                    return;
+                }
+                catch (NSubstitute.Exceptions.ReceivedCallsException)
+                {
+                    await Task.Delay(pollIntervalMs);
+                    elapsed += pollIntervalMs;
+                }
+            }
         }
     }
 }

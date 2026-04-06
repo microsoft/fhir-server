@@ -1013,8 +1013,33 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act
             var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
 
-            // Allow Task.Run-based audit logging to complete
-            await System.Threading.Tasks.Task.Delay(500);
+            // Wait for Task.Run-based audit logging to complete (poll for the expected call)
+            int elapsed = 0;
+            while (elapsed < 5000)
+            {
+                try
+                {
+                    _auditLogger.Received().LogAudit(
+                        Arg.Any<AuditAction>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<Uri>(),
+                        Arg.Any<HttpStatusCode?>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                        Arg.Any<IReadOnlyDictionary<string, string>>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+                    break;
+                }
+                catch (NSubstitute.Exceptions.ReceivedCallsException)
+                {
+                    await System.Threading.Tasks.Task.Delay(50);
+                    elapsed += 50;
+                }
+            }
 
             // Assert - verify audit logger was called with "Affected Items" property (produced by BulkOperationAuditLogHelper)
             _auditLogger.Received().LogAudit(
