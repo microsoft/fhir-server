@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
-        /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
+        /// <param name="maxSecondsToWait">max seconds to wait to enter semaphore</param>
+        /// <returns>A task that returns true if the refresh was performed, false if it was skipped due to exceeding the lock interval.</returns>
+        Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, int maxSecondsToWait = 100);
 
         string GetSearchParameterHash(string resourceType);
     }

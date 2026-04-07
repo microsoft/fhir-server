@@ -866,7 +866,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 for (int attempt = 0; attempt < 30 && !tryGetSearchParamResult; attempt++)
                 {
-                    await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                    await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
                     tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                     if (!tryGetSearchParamResult)
                     {
@@ -909,7 +909,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Assert.True(tryGetSearchParamResult1);
 
                 // Sync service2 to match the scenario and ensure deterministic pre-delete state.
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
                 bool tryGetSearchParamResult2 = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.True(tryGetSearchParamResult2);
 
@@ -918,7 +918,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // Simulate the delete: upsert a deleted wrapper so GetAndApplySearchParameterUpdates can pick up the deletion.
                 UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // If the SearchParameter resource is missing at sync time, service2 should handle refresh without throwing.
                 _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
@@ -1411,28 +1411,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 SearchParameterStatus.Supported,
                 CancellationToken.None);
 
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             return searchParam;
-        }
-
-        private async Task<SearchResult> SearchForSearchParameterByUrlAsync(string searchParamUrl, CancellationToken cancellationToken, int maxAttempts = 10, int delayMilliseconds = 200)
-        {
-            SearchResult result = null;
-            var queryParams = new List<Tuple<string, string>> { new("url", searchParamUrl) };
-
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                result = await _searchService.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (result.Results.Any())
-                {
-                    return result;
-                }
-
-                await Task.Delay(delayMilliseconds, cancellationToken);
-            }
-
-            return result;
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)

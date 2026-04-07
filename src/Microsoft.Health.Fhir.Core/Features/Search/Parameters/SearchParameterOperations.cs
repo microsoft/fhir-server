@@ -26,7 +26,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterOperations : ISearchParameterOperations
+    public class SearchParameterOperations : ISearchParameterOperations, IDisposable
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
+        private readonly SemaphoreSlim _refreshSemaphore;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -65,6 +66,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
+
+            // Create semaphore to prevent concurrent refresh operations (max 1 concurrent operation)
+            _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
 
         public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
@@ -221,103 +225,125 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
-        /// <returns>A task.</returns>
-        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
+        /// <param name="maxSecondsToWait">max seconds to wait to enter semaphore</param>
+        /// <returns>A task that returns true if the refresh was performed, false if it was skipped due to exceeding the lock interval.</returns>
+        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, int maxSecondsToWait = 100)
         {
-            var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, forceFullRefresh ? null : _searchParamLastUpdated);
-            var statuses = results.Statuses;
-
-            // First process any deletes or disables, then we will do any adds or updates
-            // this way any deleted or params which might have the same code or name as a new
-            // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
-            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.Deleted))
+            if (!await _refreshSemaphore.WaitAsync(TimeSpan.FromSeconds(maxSecondsToWait), cancellationToken))
             {
-                DeleteSearchParameter(searchParam.Uri.OriginalString);
+                _logger.LogInformation($"Was not able to enter semaphore after {maxSecondsToWait} seconds.");
+                return false;
             }
 
-            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+            try
             {
-                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
-            }
+                var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, _searchParamLastUpdated);
+                var statuses = results.Statuses;
 
-            // Identify all System Defined Search Parameters and filter them from statuses
-            var systemDefinedSearchParameterUris = new HashSet<string>(
-                _searchParameterDefinitionManager.AllSearchParameters
-                    .Where(p => p.IsSystemDefined)
-                    .Select(p => p.Url.OriginalString),
-                StringComparer.Ordinal);
-
-            var statusesToFetch = statuses
-                .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
-                .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
-
-            // Batch fetch all SearchParameter resources in one call
-            var searchParamResources = await GetSearchParametersByUrls(
-                statusesToFetch
-                    .Select(p => p.Uri.OriginalString)
-                    .ToList(),
-                cancellationToken);
-
-            var paramsToAdd = new List<ITypedElement>();
-            var allHaveResources = true;
-            foreach (var searchParam in statusesToFetch)
-            {
-                if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
+                // First process any deletes or disables, then we will do any adds or updates
+                // this way any deleted or params which might have the same code or name as a new
+                // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
+                foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.Deleted))
                 {
-                    _logger.LogInformation(
-                        "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
-                        searchParam.Uri);
-
-                    if (searchParam.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10)) // same as for in cache
-                    {
-                        allHaveResources = false;
-                    }
-
-                    continue;
-                }
-
-                // check if search param is in cache and add if does not exist
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
-                {
-                    // if the previous version of the search parameter exists we should delete the old information currently stored
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 
-                paramsToAdd.Add(searchParamResource);
+                foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+                {
+                    _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
+                }
 
-                // Add parameters incrementally per chunk to reduce peak memory footprint
-                if (paramsToAdd.Count >= 100)
+                // Identify all System Defined Search Parameters and filter them from statuses
+                var systemDefinedSearchParameterUris = new HashSet<string>(
+                    _searchParameterDefinitionManager.AllSearchParameters
+                        .Where(p => p.IsSystemDefined)
+                        .Select(p => p.Url.OriginalString),
+                    StringComparer.Ordinal);
+
+                var statusesToFetch = statuses
+                    .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                    .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
+
+                // Batch fetch all SearchParameter resources in one call
+                var searchParamResources = await GetSearchParametersByUrls(
+                    statusesToFetch
+                        .Select(p => p.Uri.OriginalString)
+                        .ToList(),
+                    cancellationToken);
+
+                var paramsToAdd = new List<ITypedElement>();
+                var allHaveResources = true;
+                foreach (var searchParam in statusesToFetch)
+                {
+                    if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
+                    {
+                        _logger.LogInformation(
+                            "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
+                            searchParam.Uri);
+
+                        if (searchParam.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10)) // same as for in cache
+                        {
+                            allHaveResources = false;
+                        }
+
+                        continue;
+                    }
+
+                    // check if search param is in cache and add if does not exist
+                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
+                    {
+                        // if the previous version of the search parameter exists we should delete the old information currently stored
+                        DeleteSearchParameter(searchParam.Uri.OriginalString);
+                    }
+
+                    paramsToAdd.Add(searchParamResource);
+
+                    // Add parameters incrementally per chunk to reduce peak memory footprint
+                    if (paramsToAdd.Count >= 100)
+                    {
+                        _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                        paramsToAdd.Clear();
+                    }
+                }
+
+                // Add any remaining parameters
+                if (paramsToAdd.Any())
                 {
                     _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-                    paramsToAdd.Clear();
+                }
+
+                // Once added to the definition manager we can update their status
+                await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
+
+                var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
+
+                // If cache is updated directly and not from the database not all will have corresponding resources.
+                // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
+                if (inCache && allHaveResources && results.LastUpdated.HasValue)
+                {
+                    _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
+                }
+
+                if (_searchParamLastUpdated.HasValue)
+                {
+                    // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
+                    var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
+                    await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    _refreshSemaphore.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Expected during host shutdown when Dispose() races with an in-flight async callback.
                 }
             }
 
-            // Add any remaining parameters
-            if (paramsToAdd.Any())
-            {
-                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-            }
-
-            // Once added to the definition manager we can update their status
-            await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
-
-            var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
-
-            // If cache is updated directly and not from the database not all will have corresponding resources.
-            // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
-            if (inCache && allHaveResources && results.LastUpdated.HasValue)
-            {
-                _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
-            }
-
-            if (_searchParamLastUpdated.HasValue)
-            {
-                // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
-                var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
-                await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
-            }
+            return true;
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
@@ -427,6 +453,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return searchParametersByUrl;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _refreshSemaphore?.Dispose();
+            }
         }
     }
 }
