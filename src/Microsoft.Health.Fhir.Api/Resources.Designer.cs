@@ -223,6 +223,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate codes [{0}] and Urls [{1}]..
+        /// </summary>
+        public static string DuplicateSearchParamCodesAndUrlsInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamCodesAndUrlsInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate codes [{0}].
+        /// </summary>
+        public static string DuplicateSearchParamCodesInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamCodesInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate Urls [{0}]..
+        /// </summary>
+        public static string DuplicateSearchParamUrlsInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamUrlsInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to One or more invalid parameters are found: {0}.
         /// </summary>
         public static string ExpandInvalidParameter {
@@ -637,6 +664,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested route was not found..
+        /// </summary>
+        public static string NotFoundException {
+            get {
+                return ResourceManager.GetString("NotFoundException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Content-Type must be application/x-www-form-urlencoded..
         /// </summary>
         public static string OAuth2ContentTypeMustBeFormUrlEncoded {
@@ -651,15 +687,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string OAuth2TokenParameterRequired {
             get {
                 return ResourceManager.GetString("OAuth2TokenParameterRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested route was not found..
-        /// </summary>
-        public static string NotFoundException {
-            get {
-                return ResourceManager.GetString("NotFoundException", resourceCulture);
             }
         }
         
