@@ -113,6 +113,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddExpandDetails);
             }
 
+            if ()
+            {
+                builder.Apply(AddExpiredResourceCleanupDetails);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -202,6 +207,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddExpandDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ValueSetExpand);
+        }
+
+        public void AddExpiredResourceCleanupDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ExpiredResourceCleanup);
         }
     }
 }

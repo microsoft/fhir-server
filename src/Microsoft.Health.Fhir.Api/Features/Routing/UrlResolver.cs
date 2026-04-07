@@ -354,6 +354,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.ValueSetExpand:
                     routeName = RouteNames.ExpandDefinition;
                     break;
+                case OperationsConstants.ExpiredResourceCleanup:
+                    routeName = RouteNames.ExpiredResourceCleanupDefinition;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
