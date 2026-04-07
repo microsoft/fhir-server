@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
-            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
+            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping, Substitute.For<ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute>>());
         }
 
         [Fact]
@@ -128,6 +129,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filterAttribute.OnActionExecuting(_actionExecutingContext);
 
             Assert.True(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+        }
+
+        [Fact]
+        public void GivenABundleRequestWithNullBundleType_WhenExecutingAnAction_ThenBadRequestOperationOutcomeIsReturned()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle { Type = null };
+            _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, bundle);
+
+            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(AuditEventSubType.BundlePost);
+
+            _filterAttribute.OnActionExecuting(_actionExecutingContext);
+
+            Assert.Equal("InvalidBundleType", _fhirRequestContextAccessor.RequestContext.AuditEventType);
+            Assert.IsType<ContentResult>(_actionExecutingContext.Result);
+
+            var result = (ContentResult)_actionExecutingContext.Result;
+            Assert.Equal(400, result.StatusCode);
+            Assert.Equal("application/fhir+json", result.ContentType);
+            Assert.Contains("OperationOutcome", result.Content);
         }
 
         private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)
