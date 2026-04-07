@@ -67,8 +67,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 new Dictionary<string, StringValues>());
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
 
-            _conformanceProvider.Value.CanKeepHistory(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
-
             _service = new DeletionService(
                 _resourceWrapperFactory,
                 _conformanceProvider,
@@ -89,9 +87,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         {
             // Arrange
             var resourceType = "Patient";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z"),
+            };
+
             var request = new ConditionalDeleteResourceRequest(
                 resourceType,
-                new List<Tuple<string, string>>(),
+                parameters,
                 DeleteOperation.HardDelete,
                 maxDeleteCount: 10,
                 deleteAll: false);
