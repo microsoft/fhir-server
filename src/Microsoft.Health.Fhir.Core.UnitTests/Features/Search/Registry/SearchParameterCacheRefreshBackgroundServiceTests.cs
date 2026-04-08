@@ -276,6 +276,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
+        public async Task OnRefreshTimer_WhenOperationIsBlockedByOtherCall_ShouldSkipRefresh()
+        {
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var service = new SearchParameterCacheRefreshBackgroundService(_searchParameterStatusManager, _searchParameterOperations, _coreFeatureConfiguration, mockLogger);
+
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(_ => Task.Delay(300).ContinueWith(_ => true));
+
+            var apiTask = Task.Run(() => _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None));
+
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
+            await Task.Delay(100);
+
+            mockLogger.Received().Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("Skipped incremental SearchParameter cache refresh.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+
+            service.Dispose();
+            await apiTask;
+        }
+
+        [Fact]
         public async Task OnRefreshTimer_WhenOperationCanceled_ShouldHandleGracefully()
         {
             // Arrange
