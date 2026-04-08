@@ -3,11 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
+using Microsoft.Health.Core.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
@@ -23,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         {
             var items = new List<(string resourceType, string resourceId, bool included)>();
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Equal(string.Empty, batches[0]);
@@ -39,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 ("Encounter", "789", true),
             };
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains("Patient/123", batches[0]);
@@ -57,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 items.Add(("Patient", $"resource-id-{i:D10}", false));
             }
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.True(batches.Count > 1, "Expected multiple batches for a large items list.");
 
@@ -94,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 currentLength += nextItem.Length;
             }
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.True(batches[0].Length <= MaxAffectedItemsSize);
@@ -110,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 ("Patient", "3", true),
             };
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains("[Include] Patient/1", batches[0]);
@@ -129,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 items.Add(("Patient", $"resource-id-{i:D10}", false));
             }
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.True(batches.Count > 1);
 
@@ -150,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 ("Patient", longId, false),
             };
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             Assert.Single(batches);
             Assert.Contains($"Patient/{longId}", batches[0]);
@@ -165,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 items.Add(("Patient", $"id-{i}", i % 3 == 0));
             }
 
-            IList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
+            IReadOnlyList<string> batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items);
 
             // Verify no items are lost by counting occurrences
             string allContent = string.Concat(batches);
@@ -173,6 +179,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             {
                 Assert.Contains($"Patient/id-{i}", allContent);
             }
+        }
+
+        internal static async Task WaitForAuditLogCall(IAuditLogger auditLogger, int timeoutMs = 5000, int pollIntervalMs = 50)
+        {
+            int elapsed = 0;
+            while (elapsed < timeoutMs)
+            {
+                try
+                {
+                    auditLogger.Received().LogAudit(
+                        Arg.Any<AuditAction>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<Uri>(),
+                        Arg.Any<HttpStatusCode?>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                        Arg.Any<IReadOnlyDictionary<string, string>>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+                    return;
+                }
+                catch (NSubstitute.Exceptions.ReceivedCallsException)
+                {
+                    await Task.Delay(pollIntervalMs);
+                    elapsed += pollIntervalMs;
+                }
+            }
+
+            Assert.Fail("Timed out waiting for expected call to AuditLogger.LogAudit with 'Affected Items' property.");
         }
     }
 }

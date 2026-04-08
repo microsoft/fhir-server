@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// Items are never split mid-entry; a single oversized item is kept
         /// in its own batch rather than truncated.
         /// </summary>
-        internal static IList<string> CreateAffectedItemBatches(IList<(string resourceType, string resourceId, bool included)> items)
+        internal static IReadOnlyList<string> CreateAffectedItemBatches(IEnumerable<(string resourceType, string resourceId, bool included)> items)
         {
             int maxAffectedItemsSize = MaxAuditLogSize - AuditLogOverheadSize;
             var batches = new List<string>();
