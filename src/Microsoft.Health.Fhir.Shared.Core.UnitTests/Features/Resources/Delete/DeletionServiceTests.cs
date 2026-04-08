@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.BulkDelete)]
-    public class DeletionServiceAuditLogTests
+    public class DeletionServiceTests
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private readonly Lazy<IConformanceProvider> _conformanceProvider = new Lazy<IConformanceProvider>(() => Substitute.For<IConformanceProvider>());
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private readonly ILogger<DeletionService> _logger = Substitute.For<ILogger<DeletionService>>();
         private readonly DeletionService _service;
 
-        public DeletionServiceAuditLogTests()
+        public DeletionServiceTests()
         {
             var config = new CoreFeatureConfiguration();
             var configuration = Options.Create(config);

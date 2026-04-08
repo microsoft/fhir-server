@@ -39,7 +39,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeletionServiceAuditLogTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeletionServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\BulkOperationAuditLogHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
