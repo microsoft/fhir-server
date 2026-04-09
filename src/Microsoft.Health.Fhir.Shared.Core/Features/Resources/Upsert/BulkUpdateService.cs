@@ -648,28 +648,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
                 var context = _contextAccessor.RequestContext;
-                var updateAdditionalProperties = new Dictionary<string, string>();
-                updateAdditionalProperties[typeOfAudit] = items.Aggregate(
-                    string.Empty,
-                    (aggregate, item) =>
-                    {
-                        aggregate += ", " + (item.included ? "[Include] " : string.Empty) + item.resourceType + "/" + item.resourceId;
-                        return aggregate;
-                    });
 
-                _auditLogger.LogAudit(
-                    auditAction: action,
-                    operation: "Update",
-                    resourceType: primaryResourceType,
-                    requestUri: context.Uri,
-                    statusCode: statusCode,
-                    correlationId: context.CorrelationId,
-                    callerIpAddress: string.Empty,
-                    callerClaims: null,
-                    customHeaders: null,
-                    operationType: string.Empty,
-                    callerAgent: DefaultCallerAgent,
-                    additionalProperties: updateAdditionalProperties);
+                var batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items.ToList());
+
+                foreach (var batch in batches)
+                {
+                    var updateAdditionalProperties = new Dictionary<string, string>();
+                    updateAdditionalProperties[typeOfAudit] = batch;
+
+                    _auditLogger.LogAudit(
+                        auditAction: action,
+                        operation: "Update",
+                        resourceType: primaryResourceType,
+                        requestUri: context.Uri,
+                        statusCode: statusCode,
+                        correlationId: context.CorrelationId,
+                        callerIpAddress: string.Empty,
+                        callerClaims: null,
+                        customHeaders: null,
+                        operationType: string.Empty,
+                        callerAgent: DefaultCallerAgent,
+                        additionalProperties: updateAdditionalProperties);
+                }
             });
 
             return auditTask;

@@ -507,14 +507,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
                 var context = _contextAccessor.RequestContext;
-                var deleteAdditionalProperties = new Dictionary<string, string>();
-                deleteAdditionalProperties["Affected Items"] = items.Aggregate(
-                    string.Empty,
-                    (aggregate, item) =>
-                    {
-                        aggregate += ", " + (item.included ? "[Include] " : string.Empty) + item.resourceType + "/" + item.resourceId;
-                        return aggregate;
-                    });
 
                 Uri uri = null;
 
@@ -527,19 +519,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     _logger.LogWarning(ex, "Failed to read request URI from the request context during delete audit logging.");
                 }
 
-                _auditLogger.LogAudit(
-                    auditAction: action,
-                    operation: operation.ToString(),
-                    resourceType: primaryResourceType,
-                    requestUri: uri,
-                    statusCode: statusCode,
-                    correlationId: context.CorrelationId,
-                    callerIpAddress: string.Empty,
-                    callerClaims: null,
-                    customHeaders: null,
-                    operationType: string.Empty,
-                    callerAgent: DefaultCallerAgent,
-                    additionalProperties: deleteAdditionalProperties);
+                var batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items.ToList());
+
+                foreach (var batch in batches)
+                {
+                    var deleteAdditionalProperties = new Dictionary<string, string>();
+                    deleteAdditionalProperties["Affected Items"] = batch;
+
+                    _auditLogger.LogAudit(
+                        auditAction: action,
+                        operation: operation.ToString(),
+                        resourceType: primaryResourceType,
+                        requestUri: uri,
+                        statusCode: statusCode,
+                        correlationId: context.CorrelationId,
+                        callerIpAddress: string.Empty,
+                        callerClaims: null,
+                        customHeaders: null,
+                        operationType: string.Empty,
+                        callerAgent: DefaultCallerAgent,
+                        additionalProperties: deleteAdditionalProperties);
+                }
             });
 
             return auditTask;
