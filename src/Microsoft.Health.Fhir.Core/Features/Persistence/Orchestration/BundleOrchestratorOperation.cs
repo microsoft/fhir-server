@@ -228,6 +228,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             CheckForClearedOperations();
 
+            if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+            {
+                // Operation is already in a terminal state. Suppress further status transitions to avoid
+                // cascading BundleOrchestratorException log noise when many parallel workers release
+                // after a single failure (e.g. SQL timeout).
+                return;
+            }
+
             try
             {
                 if (!_resources.Any())
