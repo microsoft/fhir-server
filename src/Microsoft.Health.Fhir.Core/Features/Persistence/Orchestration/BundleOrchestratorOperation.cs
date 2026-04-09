@@ -135,6 +135,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 InitializeMergeTaskSafe(dataStore, cancellationToken);
             }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                // Operation is already in a terminal state (Failed or Canceled). Re-throw to avoid
+                // the generic catch from redundantly calling SetStatusSafe(Failed).
+                throw;
+            }
             catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
@@ -228,14 +234,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             CheckForClearedOperations();
 
-            if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
-            {
-                // Operation is already in a terminal state. Suppress further status transitions to avoid
-                // cascading BundleOrchestratorException log noise when many parallel workers release
-                // after a single failure (e.g. SQL timeout).
-                return;
-            }
-
             try
             {
                 if (!_resources.Any())
@@ -247,6 +245,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 Interlocked.Decrement(ref _currentExpectedNumberOfResources);
 
                 InitializeMergeTaskSafe(dataStore: null, cancellationToken);
+            }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                // Operation is already in a terminal state (Failed or Canceled). Silently return to avoid
+                // cascading log noise when many parallel workers release after a single failure.
+                return;
             }
             catch (OperationCanceledException oce)
             {
@@ -451,6 +455,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
                 {
                     Status = suggestedStatus;
+                }
+                else if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+                {
+                    throw new BundleOrchestratorOperationCanceledException($"Bundle Operation {Id}. Operation is already in terminal state '{Status}'. Ignoring transition to '{suggestedStatus}'.");
                 }
                 else
                 {
