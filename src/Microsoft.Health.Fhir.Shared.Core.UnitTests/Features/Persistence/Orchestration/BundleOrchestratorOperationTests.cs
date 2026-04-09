@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             const int numberOfResources = 10;
 
-            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
@@ -295,10 +295,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             operation.Cancel("Simulated cancellation for test.");
             Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
 
-            List<Task> releaseTasks = new List<Task>(capacity: numberOfResources);
+            Task[] releaseTasks = new Task[numberOfResources];
             for (int i = 0; i < numberOfResources; i++)
             {
-                releaseTasks.Add(operation.ReleaseResourceAsync("Released after cancellation.", cts.Token));
+                releaseTasks[i] = operation.ReleaseResourceAsync("Released after cancellation.", cts.Token);
             }
 
             Exception exception = await Record.ExceptionAsync(() => Task.WhenAll(releaseTasks));
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             // concurrently and do not throw BundleOrchestratorException.
 
             const int numberOfResources = 10;
-            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
@@ -343,10 +343,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             // Remaining N-1 workers call ReleaseResourceAsync concurrently after the failure. Operation is already Failed,
             // and these workers must not throw BundleOrchestratorException.
-            List<Task> releaseTasks = new List<Task>(capacity: numberOfResources - 1);
+            Task[] releaseTasks = new Task[numberOfResources - 1];
             Parallel.For(1, numberOfResources, (i, _) =>
             {
-                releaseTasks.Add(operation.ReleaseResourceAsync($"Worker {i} releasing.", cts.Token));
+                releaseTasks[i - 1] = operation.ReleaseResourceAsync($"Worker {i} releasing.", cts.Token);
             });
 
             Exception exception = await Record.ExceptionAsync(() => Task.WhenAll(releaseTasks));
