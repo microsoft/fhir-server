@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid.Tags.Html;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
+        private readonly int maxSecondsToWait = 100;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -290,14 +292,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="maxSecondsToWait">max seconds to wait to enter semaphore</param>
+        /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>
         /// <returns>A task that returns true if the refresh was performed, false if it was skipped due to exceeding the lock interval.</returns>
-        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, int maxSecondsToWait = 100)
+        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool zeroWaitForSemaphore = false)
         {
-            if (!await _refreshSemaphore.WaitAsync(TimeSpan.FromSeconds(maxSecondsToWait), cancellationToken))
+            if (!await _refreshSemaphore.WaitAsync(TimeSpan.FromSeconds(zeroWaitForSemaphore ? 0 : maxSecondsToWait), cancellationToken))
             {
-                _logger.LogInformation($"Was not able to enter semaphore after {maxSecondsToWait} seconds.");
-                return false;
+                var msg = $"Could not acquire lock to refresh search parameter cache after waiting for {maxSecondsToWait} seconds.";
+                if (zeroWaitForSemaphore)
+                {
+                    _logger.LogInformation(msg);
+                    return false;
+                }
+                else
+                {
+                    _logger.LogError(msg);
+                    throw new InvalidOperationException(msg);
+                }
             }
 
             try
