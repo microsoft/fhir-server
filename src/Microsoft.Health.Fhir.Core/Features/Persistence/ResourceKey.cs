@@ -123,6 +123,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public int CompareTo(ResourceKey other)
         {
             int result = 0;
+
+            if (other is null)
+            {
+                return 1;
+            }
+
             if (!string.Equals(ResourceType, other.ResourceType, StringComparison.OrdinalIgnoreCase))
             {
                 result = string.Compare(ResourceType, other.ResourceType, StringComparison.OrdinalIgnoreCase);
