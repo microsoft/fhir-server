@@ -195,8 +195,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             var key1 = new ResourceKey("Patient", "abc");
             var key2 = new ResourceKey("Patient", "ABC");
 
-            // Case-insensitive comparison should treat them as equal
-            Assert.Equal(0, key1.CompareTo(key2));
+            // Case-sensitive comparison should treat them as different
+            Assert.NotEqual(0, key1.CompareTo(key2));
         }
 
         [Fact]
