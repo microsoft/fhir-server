@@ -98,6 +98,92 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task WhenProcessingABundle_ResourceIdIsSharedBetweenResourceTypes_AllOperationsSucceed()
+        {
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            Guid globalId = Guid.NewGuid();
+
+            // 1 - Create an observation with 5 versions.
+            for (int i = 0; i < 5; i++)
+            {
+                Observation observation = new Observation()
+                {
+                    Category = new List<CodeableConcept>()
+                    {
+                        new CodeableConcept("x", "10"),
+                    },
+                    Text = new Narrative("text"),
+                    Id = globalId.ToString(),
+                    Issued = DateTime.UtcNow,
+                    Status = ObservationStatus.Amended,
+                };
+
+                FhirResponse<Observation> response = await _client.UpdateAsync<Observation>(observation, cancellationToken: cancellationToken);
+                Assert.True(response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created, "Bundle ingestion did not complete as expected.");
+            }
+
+            // 2 - Create a bundle with Patient and Observation, all with the name Resource ID.
+            Bundle bundle = new Bundle() { Type = BundleType.Transaction };
+            EntryComponent entryComponent1 = new EntryComponent()
+            {
+                Resource = new Patient()
+                {
+                    Id = globalId.ToString(),
+                    Name = new List<HumanName> { new HumanName() { Family = "Rush", Given = new List<string> { $"John" } } },
+                    Gender = AdministrativeGender.Male,
+                    BirthDate = "1974-12-21",
+                    Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+                },
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Patient/{globalId}",
+                },
+            };
+            bundle.Entry.Add(entryComponent1);
+
+            EntryComponent entryComponent2 = new EntryComponent()
+            {
+                Resource = new Observation()
+                {
+                    Category = new List<CodeableConcept>()
+                    {
+                        new CodeableConcept("x", "10"),
+                    },
+                    Text = new Narrative("text"),
+                    Id = globalId.ToString(),
+                    Issued = DateTime.UtcNow,
+                    Status = ObservationStatus.Amended,
+                },
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Observation/{globalId}",
+                },
+            };
+            bundle.Entry.Add(entryComponent2);
+
+            FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(
+                bundle,
+                new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel },
+                cancellationToken);
+
+            Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "Bundle ingestion did not complete as expected.");
+
+            foreach (EntryComponent item in bundleResponse.Resource.Entry)
+            {
+                Assert.True(item.Response.Status == "200" || item.Response.Status == "201");
+            }
+
+            Patient p1 = await _client.ReadAsync<Patient>($"Patient/{globalId}", cancellationToken);
+            Assert.True(p1.Meta.VersionId == "1");
+
+            Observation o1 = await _client.ReadAsync<Observation>($"Observation/{globalId}", cancellationToken);
+            Assert.True(p1.Meta.VersionId == "6");
+        }
+
+        [Fact]
         public async Task WhenProcessingABundle_IfItContainsHistoryEndpointRequests_ThenReturnTheResourcesAsExpected()
         {
             CancellationToken cancellationToken = CancellationToken.None;
