@@ -129,13 +129,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return 1;
             }
 
-            if (!string.Equals(ResourceType, other.ResourceType, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(ResourceType, other.ResourceType, StringComparison.Ordinal))
             {
-                result = string.Compare(ResourceType, other.ResourceType, StringComparison.OrdinalIgnoreCase);
+                result = string.Compare(ResourceType, other.ResourceType, StringComparison.Ordinal);
             }
-            else if (!string.Equals(Id, other.Id, StringComparison.OrdinalIgnoreCase))
+            else if (!string.Equals(Id, other.Id, StringComparison.Ordinal))
             {
-                result = string.Compare(Id, other.Id, StringComparison.OrdinalIgnoreCase);
+                result = string.Compare(Id, other.Id, StringComparison.Ordinal);
             }
             else if (VersionId != null && other.VersionId != null)
             {
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
                 else
                 {
-                    result = string.Compare(VersionId, other.VersionId, StringComparison.OrdinalIgnoreCase);
+                    result = string.Compare(VersionId, other.VersionId, StringComparison.Ordinal);
                 }
             }
             else
