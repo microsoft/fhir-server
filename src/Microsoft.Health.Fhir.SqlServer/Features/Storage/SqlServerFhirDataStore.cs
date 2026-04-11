@@ -230,19 +230,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
-            var prevResourceId = string.Empty;
+            ResourceKey prevResourceKey = null;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
                 var metaHistory = true;
                 var resource = resourceExt.Wrapper;
-                var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
+                var setAsHistory = prevResourceKey == resource.ToResourceKey(true); // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
                 if (resourceExt.KeepVersion && int.Parse(resource.Version) < 0)
                 {
                     setAsHistory = true;
                 }
 
-                prevResourceId = resource.ResourceId;
+                prevResourceKey = resource.ToResourceKey(true);
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
                     ? null
@@ -402,16 +402,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
             // Sort them in groups by resource id and order by version.
             // In each group find the smallest version higher then existing
-            prevResourceId = string.Empty;
+            prevResourceKey = null;
             var notSetInResoureGroup = false;
-            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ResourceId).ThenBy(x => x.ResourceVersion))
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ToResourceKey(true)).ThenBy(x => x.ResourceVersion))
             {
-                if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
+                if (prevResourceKey != mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true)) // this should reset flag on each resource id group including first.
                 {
                     notSetInResoureGroup = true;
                 }
 
-                prevResourceId = mergeWrapper.Wrapper.ResourceWrapper.ResourceId;
+                prevResourceKey = mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true);
 
                 if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
                 {
