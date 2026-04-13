@@ -25,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken);
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken);
     }
 }

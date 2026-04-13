@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterDefinitionManager _searchDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private IQueueClient _queueClient;
+        private readonly IQueueClient _queueClient;
         private readonly CancellationToken _cancellationToken;
 
         public ReindexOrchestratorJobTests()
@@ -60,6 +60,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
 
             // Initialize a fresh queue client for each test
             _queueClient = new TestQueueClient();
@@ -76,17 +78,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null, int waitMultiplier = 0)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob()
         {
-            runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
+            var runtimeConfig = new AzureHealthDataServicesRuntimeConfiguration();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
+            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            var conf = new OperationsConfiguration();
-            conf.Reindex.CacheRefreshWaitMultiplier = waitMultiplier;
-            operationsConfig.Value.Returns(conf);
+            operationsConfig.Value.Returns(new OperationsConfiguration { Reindex = new ReindexJobConfiguration { CacheUpdateMaxWaitMultiplier = 1 } });
 
             return new ReindexOrchestratorJob(
                 _queueClient,
@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Return the enqueued job with Running status
             var jobInfo = orchestratorJobs.First();
             jobInfo.Status = JobStatus.Running;
+            jobInfo.StartDate = DateTime.UtcNow;
 
             return jobInfo;
         }
@@ -258,22 +259,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task ExecuteAsync_WhenCacheIsNotSynced_ReturnsErrorResult()
+        {
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = false, ActiveHosts = 1, ConvergedHosts = 1 });
+
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob();
+
+            // Act
+            var result = await orchestrator.ExecuteAsync(jobInfo, CancellationToken.None);
+            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+
+            // Assert
+            Assert.NotNull(jobResult);
+            Assert.NotNull(jobResult.Error);
+            Assert.Contains(jobResult.Error, e => e.Diagnostics.Contains("Unable to sync search parameter cache"));
+
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
+        }
+
+        [Fact]
         public async Task ExecuteAsync_WhenCancellationRequested_ReturnsJobCancelledResult()
         {
             // Arrange
             var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.CancelAfter(10); // Cancel after short delay
 
-            // Make WaitForRefreshCyclesAsync block until cancellation, simulating a real wait
-            _searchParameterOperations.WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
+            // Make CheckCacheConsistencyAsync block until cancellation, simulating a real wait
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
                 {
-                    var ct = callInfo.ArgAt<CancellationToken>(1);
-                    return Task.Delay(Timeout.Infinite, ct);
+                    var ct = callInfo.ArgAt<CancellationToken>(2);
+                    await Task.Delay(Timeout.Infinite, ct);
+                    return new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 };
                 });
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 1);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, cancellationTokenSource.Token);
@@ -283,6 +307,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(jobResult);
             Assert.NotNull(jobResult.Error);
             Assert.Contains(jobResult.Error, e => e.Diagnostics.Contains("cancelled"));
+
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
         }
 
         [Fact]
@@ -708,7 +735,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act: Fire off execute asynchronously without awaiting
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1692,7 +1719,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
-            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -2050,39 +2077,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task RefreshSearchParameterCache_WaitsForConfiguredNumberOfCacheRefreshCycles()
         {
-            // Arrange
-            int configuredMultiplier = 3;
-
             var emptyStatus = new List<ResourceSearchParameterStatus>();
             _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
                 .Returns(emptyStatus);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: configuredMultiplier);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
-            // Assert - WaitForRefreshCyclesAsync should have been called twice (Start and End) with the configured multiplier
-            await _searchParameterOperations.Received(2).WaitForRefreshCyclesAsync(configuredMultiplier, Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task RefreshSearchParameterCache_WithZeroMultiplier_DoesNotWait()
-        {
-            // Arrange
-            var emptyStatus = new List<ResourceSearchParameterStatus>();
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(emptyStatus);
-
-            var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 0);
-
-            // Act
-            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
-
-            // Assert - WaitForRefreshCyclesAsync should have been called with 0 (returns immediately)
-            await _searchParameterOperations.Received(2).WaitForRefreshCyclesAsync(0, Arg.Any<CancellationToken>());
+            // Assert - CheckCacheConsistencyAsync should have been called twice (Start and End) with the configured multiplier
+            await _searchParameterStatusManager.Received(2).CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
         }
     }
 }

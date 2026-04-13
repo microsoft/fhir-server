@@ -1017,49 +1017,6 @@ CREATE TABLE dbo.WatchdogLeases (
 
 COMMIT
 GO
-CREATE PROCEDURE dbo.AcquireReindexJobs
-@jobHeartbeatTimeoutThresholdInSeconds BIGINT, @maximumNumberOfConcurrentJobsAllowed INT
-AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
-DECLARE @expirationDateTime AS DATETIME2 (7);
-SELECT @expirationDateTime = DATEADD(second, -@jobHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
-DECLARE @numberOfRunningJobs AS INT;
-SELECT @numberOfRunningJobs = COUNT(*)
-FROM   dbo.ReindexJob WITH (TABLOCKX)
-WHERE  Status = 'Running'
-       AND HeartbeatDateTime > @expirationDateTime;
-DECLARE @limit AS INT = @maximumNumberOfConcurrentJobsAllowed - @numberOfRunningJobs;
-IF (@limit > 0)
-    BEGIN
-        DECLARE @availableJobs TABLE (
-            Id         VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-            JobVersion BINARY (8)   NOT NULL);
-        INSERT INTO @availableJobs
-        SELECT   TOP (@limit) Id,
-                              JobVersion
-        FROM     dbo.ReindexJob
-        WHERE    (Status = 'Queued'
-                  OR (Status = 'Running'
-                      AND HeartbeatDateTime <= @expirationDateTime))
-        ORDER BY HeartbeatDateTime;
-        DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-        UPDATE dbo.ReindexJob
-        SET    Status            = 'Running',
-               HeartbeatDateTime = @heartbeatDateTime,
-               RawJobRecord      = JSON_MODIFY(RawJobRecord, '$.status', 'Running')
-        OUTPUT inserted.RawJobRecord, inserted.JobVersion
-        FROM   dbo.ReindexJob AS job
-               INNER JOIN
-               @availableJobs AS availableJob
-               ON job.Id = availableJob.Id
-                  AND job.JobVersion = availableJob.JobVersion;
-    END
-COMMIT TRANSACTION;
-
-GO
 CREATE PROCEDURE dbo.AcquireWatchdogLease
 @Watchdog VARCHAR (100), @Worker VARCHAR (100), @AllowRebalance BIT=1, @ForceAcquire BIT=0, @LeasePeriodSec FLOAT, @WorkerIsRunning BIT=0, @LeaseEndTime DATETIME OUTPUT, @IsAcquired BIT OUTPUT, @CurrentLeaseHolder VARCHAR (100)=NULL OUTPUT
 AS
@@ -1367,43 +1324,6 @@ FROM   dbo.ReindexJob
 WHERE  Status = 'Running'
        OR Status = 'Queued'
        OR Status = 'Paused';
-
-GO
-CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
-@TargetSearchParamLastUpdated VARCHAR (100), @SyncStartDate DATETIME2 (7), @ActiveHostsSince DATETIME2 (7), @StalenessThresholdMinutes INT=10
-AS
-SET NOCOUNT ON;
-SELECT HostName,
-       CAST (NULL AS DATETIME2 (7)) AS SyncEventDate,
-       CAST (NULL AS NVARCHAR (3500)) AS EventText
-FROM   dbo.EventLog
-WHERE  EventDate >= @ActiveHostsSince
-       AND HostName IS NOT NULL
-       AND Process = 'DequeueJob'
-UNION ALL
-SELECT HostName,
-       EventDate,
-       EventText
-FROM   dbo.EventLog
-WHERE  EventDate >= @SyncStartDate
-       AND HostName IS NOT NULL
-       AND Process = 'SearchParameterCacheRefresh'
-       AND Status = 'End';
-
-
-GO
-INSERT INTO dbo.Parameters (Id, Char)
-SELECT 'DequeueJob',
-       'LogEvent'
-WHERE  NOT EXISTS (SELECT *
-                   FROM   dbo.Parameters
-                   WHERE  Id = 'DequeueJob');
-
-
-GO
-INSERT INTO Parameters (Id, Char)
-SELECT 'SearchParameterCacheRefresh',
-       'LogEvent';
 
 GO
 CREATE PROCEDURE dbo.CleanupEventLog
@@ -1994,12 +1914,6 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
     THROW;
 END CATCH
-
-
-GO
-INSERT INTO Parameters (Id, Char)
-SELECT 'DequeueJob',
-       'LogEvent';
 
 GO
 CREATE PROCEDURE dbo.DisableIndex
@@ -3295,21 +3209,24 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE dbo.GetSearchParamMaxLastUpdated
+CREATE PROCEDURE dbo.GetSearchParamCacheUpdateEvents
+@UpdateProcess VARCHAR (100), @UpdateEventsSince DATETIME, @ActiveHostsSince DATETIME
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'SearchParam MaxLastUpdated Query', @st AS DATETIME = getUTCdate(), @MaxLastUpdated AS DATETIMEOFFSET (7);
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Start = @st;
-    SELECT @MaxLastUpdated = MAX(LastUpdated)
-    FROM   dbo.SearchParam;
-    SELECT @MaxLastUpdated AS MaxLastUpdated;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@ROWCOUNT;
-END TRY
-BEGIN CATCH
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Process=' + @UpdateProcess + ' EventsSince=' + CONVERT (VARCHAR (23), @UpdateEventsSince, 126) + ' HostsSince=' + CONVERT (VARCHAR (23), @ActiveHostsSince, 126), @st AS DATETIME = getUTCdate();
+SELECT EventDate,
+       CASE WHEN Process = @UpdateProcess
+                 AND EventDate > @UpdateEventsSince THEN EventText ELSE NULL END AS EventText,
+       HostName
+FROM   dbo.EventLog
+WHERE  EventDate > @ActiveHostsSince;
+EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Rows = @@rowcount, @Start = @st;
+
+
+GO
+INSERT INTO dbo.Parameters (Id, Char)
+SELECT 'GetSearchParamCacheUpdateEvents',
+       'LogEvent';
 
 GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
@@ -4477,6 +4394,74 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.MergeResourcesAndSearchParams
+@SearchParams dbo.SearchParamList READONLY, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = CONVERT (DATETIMEOFFSET (7), sysUTCdatetime()), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
+DECLARE @SearchParamsCopy AS dbo.SearchParamList;
+INSERT INTO @SearchParamsCopy
+SELECT *
+FROM   @SearchParams;
+WHILE EXISTS (SELECT *
+              FROM   @SearchParamsCopy)
+    BEGIN
+        SELECT TOP 1 @Uri = Uri,
+                     @Status = Status
+        FROM   @SearchParamsCopy;
+        SET @msg = 'Status=' + @Status + ' Uri=' + @Uri;
+        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
+        DELETE @SearchParamsCopy
+        WHERE  Uri = @Uri;
+    END
+BEGIN TRY
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+    BEGIN TRANSACTION;
+    SELECT TOP 60 @msg = string_agg(S.Uri, ', ')
+    FROM   @SearchParams AS I
+           INNER JOIN
+           dbo.SearchParam AS S
+           ON S.Uri = I.Uri
+    WHERE  I.LastUpdated != S.LastUpdated;
+    IF @msg IS NOT NULL
+        BEGIN
+            SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
+            ROLLBACK;
+            THROW 50001, @msg, 1;
+        END
+    IF EXISTS (SELECT *
+               FROM   @Resources)
+        BEGIN
+            EXECUTE dbo.MergeResources @AffectedRows = @AffectedRows OUTPUT, @RaiseExceptionOnConflict = 1, @IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled, @TransactionId = @TransactionId, @SingleTransaction = 1, @Resources = @Resources, @ResourceWriteClaims = @ResourceWriteClaims, @ReferenceSearchParams = @ReferenceSearchParams, @TokenSearchParams = @TokenSearchParams, @TokenTexts = @TokenTexts, @StringSearchParams = @StringSearchParams, @UriSearchParams = @UriSearchParams, @NumberSearchParams = @NumberSearchParams, @QuantitySearchParams = @QuantitySearchParams, @DateTimeSearchParms = @DateTimeSearchParms, @ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams, @TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams, @TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams, @TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams, @TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams, @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+            SET @Rows = @Rows + @AffectedRows;
+        END
+    MERGE INTO dbo.SearchParam
+     AS S
+    USING @SearchParams AS I ON I.Uri = S.Uri
+    WHEN MATCHED THEN UPDATE 
+    SET Status               = I.Status,
+        LastUpdated          = @LastUpdated,
+        IsPartiallySupported = I.IsPartiallySupported
+    WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
+    SET @msg = 'LastUpdated=' + CONVERT (VARCHAR (23), @LastUpdated, 126) + ' Merged=' + CONVERT (VARCHAR, @@rowcount);
+    COMMIT TRANSACTION;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows, @Text = @msg;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
+
+
+GO
+INSERT INTO Parameters (Id, Char)
+SELECT 'MergeResourcesAndSearchParams',
+       'LogEvent';
+
+GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
 @Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL, @EnableThrottling BIT=0
 AS
@@ -4679,11 +4664,11 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeSearchParams
-@SearchParams dbo.SearchParamList READONLY, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@SearchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
+                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
 DECLARE @SearchParamsCopy AS dbo.SearchParamList;
 INSERT INTO @SearchParamsCopy
 SELECT *
@@ -4716,12 +4701,6 @@ BEGIN TRY
             SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
             ROLLBACK;
             THROW 50001, @msg, 1;
-        END
-    IF EXISTS (SELECT *
-               FROM   @Resources)
-        BEGIN
-            EXECUTE dbo.MergeResources @AffectedRows = @AffectedRows OUTPUT, @RaiseExceptionOnConflict = 1, @IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled, @TransactionId = @TransactionId, @SingleTransaction = 1, @Resources = @Resources, @ResourceWriteClaims = @ResourceWriteClaims, @ReferenceSearchParams = @ReferenceSearchParams, @TokenSearchParams = @TokenSearchParams, @TokenTexts = @TokenTexts, @StringSearchParams = @StringSearchParams, @UriSearchParams = @UriSearchParams, @NumberSearchParams = @NumberSearchParams, @QuantitySearchParams = @QuantitySearchParams, @DateTimeSearchParms = @DateTimeSearchParms, @ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams, @TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams, @TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams, @TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams, @TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams, @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
-            SET @Rows = @Rows + @AffectedRows;
         END
     MERGE INTO dbo.SearchParam
      AS S
@@ -5254,34 +5233,6 @@ BEGIN
         INSERT  INTO dbo.EventAgentCheckpoint (CheckpointId, LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
         VALUES                               (@CheckpointId, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime());
 END
-
-GO
-CREATE PROCEDURE dbo.UpdateReindexJob
-@id VARCHAR (64), @status VARCHAR (10), @rawJobRecord VARCHAR (MAX), @jobVersion BINARY (8)
-AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-DECLARE @currentJobVersion AS BINARY (8);
-SELECT @currentJobVersion = JobVersion
-FROM   dbo.ReindexJob WITH (UPDLOCK, HOLDLOCK)
-WHERE  Id = @id;
-IF (@currentJobVersion IS NULL)
-    BEGIN
-        THROW 50404, 'Reindex job record not found', 1;
-    END
-IF (@jobVersion <> @currentJobVersion)
-    BEGIN
-        THROW 50412, 'Precondition failed', 1;
-    END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-UPDATE dbo.ReindexJob
-SET    Status            = @status,
-       HeartbeatDateTime = @heartbeatDateTime,
-       RawJobRecord      = @rawJobRecord
-WHERE  Id = @id;
-SELECT @@DBTS;
-COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams

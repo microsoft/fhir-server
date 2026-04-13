@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public bool IsConsistent { get; set; }
 
         /// <summary>
-        /// Gets or sets the total number of active hosts discovered.
+        /// Gets or sets the number of active hosts discovered.
         /// </summary>
-        public int TotalActiveHosts { get; set; }
+        public int ActiveHosts { get; set; }
 
         /// <summary>
         /// Gets or sets the number of hosts that have converged to the target version.

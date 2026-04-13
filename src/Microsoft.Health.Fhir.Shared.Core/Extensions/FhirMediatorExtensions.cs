@@ -184,7 +184,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 response.ResponseTypesSupported,
                 response.IntrospectionEndpoint,
                 response.ManagementEndpoint,
-                response.RevocationEndpoint);
+                response.RevocationEndpoint,
+                response.Issuer,
+                response.JwksUri);
         }
 
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)

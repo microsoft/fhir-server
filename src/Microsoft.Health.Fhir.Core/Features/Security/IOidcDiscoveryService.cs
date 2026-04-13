@@ -16,13 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     public interface IOidcDiscoveryService
     {
         /// <summary>
-        /// Resolves the authorization and token endpoints for the given OIDC authority.
+        /// Resolves the authorization and token endpoints, issuer, and JWKS URI for the given OIDC authority.
         /// Fetches the OpenID Connect discovery document at {authority}/.well-known/openid-configuration.
         /// If discovery fails, falls back to Entra ID URL pattern ({authority}/oauth2/v2.0/authorize and /token).
         /// </summary>
         /// <param name="authority">The OIDC authority URL.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A tuple containing the authorization and token endpoint URIs.</returns>
-        Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint)> ResolveEndpointsAsync(string authority, CancellationToken cancellationToken = default);
+        /// <returns>A tuple containing the authorization endpoint, token endpoint, issuer, and JWKS URI.</returns>
+        Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint, string Issuer, string JwksUri)> ResolveEndpointsAsync(string authority, CancellationToken cancellationToken = default);
     }
 }
