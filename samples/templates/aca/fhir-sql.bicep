@@ -97,7 +97,7 @@ var datastoreEnvVars = [
 // Modules
 // ──────────────────────────────────────────────
 
-module common 'modules/fhir-aca-common.bicep' = {
+module common 'modules/fhir-common.bicep' = {
   name: '${toLower(containerAppName)}-common'
   params: {
     containerAppName: containerAppName

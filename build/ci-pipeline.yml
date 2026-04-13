@@ -170,7 +170,7 @@ stages:
   - BuildArtifacts
   - redeployStu3
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
@@ -182,7 +182,7 @@ stages:
   - BuildArtifacts
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
@@ -222,7 +222,7 @@ stages:
   - BuildArtifacts
   - redeployR4
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
@@ -234,7 +234,7 @@ stages:
   - BuildArtifacts
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
@@ -274,7 +274,7 @@ stages:
   - BuildArtifacts
   - redeployR4B
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(KeyVaultNameR4B)
@@ -286,7 +286,7 @@ stages:
   - BuildArtifacts
   - redeployR4BSql
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(KeyVaultNameR4BSql)
@@ -326,7 +326,7 @@ stages:
   - BuildArtifacts
   - redeployR5
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5)
@@ -338,7 +338,7 @@ stages:
   - BuildArtifacts
   - redeployR5Sql
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)

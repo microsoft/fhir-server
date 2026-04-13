@@ -272,7 +272,7 @@ stages:
   - setupEnvironment
   - createNsp
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
@@ -292,7 +292,7 @@ stages:
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -314,7 +314,7 @@ stages:
   - setupEnvironment
   - createNsp
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -334,7 +334,7 @@ stages:
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -356,7 +356,7 @@ stages:
   - setupEnvironment
   - createNsp
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
@@ -376,7 +376,7 @@ stages:
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4BSql)
@@ -398,7 +398,7 @@ stages:
   - setupEnvironment
   - createNsp
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
@@ -418,7 +418,7 @@ stages:
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5Sql)
@@ -443,7 +443,7 @@ stages:
     TestEnvironmentUrl_Stu3: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3']]
     TestEnvironmentUrl: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
@@ -459,7 +459,7 @@ stages:
     TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
@@ -476,7 +476,7 @@ stages:
     TestEnvironmentUrl_R4: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4']]
     TestEnvironmentUrl: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
@@ -492,7 +492,7 @@ stages:
     TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
@@ -509,7 +509,7 @@ stages:
     TestEnvironmentUrl_R4B: $[stageDependencies.deployR4B.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4B']]
     TestEnvironmentUrl: $[stageDependencies.deployR4B.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(KeyVaultNameR4B)
@@ -525,7 +525,7 @@ stages:
     TestEnvironmentUrl_R4B_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4B_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(KeyVaultNameR4BSql)
@@ -542,7 +542,7 @@ stages:
     TestEnvironmentUrl_R5: $[stageDependencies.deployR5.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5']]
     TestEnvironmentUrl: $[stageDependencies.deployR5.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
-  - template: ./jobs/run-cosmos-tests-aca.yml
+  - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5)
@@ -558,7 +558,7 @@ stages:
     TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests-aca.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)

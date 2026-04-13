@@ -13,6 +13,11 @@ parameters:
   type: string
 - name: imageTag
   type: string
+- name: schemaAutomaticUpdatesEnabled
+  type: string
+  default: 'auto'
+- name: sqlServerName
+  type: string
 - name: reindexEnabled
   type: boolean
   default: true
@@ -36,7 +41,7 @@ jobs:
 
   - task: AzurePowerShell@5
     name: SetAcaOutputs
-    displayName: 'Deploy ACA for Cosmos and emit test URL'
+    displayName: 'Deploy ACA for SQL and emit test URL'
     retryCountOnTaskFailure: 1
     inputs:
       azureSubscription: ${{ parameters.subscription }}
@@ -55,6 +60,8 @@ jobs:
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
 
         $additionalProperties = $flattenedTestConfig
+        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
+        $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 2
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
@@ -67,9 +74,10 @@ jobs:
             "FhirServer__Security__Authentication__Authority",
             "FhirServer__Security__Authentication__Audience",
             "DataStore",
-            "CosmosDb__UseManagedIdentity",
-            "CosmosDb__ContinuationTokenSizeLimitInKb",
-            "CosmosDb__UseQueueClientJobs",
+            "SqlServer__Initialize",
+            "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
+            "SqlServer__DeleteAllDataOnStartup",
+            "SqlServer__AllowDatabaseCreation",
             "TaskHosting__Enabled",
             "TaskHosting__PollingFrequencyInSeconds",
             "TaskHosting__MaxRunningTaskCount",
@@ -115,64 +123,6 @@ jobs:
             $acaEnvironmentName = "ca-$acaEnvironmentName"
         }
 
-        # Cosmos DB account uses the same name as the container app (matching App Service convention)
-        $cosmosDbAccountName = $webAppName
-        $resourceGroupName = "${{ parameters.resourceGroup }}"
-
-        # Ensure Cosmos DB account exists
-        $existingAccount = Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName -ErrorAction SilentlyContinue
-        if ($null -eq $existingAccount) {
-            Write-Host "Cosmos DB account '$cosmosDbAccountName' does not exist. Creating..."
-            Invoke-WithRetry -OperationName "Create Cosmos DB Account" -ScriptBlock {
-                New-AzCosmosDBAccount `
-                    -ResourceGroupName $resourceGroupName `
-                    -Name $cosmosDbAccountName `
-                    -Location (Get-AzResourceGroup -Name $resourceGroupName).Location `
-                    -ApiKind "Sql" `
-                    -DefaultConsistencyLevel "Strong" `
-                    -ErrorAction Stop
-            }
-            Write-Host "Cosmos DB account '$cosmosDbAccountName' created successfully."
-        } else {
-            Write-Host "Cosmos DB account '$cosmosDbAccountName' already exists."
-        }
-
-        # Ensure Cosmos DB database exists
-        $cosmosDbDatabaseName = "health"
-        $existingDb = Get-AzCosmosDBSqlDatabase -ResourceGroupName $resourceGroupName -AccountName $cosmosDbAccountName -Name $cosmosDbDatabaseName -ErrorAction SilentlyContinue
-        if ($null -eq $existingDb) {
-            Write-Host "Cosmos DB database '$cosmosDbDatabaseName' does not exist. Creating with autoscale 10000 RU..."
-            Invoke-WithRetry -OperationName "Create Cosmos DB Database" -ScriptBlock {
-                New-AzCosmosDBSqlDatabase `
-                    -ResourceGroupName $resourceGroupName `
-                    -AccountName $cosmosDbAccountName `
-                    -Name $cosmosDbDatabaseName `
-                    -AutoscaleMaxThroughput 10000 `
-                    -ErrorAction Stop
-            }
-            Write-Host "Cosmos DB database '$cosmosDbDatabaseName' created successfully."
-        } else {
-            Write-Host "Cosmos DB database '$cosmosDbDatabaseName' already exists."
-        }
-
-        # Add DevOps MI permission to Cosmos database (Data Contributor role)
-        Write-Host "Adding DevOps MI permission to Cosmos database..."
-        $account = Get-AzContext
-        $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
-            (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
-        }
-
-        Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -ScriptBlock {
-            New-AzCosmosDBSqlRoleAssignment `
-                -AccountName $cosmosDbAccountName `
-                -ResourceGroupName $resourceGroupName `
-                -Scope "/" `
-                -PrincipalId $principalId `
-                -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
-                -ErrorAction Stop
-        }
-        Write-Host "DevOps MI Cosmos DB role assignment completed."
-
         $templateParameters = @{
             containerAppName = $webAppName
             containerAppsEnvironmentName = $acaEnvironmentName
@@ -180,7 +130,8 @@ jobs:
             fhirVersion = "${{ parameters.version }}"
             registryName = '$(azureContainerRegistry)'
             imageTag = "${{ parameters.imageTag }}"
-            cosmosDbAccountName = $cosmosDbAccountName
+            sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
+            sqlSchemaAutomaticUpdatesEnabled = "${{ parameters.schemaAutomaticUpdatesEnabled }}"
             securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             enableExport = $true
@@ -194,77 +145,104 @@ jobs:
         }
 
         $deploymentName = "$webAppName"
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+        $sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
 
         Write-Host "Provisioning ACA resources"
         Write-Host "ResourceGroupName: $resourceGroupName"
         Write-Host "ContainerAppName: $webAppName"
         Write-Host "ContainerAppsEnvironmentName: $acaEnvironmentName"
-        Write-Host "CosmosDbAccountName: $cosmosDbAccountName"
+
+        # Ensure the SQL database exists before deploying the container.
+        # The deploySqlServer stage creates the SQL server but NOT the database.
+        # Azure SQL returns error 18456 (not 4060) when a AAD token targets a
+        # non-existent database, preventing the FHIR app from self-creating it.
+        $sqlDatabaseName = "FHIR${{ parameters.version }}"
+        $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
+        if ($null -eq $existingDb) {
+          Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating..."
+          Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
+            New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_4" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+          }
+          Write-Host "Database '$sqlDatabaseName' created successfully."
+        } else {
+          Write-Host "Database '$sqlDatabaseName' already exists on server '$sqlServerName'."
+        }
 
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
-            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-cosmos-aca.bicep -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+          New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-sql.bicep -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
         }
 
-        # Assign Cosmos DB Data Contributor role to the container app's system-assigned identity
-        $containerAppPrincipalId = (Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/containerApps" -Name $webAppName -ApiVersion "2023-05-01" -ExpandProperties).Identity.PrincipalId
-        if (-not [string]::IsNullOrWhiteSpace($containerAppPrincipalId)) {
-            Write-Host "Assigning Cosmos DB Data Contributor role to container app identity ($containerAppPrincipalId)..."
-            Invoke-WithRetry -OperationName "CosmosDB Role Assignment for Container App" -ScriptBlock {
-                New-AzCosmosDBSqlRoleAssignment `
-                    -AccountName $cosmosDbAccountName `
-                    -ResourceGroupName $resourceGroupName `
-                    -Scope "/" `
-                    -PrincipalId $containerAppPrincipalId `
-                    -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
-                    -ErrorAction Stop
+        $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $managedEnvironment) {
+          throw "Container Apps environment '$acaEnvironmentName' was not found in resource group '$resourceGroupName'."
+        }
+
+        $managedEnvironmentData = $managedEnvironment | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $outboundIps = @()
+
+        if ($null -ne $managedEnvironmentData.Properties.outboundIpAddresses) {
+          if ($managedEnvironmentData.Properties.outboundIpAddresses -is [string]) {
+            $outboundIps += ($managedEnvironmentData.Properties.outboundIpAddresses -split ',')
+          }
+          else {
+            foreach ($ip in $managedEnvironmentData.Properties.outboundIpAddresses) {
+              $outboundIps += [string]$ip
             }
-            Write-Host "Container app Cosmos DB role assignment completed."
+          }
+        }
 
-            # Assign DocumentDB Account Contributor ARM role so ResourceManagerCollectionSetup
-            # can perform control plane operations (read/create databases and collections).
-            $cosmosDbResourceId = (Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName).Id
-            Write-Host "Assigning DocumentDB Account Contributor ARM role on Cosmos DB account..."
-            $existingArmRole = Get-AzRoleAssignment -ObjectId $containerAppPrincipalId -RoleDefinitionName "DocumentDB Account Contributor" -Scope $cosmosDbResourceId -ErrorAction SilentlyContinue
-            if ($null -eq $existingArmRole) {
-                Invoke-WithRetry -OperationName "ARM Role Assignment for Container App" -ScriptBlock {
-                    New-AzRoleAssignment `
-                        -ObjectId $containerAppPrincipalId `
-                        -RoleDefinitionName "DocumentDB Account Contributor" `
-                        -Scope $cosmosDbResourceId `
-                        -ErrorAction Stop
-                }
-                Write-Host "DocumentDB Account Contributor ARM role assigned."
-            } else {
-                Write-Host "DocumentDB Account Contributor ARM role already assigned."
+        if (-not [string]::IsNullOrWhiteSpace([string]$managedEnvironmentData.Properties.staticIp)) {
+          $outboundIps += [string]$managedEnvironmentData.Properties.staticIp
+        }
+
+        $outboundIps = $outboundIps | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+
+        # Ensure Azure services firewall access is enabled for SQL. ACA egress IPs can change,
+        # and this avoids startup failures when outbound IP discovery is incomplete.
+        $allowAzureServicesRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -ErrorAction SilentlyContinue
+        if ($null -ne $allowAzureServicesRule) {
+          if ($allowAzureServicesRule.StartIpAddress -eq "0.0.0.0" -and $allowAzureServicesRule.EndIpAddress -eq "0.0.0.0") {
+            Write-Host "SQL firewall rule 'AllowAzureServices' already exists with expected address range."
+          }
+          else {
+            Invoke-WithRetry -OperationName "SQL Firewall Rule Update AllowAzureServices" -ScriptBlock {
+              Set-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIpAddress "0.0.0.0" -EndIpAddress "0.0.0.0" -ErrorAction Stop
             }
-        } else {
-            Write-Warning "Could not retrieve container app system-assigned identity principal ID."
+          }
+        }
+        else {
+          Invoke-WithRetry -OperationName "SQL Firewall Rule Create AllowAzureServices" -ScriptBlock {
+            New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIPAddress "0.0.0.0" -EndIPAddress "0.0.0.0" -ErrorAction Stop
+          }
         }
 
-        # Associate Cosmos DB with Network Security Perimeter
-        $nspName = "nsp-$resourceGroupName"
-        $associationName = "cosmosdb-$webAppName-association"
-
-        Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
-        $nspTemplateParameters = @{
-            'nspName' = $nspName
-            'resourceName' = $cosmosDbAccountName
-            'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
-            'associationName' = $associationName
-            'accessMode' = 'Learning'
-            'nspProfile' = 'default'
+        if ($outboundIps.Count -eq 0) {
+          Write-Warning "ACA outbound IP addresses were not found. Continuing with AllowAzureServices firewall rule only."
         }
+        else {
+          $ruleIndex = 0
+          foreach ($ip in $outboundIps) {
+            $ruleIndex++
+            $ruleName = "AcaOutbound-$ruleIndex"
+            $existingRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -ErrorAction SilentlyContinue
+            if ($null -ne $existingRule -and $existingRule.StartIpAddress -eq $ip -and $existingRule.EndIpAddress -eq $ip) {
+              Write-Host "SQL firewall rule '$ruleName' already exists for $ip."
+              continue
+            }
 
-        Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
-            New-AzResourceGroupDeployment `
-                -ResourceGroupName $resourceGroupName `
-                -Name "$webAppName-cosmosdb-nsp-association" `
-                -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-                -TemplateParameterObject $nspTemplateParameters `
-                -Verbose `
-                -ErrorAction Stop
+            if ($null -ne $existingRule) {
+              Invoke-WithRetry -OperationName "SQL Firewall Rule Update $ruleName" -ScriptBlock {
+                Set-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -StartIpAddress $ip -EndIpAddress $ip -ErrorAction Stop
+              }
+            }
+            else {
+              Invoke-WithRetry -OperationName "SQL Firewall Rule Create $ruleName" -ScriptBlock {
+                New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -StartIPAddress $ip -EndIPAddress $ip -ErrorAction Stop
+              }
+            }
+          }
         }
-        Write-Host "Successfully associated CosmosDB with NSP."
 
         $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value
         if ([string]::IsNullOrWhiteSpace($containerAppUrl)) {
@@ -315,5 +293,5 @@ jobs:
         $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
         Write-Host "ACA health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"
 
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }};isOutput=true]$containerAppUrl"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl;isOutput=true]$containerAppUrl"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}_Sql;isOutput=true]$containerAppUrl"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]$containerAppUrl"

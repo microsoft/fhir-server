@@ -17,7 +17,7 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - template: ../tasks/e2e-set-variables-aca.yml
+  - template: ../tasks/e2e-set-variables.yml
     parameters:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}

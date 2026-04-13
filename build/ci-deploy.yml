@@ -158,7 +158,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
@@ -178,7 +178,7 @@ stages:
   - deploySqlServer
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: Stu3
       sql: true
@@ -202,7 +202,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -222,7 +222,7 @@ stages:
   - deploySqlServer
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4
       sql: true
@@ -246,7 +246,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
@@ -266,7 +266,7 @@ stages:
   - deploySqlServer
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4B
       sql: true
@@ -290,7 +290,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos-aca.yml
+  - template: ./jobs/provision-deploy-cosmos.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
@@ -310,7 +310,7 @@ stages:
   - deploySqlServer
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-aca.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R5
       sql: true
