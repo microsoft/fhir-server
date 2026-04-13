@@ -10,9 +10,11 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Smart.Tests.E2E
@@ -20,6 +22,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
     /// <summary>
     /// E2E tests for RFC 7662 Token Introspection endpoint using real OpenIddict tokens.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Authorization)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class TokenIntrospectionTests : IClassFixture<HttpIntegrationTestFixture>
     {
