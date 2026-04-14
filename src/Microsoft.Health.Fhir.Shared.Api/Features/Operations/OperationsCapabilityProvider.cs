@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly ImplementationGuidesConfiguration _implementationGuidesConfiguration;
+        private readonly WatchdogConfiguration _watchdogConfiguration;
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             IOptions<FeatureConfiguration> featureConfiguration,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<ImplementationGuidesConfiguration> implementationGuidesConfiguration,
+            IOptions<WatchdogConfiguration> watchdogConfiguration,
             IUrlResolver urlResolver,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
@@ -47,6 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(implementationGuidesConfiguration?.Value, nameof(implementationGuidesConfiguration));
+            EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
 
@@ -54,6 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             _featureConfiguration = featureConfiguration.Value;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _implementationGuidesConfiguration = implementationGuidesConfiguration.Value;
+            _watchdogConfiguration = watchdogConfiguration.Value;
             _urlResolver = urlResolver;
             _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
         }
@@ -113,7 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddExpandDetails);
             }
 
-            if ()
+            if (_watchdogConfiguration.ExpiredResource?.Enabled ?? false)
             {
                 builder.Apply(AddExpiredResourceCleanupDetails);
             }
@@ -153,7 +157,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 Name = operationType,
                 Definition = new ReferenceComponent
                 {
-                    Reference = operationDefinitionUri.ToString(),
+                    Reference = operationDefinitionUri?.ToString(),
                 },
             });
         }

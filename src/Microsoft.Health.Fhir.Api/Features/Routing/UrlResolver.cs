@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         pathBase);
             }
 
-            return new Uri(uriString);
+            return uriString == null ? null : new Uri(uriString);
         }
     }
 }
