@@ -405,7 +405,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
-            searchExpressions.AddRange(searchParams.Parameters.Select(
+            // When resourceType is specified (type-level search), skip _type query parameters
+            // during expression parsing. The resource type is already constrained by the URL
+            // (added as an expression at line 389 above), so parsing _type again creates a
+            // redundant OR-list that gets pushed into SQL subqueries (e.g., NOT IN for :missing),
+            // producing contradictory ResourceTypeId predicates.
+            var parametersToProcess = !string.IsNullOrWhiteSpace(resourceType)
+                ? searchParams.Parameters.Where(q => !string.Equals(q.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                : searchParams.Parameters;
+
+            searchExpressions.AddRange(parametersToProcess.Select(
             q =>
             {
                 try

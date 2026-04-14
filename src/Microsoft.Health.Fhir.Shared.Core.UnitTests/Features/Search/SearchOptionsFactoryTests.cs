@@ -105,7 +105,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         Tuple.Create("_type", "Patient,Observation,Practitioner"),
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) _type=Patient,Observation,Practitioner tag=xyz)",
+                    // _type is stripped from expression parsing when resourceType is already specified,
+                    // because the URL already constrains the resource type. Only "tag=xyz" remains.
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -402,6 +404,58 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenTypeLevelSearchWithTypeQueryParameter_WhenCreated_TypeParameterIsNotParsedAsExpression()
+        {
+            // When resourceType is already specified (type-level search like GET /Observation?_type=Patient,Observation),
+            // the _type query parameter should NOT be parsed into an expression because the resource type is already
+            // constrained by the URL. Parsing it creates a redundant OR-list that causes catastrophic SQL query plans.
+            var tagExpression = Substitute.For<Expression>();
+            _expressionParser.Parse(Arg.Any<string[]>(), "_tag", "test").Returns(tagExpression);
+            _expressionParser.Parse(Arg.Any<string[]>(), KnownQueryParameterNames.Type, Arg.Any<string>()).Returns(Substitute.For<Expression>());
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, "Patient,Observation"),
+                Tuple.Create("_tag", "test"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Observation",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+
+            // _type should NOT have been parsed
+            _expressionParser.DidNotReceive().Parse(Arg.Any<string[]>(), KnownQueryParameterNames.Type, Arg.Any<string>());
+
+            // _tag should still have been parsed
+            _expressionParser.Received(1).Parse(Arg.Any<string[]>(), "_tag", "test");
+        }
+
+        [Fact]
+        public void GivenSystemLevelSearchWithTypeQueryParameter_WhenCreated_TypeParameterIsParsedAsExpression()
+        {
+            // When no resourceType is specified (system-level search like GET /?_type=Patient),
+            // the _type query parameter SHOULD be parsed since it's the only type constraint.
+            var typeExpression = Substitute.For<Expression>();
+            _expressionParser.Parse(Arg.Any<string[]>(), KnownQueryParameterNames.Type, "Patient").Returns(typeExpression);
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: null,
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+
+            // _type should have been parsed for system-level search
+            _expressionParser.Received(1).Parse(Arg.Any<string[]>(), KnownQueryParameterNames.Type, "Patient");
         }
 
         [Fact]
