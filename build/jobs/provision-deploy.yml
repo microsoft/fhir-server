@@ -68,6 +68,7 @@ jobs:
 
         $additionalProperties = $flattenedTestConfig
         $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["TaskHosting__MaxRunningTaskCount"] = "4"
         $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 1
         $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = 6
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
@@ -84,7 +85,6 @@ jobs:
             "DataStore",
             "TaskHosting__Enabled",
             "TaskHosting__PollingFrequencyInSeconds",
-            "TaskHosting__MaxRunningTaskCount",
             "FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds",
             "FhirServer__Operations__Export__Enabled",
             "FhirServer__Operations__Export__StorageAccountUri",
@@ -234,7 +234,6 @@ jobs:
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             enableExport = $true
             enableImport = $true
-            backgroundTaskCount = 4
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             minReplicas = ${{ parameters.minReplicas }}
             maxReplicas = 8
