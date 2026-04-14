@@ -102,7 +102,7 @@
                 <h5 class="mb-0">📋 ViewDefinition Registration</h5>
                 <div class="d-flex align-items-center gap-2">
                     <label class="form-label mb-0 small text-muted">Target:</label>
-                    <select class="form-select form-select-sm" style="width: auto;" @bind="DefaultMaterializationTarget" disabled="@IsRegistering">
+                    <select class="form-select form-select-sm" style="width: auto;" @bind="DefaultMaterializationTarget" @bind:event="oninput" disabled="@IsRegistering">
                         <option value="SqlServer">🗄️ SQL Server</option>
                         <option value="Parquet">📦 Parquet (Blob)</option>
                         <option value="Fabric">🔷 Fabric (Delta Lake)</option>
