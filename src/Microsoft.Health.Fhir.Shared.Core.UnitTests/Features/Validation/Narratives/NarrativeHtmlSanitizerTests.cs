@@ -3,11 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
@@ -90,11 +94,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         [InlineData("<div><a href=\"JAVASCRIPT:alert('XSS')\">click</a></div>")]
         [InlineData("<div><a href=\"vbscript:MsgBox('XSS')\">click</a></div>")]
         [InlineData("<div><a href=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
-        public void GivenHtmlWithMaliciousHref_WhenValidating_ThenValidationErrorIsReturned(string html)
+        public void GivenHtmlWithDangerousHref_WhenValidating_ThenWarningIsLoggedButValidationSucceeds(string html)
         {
             var results = _sanitizer.Validate(html);
 
-            Assert.NotEmpty(results);
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void GivenHtmlWithDangerousHref_WhenValidating_ThenWarningIsLogged()
+        {
+            var logger = Substitute.For<ILogger<NarrativeHtmlSanitizer>>();
+            var sanitizer = new NarrativeHtmlSanitizer(logger);
+
+            var results = sanitizer.Validate("<div><a href=\"javascript:alert('XSS')\">click</a></div>");
+
+            Assert.Empty(results);
+            logger.Received(1).Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
         }
 
         [Theory]

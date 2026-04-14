@@ -230,7 +230,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 CheckHtmlElements(
                     containerDiv,
                     el => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlElement, el.NodeName)),
-                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)));
+                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)),
+                    (el, attr) => _logger.LogWarning("Narrative HTML contains a potentially dangerous href scheme in attribute '{Attribute}' on element '{Element}'. Value: '{Value}'.", attr.Name, el.NodeName, attr.Value));
 
                 foreach (var htmlError in invalidHtml)
                 {
@@ -263,6 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     CheckHtmlElements(
                         containerDiv,
                         el => el.Replace(el.ChildNodes.ToArray()),
+                        (el, attr) => el.RemoveAttribute(attr.Name),
                         (el, attr) => el.RemoveAttribute(attr.Name));
 
                     dom.Normalize();
@@ -275,13 +277,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         private static void CheckHtmlElements(
             IHtmlDivElement htmlDivElement,
             Action<IElement> onInvalidElement,
-            Action<IElement, IAttr> onInvalidAttr)
+            Action<IElement, IAttr> onInvalidAttr,
+            Action<IElement, IAttr> onDangerousHref)
         {
             EnsureArg.IsNotNull(htmlDivElement, nameof(htmlDivElement));
             EnsureArg.IsNotNull(onInvalidElement, nameof(onInvalidElement));
             EnsureArg.IsNotNull(onInvalidAttr, nameof(onInvalidAttr));
+            EnsureArg.IsNotNull(onDangerousHref, nameof(onDangerousHref));
 
-            ValidateAttributes(htmlDivElement, onInvalidAttr);
+            ValidateAttributes(htmlDivElement, onInvalidAttr, onDangerousHref);
 
             // Ensure only allowed elements and attributes are used
             foreach (IElement element in htmlDivElement.QuerySelectorAll("*"))
@@ -291,11 +295,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     onInvalidElement(element);
                 }
 
-                ValidateAttributes(element, onInvalidAttr);
+                ValidateAttributes(element, onInvalidAttr, onDangerousHref);
             }
         }
 
-        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr)
+        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr, Action<IElement, IAttr> onDangerousHref)
         {
             foreach (IAttr attr in element.Attributes.ToArray())
             {
@@ -316,7 +320,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 {
                     if (DangerousHrefSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
-                        onInvalidAttr(element, attr);
+                        onDangerousHref(element, attr);
                     }
                 }
             }
