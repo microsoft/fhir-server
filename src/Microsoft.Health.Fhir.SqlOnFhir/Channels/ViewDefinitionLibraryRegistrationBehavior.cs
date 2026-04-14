@@ -196,7 +196,7 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
             return null;
         }
 
-        string? targetValue = extensionElement.Children("valueCode").FirstOrDefault()?.Value?.ToString();
+        string? targetValue = extensionElement.Children("value").FirstOrDefault()?.Value?.ToString();
         if (targetValue != null && Enum.TryParse<MaterializationTarget>(targetValue, ignoreCase: true, out var target))
         {
             return target;
