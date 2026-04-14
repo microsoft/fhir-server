@@ -158,8 +158,9 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
       acaEnvironmentName: $(AcaEnvironmentName)
@@ -180,8 +181,8 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: Stu3
-      sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameSql)
@@ -202,8 +203,9 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
       acaEnvironmentName: $(AcaEnvironmentName)
@@ -224,8 +226,8 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R4
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4Sql)
@@ -246,8 +248,9 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
       acaEnvironmentName: $(AcaEnvironmentName)
@@ -268,8 +271,8 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R4B
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4BSql)
@@ -290,8 +293,9 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy-cosmos.yml
+  - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
       acaEnvironmentName: $(AcaEnvironmentName)
@@ -312,8 +316,8 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R5
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR5Sql)
