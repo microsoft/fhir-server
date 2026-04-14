@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var serializer = new FhirJsonSerializer();
 
-            _htmlOutputFormatter = new HtmlOutputFormatter(serializer, NullLogger<HtmlOutputFormatter>.Instance, new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance), ArrayPool<char>.Shared);
+            _htmlOutputFormatter = new HtmlOutputFormatter(serializer, NullLogger<HtmlOutputFormatter>.Instance, new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())), ArrayPool<char>.Shared);
             _fhirJsonOutputFormatter = new FhirJsonOutputFormatter(serializer, Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, new BundleSerializer(), ModelInfoProvider.Instance);
 
             _configuration = new FormatterConfiguration(
