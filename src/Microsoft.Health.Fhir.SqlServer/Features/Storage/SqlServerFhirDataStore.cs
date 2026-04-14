@@ -611,12 +611,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 List<ImportResource> RemoveVersionOutOfSyncWithLastUpdatedConflicts(IEnumerable<ImportResource> inputs)
                 {
                     // Remove conflicts where versions and last updated are out of order
-                    var prevResourceId = string.Empty;
+                    ResourceKey prevResourceKey = null;
                     var prevVersion = int.MaxValue;
                     var inputsWithVersion = new List<ImportResource>();
-                    foreach (var input in inputs.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
+                    foreach (var input in inputs.OrderBy(_ => _.ResourceWrapper.ToResourceKey(true)).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
-                        if (prevResourceId != input.ResourceWrapper.ResourceId)
+                        if (prevResourceKey != input.ResourceWrapper.ToResourceKey(true))
                         {
                             prevVersion = int.MaxValue;
                         }
@@ -645,7 +645,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             inputsWithVersion.Add(input);
                         }
 
-                        prevResourceId = input.ResourceWrapper.ResourceId;
+                        prevResourceKey = input.ResourceWrapper.ToResourceKey(true);
                         prevVersion = inputVersion;
                     }
 
@@ -721,10 +721,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateKey(), therefore we can trust this value as part of dictionary key.
                     var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
-                    foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
+                    foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ToResourceKey(true)).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
-                        var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
-                        versionSlots.TryGetValue(resourceKey, out var existing);
+                        var resourceDateKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
+                        versionSlots.TryGetValue(resourceDateKey, out var existing);
                         input.KeepVersion = true;
                         var versionIdInt = int.Parse(existing.Key.VersionId);
                         if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
@@ -758,38 +758,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var inputNoConflict = inputs.Except(conflicts).Except(loaded);
 
                     // Make sure that version is incremented taking into account current state in the database.
-                    var prevResourceId = string.Empty;
+                    ResourceKey prevResourceKey = null;
                     var version = 0;
-                    foreach (var input in inputNoConflict.Where(_ => _.KeepLastUpdated && !_.KeepVersion).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenBy(_ => _.ResourceWrapper.LastModified))
+                    foreach (var input in inputNoConflict.Where(_ => _.KeepLastUpdated && !_.KeepVersion).OrderBy(_ => _.ResourceWrapper.ToResourceKey(true)).ThenBy(_ => _.ResourceWrapper.LastModified))
                     {
-                        if (prevResourceId != input.ResourceWrapper.ResourceId)
+                        if (prevResourceKey != input.ResourceWrapper.ToResourceKey(true))
                         {
                             version = currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) ? int.Parse(current.Version) : 0;
                         }
 
                         input.ResourceWrapper.Version = (++version).ToString();
                         input.KeepVersion = true;
-                        prevResourceId = input.ResourceWrapper.ResourceId;
+                        prevResourceKey = input.ResourceWrapper.ToResourceKey(true);
                     }
 
                     // Finally merge the resources to the db.
-                    await Merge(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), keepLastUpdated, useReplicasForReads);
+                    await Merge(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ToResourceKey(true)).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), keepLastUpdated, useReplicasForReads);
                     loaded.AddRange(inputNoConflict);
                 }
             }
 
             async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
             {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-                await MergeInternalAsync(
-                    resources: input,
-                    keepLastUpdated,
-                    keepAllDeleted: true,
-                    enlistInTransaction: false,
-                    useReplicasForReads,
-                    eventualConsistency,
-                    ensureAtomicOperations: false,
-                    cancellationToken);
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion, null)).ToList();
+                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken);
             }
         }
 
