@@ -8,6 +8,8 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -24,7 +26,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
         public NarrativeHtmlSanitizerTests()
         {
-            _sanitizer = new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance);
+            _sanitizer = CreateSanitizer();
+        }
+
+        private static NarrativeHtmlSanitizer CreateSanitizer(bool rejectDangerousHrefs = false, ILogger<NarrativeHtmlSanitizer> logger = null)
+        {
+            var config = new CoreFeatureConfiguration { RejectDangerousNarrativeHrefs = rejectDangerousHrefs };
+            return new NarrativeHtmlSanitizer(
+                logger ?? NullLogger<NarrativeHtmlSanitizer>.Instance,
+                Options.Create(config));
         }
 
         [Theory]
@@ -102,10 +112,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         }
 
         [Fact]
-        public void GivenHtmlWithDangerousHref_WhenValidating_ThenWarningIsLogged()
+        public void GivenHtmlWithDangerousHref_WhenValidatingInWarnMode_ThenWarningIsLogged()
         {
             var logger = Substitute.For<ILogger<NarrativeHtmlSanitizer>>();
-            var sanitizer = new NarrativeHtmlSanitizer(logger);
+            var sanitizer = CreateSanitizer(rejectDangerousHrefs: false, logger: logger);
 
             var results = sanitizer.Validate("<div><a href=\"javascript:alert('XSS')\">click</a></div>");
 
@@ -116,6 +126,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
                 Arg.Any<object>(),
                 Arg.Any<Exception>(),
                 Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"JAVASCRIPT:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"vbscript:MsgBox('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
+        public void GivenHtmlWithDangerousHref_WhenValidatingInRejectMode_ThenValidationErrorIsReturned(string html)
+        {
+            var sanitizer = CreateSanitizer(rejectDangerousHrefs: true);
+
+            var results = sanitizer.Validate(html);
+
+            Assert.NotEmpty(results);
         }
 
         [Theory]

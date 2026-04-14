@@ -14,13 +14,16 @@ using AngleSharp.Html.Dom.Events;
 using AngleSharp.Html.Parser;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
     public class NarrativeHtmlSanitizer : INarrativeHtmlSanitizer
     {
         private readonly ILogger _logger;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         private static readonly HashSet<string> AllowedElements = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -167,11 +170,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
         private const string HtmlTemplate = "<!DOCTYPE html><body>{0}</body>";
 
-        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger)
+        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _logger = logger;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
         }
 
         /// <summary>
@@ -227,11 +232,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 var invalidHtml = new List<string>();
 
+                Action<IElement, IAttr> dangerousHrefHandler;
+                if (_coreFeatureConfiguration.RejectDangerousNarrativeHrefs)
+                {
+                    dangerousHrefHandler = (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName));
+                }
+                else
+                {
+                    dangerousHrefHandler = (el, attr) => _logger.LogWarning("Narrative HTML contains a potentially dangerous href scheme in attribute '{Attribute}' on element '{Element}'. Value: '{Value}'.", attr.Name, el.NodeName, attr.Value);
+                }
+
                 CheckHtmlElements(
                     containerDiv,
                     el => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlElement, el.NodeName)),
                     (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)),
-                    (el, attr) => _logger.LogWarning("Narrative HTML contains a potentially dangerous href scheme in attribute '{Attribute}' on element '{Element}'. Value: '{Value}'.", attr.Name, el.NodeName, attr.Value));
+                    dangerousHrefHandler);
 
                 foreach (var htmlError in invalidHtml)
                 {
