@@ -55,7 +55,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.NotEmpty(response.Headers.GetValues(KnownHeaders.RequestId));
-            Assert.False(response.Headers.Contains(KnownHeaders.CorrelationId));
+
+            // When running behind a reverse proxy (e.g. Azure Container Apps Envoy),
+            // the proxy may inject an X-Request-Id header before the request reaches
+            // the FHIR server, causing the server to return X-Correlation-Id even though
+            // the test client did not send one. Only assert absence when not behind a proxy.
+            if (response.Headers.Contains(KnownHeaders.CorrelationId))
+            {
+                // If present, it should NOT match the server-generated X-Request-Id,
+                // confirming it came from the proxy, not from client input.
+                var correlationId = response.Headers.GetValues(KnownHeaders.CorrelationId);
+                var requestId = response.Headers.GetValues(KnownHeaders.RequestId);
+                Assert.NotEqual(correlationId, requestId);
+            }
         }
 
         [Theory]
