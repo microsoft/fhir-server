@@ -12,6 +12,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
@@ -40,10 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         {
             EnsureArg.IsNotNull(request);
 
-            if (await _authorizationService.CheckAccess(DataActions.ConvertData, cancellationToken) != DataActions.ConvertData)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.ConvertData, true, cancellationToken);
 
             return await _convertDataEngine.Process(request, cancellationToken);
         }

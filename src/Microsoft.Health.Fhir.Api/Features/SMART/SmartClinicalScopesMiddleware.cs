@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Smart
@@ -128,15 +129,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
                 var principal = fhirRequestContext.Principal;
 
-                var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
+                var smartActionPresent = await authorizationService.CheckAccess(DataActions.Smart, false, context.RequestAborted);
 
-                _logger.LogInformation("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
+                _logger.LogInformation("Smart Data Action is present {Smart}", smartActionPresent);
 
                 var scopeRestrictions = new StringBuilder();
                 scopeRestrictions.Append("Resource(s) allowed and permitted data actions on it are : ");
 
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
-                if (dataActions.HasFlag(DataActions.Smart))
+                if (smartActionPresent)
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 

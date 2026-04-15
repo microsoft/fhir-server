@@ -301,7 +301,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 cancellationToken);
         }
 
-        private static async Task<DataActions> CheckAccess(
+        public static async Task<bool> CheckAccess(
+            this IAuthorizationService<DataActions> service,
+            DataActions actions,
+            bool throwException,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(service, nameof(service));
+
+            var granted = await service.CheckAccess(
+                actions,
+                cancellationToken);
+            var success = (granted & actions) == actions;
+            if (throwException && !success)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
+            return success;
+        }
+
+        public static async Task<DataActions> CheckAccess(
             this IAuthorizationService<DataActions> service,
             DataActions actions,
             Func<DataActions, bool> verify,

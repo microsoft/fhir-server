@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -34,10 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
             ResourceElement patient = await _memberMatchService.FindMatch(request.Coverage, request.Patient, cancellationToken);
             return new MemberMatchResponse(patient);

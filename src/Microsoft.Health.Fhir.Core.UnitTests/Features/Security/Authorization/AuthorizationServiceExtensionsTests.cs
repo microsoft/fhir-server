@@ -311,6 +311,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
+        [Theory]
+        [InlineData(true, true, DataActions.Write | DataActions.Read, DataActions.Write | DataActions.Read)]
+        [InlineData(false, true, DataActions.Write, DataActions.Read)]
+        [InlineData(false, false, DataActions.Write, DataActions.Read)]
+        [InlineData(false, true, DataActions.Write | DataActions.Read, DataActions.Write)]
+        public async Task GivenDataActions_WhenCheckingAccess_ThenCheckAccessIsPerformedCorrectly(
+            bool success,
+            bool throwException,
+            DataActions requested,
+            DataActions granted)
+        {
+            var service = CreateAuthorizationService(requested, granted);
+            try
+            {
+                var result = await service.CheckAccess(
+                    requested,
+                    throwException,
+                    CancellationToken.None);
+                Assert.True(success || !throwException);
+                Assert.Equal(success, result);
+            }
+            catch (UnauthorizedFhirActionException)
+            {
+                Assert.True(!success && throwException);
+            }
+
+            await service.Received(1).CheckAccess(
+                Arg.Is<DataActions>(x => x == requested),
+                Arg.Any<CancellationToken>());
+        }
+
         private static async Task TestCheckAccess(
             DataActions requested,
             DataActions granted,
