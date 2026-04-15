@@ -258,6 +258,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
                     _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
+                    // If SMART access control is enabled but no clinical scopes were found,
+                    // the token does not contain any valid SMART scopes. Return 403 Forbidden
+                    // instead of allowing the request to proceed, which could result in misleading
+                    // 404 responses from downstream handlers.
+                    if (fhirRequestContext.AccessControlContext.AllowedResourceActions.Count == 0)
+                    {
+                        _logger.LogWarning("No SMART clinical scopes found in token. The token may be from an issuer without a matching SMART authentication policy.");
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return;
+                    }
+
                     if (includeFhirUserClaim)
                     {
                         // Check if the "fhirUser" claim is present.

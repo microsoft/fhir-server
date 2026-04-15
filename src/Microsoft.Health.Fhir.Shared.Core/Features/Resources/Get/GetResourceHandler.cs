@@ -82,6 +82,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 
             if (currentDoc == null)
             {
+                // When SMART fine-grained access control is active and the resource was not found
+                // in the filtered search results, this means the user is not authorized to access
+                // this specific resource (not that the resource doesn't exist). Return 403 Forbidden
+                // instead of 404 Not Found to avoid misleading status codes.
+                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                {
+                    throw new UnauthorizedFhirActionException();
+                }
+
                 if (string.IsNullOrEmpty(key.VersionId))
                 {
                     throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));

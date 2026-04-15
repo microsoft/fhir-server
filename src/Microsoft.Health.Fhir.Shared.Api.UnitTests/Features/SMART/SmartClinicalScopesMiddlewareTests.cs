@@ -200,7 +200,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
-        [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
         [InlineData("globalAdmin", false, false)]
@@ -236,6 +235,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Fact]
+        public async Task GivenSmartDataActionWithNoScopes_WhenInvoked_ThenForbiddenIsReturned()
+        {
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+            var fhirRequestContext = new DefaultFhirRequestContext();
+
+            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rolesClaim, fhirUserClaim });
+            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+            httpContext.User = expectedPrincipal;
+            fhirRequestContext.Principal = expectedPrincipal;
+
+            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+            Assert.Equal(StatusCodes.Status403Forbidden, httpContext.Response.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenSmartDataAction_WhenFhirUserNotProvided_ThenBadRequestExceptionThrown()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -254,7 +285,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             await LoadRoles(authorizationConfiguration);
 
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
-            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rolesClaim });
+            var scopesClaim = new Claim("scp", "patient/Patient.read");
+            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rolesClaim, scopesClaim });
             var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
             httpContext.User = expectedPrincipal;
