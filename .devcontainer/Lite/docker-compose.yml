@@ -1,0 +1,13 @@
+services:
+  fhir:
+    build:
+      context: ../../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        USER_UID: 1000
+        USER_GID: 1000
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock
+      - ../..:/workspace:cached
+    command: sleep infinity

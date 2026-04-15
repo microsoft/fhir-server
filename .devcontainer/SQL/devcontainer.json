@@ -1,9 +1,9 @@
 {
-	"name": "FHIR Dev Container - Cosmos",
+	"name": "FHIR Dev Container - SQL",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "fhir",
 	"runServices": [
-		"cosmos",
+		"sql",
 		"fhir"
 	],
 	"workspaceFolder": "/workspace",
@@ -15,6 +15,9 @@
 	"features": {
 		"ghcr.io/devcontainers/features/azure-cli:1": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+	"containerEnv": {
+		"FHIR_SERVER_SQL_SERVER_BASE_CONNECTION_STRING": "Server=sql,1433;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!"
 	},
 	"customizations": {
 		"vscode": {
@@ -44,23 +47,14 @@
 			}
 		}
 	},
-	"postCreateCommand": "${containerWorkspaceFolder}/.devcontainer/library-scripts/fix-cert.sh",
 	"remoteUser": "vscode",
 	"forwardPorts": [
-		8081,
-		1234,
+		1433,
 		44348
 	],
 	"portsAttributes": {
-		"8081": {
-			"label": "Azure Cosmos DB emulator",
-			"protocol": "https",
-			"onAutoForward": "silent",
-			"requireLocalPort": true
-		},
-		"1234": {
-			"label": "Azure Cosmos DB explorer",
-			"protocol": "http",
+		"1433": {
+			"label": "SQL Server",
 			"onAutoForward": "silent",
 			"requireLocalPort": true
 		},

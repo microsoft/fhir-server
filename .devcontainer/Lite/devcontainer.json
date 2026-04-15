@@ -1,50 +1,56 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/docker-from-docker-compose
 {
-	"name": "Fhir-DevContainer-Lite",
-	"dockerComposeFile": "docker-compose-lite.yml",
+	"name": "FHIR Dev Container - Lite",
+	"dockerComposeFile": "docker-compose.yml",
 	"service": "fhir",
-	"workspaceFolder": "/workspace",
-
-	// Use this environment variable if you need to bind mount your local source code into a new container.
-	"remoteEnv": {
-		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
-	},
-	
-	// Set *default* container specific settings.json values on container create.
-	"settings": {},
-
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"github.copilot",
-		"github.copilot-chat",
-		"ms-azuretools.vscode-docker",
-		"ms-dotnettools.csdevkit",
-		"ms-dotnettools.vscodeintellicode-csharp",
-		"ms-azuretools.vscode-cosmosdb",
-		"ms-mssql.mssql",
-		"humao.rest-client",
-		"azurite.azurite",
-		"ms-azuretools.vscode-health-fhir-converter",
-		"yannick-lagger.vscode-fhir-tools",
-		"edenlabio.fhir-profiler-tool",
-		"cqframework.cql",
-		"github.vscode-pull-request-github",
-		"github.github-vscode-theme"
+	"runServices": [
+		"fhir"
 	],
-
-	// Install the certificate for the emulator
-	"postCreateCommand": "/setup/setup.sh",
-
-	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "vscode",
-
-	"portsAttributes": {
-		"44348": {
-			"protocol": "https"
-		}
+	"workspaceFolder": "/workspace",
+	"hostRequirements": {
+		"cpus": 4,
+		"memory": "8gb",
+		"storage": "32gb"
 	},
 	"features": {
-		"ghcr.io/devcontainers/features/azure-cli:1": {}
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"github.copilot",
+				"github.copilot-chat",
+				"ms-azuretools.vscode-docker",
+				"ms-dotnettools.csharp",
+				"ms-dotnettools.csdevkit",
+				"ms-dotnettools.vscodeintellicode-csharp",
+				"ms-azuretools.vscode-cosmosdb",
+				"ms-mssql.mssql",
+				"humao.rest-client",
+				"azurite.azurite",
+				"ms-azuretools.vscode-health-fhir-converter",
+				"yannick-lagger.vscode-fhir-tools",
+				"edenlabio.fhir-profiler-tool",
+				"cqframework.cql",
+				"github.vscode-pull-request-github",
+				"github.github-vscode-theme"
+			],
+			"settings": {
+				"omnisharp.enableMsBuildLoadProjectsOnDemand": true,
+				"omnisharp.enableRoslynAnalyzers": true,
+				"omnisharp.enableEditorConfigSupport": true,
+				"omnisharp.enableAsyncCompletion": true
+			}
+		}
+	},
+	"remoteUser": "vscode",
+	"forwardPorts": [
+		44348
+	],
+	"portsAttributes": {
+		"44348": {
+			"label": "FHIR server",
+			"protocol": "https"
+		}
 	}
 }

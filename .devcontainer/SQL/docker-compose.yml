@@ -1,20 +1,18 @@
 services:
-  cosmos:
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
     restart: unless-stopped
-    mem_limit: 3g
-    cpu_count: 2
     environment:
-      PROTOCOL: https
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: localDev1!
     ports:
-      - "8081:8081"
-      - "1234:1234"
+      - "1433:1433"
     volumes:
-      - cosmos-data:/data
+      - sql-data:/var/opt/mssql
 
   fhir:
     depends_on:
-      - cosmos
+      - sql
     build:
       context: ../../
       dockerfile: .devcontainer/Dockerfile
@@ -25,8 +23,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker-host.sock
       - ../..:/workspace:cached
-    network_mode: service:cosmos
     command: sleep infinity
 
 volumes:
-  cosmos-data:
+  sql-data:
