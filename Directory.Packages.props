@@ -23,9 +23,9 @@
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="9.0.15" />
     <!--CVE-2023-29331-->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.15" />
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="$(DotNetSdkPackageVersion)" />
     <!-- CVE-2020-1045 -->
