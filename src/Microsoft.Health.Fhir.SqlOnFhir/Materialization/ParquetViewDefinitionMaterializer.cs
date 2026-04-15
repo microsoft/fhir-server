@@ -46,6 +46,29 @@ public sealed class ParquetViewDefinitionMaterializer : IViewDefinitionMateriali
     }
 
     /// <inheritdoc />
+    public Task<bool> EnsureStorageAsync(string viewDefinitionJson, string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        // Parquet files are created on-the-fly during writes. No upfront provisioning needed.
+        _logger.LogDebug("Parquet storage for '{ViewDefName}' will be created on first write", viewDefinitionName);
+        return Task.FromResult(false);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> StorageExistsAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        // Parquet is append-only; there's no single "table" to check.
+        return Task.FromResult(false);
+    }
+
+    /// <inheritdoc />
+    public Task CleanupStorageAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Parquet cleanup for '{ViewDefName}' — parquet files should be removed via storage lifecycle policies",
+            viewDefinitionName);
+        return Task.CompletedTask;
+    }
+
     public async Task<int> UpsertResourceAsync(
         string viewDefinitionJson,
         string viewDefinitionName,

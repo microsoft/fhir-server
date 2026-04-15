@@ -58,6 +58,44 @@ public sealed class DeltaLakeViewDefinitionMaterializer : IViewDefinitionMateria
     }
 
     /// <inheritdoc />
+    public Task<bool> EnsureStorageAsync(string viewDefinitionJson, string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        // Delta Lake tables are created on-the-fly by LoadOrCreateTableAsync during the first write.
+        // No upfront provisioning is needed.
+        _logger.LogDebug("Delta Lake storage for '{ViewDefName}' will be created on first write", viewDefinitionName);
+        return Task.FromResult(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> StorageExistsAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        string tableUri = GetTableUri(viewDefinitionName);
+        try
+        {
+            using ITable table = await _engine.LoadTableAsync(
+                new TableOptions { TableLocation = tableUri, StorageOptions = GetStorageOptions() },
+                cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public Task CleanupStorageAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        // Delta Lake table deletion requires removing the storage directory.
+        // This is a best-effort operation — the table directory may not exist.
+        _logger.LogInformation(
+            "Delta Lake table cleanup for '{ViewDefName}' — table directory at '{TableUri}' should be removed manually or via storage lifecycle policies",
+            viewDefinitionName,
+            GetTableUri(viewDefinitionName));
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public async Task<int> UpsertResourceAsync(
         string viewDefinitionJson,
         string viewDefinitionName,

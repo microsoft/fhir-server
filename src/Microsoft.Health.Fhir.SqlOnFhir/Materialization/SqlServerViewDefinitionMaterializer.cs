@@ -42,6 +42,32 @@ public sealed class SqlServerViewDefinitionMaterializer : IViewDefinitionMateria
     }
 
     /// <inheritdoc />
+    public async Task<bool> EnsureStorageAsync(string viewDefinitionJson, string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        if (await _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken))
+        {
+            return false;
+        }
+
+        await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
+        _logger.LogInformation("Created materialized SQL table for '{ViewDefName}'", viewDefinitionName);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> StorageExistsAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        return _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task CleanupStorageAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        await _schemaManager.DropTableAsync(viewDefinitionName, cancellationToken);
+        _logger.LogInformation("Dropped materialized SQL table for '{ViewDefName}'", viewDefinitionName);
+    }
+
+    /// <inheritdoc />
     public async Task<int> UpsertResourceAsync(
         string viewDefinitionJson,
         string viewDefinitionName,

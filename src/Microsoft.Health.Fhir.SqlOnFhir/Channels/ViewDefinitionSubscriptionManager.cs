@@ -500,6 +500,17 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             var parser = new FhirJsonParser();
             Library library = await parser.ParseAsync<Library>(rawJson);
 
+            // Clear meta.versionId and meta.lastUpdated to prevent version conflicts.
+            // FhirJsonParser preserves these from the fetched resource, but when upserting
+            // back through the pipeline, a stale versionId causes the data store to detect
+            // a version conflict and silently skip the update. Clearing these fields lets
+            // the server assign a new version.
+            if (library.Meta != null)
+            {
+                library.Meta.VersionId = null;
+                library.Meta.LastUpdated = null;
+            }
+
             // Add or update the materialization-status extension
             string statusValue = status.ToString().ToLowerInvariant();
             Extension? existingExt = library.Extension.FirstOrDefault(
@@ -566,9 +577,11 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            const string message = "Failed to persist materialization metadata on Library '{LibraryId}'. "
-                + "State is tracked in memory but may be lost on restart";
-            _logger.LogWarning(ex, message, libraryResourceId);
+            const string errorMessage =
+                "Failed to persist materialization metadata on Library '{LibraryId}' (desired status: {DesiredStatus}). "
+                + "In-memory state may differ from the Library resource. "
+                + "The SyncService will not recover this until the server restarts or the ViewDefinition is re-registered";
+            _logger.LogError(ex, errorMessage, libraryResourceId, status);
         }
     }
 

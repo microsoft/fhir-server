@@ -193,4 +193,52 @@ public sealed class MaterializerFactory
 
         return totalDeleted;
     }
+
+    /// <summary>
+    /// Ensures storage exists across all materializers for the given target.
+    /// </summary>
+    public async Task EnsureStorageAsync(
+        MaterializationTarget target,
+        string viewDefinitionJson,
+        string viewDefinitionName,
+        CancellationToken cancellationToken)
+    {
+        foreach (IViewDefinitionMaterializer materializer in GetMaterializers(target))
+        {
+            await materializer.EnsureStorageAsync(viewDefinitionJson, viewDefinitionName, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Checks whether storage exists across any materializer for the given target.
+    /// </summary>
+    public async Task<bool> StorageExistsAsync(
+        MaterializationTarget target,
+        string viewDefinitionName,
+        CancellationToken cancellationToken)
+    {
+        foreach (IViewDefinitionMaterializer materializer in GetMaterializers(target))
+        {
+            if (await materializer.StorageExistsAsync(viewDefinitionName, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Cleans up storage across all materializers for the given target.
+    /// </summary>
+    public async Task CleanupStorageAsync(
+        MaterializationTarget target,
+        string viewDefinitionName,
+        CancellationToken cancellationToken)
+    {
+        foreach (IViewDefinitionMaterializer materializer in GetMaterializers(target))
+        {
+            await materializer.CleanupStorageAsync(viewDefinitionName, cancellationToken);
+        }
+    }
 }
