@@ -53,7 +53,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 var fhirContext = _contextAccessor.RequestContext;
                 var profileValidation = _runProfileValidation;
-                if (fhirContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
+
+                // fhirContext may be null when running outside an HTTP request (e.g., background jobs).
+                if (fhirContext?.RequestHeaders != null
+                    && fhirContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
                     && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var hValue))
                 {
                     if (bool.TryParse(hValue, out bool headerValue))

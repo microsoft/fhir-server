@@ -81,6 +81,17 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
         int? limit,
         CancellationToken cancellationToken)
     {
+        // Check if this ViewDefinition targets a non-SQL materializer (e.g., Fabric).
+        // The $viewdefinition-run endpoint only supports querying SQL Server tables.
+        ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(viewDefinitionName);
+        if (registration != null && !registration.Target.HasFlag(MaterializationTarget.SqlServer))
+        {
+            throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException(
+                $"ViewDefinition '{viewDefinitionName}' is materialized to {registration.Target} — " +
+                "the $viewdefinition-run endpoint only supports querying SQL Server materialized tables. " +
+                "Query the data directly from the target storage (e.g., Fabric SQL Analytics Endpoint).");
+        }
+
         if (!await _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken))
         {
             throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException($"Materialized table for ViewDefinition '{viewDefinitionName}' does not exist.");
