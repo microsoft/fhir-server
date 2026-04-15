@@ -11,7 +11,7 @@
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net8.0'">
       <PropertyGroup>
-        <AspNetPackageVersion>8.0.14</AspNetPackageVersion>
+        <AspNetPackageVersion>8.0.26</AspNetPackageVersion>
       </PropertyGroup>
     </When>
     <When Condition="'$(TargetFramework)' == 'net9.0'">
