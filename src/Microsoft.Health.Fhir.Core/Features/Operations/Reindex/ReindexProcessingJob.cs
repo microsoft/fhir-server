@@ -13,12 +13,15 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -62,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
+        private readonly IMediator _mediator;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
 
@@ -87,7 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterStatusManager searchParameterStatusManager,
-            ILogger<ReindexProcessingJob> logger)
+            ILogger<ReindexProcessingJob> logger,
+            IMediator mediator)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
@@ -95,6 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
@@ -102,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -119,6 +126,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _effectiveBatchSize = (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery;
 
             await ProcessQueryAsync(cancellationToken);
+
+            await PublishProcessingJobMetricsNotification();
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
@@ -694,6 +703,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
             await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
+        /// <summary>
+        /// Publishes a metrics notification with the processing job results.
+        /// Wrapped in try/catch to prevent metrics failures from affecting the job outcome.
+        /// </summary>
+        private async Task PublishProcessingJobMetricsNotification()
+        {
+            try
+            {
+                var notification = new ReindexJobMetricsNotification(
+                    _jobInfo.Id.ToString(),
+                    _reindexProcessingJobResult.Error == null ? OperationStatus.Completed.ToString() : OperationStatus.Failed.ToString(),
+                    _jobInfo.CreateDate,
+                    Clock.UtcNow,
+                    _reindexProcessingJobResult.SucceededResourceCount,
+                    _reindexProcessingJobResult.FailedResourceCount,
+                    0,
+                    0,
+                    _reindexProcessingJobDefinition.SearchParameterUrls?.ToList() ?? new List<string>(),
+                    new List<string> { _reindexProcessingJobDefinition.ResourceType });
+
+                await _mediator.Publish(notification, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobWarning(ex, _jobInfo, "Failed to publish reindex processing job metrics notification.");
+            }
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)

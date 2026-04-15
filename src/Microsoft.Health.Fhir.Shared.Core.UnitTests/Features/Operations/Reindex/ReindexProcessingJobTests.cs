@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -42,11 +43,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly CancellationToken _cancellationToken;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
+        private IMediator _mediator;
 
         public ReindexProcessingJobTests()
         {
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _cancellationToken = _cancellationTokenSource.Token;
+            _mediator = Substitute.For<IMediator>();
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
                      () => _searchService.CreateMockScope(),
@@ -54,7 +57,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      _resourceWrapperFactory,
                      _searchParameterOperations,
                      _searchParameterStatusManager,
-                     NullLogger<ReindexProcessingJob>.Instance);
+                     NullLogger<ReindexProcessingJob>.Instance,
+                     _mediator);
         }
 
         [Fact]
@@ -111,6 +115,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenCompleted_PublishesMetricsNotification()
+        {
+            var mediator = Substitute.For<IMediator>();
+            _mediator = mediator;
+
+            var expectedResourceType = "Account";
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 0,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
+                    ContinuationToken = null,
+                },
+                SearchParameterHash = "accountHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
+
+            var processingJob = _reindexProcessingJobTaskFactory();
+            await processingJob.ExecuteAsync(jobInfo, _cancellationToken);
+
+            _ = mediator.Received(1).Publish(
+                Arg.Is<ReindexJobMetricsNotification>(
+                    notification => notification.Id == jobInfo.Id.ToString() &&
+                    notification.FhirOperation == "reindex" &&
+                    notification.SucceededCount == 0 &&
+                    notification.FailedCount == 0 &&
+                    notification.ResourceTypes.Contains(expectedResourceType)),
+                Arg.Any<CancellationToken>());
         }
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
