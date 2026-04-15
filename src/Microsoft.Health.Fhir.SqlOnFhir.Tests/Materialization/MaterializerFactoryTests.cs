@@ -77,47 +77,43 @@ public class MaterializerFactoryTests
     }
 
     [Fact]
-    public void GivenFabricTarget_WhenDeltaLakeNotConfigured_ThenFallsBackToParquet()
+    public void GivenFabricTarget_WhenDeltaLakeNotConfigured_ThenReturnsEmpty()
     {
         var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, deltaLakeMaterializer: null);
 
         var result = factory.GetMaterializers(MaterializationTarget.Fabric);
 
-        Assert.Single(result);
-        Assert.Same(_parquetMaterializer, result[0]);
+        Assert.Empty(result);
     }
 
     [Fact]
-    public void GivenFabricTarget_WhenNeitherConfigured_ThenFallsBackToSql()
+    public void GivenFabricTarget_WhenNeitherConfigured_ThenReturnsEmpty()
     {
         var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, parquetMaterializer: null, deltaLakeMaterializer: null);
 
         var result = factory.GetMaterializers(MaterializationTarget.Fabric);
 
-        Assert.Single(result);
-        Assert.Same(_sqlMaterializer, result[0]);
+        Assert.Empty(result);
     }
 
     [Fact]
-    public void GivenParquetTargetWithoutParquetMaterializer_WhenGetMaterializers_ThenFallsBackToSql()
+    public void GivenParquetTargetWithoutParquetMaterializer_WhenGetMaterializers_ThenReturnsEmpty()
     {
         var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, parquetMaterializer: null);
 
         var result = factory.GetMaterializers(MaterializationTarget.Parquet);
 
-        Assert.Single(result);
-        Assert.Same(_sqlMaterializer, result[0]);
+        Assert.Empty(result);
     }
 
     [Fact]
-    public void GivenNoneTarget_WhenGetMaterializers_ThenFallsBackToSql()
+    public void GivenNoneTarget_WhenGetMaterializers_ThenReturnsEmpty()
     {
         var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, _deltaLakeMaterializer);
 
         var result = factory.GetMaterializers(MaterializationTarget.None);
 
-        Assert.Single(result);
-        Assert.Same(_sqlMaterializer, result[0]);
+        Assert.Empty(result);
     }
 
     [Fact]
@@ -142,5 +138,73 @@ public class MaterializerFactoryTests
         var factory = new MaterializerFactory(_sqlMaterializer, config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, _deltaLakeMaterializer);
 
         Assert.Equal(MaterializationTarget.Fabric, factory.DefaultTarget);
+    }
+
+    [Fact]
+    public void GivenFabricTarget_WhenValidateTarget_AndDeltaLakeConfigured_ThenReturnsNull()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, _deltaLakeMaterializer);
+
+        string? error = factory.ValidateTarget(MaterializationTarget.Fabric);
+
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void GivenFabricTarget_WhenValidateTarget_AndDeltaLakeNotConfigured_ThenReturnsError()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, deltaLakeMaterializer: null);
+
+        string? error = factory.ValidateTarget(MaterializationTarget.Fabric);
+
+        Assert.NotNull(error);
+        Assert.Contains("Fabric", error);
+        Assert.Contains("StorageAccountUri", error);
+    }
+
+    [Fact]
+    public void GivenParquetTarget_WhenValidateTarget_AndParquetNotConfigured_ThenReturnsError()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, parquetMaterializer: null);
+
+        string? error = factory.ValidateTarget(MaterializationTarget.Parquet);
+
+        Assert.NotNull(error);
+        Assert.Contains("Parquet", error);
+    }
+
+    [Fact]
+    public void GivenSqlServerTarget_WhenValidateTarget_ThenReturnsNull()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance);
+
+        string? error = factory.ValidateTarget(MaterializationTarget.SqlServer);
+
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void GivenNoneTarget_WhenValidateTarget_ThenReturnsError()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, _parquetMaterializer, _deltaLakeMaterializer);
+
+        string? error = factory.ValidateTarget(MaterializationTarget.None);
+
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public async Task GivenFabricTarget_WhenUpsertResourceAsync_AndNoMaterializers_ThenThrowsInvalidOperationException()
+    {
+        var factory = new MaterializerFactory(_sqlMaterializer, _config, NullLogger<MaterializerFactory>.Instance, parquetMaterializer: null, deltaLakeMaterializer: null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            factory.UpsertResourceAsync(
+                MaterializationTarget.Fabric,
+                "{}",
+                "test_view",
+                null!,
+                "Patient/1",
+                CancellationToken.None));
     }
 }

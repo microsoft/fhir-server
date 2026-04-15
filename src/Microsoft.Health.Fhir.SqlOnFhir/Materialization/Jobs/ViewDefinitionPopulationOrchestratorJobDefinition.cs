@@ -51,4 +51,12 @@ public class ViewDefinitionPopulationOrchestratorJobDefinition : IJobData
     /// back to the Library resource, enabling cross-node status updates.
     /// </summary>
     public string? LibraryResourceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the materialization target for this ViewDefinition.
+    /// Used by the orchestrator to determine whether to create a SQL table.
+    /// Defaults to <see cref="MaterializationTarget.SqlServer"/> for backward compatibility
+    /// with jobs enqueued before the target field was added.
+    /// </summary>
+    public MaterializationTarget Target { get; set; } = MaterializationTarget.SqlServer;
 }

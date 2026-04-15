@@ -50,7 +50,40 @@ public sealed class MaterializerFactory
     public MaterializationTarget DefaultTarget => _config.DefaultTarget;
 
     /// <summary>
+    /// Validates whether the specified materialization target can be satisfied with the current
+    /// server configuration. Returns <c>null</c> if valid, or an error message describing
+    /// why the target cannot be achieved.
+    /// </summary>
+    /// <param name="target">The materialization target(s) to validate.</param>
+    /// <returns><c>null</c> if the target is achievable; otherwise, a human-readable error message.</returns>
+    public string? ValidateTarget(MaterializationTarget target)
+    {
+        if (target == MaterializationTarget.None)
+        {
+            return "No materialization target specified.";
+        }
+
+        if (target.HasFlag(MaterializationTarget.Parquet) && _parquetMaterializer == null)
+        {
+            return "Parquet materialization requested but storage is not configured. " +
+                   "Set SqlOnFhirMaterialization:StorageAccountUri or StorageAccountConnection in appsettings.json.";
+        }
+
+        if (target.HasFlag(MaterializationTarget.Fabric) && _deltaLakeMaterializer == null)
+        {
+            return "Fabric (Delta Lake) materialization requested but storage is not configured. " +
+                   "Set SqlOnFhirMaterialization:StorageAccountUri to a OneLake abfss:// URI in appsettings.json " +
+                   "(e.g., abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Tables).";
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Gets all materializers for the specified target.
+    /// The caller must call <see cref="ValidateTarget"/> before invoking this method to ensure
+    /// the target can be satisfied. If no materializers are resolved, an empty list is returned
+    /// and an error is logged — the system will <b>not</b> silently fall back to SQL Server.
     /// </summary>
     /// <param name="target">The materialization target(s).</param>
     /// <returns>A list of materializers that should be invoked.</returns>
@@ -71,7 +104,7 @@ public sealed class MaterializerFactory
             }
             else
             {
-                _logger.LogWarning(
+                _logger.LogError(
                     "Parquet materialization requested but storage is not configured. " +
                     "Set SqlOnFhirMaterialization:StorageAccountUri or StorageAccountConnection in appsettings.json");
             }
@@ -83,25 +116,19 @@ public sealed class MaterializerFactory
             {
                 materializers.Add(_deltaLakeMaterializer);
             }
-            else if (_parquetMaterializer != null)
-            {
-                _logger.LogWarning(
-                    "Fabric (Delta Lake) materialization requested but Delta Lake is not configured. " +
-                    "Falling back to append-only Parquet materializer");
-                materializers.Add(_parquetMaterializer);
-            }
             else
             {
-                _logger.LogWarning(
-                    "Fabric materialization requested but storage is not configured. " +
+                _logger.LogError(
+                    "Fabric (Delta Lake) materialization requested but storage is not configured. " +
                     "Set SqlOnFhirMaterialization:StorageAccountUri in appsettings.json");
             }
         }
 
         if (materializers.Count == 0)
         {
-            _logger.LogWarning("No materializers resolved for target '{Target}', falling back to SQL Server", target);
-            materializers.Add(_sqlMaterializer);
+            _logger.LogError(
+                "No materializers resolved for target '{Target}'. The target cannot be satisfied with current configuration",
+                target);
         }
 
         return materializers;
@@ -118,9 +145,17 @@ public sealed class MaterializerFactory
         string resourceKey,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<IViewDefinitionMaterializer> materializers = GetMaterializers(target);
+        if (materializers.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot materialize ViewDefinition '{viewDefinitionName}': no materializers available for target '{target}'. " +
+                "Verify that storage is configured in SqlOnFhirMaterialization settings.");
+        }
+
         int totalRows = 0;
 
-        foreach (IViewDefinitionMaterializer materializer in GetMaterializers(target))
+        foreach (IViewDefinitionMaterializer materializer in materializers)
         {
             int rows = await materializer.UpsertResourceAsync(
                 viewDefinitionJson, viewDefinitionName, resource, resourceKey, cancellationToken);
@@ -139,9 +174,17 @@ public sealed class MaterializerFactory
         string resourceKey,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<IViewDefinitionMaterializer> materializers = GetMaterializers(target);
+        if (materializers.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot delete from ViewDefinition '{viewDefinitionName}': no materializers available for target '{target}'. " +
+                "Verify that storage is configured in SqlOnFhirMaterialization settings.");
+        }
+
         int totalDeleted = 0;
 
-        foreach (IViewDefinitionMaterializer materializer in GetMaterializers(target))
+        foreach (IViewDefinitionMaterializer materializer in materializers)
         {
             int deleted = await materializer.DeleteResourceAsync(
                 viewDefinitionName, resourceKey, cancellationToken);

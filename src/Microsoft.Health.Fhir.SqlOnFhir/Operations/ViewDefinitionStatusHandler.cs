@@ -50,7 +50,10 @@ public sealed class ViewDefinitionStatusHandler : IRequestHandler<ViewDefinition
             };
         }
 
-        bool tableExists = await _schemaManager.TableExistsAsync(request.ViewDefinitionName, cancellationToken);
+        // Only check SQL table existence when the target includes SqlServer.
+        // Fabric/Parquet targets don't use SQL tables.
+        bool tableExists = registration.Target.HasFlag(MaterializationTarget.SqlServer)
+            && await _schemaManager.TableExistsAsync(request.ViewDefinitionName, cancellationToken);
 
         return new ViewDefinitionStatusResponse
         {
@@ -62,6 +65,7 @@ public sealed class ViewDefinitionStatusHandler : IRequestHandler<ViewDefinition
             LibraryResourceId = registration.LibraryResourceId,
             RegisteredAt = registration.RegisteredAt,
             TableExists = tableExists,
+            Target = registration.Target.ToString(),
         };
     }
 }

@@ -170,6 +170,48 @@ public class ViewDefinitionPopulationOrchestratorJobTests
         Assert.Null(processingDef.ContinuationToken);
     }
 
+    [Fact]
+    public async Task GivenFabricTarget_WhenExecuted_ThenSqlTableNotCreated()
+    {
+        // Arrange
+        var definition = new ViewDefinitionPopulationOrchestratorJobDefinition
+        {
+            ViewDefinitionJson = ViewDefinitionJson,
+            ViewDefinitionName = "patient_demographics",
+            ResourceType = "Patient",
+            BatchSize = 100,
+            Target = MaterializationTarget.Fabric,
+        };
+
+        var jobInfo = CreateJobInfo(definition);
+
+        _queueClient.EnqueueAsync(
+                Arg.Any<byte>(),
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new List<JobInfo> { new JobInfo { Id = 2 } });
+
+        // Act
+        string result = await _job.ExecuteAsync(jobInfo, CancellationToken.None);
+
+        // Assert — no SQL table operations should occur for Fabric target
+        await _schemaManager.DidNotReceive().TableExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _schemaManager.DidNotReceive().CreateTableAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        // Processing job should still be enqueued
+        await _queueClient.Received(1).EnqueueAsync(
+            (byte)QueueType.ViewDefinitionPopulation,
+            Arg.Any<string[]>(),
+            Arg.Any<long?>(),
+            Arg.Any<bool>(),
+            Arg.Any<CancellationToken>());
+
+        Assert.Contains("\"TableCreated\":false", result);
+        Assert.Contains("\"Target\":\"Fabric\"", result);
+    }
+
     private static JobInfo CreateJobInfo(ViewDefinitionPopulationOrchestratorJobDefinition definition)
     {
         return new JobInfo

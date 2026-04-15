@@ -52,4 +52,9 @@ public class ViewDefinitionStatusResponse
     /// Gets or sets whether the materialized table exists.
     /// </summary>
     public bool TableExists { get; set; }
+
+    /// <summary>
+    /// Gets or sets the materialization target (e.g., SqlServer, Fabric, Parquet).
+    /// </summary>
+    public string Target { get; set; } = string.Empty;
 }

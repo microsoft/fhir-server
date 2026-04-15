@@ -38,8 +38,10 @@ public sealed class ViewDefinitionListHandler : IRequestHandler<ViewDefinitionLi
 
         foreach (ViewDefinitionRegistration registration in _subscriptionManager.GetAllRegistrations())
         {
-            bool tableExists = await _schemaManager.TableExistsAsync(
-                registration.ViewDefinitionName, cancellationToken);
+            // Only check SQL table existence when the target includes SqlServer.
+            // Fabric/Parquet targets don't use SQL tables.
+            bool tableExists = registration.Target.HasFlag(MaterializationTarget.SqlServer)
+                && await _schemaManager.TableExistsAsync(registration.ViewDefinitionName, cancellationToken);
 
             response.ViewDefinitions.Add(new ViewDefinitionStatusResponse
             {
@@ -51,6 +53,7 @@ public sealed class ViewDefinitionListHandler : IRequestHandler<ViewDefinitionLi
                 LibraryResourceId = registration.LibraryResourceId,
                 RegisteredAt = registration.RegisteredAt,
                 TableExists = tableExists,
+                Target = registration.Target.ToString(),
             });
         }
 

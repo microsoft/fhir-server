@@ -77,6 +77,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IViewDefinitionSchemaManager _schemaManager;
     private readonly IQueueClient _queueClient;
+    private readonly MaterializerFactory _materializerFactory;
     private readonly SqlOnFhirMaterializationConfiguration _materializationConfig;
     private readonly ILogger<ViewDefinitionSubscriptionManager> _logger;
 
@@ -87,12 +88,14 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         IServiceScopeFactory scopeFactory,
         IViewDefinitionSchemaManager schemaManager,
         IQueueClient queueClient,
+        MaterializerFactory materializerFactory,
         IOptions<SqlOnFhirMaterializationConfiguration> materializationConfig,
         ILogger<ViewDefinitionSubscriptionManager> logger)
     {
         _scopeFactory = scopeFactory;
         _schemaManager = schemaManager;
         _queueClient = queueClient;
+        _materializerFactory = materializerFactory;
         _materializationConfig = materializationConfig.Value;
         _logger = logger;
     }
@@ -138,7 +141,37 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             resourceType,
             resolvedTarget);
 
-        // Step 1: Create the materialized SQL table
+        // Validate that the requested materialization target can be satisfied with current configuration.
+        // Fail fast with a clear error rather than silently falling back to SQL.
+        string? validationError = _materializerFactory.ValidateTarget(resolvedTarget);
+        if (validationError != null)
+        {
+            _logger.LogError(
+                "ViewDefinition '{ViewDefName}' cannot be registered: {ValidationError}",
+                name,
+                validationError);
+
+            var failedRegistration = new ViewDefinitionRegistration
+            {
+                ViewDefinitionJson = viewDefinitionJson,
+                ViewDefinitionName = name,
+                ResourceType = resourceType,
+                Target = resolvedTarget,
+                Status = ViewDefinitionStatus.Error,
+                ErrorMessage = validationError,
+                LibraryResourceId = libraryResourceId,
+            };
+
+            _registrations[name] = failedRegistration;
+
+            // Persist the error status and message to the Library resource so it is visible
+            // to other nodes and survives restarts.
+            await UpdateLibraryMaterializationStatusAsync(
+                libraryResourceId, ViewDefinitionStatus.Error, cancellationToken, target: resolvedTarget);
+
+            return failedRegistration;
+        }
+
         var registration = new ViewDefinitionRegistration
         {
             ViewDefinitionJson = viewDefinitionJson,
@@ -152,9 +185,15 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
         try
         {
-            if (!await _schemaManager.TableExistsAsync(name, cancellationToken))
+            // Only create a SQL table when the target includes SqlServer.
+            // Fabric (Delta Lake) and Parquet targets create their own storage structures
+            // during materialization — no SQL table is needed.
+            if (resolvedTarget.HasFlag(MaterializationTarget.SqlServer))
             {
-                await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
+                if (!await _schemaManager.TableExistsAsync(name, cancellationToken))
+                {
+                    await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
+                }
             }
 
             // Step 2: Enqueue full population background job.
@@ -171,6 +210,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                     ResourceType = resourceType,
                     BatchSize = 100,
                     LibraryResourceId = libraryResourceId,
+                    Target = resolvedTarget,
                 };
 
                 await _queueClient.EnqueueAsync(
@@ -325,14 +365,18 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
         _registrations[name] = registration;
 
-        // Sanity check: verify the materialized table exists (another node should have created it)
-        bool tableExists = await _schemaManager.TableExistsAsync(name, cancellationToken);
-        if (!tableExists)
+        // Sanity check: verify the materialized table exists (another node should have created it).
+        // Only applicable when the target includes SqlServer — Fabric/Parquet targets don't use SQL tables.
+        if (resolvedTarget.HasFlag(MaterializationTarget.SqlServer))
         {
-            _logger.LogWarning(
-                "Adopted ViewDefinition '{ViewDefName}' but materialized table does not exist. " +
-                "It may still be creating on another node",
-                name);
+            bool tableExists = await _schemaManager.TableExistsAsync(name, cancellationToken);
+            if (!tableExists)
+            {
+                _logger.LogWarning(
+                    "Adopted ViewDefinition '{ViewDefName}' but materialized SQL table does not exist. " +
+                    "It may still be creating on another node",
+                    name);
+            }
         }
 
         _logger.LogInformation(

@@ -45,22 +45,37 @@ public sealed class ViewDefinitionPopulationOrchestratorJob : IJob
         var definition = jobInfo.DeserializeDefinition<ViewDefinitionPopulationOrchestratorJobDefinition>();
 
         _logger.LogInformation(
-            "Starting ViewDefinition population orchestrator for '{ViewDefName}' targeting '{ResourceType}'",
+            "Starting ViewDefinition population orchestrator for '{ViewDefName}' targeting '{ResourceType}' (materialization target: {Target})",
             definition.ViewDefinitionName,
-            definition.ResourceType);
+            definition.ResourceType,
+            definition.Target);
 
-        // Step 1: Ensure the sqlfhir schema exists and create the table
-        bool tableExists = await _schemaManager.TableExistsAsync(definition.ViewDefinitionName, cancellationToken);
+        bool tableCreated = false;
 
-        if (!tableExists)
+        // Only create a SQL table when the target includes SqlServer.
+        // Fabric (Delta Lake) and Parquet targets create their own storage structures during materialization.
+        if (definition.Target.HasFlag(MaterializationTarget.SqlServer))
         {
-            string qualifiedTable = await _schemaManager.CreateTableAsync(definition.ViewDefinitionJson, cancellationToken);
-            _logger.LogInformation("Created materialized table '{TableName}'", qualifiedTable);
+            bool tableExists = await _schemaManager.TableExistsAsync(definition.ViewDefinitionName, cancellationToken);
+
+            if (!tableExists)
+            {
+                string qualifiedTable = await _schemaManager.CreateTableAsync(definition.ViewDefinitionJson, cancellationToken);
+                _logger.LogInformation("Created materialized SQL table '{TableName}'", qualifiedTable);
+                tableCreated = true;
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Materialized SQL table for '{ViewDefName}' already exists, proceeding with population",
+                    definition.ViewDefinitionName);
+            }
         }
         else
         {
             _logger.LogInformation(
-                "Materialized table for '{ViewDefName}' already exists, proceeding with population",
+                "Target '{Target}' does not include SqlServer — skipping SQL table creation for '{ViewDefName}'",
+                definition.Target,
                 definition.ViewDefinitionName);
         }
 
@@ -94,7 +109,8 @@ public sealed class ViewDefinitionPopulationOrchestratorJob : IJob
         {
             ViewDefinitionName = definition.ViewDefinitionName,
             ResourceType = definition.ResourceType,
-            TableCreated = !tableExists,
+            Target = definition.Target.ToString(),
+            TableCreated = tableCreated,
             ProcessingJobsEnqueued = enqueuedJobs.Count,
         };
 
