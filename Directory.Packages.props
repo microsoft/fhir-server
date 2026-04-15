@@ -4,6 +4,7 @@
     <HealthcareSharedPackageVersion>10.0.68</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
+    <IgnixaVersion>0.0.163</IgnixaVersion>
     <DotNetSdkPackageVersion>9.0.6</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
@@ -22,9 +23,9 @@
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="9.0.15" />
     <!--CVE-2023-29331-->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.15" />
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="$(DotNetSdkPackageVersion)" />
     <!-- CVE-2020-1045 -->
@@ -34,6 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.2.0" />
+    <PackageVersion Include="Azure.Messaging.EventGrid" Version="4.24.0" />
     <PackageVersion Include="Azure.Identity" Version="1.16.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
@@ -45,6 +47,12 @@
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
     <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
+    <!-- Ignixa packages for SQL on FHIR ViewDefinition evaluation -->
+    <PackageVersion Include="Ignixa.SqlOnFhir" Version="$(IgnixaVersion)" />
+    <PackageVersion Include="Ignixa.SqlOnFhir.Writers" Version="$(IgnixaVersion)" />
+    <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaVersion)" />
+    <!-- Delta Lake for Fabric materialization target -->
+    <PackageVersion Include="DeltaLake.Net" Version="0.31.1" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
@@ -68,6 +76,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.48.0" />

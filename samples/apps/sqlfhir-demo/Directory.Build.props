@@ -1,0 +1,7 @@
+<Project>
+  <!-- Override parent Directory.Build.props to disable strict analyzers for demo app -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);SA1633;SA1507;SA1028;SA1508;SA1201;SA1124;SA1515;SA1210;SA1117;SA1309;CA1822;CA1056;CA2100;CA1002;CA1307;CA1849;CA1869;CA1024</NoWarn>
+  </PropertyGroup>
+</Project>

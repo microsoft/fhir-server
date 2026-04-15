@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         BulkDelete = 4,
         BulkUpdate = 5,
         Reindex = 6,
+        Subscriptions = 7,
+        ViewDefinitionPopulation = 8,
     }
 }
 #pragma warning restore CA1028 // Enum Storage should be Int32

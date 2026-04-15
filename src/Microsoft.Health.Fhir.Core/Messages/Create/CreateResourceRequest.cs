@@ -23,7 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Create
             Resource = resource;
         }
 
-        public ResourceElement Resource { get; }
+        public new BundleResourceContext BundleResourceContext { get; }
+
+        public ResourceElement Resource { get; set; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

@@ -189,6 +189,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
             services.Add<ExpiredResourceCleanupWatchdog>().Singleton().AsSelf();
 
+            services.Add<SubscriptionProcessorWatchdog>().Singleton().AsSelf();
+
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient

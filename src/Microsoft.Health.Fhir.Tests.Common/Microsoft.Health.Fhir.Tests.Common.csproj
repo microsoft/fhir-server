@@ -20,6 +20,7 @@
     <None Remove="TestFiles\Normative\observation-example.json" />
     <None Remove="TestFiles\Normative\operationoutcome-example.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
+    <None Remove="TestFiles\R4\Subscription-Backport.json" />
     <None Remove="TestFiles\R4B\CommunicationAttachment.json" />
     <None Remove="TestFiles\R4\account-example.json" />
     <None Remove="TestFiles\R4\activitydefinition-example.json" />
@@ -186,6 +187,10 @@
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidEntries.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForEncounter.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForObservationReferenceToPatient.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForPatientName.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForPatient.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidType.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidDefinitions.json" />
@@ -246,6 +251,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-USCoreIG.json" />
     <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
+    <EmbeddedResource Include="TestFiles\R4\Subscription-Backport.json" />
     <EmbeddedResource Include="TestFiles\R4B\binary-example.json" />
     <EmbeddedResource Include="TestFiles\R4B\CommunicationAttachment.json" />
     <EmbeddedResource Include="TestFiles\R4B\DocumentReference-example-with-base64.json" />

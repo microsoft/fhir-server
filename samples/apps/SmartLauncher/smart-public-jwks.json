@@ -1,0 +1,11 @@
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "kid": "smart-entra-fbbdbd92",
+      "alg": "RS384",
+      "n": "00XCrIHjXTW6CHdTpB6CkcUMDWM_XOdCDp-VKSJ5bCmoAPP45XgwA258mjNXXiZlfygTKzvRABVazqXucDxa-6nkE8r0qIKhkJc6LJtWsj3Rvn99NWOOz3RkFj5YzQxI9gm3JTISxvIrckqQHZ08P8jiDXD7UuvQzg9SC-EX0OsrbKQDLR511-VvMOQ0AQGEuq4lWGzTYVtmgjJRU64CrziDjogaWtYae6PR62jnpO8Rpjt2oQJRVft5V0U0ag1Iv94Bdq6l_3K6snWnewBY7g07oYg0Vip5RAXzD9_XNVI7O_PXKBAegZsNjaoMJjUS5T0TukkZQDlEG7dzy_18LygeI033z799KgbW76zRUjOBIYlF542vqeNbOoLUvZztnw6enbDT86FfBwvSwgrk7D7bf8Pm0k6u1uX6McnCltjy2OM54NHM_gkf-z46qXGetPHfSwQ1Qz3LU5Xj00zz_KOAcEJgwfGj4e58ySKSkWD2nknCIy8P0Rqd-htXKGhjfG3hrhKmUmeLzcFZXuoqFuf-XeF4j0pHLVe3ywSmObxNF7Tq1Mcg5wvODUekzVB0BMRP1fOJNj-TsKSZ_HIAinICg7NOkZ-myc-WR27RGFCEaSRhqKSSo4r44wBoV5fPlToLwZNWOCgMJI2rQlI9PY0DfIhvFeNEubqYkpTe9AE",
+      "e": "AQAB"
+    }
+  ]
+}

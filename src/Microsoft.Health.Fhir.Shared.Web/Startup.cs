@@ -86,6 +86,9 @@ namespace Microsoft.Health.Fhir.Web
 
             AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
+            // Hook for version-specific modules (e.g., SqlOnFhir in R4.Web)
+            AddVersionSpecificServices(services);
+
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
             {
@@ -101,6 +104,55 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddTelemetryProvider(services);
+        }
+
+        /// <summary>
+        /// Registers SQL on FHIR ViewDefinition materialization if the SqlOnFhir assembly is available.
+        /// The SqlOnFhir module depends on Hl7.Fhir.R4, so it is only available in R4.Web.
+        /// Uses reflection to avoid compile-time dependency from the shared Startup.
+        /// </summary>
+        protected virtual void AddVersionSpecificServices(IServiceCollection services)
+        {
+            try
+            {
+                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
+                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
+                var addMethod = extensionsType?.GetMethod("AddSqlOnFhir", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                addMethod?.Invoke(null, new object[] { services });
+
+                var configType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration");
+                var sectionName = configType?.GetField("SectionName")?.GetValue(null) as string ?? "SqlOnFhirMaterialization";
+                var configureMethod = typeof(OptionsConfigurationServiceCollectionExtensions)
+                    .GetMethods().First(m => m.Name == "Configure" && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(configType!);
+                configureMethod.Invoke(null, new object[] { services, Configuration.GetSection(sectionName) });
+            }
+            catch (System.IO.FileNotFoundException)
+            {
+                // SqlOnFhir assembly not available (non-R4 build) — skip registration
+            }
+        }
+
+        /// <summary>
+        /// Version-specific startup. The base version registers the SQL on FHIR channel
+        /// so the subscription engine can route to ViewDefinitionRefreshChannel.
+        /// </summary>
+        protected virtual void ConfigureVersionSpecificServices(IApplicationBuilder app)
+        {
+            // Register the ViewDefinitionRefreshChannel with the subscription channel factory
+            // eagerly at startup, so background services (HeartBeatBackgroundService) can use it
+            // before the first HTTP request arrives.
+            try
+            {
+                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
+                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
+                var useMethod = extensionsType?.GetMethod("UseSqlOnFhirChannels", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                useMethod?.Invoke(null, new object[] { app.ApplicationServices });
+            }
+            catch (System.IO.FileNotFoundException)
+            {
+                // SqlOnFhir assembly not available — skip
+            }
         }
 
         private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
@@ -191,6 +243,8 @@ namespace Microsoft.Health.Fhir.Web
 
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
+
+            ConfigureVersionSpecificServices(app);
         }
 
         /// <summary>
