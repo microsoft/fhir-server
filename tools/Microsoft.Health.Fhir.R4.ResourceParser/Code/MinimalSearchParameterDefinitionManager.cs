@@ -34,6 +34,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
         }
 
+        public DateTimeOffset? SearchParamLastUpdated { get; }
+
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
         // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
@@ -219,6 +221,11 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         }
 
         public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool zeroWaitForSemaphore = false)
         {
             throw new NotImplementedException();
         }

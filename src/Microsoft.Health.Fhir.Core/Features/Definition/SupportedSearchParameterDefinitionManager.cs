@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             _inner = inner;
         }
+
+        public DateTimeOffset? SearchParamLastUpdated => _inner.SearchParamLastUpdated;
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSupported);
 
@@ -145,6 +149,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
         {
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
+        }
+
+        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool zeroWaitForSemaphore = false)
+        {
+            return await _inner.GetAndApplySearchParameterUpdates(cancellationToken, zeroWaitForSemaphore);
         }
     }
 }
