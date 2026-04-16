@@ -48,5 +48,41 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             Assert.Equal(ImportRequestExtensions.DefaultInputFormat, output.InputFormat);
             Assert.Equal(ImportRequestExtensions.DefaultStorageDetailType, output.StorageDetail.Type);
         }
+
+        [Fact]
+        public void GivenImportRequestWithErrorContainerName_WhenConvert_ThenErrorContainerNameShouldBePreserved()
+        {
+            // Arrange
+            ImportRequest input = new ImportRequest();
+            input.InputFormat = "test";
+            input.ErrorContainerName = "custom-error-container";
+            input.InputSource = new Uri("http://dummy");
+            input.Input = new List<InputResource>() { new InputResource() { Type = "type", Url = new Uri("http://dummy/resource") } };
+            input.StorageDetail = new ImportRequestStorageDetail() { Type = "blob" };
+
+            // Act
+            ImportRequest output = input.ToParameters().ExtractImportRequest();
+
+            // Assert
+            Assert.Equal(input.ErrorContainerName, output.ErrorContainerName);
+        }
+
+        [Fact]
+        public void GivenImportRequestWithoutErrorContainerName_WhenConvert_ThenErrorContainerNameShouldBeNull()
+        {
+            // Arrange
+            ImportRequest input = new ImportRequest();
+            input.InputFormat = "test";
+            input.ErrorContainerName = null; // No error container name
+            input.InputSource = new Uri("http://dummy");
+            input.Input = new List<InputResource>() { new InputResource() { Type = "type", Url = new Uri("http://dummy/resource") } };
+            input.StorageDetail = new ImportRequestStorageDetail() { Type = "blob" };
+
+            // Act
+            ImportRequest output = input.ToParameters().ExtractImportRequest();
+
+            // Assert
+            Assert.Null(output.ErrorContainerName);
+        }
     }
 }

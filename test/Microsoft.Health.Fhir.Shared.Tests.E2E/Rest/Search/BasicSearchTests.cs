@@ -1020,9 +1020,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
         {
             Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+            Assert.NotEmpty(bundle.Entry);
 
-            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
-            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+            var operationOutcome = bundle.Entry.First().Resource as OperationOutcome;
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Contains("exceeds limit", operationOutcome.Issue.First().Diagnostics);
         }
 
         [Fact]
@@ -1264,6 +1267,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenAnIdLookupSearchRequestWithDuplicateIds_WhenHandled_ThenDeduppedResultsAreReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create the resources
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
+            string ids = string.Join(",", patients.Select(p => p.Id).Concat(new[] { patients[0].Id, patients[1].Id }));
+
+            // The tag filter can't be used since it triggers a different code path than just using _id.
+            Bundle bundle = await Client.SearchAsync($"Patient?_id={ids}");
+            Assert.NotNull(bundle);
+            Assert.Equal(3, bundle.Entry.Count);
         }
 
         private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)

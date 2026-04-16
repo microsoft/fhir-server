@@ -1,7 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobHeartbeat
---TODO: Remove @Data from signature after deployment
 GO
-CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CancelRequested bit = 0 OUTPUT
+CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @CancelRequested bit = 0 OUTPUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
@@ -10,7 +9,7 @@ DECLARE @SP varchar(100) = 'PutJobHeartbeat'
        ,@Rows int = 0
        ,@PartitionId tinyint = @JobId % 16
 
-SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' D='+isnull(convert(varchar,@Data),'NULL')
+SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)
 
 BEGIN TRY
   UPDATE dbo.JobQueue

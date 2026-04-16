@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -63,7 +64,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var patchedResource = request.Payload.Patch(match.Resource);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null), cancellationToken);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
+        }
+
+        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        {
+            return AuthorizationService.CheckConditionalPatchAccess(cancellationToken);
         }
     }
 }

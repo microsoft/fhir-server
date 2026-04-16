@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,6 +17,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.JobManagement;
 
@@ -23,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// <summary>
     /// The background service used to host the <see cref="JobHosting"/>.
     /// </summary>
-    public class HostingBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
+    public class HostingBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly IScopeProvider<JobHosting> _jobHostingFactory;
         private readonly OperationsConfiguration _operationsConfiguration;
@@ -71,10 +74,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
                 }
 
-                foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
+                var enabledQueueConfigs = GetEnabledQueueConfigs();
+
+                foreach (var queueConfig in enabledQueueConfigs)
                 {
-                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
-                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
+                    short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
                 }
 
                 await Task.WhenAll(jobQueues);
@@ -89,10 +94,19 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;
+        }
+
+        internal virtual IEnumerable<HostingBackgroundServiceQueueItem> GetEnabledQueueConfigs()
+        {
+            return _operationsConfiguration.GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => typeof(HostingBackgroundServiceQueueItem).IsAssignableFrom(p.PropertyType))
+                .Select(p => p.GetValue(_operationsConfiguration) as HostingBackgroundServiceQueueItem)
+                .Where(q => q != null && q.Enabled);
         }
     }
 }

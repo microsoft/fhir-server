@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,13 +21,13 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default);
 
-        Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default);
@@ -39,17 +40,19 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
+
+        Task<HttpResponseMessage> BulkUpdateAsync(string uri, Parameters patchRequest, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleOptions bundleOptions = default, CancellationToken cancellationToken = default);
 
@@ -67,10 +70,10 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, string query, CancellationToken cancellationToken = default, params (string key, string value)[] body);
 
-        Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<OperationOutcome> ValidateAsync(string uri, string resource, string profile = null, CancellationToken cancellationToken = default);

@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         internal const string PatientEverythingById = nameof(PatientEverythingById);
 
-        internal const string ReindexOperationDefintion = nameof(ReindexOperationDefintion);
+        internal const string ReindexOperationDefinition = nameof(ReindexOperationDefinition);
 
         internal const string ResourceReindexOperationDefinition = nameof(ResourceReindexOperationDefinition);
 
@@ -84,5 +84,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string Includes = nameof(Includes);
 
         internal const string IncludesOperationDefinition = nameof(IncludesOperationDefinition);
+
+        internal const string GetBulkUpdateStatusById = nameof(GetBulkUpdateStatusById);
+
+        internal const string CancelBulkUpdate = nameof(CancelBulkUpdate);
+
+        internal const string BulkUpdateDefinition = nameof(BulkUpdateDefinition);
+
+        internal const string DocRef = nameof(DocRef);
+
+        internal const string DocRefOperationDefinition = nameof(DocRefOperationDefinition);
+
+        internal const string Expand = nameof(Expand);
+
+        internal const string ExpandById = nameof(ExpandById);
+
+        internal const string ExpandDefinition = nameof(ExpandDefinition);
     }
 }

@@ -166,6 +166,24 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Bundle-Transaction");
         }
 
+        public static Bundle GetBasicTransactionBundleWithSingleResource()
+        {
+            Bundle bundle = new Bundle();
+            bundle.Type = Bundle.BundleType.Transaction;
+            bundle.Entry.Add(new Bundle.EntryComponent
+            {
+                FullUrl = "urn:uuid:12345678-1234-1234-1234-123456789012",
+                Request = new Bundle.RequestComponent
+                {
+                    Method = Bundle.HTTPVerb.PUT,
+                    Url = "Patient",
+                },
+                Resource = GetDefaultPatient().Instance.ToPoco<Patient>(),
+            });
+
+            return bundle;
+        }
+
         public static ResourceElement GetDefaultConvertDataParameter()
         {
             return GetJsonSample("Parameter-Convert-Data");

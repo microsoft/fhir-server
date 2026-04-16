@@ -65,7 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 #if Stu3
                 // STU3 doesn't have PATCH verb, so let's map it to PUT.
-                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                if ((!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                    || httpVerb == Bundle.HTTPVerb.PATCH)
                 {
                     hasVerb = true;
                     httpVerb = Bundle.HTTPVerb.PUT;
@@ -114,36 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 return resource;
             });
-        }
-
-        public Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences)
-        {
-            EnsureArg.IsNotNull(bundleId);
-            EnsureArg.HasItems(resourceReferences, nameof(resourceReferences));
-
-            var bundle = new Bundle
-            {
-                Id = bundleId,
-                Meta = new Meta
-                {
-                    LastUpdated = lastUpdated,
-                },
-                Type = Bundle.BundleType.Transaction,
-            };
-
-            foreach (var resource in resourceReferences)
-            {
-                bundle.Entry.Add(new Bundle.EntryComponent
-                {
-                    Request = new Bundle.RequestComponent
-                    {
-                        Method = Bundle.HTTPVerb.DELETE,
-                        Url = resource.Url.ToString(),
-                    },
-                });
-            }
-
-            return bundle;
         }
 
         private void CreateLinks(SearchResult result, Bundle bundle)

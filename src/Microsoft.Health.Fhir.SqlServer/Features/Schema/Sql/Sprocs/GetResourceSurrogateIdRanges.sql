@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetResourceSurrogateIdRanges
 GO
-CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @RangeSize int, @NumberOfRanges int = 100, @Up bit = 1
+CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @RangeSize int, @NumberOfRanges int = 100, @Up bit = 1, @ActiveOnly bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourceSurrogateIdRanges'
@@ -9,6 +9,7 @@ DECLARE @SP varchar(100) = 'GetResourceSurrogateIdRanges'
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
                            +' R='+isnull(convert(varchar,@RangeSize),'NULL')
                            +' UP='+isnull(convert(varchar,@Up),'NULL')
+                           +' AO='+isnull(convert(varchar,@ActiveOnly),'NULL')
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
@@ -25,6 +26,7 @@ BEGIN TRY
                       WHERE ResourceTypeId = @ResourceTypeId
                         AND ResourceSurrogateId >= @StartId
                         AND ResourceSurrogateId <= @EndId
+                        AND (@ActiveOnly = 0 OR (IsHistory = 0 AND IsDeleted = 0))
                       ORDER BY
                            ResourceSurrogateId
                    ) A
@@ -45,6 +47,7 @@ BEGIN TRY
                       WHERE ResourceTypeId = @ResourceTypeId
                         AND ResourceSurrogateId >= @StartId
                         AND ResourceSurrogateId <= @EndId
+                        AND (@ActiveOnly = 0 OR (IsHistory = 0 AND IsDeleted = 0))
                       ORDER BY
                            ResourceSurrogateId DESC
                    ) A

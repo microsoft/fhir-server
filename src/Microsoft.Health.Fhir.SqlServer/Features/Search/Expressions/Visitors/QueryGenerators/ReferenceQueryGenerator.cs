@@ -23,7 +23,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.ReferenceBaseUri:
                     return VisitSimpleString(expression, context, VLatest.ReferenceSearchParam.BaseUri, expression.Value);
                 case FieldName.ReferenceResourceType:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.ReferenceSearchParam.ReferenceResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeId(expression.Value));
+                    if (context.Model.TryGetResourceTypeId(expression.Value, out short resourceTypeId))
+                    {
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.ReferenceSearchParam.ReferenceResourceTypeId, expression.ComponentIndex, resourceTypeId);
+                    }
+
+                    // Resource type not in model info provider (e.g., Citation is a search param target in R5 but excluded from supported resources).
+                    // essentially a bug in R5, some search parameters reference target types which are not in the model info provider.
+                    context.StringBuilder.Append("0 = 1");
+                    return context;
                 case FieldName.ReferenceResourceId:
                     return VisitSimpleString(expression, context, VLatest.ReferenceSearchParam.ReferenceResourceId, expression.Value);
                 default:
@@ -33,7 +41,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, VLatest.ReferenceSearchParam.BaseUri);
+            switch (expression.FieldName)
+            {
+                case FieldName.ReferenceBaseUri:
+                    return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, VLatest.ReferenceSearchParam.BaseUri);
+                case FieldName.ReferenceResourceType:
+                    return VisitMissingFieldImpl(expression, context, FieldName.ReferenceResourceType, VLatest.ReferenceSearchParam.ReferenceResourceTypeId);
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
         }
     }
 }

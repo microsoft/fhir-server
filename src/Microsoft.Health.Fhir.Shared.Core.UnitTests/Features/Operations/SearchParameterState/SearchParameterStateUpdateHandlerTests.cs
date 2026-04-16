@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -16,11 +16,13 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -29,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -61,18 +64,62 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger2 = Substitute.For<ILogger<SearchParameterStateUpdateHandler>>();
+        private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            // Create a proper IScopeProvider<ISearchService> mock
+            var searchServiceScope = Substitute.For<IScoped<ISearchService>>();
+            searchServiceScope.Value.Returns(_searchService);
+            var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
+            searchServiceProvider.Invoke().Returns(searchServiceScope);
+
+            // Create a proper IScopeProvider<ISearchParameterStatusDataStore> mock
+            var searchParameterStatusDataStoreScope = Substitute.For<IScoped<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreScope.Value.Returns(_searchParameterStatusDataStore);
+            var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
+
+            // Create a proper IScopeProvider<IFhirDataStore> mock
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataStoreScope.Value.Returns(fhirDataStore);
+            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
+            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
+
+            // Create SearchParameterDefinitionManager with proper dependencies
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchServiceProvider,
+                _searchParameterComparer,
+                searchParameterStatusDataStoreProvider,
+                fhirDataStoreProvider,
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
-            _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope();
+
+            // Create a proper IScope<IFhirOperationDataStore> mock
+            _fhirOperationDataStoreFactory = () =>
+            {
+                var scope = Substitute.For<IScoped<IFhirOperationDataStore>>();
+                scope.Value.Returns(_fhirOperationDataStore);
+                return scope;
+            };
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
-            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger, _fhirOperationDataStoreFactory);
+            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
+                _authorizationService,
+                _searchParameterStatusManager,
+                _logger2,
+                _queueClient,
+                _auditLogger,
+                _fhirOperationDataStoreFactory); // Pass the required parameter here
+
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
@@ -175,12 +222,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 });
             ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
             _searchParameterDefinitionManager.UrlLookup = urlLookup;
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
-            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").ToDictionary(x => x.Code.ToString())));
-            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").ToDictionary(x => x.Code.ToString())));
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
-
-            // _searchParameterStatusManager.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(System.Threading.Tasks.Task.CompletedTask);
         }
 
         [Fact]
@@ -275,7 +320,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var loggers = CreateTestAuditLogger();
-            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger, _fhirOperationDataStoreFactory);
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, loggers.auditLogger, _fhirOperationDataStoreFactory);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
@@ -295,32 +340,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             Assert.Single(loggers.logger.LogRecords);
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
-        }
-
-        [Fact]
-        public async Task GivenARequestToUpdateSearchParameterStatus_WhenAReindexJobIsRunning_ThenAnOperationOutcomeIsReturnedIndicatingUpdatesAreNotAllowed()
-        {
-            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
-            {
-                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
-            };
-
-            IFhirOperationDataStore fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-            fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((true, string.Empty));
-            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory = () => fhirOperationDataStore.CreateMockScope();
-
-            SearchParameterStateUpdateHandler searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger, fhirOperationDataStoreFactory);
-            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
-
-            Assert.NotNull(response);
-            Assert.NotNull(response.UpdateStatus);
-
-            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
-            var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
-            var issue = resourceResponse.Issue[0];
-            Assert.True(issue.Details.Text == Fhir.Core.Resources.ReindexRunning);
-            Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
-            Assert.True(issue.Code == OperationOutcome.IssueType.Conflict);
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()

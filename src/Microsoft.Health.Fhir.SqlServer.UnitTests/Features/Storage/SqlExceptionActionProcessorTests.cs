@@ -7,6 +7,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Data.SqlTypes;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -127,33 +128,50 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         /// <returns>sql exception</returns>
         private static SqlException CreateSqlException(int number)
         {
-            var collectionConstructor = typeof(SqlErrorCollection)
-                .GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, Array.Empty<Type>(), null);
+            // Create SqlError using reflection
+            var error = Create<SqlError>(
+                number,      // infoNumber
+                (byte)0,     // errorState
+                (byte)0,     // errorClass
+                string.Empty, // server
+                string.Empty, // message
+                string.Empty, // procedure
+                0,           // lineNumber
+                null);       // exception
 
-            var addMethod = typeof(SqlErrorCollection).GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Instance);
+            // Create SqlErrorCollection using reflection
+            var errorCollection = Create<SqlErrorCollection>();
 
-            var errorCollection = (SqlErrorCollection)collectionConstructor.Invoke(null);
+            // Add the error to the collection
+            typeof(SqlErrorCollection)
+                .GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.Invoke(errorCollection, new object[] { error });
 
-            var errorConstructor = typeof(SqlError)
-                .GetConstructor(
-                    BindingFlags.NonPublic | BindingFlags.Instance,
+            // Create SqlException using the CreateException static method
+            var exception = typeof(SqlException)
+                .GetMethod(
+                    "CreateException",
+                    BindingFlags.NonPublic | BindingFlags.Static,
                     null,
-                    new[] { typeof(int), typeof(byte), typeof(byte), typeof(string), typeof(string), typeof(string), typeof(int), typeof(uint), typeof(Exception) },
-                    null);
+                    CallingConventions.ExplicitThis,
+                    new[] { typeof(SqlErrorCollection), typeof(string) },
+                    new ParameterModifier[] { })
+                ?.Invoke(null, new object[] { errorCollection, "7.0.0" }) as SqlException;
 
-            object error = errorConstructor
-                .Invoke(new object[] { number, (byte)0, (byte)0, "server", "errMsg", "proccedure", 100, 0U, null });
+            return exception ?? throw new InvalidOperationException("Could not create SqlException");
+        }
 
-            addMethod.Invoke(errorCollection, new[] { error });
+        private static T Create<T>(params object[] parameters)
+        {
+            var constructors = typeof(T).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
+            var constructor = constructors.FirstOrDefault(ctor => ctor.GetParameters().Length == parameters.Length);
 
-            var constructor = typeof(SqlException)
-                .GetConstructor(
-                    BindingFlags.NonPublic | BindingFlags.Instance, // visibility
-                    null,
-                    new[] { typeof(string), typeof(SqlErrorCollection), typeof(Exception), typeof(Guid) },
-                    null);
+            if (constructor == null)
+            {
+                throw new InvalidOperationException($"Could not find constructor for {typeof(T).Name} with {parameters.Length} parameters");
+            }
 
-            return (SqlException)constructor.Invoke(new object[] { "Error message", errorCollection, new DataException(), Guid.NewGuid() });
+            return (T)constructor.Invoke(parameters);
         }
     }
 }

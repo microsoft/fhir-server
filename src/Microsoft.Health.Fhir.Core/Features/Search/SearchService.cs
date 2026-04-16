@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger = logger;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _fhirDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         /// <inheritdoc />
         public virtual async Task<SearchResult> SearchAsync(
             string resourceType,
@@ -227,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (countOnly)
             {
-                searchOptions.CountOnly = true;
+                 searchOptions.CountOnly = true;
             }
 
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
@@ -235,14 +240,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,
             long endId,
             int rangeSize,
             int numberOfRanges,
             bool up,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool activeOnly = false)
         {
             throw new NotImplementedException();
         }

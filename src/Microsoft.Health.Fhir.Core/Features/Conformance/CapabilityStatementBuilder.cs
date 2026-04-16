@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -107,8 +109,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder ApplyToResource(string resourceType, Action<ListedResourceComponent> action)
         {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(action, nameof(action));
+
+            var resourceComponent = GetResourceComponent(resourceType);
+            action(resourceComponent);
+
+            return this;
+        }
+
+        public async Task<ICapabilityStatementBuilder> ApplyToResourceAsync(string resourceType, Func<ListedResourceComponent, Task> action)
+        {
+            EnsureArg.IsNotNull(action, nameof(action));
+
+            var resourceComponent = GetResourceComponent(resourceType);
+            await action(resourceComponent);
+
+            return this;
+        }
+
+        private ListedResourceComponent GetResourceComponent(string resourceType)
+        {
+            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
             ListedRestComponent listedRestComponent = _statement.Rest.Server();
@@ -128,9 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 
-            action(resourceComponent);
-
-            return this;
+            return resourceComponent;
         }
 
         private CapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
@@ -173,11 +192,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Count, Type = SearchParamType.Number });
-
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Summary, Type = SearchParamType.Token });
             return this;
         }
 
-        private CapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
+        private CapabilityStatementBuilder SyncSearchParams(string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
@@ -243,14 +262,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private CapabilityStatementBuilder SyncProfile(string resourceType, bool disableCacheRefresh)
+        private async Task<ICapabilityStatementBuilder> SyncProfileAsync(string resourceType, bool disableCacheRefresh, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
-            ApplyToResource(resourceType, resourceComponent =>
+            await ApplyToResourceAsync(resourceType, async resourceComponent =>
             {
-                var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType, disableCacheRefresh);
+                var supportedProfiles = await _supportedProfiles.GetSupportedProfilesAsync(resourceType, cancellationToken, disableCacheRefresh);
                 if (supportedProfiles != null)
                 {
                     if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
@@ -330,7 +349,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder SyncSearchParametersAsync()
+        public bool IsSyncProfilesRequested()
+        {
+            return _supportedProfiles.IsSyncRequested();
+        }
+
+        public ICapabilityStatementBuilder SyncSearchParameters()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
@@ -345,13 +369,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                SyncSearchParamsAsync(resource);
+                SyncSearchParams(resource);
             }
 
             return this;
         }
 
-        public ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false)
+        public async Task<ICapabilityStatementBuilder> SyncProfilesAsync(CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
             if (!disableCacheRefresh)
             {
@@ -369,8 +393,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                SyncProfile(resource, disableCacheRefresh);
+                await SyncProfileAsync(resource, disableCacheRefresh, cancellationToken);
             }
+
+            // At the end of profiles syncronization, mark sync as completed.
+            _supportedProfiles.MarkSyncCompleted();
 
             return this;
         }

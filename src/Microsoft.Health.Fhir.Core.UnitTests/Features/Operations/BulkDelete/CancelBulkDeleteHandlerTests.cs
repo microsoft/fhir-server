@@ -131,16 +131,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(jobs);
             var request = new CancelBulkDeleteRequest(1);
-            var response = await _handler.Handle(request, CancellationToken.None);
 
-            Assert.Equal(expectedStatus, response.StatusCode);
-            if (expectedStatus == HttpStatusCode.Accepted)
+            if (expectedStatus == HttpStatusCode.Conflict)
             {
-                await _queueClient.ReceivedWithAnyArgs(1).CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.Handle(request, CancellationToken.None));
+                Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
             }
             else
             {
-                await _queueClient.DidNotReceiveWithAnyArgs().CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                var response = await _handler.Handle(request, CancellationToken.None);
+
+                Assert.Equal(expectedStatus, response.StatusCode);
+                if (expectedStatus == HttpStatusCode.Accepted)
+                {
+                    await _queueClient.ReceivedWithAnyArgs(1).CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                }
+                else
+                {
+                    await _queueClient.DidNotReceiveWithAnyArgs().CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                }
             }
         }
     }

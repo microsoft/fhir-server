@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         string GetFhirTypeNameForType(Type type);
 
-        bool IsKnownResource(string name);
+        bool IsKnownResource(string name, bool ignoreCase = true);
 
         bool IsKnownCompartmentType(string compartmentType);
 

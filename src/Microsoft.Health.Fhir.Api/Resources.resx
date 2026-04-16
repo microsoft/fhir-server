@@ -400,6 +400,9 @@
     <value>fhirUser claim value of {0} is not valid. fhirUser claim must be a valid URL.</value>
     <comment>{0} is the provided value in the fhirUser claim.</comment>
   </data>
+  <data name="MixedSMARTV1AndV2ScopesAreNotAllowed" xml:space="preserve">
+    <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
@@ -420,6 +423,12 @@
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
   </data>
+  <data name="OAuth2ContentTypeMustBeFormUrlEncoded" xml:space="preserve">
+    <value>Content-Type must be application/x-www-form-urlencoded.</value>
+  </data>
+  <data name="OAuth2TokenParameterRequired" xml:space="preserve">
+    <value>token parameter is required.</value>
+  </data>
   <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
     <value>Not able to create final result. Retry the operation.</value>
   </data>
@@ -431,5 +440,34 @@
   </data>
   <data name="NonroutableHost" xml:space="preserve">
     <value>The request host cannot be used as it is not routable.</value>
+  </data>
+  <data name="ConditionalCreateResourceCreated" xml:space="preserve">
+    <value>A new resource was created.</value>
+  </data>
+  <data name="ConditionalCreateResourceAlreadyExists" xml:space="preserve">
+    <value>The resource already exists.</value>
+  </data>
+  <data name="ExpandInvalidResourceId" xml:space="preserve">
+    <value>The resource id must not be null or empty.</value>
+  </data>
+  <data name="ExpandMissingRequiredParameter" xml:space="preserve">
+    <value>The 'url' or 'valueSet' parameter must be provided</value>
+  </data>
+  <data name="ExpandInvalidParameter" xml:space="preserve">
+    <value>One or more invalid parameters are found: {0}</value>
+  </data>
+  <data name="ExpandInvalidParameterCount" xml:space="preserve">
+    <value>The number of the parameter must not be more than one: {0}</value>
+  </data>
+  <data name="DuplicateSearchParamCodesInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}]</value>
+    <comment>{0} is comma delimited list of dup codes</comment>
+  </data>
+  <data name="DuplicateSearchParamUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate Urls [{0}].</value>
+    <comment>{0} is comma delimited list of duplicate Urls</comment>
+  </data>
+  <data name="DuplicateSearchParamCodesAndUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}] and Urls [{1}].</value>
   </data>
 </root>

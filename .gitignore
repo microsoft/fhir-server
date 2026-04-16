@@ -29,6 +29,9 @@ bld/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# Generated test runsettings (contains secrets)
+test/remote.runsettings
+
 # NUNIT
 *.VisualState.xml
 TestResult.xml
@@ -293,5 +296,11 @@ install-aso/
 *.Generated.cs
 *.Generated.*.cs
 
-# Azurite
-__azurite*
+# Azurite temporary files
+__*
+
+# For our Mac friends
+.DS_Store
+
+# For ignoring .local files from MultiInstanceRunner
+.local/

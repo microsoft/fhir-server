@@ -19,10 +19,12 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -46,8 +48,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
+            configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
             configuration["FhirServer:Security:Enabled"] = "true";
+            configuration["DevelopmentIdentityProvider:Enabled"] = "true";
 
             string inProcEndpoint = "https://inprochost";
             configuration["FhirServer:Security:Authentication:Authority"] = inProcEndpoint;
@@ -55,21 +59,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // For local development we will use the Azure Storage Emulator for export.
             configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable reindex for testing
+            // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
 
-            // enable import for testing
+            // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
-            configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "1";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable rebuild indexes for testing
+            // Enable rebuild indexes for testing
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
+
+            // Validate operation settings
+            var validateConfiguration = new ValidateOperationConfiguration();
+            configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = "5"; // Lower interval for testing purposes.
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = "5"; // Lower interval for testing purposes.
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
+            configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
+
+            // Core Features settings
+            configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
+            configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
+            configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
@@ -84,7 +102,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     temp.InitialCatalog = databaseName;
                     ConnectionString = temp.ToString();
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
-                    configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
                     _cleanupDatabase = async () =>
                     {
@@ -134,12 +151,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(startupType)
                 .ConfigureServices(serviceCollection =>
                 {
-                    // ensure that HttpClients
-                    // use a message handler for the test server
+                    // Ensure that HttpClients
+                    // Use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
                         .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
                         .SetHandlerLifetime(Timeout.InfiniteTimeSpan); // So that it is not disposed after 2 minutes;
+
+                    // Configure named HttpClient for OIDC configuration retrieval (used by token introspection)
+                    serviceCollection
+                        .AddHttpClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName)
+                        .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
+                        .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
 
                     serviceCollection.PostConfigure<JwtBearerOptions>(
                         JwtBearerDefaults.AuthenticationScheme,

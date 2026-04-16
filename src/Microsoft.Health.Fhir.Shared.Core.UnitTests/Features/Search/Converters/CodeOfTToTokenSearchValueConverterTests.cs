@@ -55,12 +55,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public async Task GivenANullCode_WhenConverted_ThenNullValueReturned()
+        public async Task GivenANullCode_WhenConverted_ThenEmptyListReturned()
         {
             await Test(
                 code => code.Value = null,
                 ValidateNull,
-                new Code<ResourceType>(null));
+                new Code<ResourceType>[] { });
         }
     }
 }

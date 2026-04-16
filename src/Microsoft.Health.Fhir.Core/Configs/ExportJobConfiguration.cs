@@ -5,15 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class ExportJobConfiguration
+    public class ExportJobConfiguration : HostingBackgroundServiceQueueItem
     {
-        /// <summary>
-        /// Determines whether export is enabled or not.
-        /// </summary>
-        public bool Enabled { get; set; }
+        public ExportJobConfiguration()
+        {
+            Queue = QueueType.Export;
+        }
 
         /// <summary>
         /// Determines the storage account connection that will be used to export data to.
@@ -77,5 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The maximum number of times a job can be restarted before it is considered failed.
         /// </summary>
         public uint MaxJobRestartCount { get; set; } = 64;
+
+        /// <summary>
+        /// Gets or sets the maximum number of retry attempts for transient errors.
+        /// </summary>
+        public int MaxRetryCount { get; set; } = 3;
+
+        /// <summary>
+        /// Gets or sets the delay in milliseconds between retry attempts.
+        /// </summary>
+        public int RetryDelayMilliseconds { get; set; } = 5000;
     }
 }

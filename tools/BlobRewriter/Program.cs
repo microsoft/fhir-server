@@ -17,6 +17,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -27,7 +28,11 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
     internal static class Program
     {
         private static readonly string SourceConnectionString = ConfigurationManager.AppSettings["SourceConnectionString"];
+        private static readonly string SourceUri = ConfigurationManager.AppSettings["SourceUri"];
+        private static readonly string SourceUAMI = ConfigurationManager.AppSettings["SourceUAMI"];
         private static readonly string TargetConnectionString = ConfigurationManager.AppSettings["TargetConnectionString"];
+        private static readonly string TargetUri = ConfigurationManager.AppSettings["TargetUri"];
+        private static readonly string TargetUAMI = ConfigurationManager.AppSettings["TargetUAMI"];
         private static readonly string SourceContainerName = ConfigurationManager.AppSettings["SourceContainerName"];
         private static readonly string TargetContainerName = ConfigurationManager.AppSettings["TargetContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
@@ -47,8 +52,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         public static void Main()
         {
             Console.WriteLine("!!!See App.config for the details!!!");
-            var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
-            var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
+            var sourceContainer = GetContainer(SourceConnectionString, SourceUri, SourceUAMI, SourceContainerName);
+            var targetContainer = GetContainer(TargetConnectionString, TargetUri, TargetUAMI, TargetContainerName);
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: Starting...");
             var blobs = WritesEnabled
@@ -287,7 +292,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
         private static string GetDirectoryName(string origBlobName)
         {
-            return origBlobName.Substring(0, origBlobName.IndexOf('/', StringComparison.OrdinalIgnoreCase));
+            var index = origBlobName.IndexOf('/', StringComparison.OrdinalIgnoreCase);
+            return index > 0 ? origBlobName.Substring(0, index) : "none";
         }
 
         private static (string resourceType, string resourceId) ParseJson(string jsonString)
@@ -394,16 +400,16 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             }
         }
 
-        private static BlobContainerClient GetContainer(string connectionString, string containerName)
+        private static BlobContainerClient GetContainer(string storageConnectionString, string storageUri, string storageUAMI, string storageContainerName)
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(connectionString);
-                var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                var blobServiceClient = string.IsNullOrEmpty(storageUri) ? new BlobServiceClient(storageConnectionString) : new BlobServiceClient(new Uri(storageUri), string.IsNullOrEmpty(storageUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(storageUAMI));
+                var blobContainerClient = blobServiceClient.GetBlobContainerClient(storageContainerName);
 
                 if (!blobContainerClient.Exists())
                 {
-                    var container = blobServiceClient.CreateBlobContainer(containerName);
+                    var container = blobServiceClient.CreateBlobContainer(storageContainerName);
                     Console.WriteLine($"Created container {container.Value.Name}");
                 }
 
@@ -411,7 +417,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             }
             catch
             {
-                Console.WriteLine($"Unable to parse stroage reference or connect to storage account {connectionString}.");
+                Console.WriteLine($"Unable to parse stroage reference or connect to storage account {storageConnectionString}.");
                 throw;
             }
         }

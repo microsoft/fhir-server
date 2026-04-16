@@ -151,6 +151,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.
+        /// </summary>
+        internal static string ResourceConcurrentUpdateConflict {
+            get {
+                return ResourceManager.GetString("ResourceConcurrentUpdateConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource with type {0} and ID {1} is not available..
         /// </summary>
         internal static string ResourceNotAvailable {

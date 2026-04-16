@@ -46,7 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(system))
             {
-                yield return null;
                 yield break;
             }
 

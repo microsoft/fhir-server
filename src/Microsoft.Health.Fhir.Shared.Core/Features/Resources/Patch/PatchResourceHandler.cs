@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -46,10 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckPatchAccess(cancellationToken);
 
             ResourceKey key = request.ResourceKey;
 
@@ -76,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             ResourceElement patchedResource = request.Payload.Patch(currentDoc);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag), cancellationToken);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
         }
     }
 }

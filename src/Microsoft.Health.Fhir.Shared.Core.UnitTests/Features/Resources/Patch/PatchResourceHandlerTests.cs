@@ -82,4 +82,66 @@ public class PatchResourceHandlerTests
 
         await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _patchHandler.Handle(request, CancellationToken.None));
     }
+
+    [Theory]
+    [InlineData(DataActions.Update)]
+    [InlineData(DataActions.Read | DataActions.Write)]
+    public async Task GivenAPatchResourceHandler_WhenUserHasSufficientPermissions_ThenPatchShouldSucceed(DataActions returnedDataAction)
+    {
+        // Arrange
+        IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
+        IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        IMediator mediator = Substitute.For<IMediator>();
+
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+
+        authService
+            .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
+            .Returns(returnedDataAction);
+
+        ResourceElement patient = Samples.GetDefaultPatient().UpdateVersion("1");
+        var wrapper = new ResourceWrapper(
+            patient,
+            new RawResource(patient.Instance.ToJson(), FhirResourceFormat.Json, false),
+            new ResourceRequest(HttpMethod.Get),
+            false,
+            null,
+            null,
+            null);
+
+        fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(wrapper));
+
+        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null);
+
+        // Act & Assert - Should not throw UnauthorizedFhirActionException
+        await patchHandler.Handle(request, CancellationToken.None);
+
+        await mediator
+            .Received()
+            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(DataActions.None)]
+    [InlineData(DataActions.Read)]
+    [InlineData(DataActions.Write)]
+    public async Task GivenAPatchResourceHandler_WhenUserLacksPermission_ThenUnauthorizedExceptionIsThrown(DataActions returnedDataAction)
+    {
+        // Arrange
+        IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
+        IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        IMediator mediator = Substitute.For<IMediator>();
+
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+
+        authService
+            .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
+            .Returns(returnedDataAction);
+
+        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => patchHandler.Handle(request, CancellationToken.None));
+    }
 }

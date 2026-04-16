@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -248,11 +248,18 @@
     <value>The target resource type cannot be empty.</value>
     <comment>TargetResourceType is an optional parameter</comment>
   </data>
+  <data name="IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters" xml:space="preserve">
+    <value>Include, RevInclude and Chained searches do not support SMART V2 finer-grained resource constraints using search parameters.</value>
+  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
   <data name="InvalidConditionalReference" xml:space="preserve">
     <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceToMultipleResources" xml:space="preserve">
+    <value>Given conditional reference '{0}' resolved to multiple resources.</value>
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
@@ -486,6 +493,9 @@
   <data name="SearchParameterDefinitionNotFound" xml:space="preserve">
     <value>A search parameter with Uri '{0}' was not found.</value>
   </data>
+  <data name="SearchParameterDefinitionSystemDefined" xml:space="preserve">
+    <value>The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL.</value>
+  </data>
   <data name="ChangesToSearchParametersNotAllowedWhileReindexing" xml:space="preserve">
     <value>Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
     <comment>{0} Id of currently active Reindex job.</comment>
@@ -605,6 +615,15 @@
   </data>
   <data name="ImportOperationCompleted" xml:space="preserve">
     <value>Import operation has already completed</value>
+  </data>
+  <data name="BulkDeleteOperationCompleted" xml:space="preserve">
+    <value>Bulk delete operation has already completed</value>
+  </data>
+  <data name="BulkUpdateOperationCompleted" xml:space="preserve">
+    <value>Bulk update operation has already completed</value>
+  </data>
+  <data name="ExportOperationCompleted" xml:space="preserve">
+    <value>Export operation has already completed</value>
   </data>
   <data name="ConditionalRequestTooCostly" xml:space="preserve">
     <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
@@ -757,14 +776,14 @@
   <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
     <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
   </data>
-  <data name="ReindexRunning" xml:space="preserve">
-    <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
-  </data>
   <data name="TooManyIncludeResults" xml:space="preserve">
     <value>The search criteria provided returns partial included resources. Use '_includesCount' parameter to retrieve all included resources (Default: {0}, Max: {1}).</value>
   </data>
   <data name="UnsupportedIncludesOperation" xml:space="preserve">
     <value>The '$includes' operation is not supported.</value>
+  </data>
+  <data name="UnsupportedBulkUpdateOperation" xml:space="preserve">
+    <value>The 'bulk-update' operation is not supported.</value>
   </data>
   <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
     <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
@@ -780,5 +799,78 @@
   </data>
   <data name="TooManyParameters" xml:space="preserve">
     <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
+  </data>
+  <data name="NotReferencedParameterNoSeparator" xml:space="preserve">
+    <value>Not referenced requires a resource type and search field separated by a :</value>
+  </data>
+  <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
+    <value>Found job id '{0}', but it is a child job and not the primary reindex job.</value>
+    <comment>{0} is the job id</comment>
+  </data>
+  <data name="ReindexRunningException" xml:space="preserve">
+    <value>A Reindex Job is currently running. Wait till it has completed before trying again.</value>
+  </data>
+  <data name="SearchParametersNotInitialized" xml:space="preserve">
+    <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
+  </data>
+  <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
+    <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
+  </data>
+  <data name="ConstraintViolation" xml:space="preserve">
+    <value>Failure inserting data due to a code value overflow. Please contact support for assistance.</value>
+  </data>
+  <data name="InvalidReturnPreferenceValue" xml:space="preserve">
+    <value>The 'returnPreference' value '{0}' is invalid. The supported values are: {1}.</value>
+  </data>
+  <data name="CosmosDbRequestTimeout" xml:space="preserve">
+    <value>Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.</value>
+    <comment>Error message for Cosmos DB 408 RequestTimeout due to insufficient RUs or high load.</comment>
+  </data>
+  <data name="DocRefMissingRequiredParameter" xml:space="preserve">
+    <value>The '{0}' parameter must be provided.</value>
+  </data>
+  <data name="DocRefParameterNotSupported" xml:space="preserve">
+    <value>The '{0}' parameter is not supported.</value>
+  </data>
+  <data name="DocRefInvalidParameterCount" xml:space="preserve">
+    <value>The number of the '{0}' parameter should not be more than one.</value>
+  </data>
+  <data name="DocRefInvalidParameterValue" xml:space="preserve">
+    <value>The '{0}' parameter should not have more than one value, delimited by commas.</value>
+  </data>
+  <data name="ExpandInvalidParameterValue" xml:space="preserve">
+    <value>The value of '{0}' parameter is invalid.</value>
+  </data>
+  <data name="NotReferencedParameterMultipleSeperators" xml:space="preserve">
+    <value>Not Referenced only allows one :</value>
+  </data>
+  <data name="NotReferencedParameterWildcardType" xml:space="preserve">
+    <value>Not Referenced doesn't allow for a wildcard resource type with a specific search field</value>
+  </data>
+  <data name="ProcessingJobHadNoResults" xml:space="preserve">
+    <value>Processing job had no results</value>
+    <comment>Error message when a processing job in an operation (export or reindex) returns no results</comment>
+  </data>
+  <data name="ReindexFailedWithUnknownError" xml:space="preserve">
+    <value>Reindex failed with unknown error. Please resubmit to try again.</value>
+    <comment>Error message when a reindex job fails with an unknown error</comment>
+  </data>
+  <data name="ReindexingFailedForResourcesListed" xml:space="preserve">
+    <value>{0} resource(s) of the following type(s) failed to be reindexed: '{1}'.</value>
+  </data>
+  <data name="ReindexingNothingToProcess" xml:space="preserve">
+    <value>Nothing to process. Reindex complete.</value>
+  </data>
+  <data name="ReindexingCancelledbyCaller" xml:space="preserve">
+    <value>Reindex job was cancelled by caller.</value>
+  </data>
+  <data name="ReindexingJobCancelled" xml:space="preserve">
+    <value>The reindex job was canceled.</value>
+  </data>
+  <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
+    <value>There are no search parameters to reindex for job Id: {0}.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
+    <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
 </root>

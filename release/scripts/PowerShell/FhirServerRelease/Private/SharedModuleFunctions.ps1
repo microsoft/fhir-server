@@ -22,8 +22,7 @@ function Get-AzureAdApplicationByDisplayName {
         [ValidateNotNullOrEmpty()]
         [string]$DisplayName
     )
-
-    Get-AzureAdApplication -Filter "DisplayName eq '$DisplayName'"
+    return Get-MgApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
@@ -32,8 +31,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience
     )
-
-    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
+    return Get-MgApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -43,7 +41,7 @@ function Get-AzureAdServicePrincipalByAppId {
         [string]$AppId
     )
 
-    return Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
+    return Get-MgServicePrincipal -Filter "appId eq '$AppId'"
 }
 
 function Get-ServiceAudience {
@@ -57,6 +55,9 @@ function Get-ServiceAudience {
         [string]$TenantId
     )
  
+     Write-Host "ServiceName $ServiceName"
+     Write-Host "TenantId $TenantId"
+
     # AppId Uri in single tenant applications will require use of default scheme or verified domains
     # It needs to be in one of the many formats mentioned in https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-breaking-changes
     # We use the format api://<tenantId>/<string>
@@ -99,13 +100,19 @@ function Get-UserUpn {
 }
 
 function Get-AzureADAuthorityUri {
-    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
-    "$aadEndpoint$aadTenantId"
+    $context = Get-MgContext
+    if (-not $context) {
+        throw "No Microsoft Graph session found. Please connect using Connect-MgGraph."
+    }
+    
+    # For Microsoft Graph, use the standard authority endpoint
+    $tenantId = $context.TenantId
+    "https://login.microsoftonline.com/$tenantId"
 }
 
 function Get-AzureADOpenIdConfiguration {
-    Invoke-WebRequest "$(Get-AzureADAuthorityUri)/.well-known/openid-configuration" | ConvertFrom-Json
+    $authorityUri = Get-AzureADAuthorityUri
+    Invoke-WebRequest "$authorityUri/.well-known/openid-configuration" | ConvertFrom-Json
 }
 
 function Get-AzureADTokenEndpoint {

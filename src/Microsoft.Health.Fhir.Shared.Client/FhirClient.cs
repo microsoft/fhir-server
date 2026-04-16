@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Client
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
+        private const string PreferHeaderName = "prefer";
         public const string ProfileValidation = "x-ms-profile-validation";
         public const string ReindexParametersStatus = "Status";
 
@@ -103,13 +105,13 @@ namespace Microsoft.Health.Fhir.Client
 
         public HttpClient HttpClient { get; }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
+            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, additionalHeaders, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -124,6 +126,14 @@ namespace Microsoft.Health.Fhir.Client
             if (!string.IsNullOrEmpty(provenanceHeader))
             {
                 message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
+            }
+
+            if (additionalHeaders?.Any() ?? false)
+            {
+                foreach (var header in additionalHeaders)
+                {
+                    message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -158,19 +168,24 @@ namespace Microsoft.Health.Fhir.Client
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
-            where T : Resource
+        public Task<FhirResponse<Bundle>> ReadHistoryAsync(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
         {
-            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
+            return SearchAsync($"{resourceType}/{resourceId}/_history", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, metaHistory, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, metaHistory, cancellationToken);
+        }
+
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -189,6 +204,11 @@ namespace Microsoft.Health.Fhir.Client
                 message.Headers.Add(ProvenanceHeader, provenanceHeader);
             }
 
+            if (!metaHistory)
+            {
+                message.RequestUri = new Uri(message.RequestUri + (message.RequestUri.OriginalString.Contains('?', StringComparison.OrdinalIgnoreCase) ? "&" : "?") + "_meta-history=false", UriKind.Relative);
+            }
+
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
@@ -204,14 +224,28 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
         {
+            return await DeleteAsync(uri, true, cancellationToken);
+        }
+
+        public async Task<FhirResponse> DeleteAsync(string uri, bool checkSuccess, CancellationToken cancellationToken = default)
+        {
             using var message = new HttpRequestMessage(HttpMethod.Delete, uri);
             message.Headers.Accept.Add(_mediaType);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
+            if (checkSuccess)
+            {
+                await EnsureSuccessStatusCodeAsync(response);
+            }
 
             return new FhirResponse(response);
+        }
+
+        public Task<FhirResponse> HardDeleteAsync<T>(T resource, bool checkSuccess, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", checkSuccess, cancellationToken);
         }
 
         public Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
@@ -220,16 +254,16 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return await JsonPatchAsync<T>($"{resource.TypeName}/{resource.Id}", content, ifMatchVersion, cancellationToken);
+            return await JsonPatchAsync<T>($"{resource.TypeName}/{resource.Id}?_meta-history={metaHistory}", content, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
                  where T : Resource
         {
-            return await JsonPatchAsync<T>($"{resourceType}?{searchCriteria}", content, ifMatchVersion, cancellationToken);
+            return await JsonPatchAsync<T>($"{resourceType}?{searchCriteria}&_meta-history={metaHistory}", content, ifMatchVersion, cancellationToken);
         }
 
         private async Task<FhirResponse<T>> JsonPatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
@@ -256,16 +290,16 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<T>(response);
         }
 
-        public async Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return await FhirPatchAsync<T>($"{resource.TypeName}/{resource.Id}", patchRequest, ifMatchVersion, cancellationToken);
+            return await FhirPatchAsync<T>($"{resource.TypeName}/{resource.Id}?_meta-history={metaHistory}", patchRequest, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
                  where T : Resource
         {
-            return await FhirPatchAsync<T>($"{resourceType}?{searchCriteria}", patchRequest, ifMatchVersion, cancellationToken);
+            return await FhirPatchAsync<T>($"{resourceType}?{searchCriteria}&_meta-history={metaHistory}", patchRequest, ifMatchVersion, cancellationToken);
         }
 
         private async Task<FhirResponse<T>> FhirPatchAsync<T>(string uri, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
@@ -290,6 +324,20 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<T>(response);
+        }
+
+        public async Task<HttpResponseMessage> BulkUpdateAsync(string uri, Parameters patchRequest, CancellationToken cancellationToken)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
+            {
+                Content = CreateStringContent(patchRequest),
+            };
+
+            message.Headers.Accept.Add(_mediaType);
+            message.Headers.Add(PreferHeaderName, "respond-async");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            return response;
         }
 
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)
@@ -470,9 +518,9 @@ namespace Microsoft.Health.Fhir.Client
             return await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, bool returnDetails = false, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation + (returnDetails ? "?_details=true" : string.Empty));
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
@@ -548,66 +596,46 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
         {
-            int checkReindexCount = 0;
-            int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(10);
-            var sw = new Stopwatch();
+            const int maxSeconds = 300;
+            var sw = Stopwatch.StartNew();
             string currentStatus;
             FhirResponse<Parameters> reindexJobResult;
-            sw.Start();
-
             do
             {
-                if (checkReindexCount > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
+                await Task.Delay(TimeSpan.FromSeconds(1));
                 reindexJobResult = await CheckJobAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
-                checkReindexCount++;
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name.Equals(ReindexParametersStatus, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
             }
-            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);
-
+            while (!desiredStatus.Contains(currentStatus) && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
 
-            if (checkReindexCount >= maxCount)
+            if (sw.Elapsed.TotalSeconds >= maxSeconds && !desiredStatus.Contains(currentStatus))
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}. This may cause other tests using Reindex to fail.");
+                throw new Exception($"ReindexJob did not complete within {maxSeconds} seconds. This may cause other tests using Reindex to fail.");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 
             return reindexJobResult;
         }
 
-        public async Task<FhirResponse<Parameters>> WaitForBulkDeleteStatus(Uri bulkDeleteJobUri)
+        public async Task<FhirResponse<Parameters>> WaitForBulkJobStatus(string jobType, Uri bulkJobUri)
         {
-            int checkCount = 0;
-            int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(10);
-            var sw = new Stopwatch();
+            const int maxSeconds = 300;
+            var sw = Stopwatch.StartNew();
             FhirResponse<Parameters> jobResult;
-            sw.Start();
-
             do
             {
-                if (checkCount > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
-                jobResult = await CheckJobAsync(bulkDeleteJobUri);
-                checkCount++;
+                await Task.Delay(TimeSpan.FromSeconds(1));
+                jobResult = await CheckJobAsync(bulkJobUri);
             }
-            while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && checkCount < maxCount);
-
+            while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
 
-            if (checkCount >= maxCount)
+            if (sw.Elapsed.TotalSeconds >= maxSeconds && jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted)
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"Bulk delete at ${bulkDeleteJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
+                throw new Exception($"${jobType} at ${bulkJobUri} did not complete within {maxSeconds} seconds.");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 

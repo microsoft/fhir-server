@@ -1,12 +1,12 @@
 # Architecture Decision Records
 
-We will maintain Architecture Decision Records (ADRs) in our FHIR Server repository, placing each one under `doc/arch/adr-<yymm>-<short-title>.md`. When in a proposed design state, please the ADR under the folder `doc/arch/proposed`. We have chosen to write these records using Markdown.
+We will maintain Architecture Decision Records (ADRs) in our FHIR Server repository, placing each one under `docs/arch/adr-<yymm>-<short-title>.md`. When in a proposed design state, place the ADR under the folder `docs/arch/Proposals`. We have chosen to write these records using Markdown.
 
 Each ADR will be assigned a unique, sequential number (date based as above) that will never be reused. If a decision is later reversed, changed or evolved, the original record will remain in place but will be marked as superseded. Even though it’s no longer valid, it is still historically important.
 
 We will keep the ADR structure simple, with just a few sections in this example template:
 
-```
+```md
 
 # Title
    Each ADR should have a short, descriptive phrase, such as “ADR 001: Database Schema Changes for Version 1.5.0” or “ADR 009: Introducing Polly for Retry Logic”.

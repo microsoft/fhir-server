@@ -37,9 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
 #pragma warning restore CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
 
+        private readonly TimeSpan _cacheRefreshInterval;
+        private readonly TimeSpan _cacheRebuildInterval;
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
@@ -89,6 +90,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            _cacheRebuildInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRebuildIntervalSeconds);
+            _cacheRefreshInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRefreshIntervalSeconds);
 
             LogVersioningPolicyConfiguration();
         }
@@ -143,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 try
                                 {
                                     _logger.LogInformation("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
-                                    provider.Build(_builder);
+                                    await provider.BuildAsync(_builder, cancellationToken);
                                 }
                                 catch (Exception e)
                                 {
@@ -204,12 +208,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async Task BackgroudLoop()
         {
+            Stopwatch loggingTimer = Stopwatch.StartNew();
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
-                Stopwatch sw = Stopwatch.StartNew();
-                for (int i = 0; i < _rebuildDelay; i++)
+                Stopwatch rebuildMetadataStopWatch = Stopwatch.StartNew();
+                while (rebuildMetadataStopWatch.Elapsed < _cacheRebuildInterval)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
+                    if (_builder != null && _builder.IsSyncProfilesRequested())
+                    {
+                        _logger.LogInformation("SystemConformanceProvider sync is requested.");
+                        break;
+                    }
+
+                    await Task.Delay(_cacheRefreshInterval, _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
@@ -223,20 +234,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         return;
                     }
 
-                    if (sw.Elapsed >= _backgroundLoopLoggingInterval)
+                    if (loggingTimer.Elapsed >= _backgroundLoopLoggingInterval)
                     {
                         _logger.LogInformation("SystemConformanceProvider's BackgroudLoop is active and running.");
-                        sw.Restart();
+                        loggingTimer.Restart();
                     }
                 }
 
-                if (_builder != null)
+                try
                 {
-                    // Update search params;
-                    _builder.SyncSearchParametersAsync();
+                    // If the sync profile is requested or the rebuild interval has elapsed, then we will rebuild the capability statement and update in-memory metadata.
+                    if (_builder != null)
+                    {
+                        // Update search params.
+                        _builder.SyncSearchParameters();
 
-                    // Update supported profiles;
-                    _builder.SyncProfiles();
+                        // Update supported profiles.
+                        await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+                    }
+                }
+                catch (Exception e)
+                {
+                    // Do not let exceptions escape the background loop.
+                    _logger.LogError(e, "SystemConformanceProvider: Unexpected error during background capability statement rebuild.");
                 }
 
                 await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
@@ -322,12 +342,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     case RebuildPart.SearchParameter:
                         // Update search params;
-                        _builder.SyncSearchParametersAsync();
+                        _builder.SyncSearchParameters();
                         break;
 
                     case RebuildPart.Profiles:
                         // Update supported profiles;
-                        _builder.SyncProfiles(true);
+                        await _builder.SyncProfilesAsync(cancellationToken, true);
                         break;
                 }
             }

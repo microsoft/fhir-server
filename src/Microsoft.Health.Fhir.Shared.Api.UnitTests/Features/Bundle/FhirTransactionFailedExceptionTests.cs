@@ -15,7 +15,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Transaction)]
+    [Trait(Traits.Category, Categories.BundleTransaction)]
     public class FhirTransactionFailedExceptionTests
     {
         [Fact]
@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
 
             Assert.NotNull(exception.Issues);
             Assert.Equal(3, exception.Issues.Count);
+            Assert.False(exception.IsErrorCausedDueClientFailure());
 
             AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Processing, exception.Issues.First());
             AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.NotFound, exception.Issues.Skip(1).First());
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
 
             Assert.NotNull(exception.Issues);
             Assert.Single(exception.Issues);
+            Assert.False(exception.IsErrorCausedDueClientFailure());
 
             AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Processing, exception.Issues.First());
         }
@@ -63,6 +65,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
                 new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message),
                 new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message),
             };
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest, true)]
+        [InlineData(HttpStatusCode.Unauthorized, true)]
+        [InlineData(HttpStatusCode.Forbidden, true)]
+        [InlineData(HttpStatusCode.NotFound, true)]
+        [InlineData(HttpStatusCode.MethodNotAllowed, true)]
+        [InlineData(HttpStatusCode.Conflict, true)]
+        [InlineData(HttpStatusCode.PreconditionFailed, true)]
+        [InlineData(HttpStatusCode.RequestEntityTooLarge, true)]
+        [InlineData(HttpStatusCode.UnsupportedMediaType, true)]
+        [InlineData(HttpStatusCode.TooManyRequests, true)]
+        [InlineData(HttpStatusCode.InternalServerError, false)]
+        [InlineData(HttpStatusCode.NotImplemented, false)]
+        [InlineData(HttpStatusCode.BadGateway, false)]
+        [InlineData(HttpStatusCode.ServiceUnavailable, false)]
+        [InlineData(HttpStatusCode.GatewayTimeout, false)]
+        [InlineData(HttpStatusCode.Processing, false)]
+        public void IsErrorCausedDueClientFailure_ShouldReturnExpectedResult(HttpStatusCode statusCode, bool expected)
+        {
+            string message = "message";
+            var exception = new FhirTransactionFailedException(message, statusCode, Array.Empty<OperationOutcomeIssue>());
+            Assert.Equal(expected, exception.IsErrorCausedDueClientFailure());
         }
     }
 }

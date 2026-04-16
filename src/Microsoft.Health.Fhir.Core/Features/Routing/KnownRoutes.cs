@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Core.Models;
 using OperationsConstants = Microsoft.Health.Fhir.Core.Features.Operations.OperationsConstants;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string Import = "$import";
         public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
         public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+        public const string ImportJobLocationWithDetails = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment + "/true";
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
@@ -94,8 +96,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
         public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
 
+        public const string BulkUpdate = "$bulk-update";
+        public const string BulkUpdateResourceType = ResourceType + "/" + BulkUpdate;
+        public const string BulkUpdateJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkUpdate + "/" + IdRouteSegment;
+        public const string BulkUpdateOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkUpdate;
+        public const string ResourceTypeBulkUpdateOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkUpdate;
+
         public const string Includes = "$includes";
         public const string IncludesResourceType = ResourceType + "/" + Includes;
         public const string IncludesOperationDefinition = OperationDefinition + "/" + OperationsConstants.Includes;
+
+        public const string DocRef = "$docref";
+        public const string DocRefResourceType = KnownResourceTypes.DocumentReference + "/" + DocRef;
+        public const string DocRefOperationDefinition = OperationDefinition + "/" + OperationsConstants.DocRef;
+
+        public const string Expand = "$expand";
+        public const string ExpandResourceType = KnownResourceTypes.ValueSet + "/" + Expand;
+        public const string ExpandResourceId = KnownResourceTypes.ValueSet + "/" + IdRouteSegment + "/" + Expand;
+        public const string ExpandOperationDefinition = OperationDefinition + "/" + OperationsConstants.ValueSetExpand;
     }
 }

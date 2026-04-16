@@ -129,17 +129,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext);
         }
 
-        private static Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MockMergeAsync(CallInfo arg)
+        private static Task<MergeOutcome> MockMergeAsync(CallInfo arg)
         {
             IReadOnlyList<ResourceWrapperOperation> operations = arg.Arg<IReadOnlyList<ResourceWrapperOperation>>();
-            IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> outcomes = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>(operations.Count);
+            IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>(operations.Count);
 
             foreach (ResourceWrapperOperation operation in operations)
             {
-                outcomes.Add(operation.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
+                results.Add(operation.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
             }
 
-            return System.Threading.Tasks.Task.FromResult(outcomes);
+            return System.Threading.Tasks.Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, results));
         }
     }
 }

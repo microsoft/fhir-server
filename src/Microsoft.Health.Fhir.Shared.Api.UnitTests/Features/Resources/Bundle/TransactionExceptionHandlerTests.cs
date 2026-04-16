@@ -25,7 +25,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             HttpStatusCode statusCode = HttpStatusCode.Processing;
             var operationOutcome = GetOperationOutcome();
 
-            Assert.Throws<FhirTransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(message, statusCode, operationOutcome));
+            Assert.Throws<FhirTransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(
+                message,
+                statusCode,
+                operationOutcome,
+                cancelled: false));
+        }
+
+        [Fact]
+        public void GivenAnOperationOutcome_WhenCancelled_ThenACorrectExceptionIsThrown()
+        {
+            string message = "Error Message";
+            HttpStatusCode statusCode = HttpStatusCode.Processing;
+            var operationOutcome = GetOperationOutcome();
+
+            FhirTransactionCancelledException tce = Assert.Throws<FhirTransactionCancelledException>(() => TransactionExceptionHandler.ThrowTransactionException(
+                message,
+                statusCode,
+                operationOutcome,
+                cancelled: true));
+
+            Assert.Equal(message, tce.Message);
+            Assert.Equal(HttpStatusCode.RequestTimeout, tce.ResponseStatusCode);
         }
 
         [Fact]

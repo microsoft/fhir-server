@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -47,15 +48,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckCreateAccess(cancellationToken);
 
             var resource = request.Resource.ToPoco<Resource>();
 
-            // If an Id is supplied on create it should be removed/ignored
-            resource.Id = null;
+            // In a POST request, a Transactional Bundle processing defines the ID of resources being created when a full url is provided (as part of the bundle entry).
+            // After defined, the IDs are used to update references between records in the same bundle.
+            // If the record (in the current request) is part of a transaction and had an ID assigned to it, then the ID should be preserved.
+            if (IsBundleParallelTransaction(request) && !string.IsNullOrWhiteSpace(request.BundleResourceContext?.PersistedId))
+            {
+                // The following check ensures that the resource ID provided in the request matches the ID in the bundle context.
+                // This is important to maintain consistency and integrity of the resource being created.
+                // If the IDs do not match, an exception is thrown to prevent any inconsistencies.
+                if (!string.Equals(resource.Id, request.BundleResourceContext.PersistedId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"Bundle failure. Resource ID mismatch: The ID generated when handling the bundle does not match with the ID in this context. Expected '{request.BundleResourceContext.PersistedId}', but got '{resource.Id}'.");
+                }
+            }
+            else
+            {
+                resource.Id = null;
+            }
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
@@ -67,6 +80,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             resource.VersionId = result.Wrapper.Version;
 
             return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
+        }
+
+        private static bool IsBundleParallelTransaction(CreateResourceRequest request)
+        {
+            return request.IsBundleInnerRequest &&
+                request.BundleResourceContext.BundleType.HasValue &&
+                request.BundleResourceContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction &&
+                request.BundleResourceContext.ProcessingLogic == BundleProcessingLogic.Parallel;
         }
     }
 }

@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -21,6 +23,7 @@ using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -33,6 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _stackDepth = 0;
 
         private const string _joinShift = "     ";
+        internal const string ParametersHashStart = "/* HASH ";
+        internal const string ParametersHashEnd = " */";
 
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
@@ -42,10 +47,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private List<string> _includeFromCteIds;
 
         private int _tableExpressionCounter = -1;
+        private int _smartv2ScopeUnionCTE = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private bool _unionVisited = false;
+        private bool _smartV2UnionVisited = false;
+        private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
@@ -53,33 +61,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool previousSqlQueryGeneratorFailure = false;
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
-        private bool _allowCurrent; // TODO: Remove after deplyment of LakePrerequisite
+        private bool _isAsyncOperation;
+        private readonly HashSet<short> _searchParamIds = new();
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
             HashingSqlQueryParameterManager parameters,
             ISqlServerFhirModel model,
             SchemaInformation schemaInfo,
+            SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
+            bool isAsyncOperation,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
+            EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
 
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
             _schemaInfo = schemaInfo;
-            _allowCurrent = schemaInfo.Current >= SchemaVersionConstants.LakePrerequisite;
+            _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
+            _isAsyncOperation = isAsyncOperation;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
                 previousSqlQueryGeneratorFailure = true;
             }
         }
+
+        public HashSet<short> SearchParamIds => _searchParamIds;
 
         public IndentedStringBuilder StringBuilder { get; }
 
@@ -96,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _rootExpression = expression;
 
+            var visitedInclude = false;
             if (expression.SearchParamTableExpressions.Count > 0)
             {
                 if (expression.ResourceTableExpressions.Count > 0)
@@ -121,18 +138,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine(")");
+                bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+                bool hasSmartV2UnionExpressionInTheSet = expression.SearchParamTableExpressions.Any(t => t.HasSmartV2UnionExpression());
+
+                // Find number of union expressions
+                int numberOfUnionExpressions = expression.SearchParamTableExpressions.GetCountOfUnionAllExpressions();
+                int smartV2TableCounter = 0;
+                UnionExpression smartV2UnionExpression = null;
+                SearchParamTableExpressionQueryGenerator smartV2QueryGenerator = null;
                 StringBuilder.AppendLine(";WITH");
-                var visitedInclude = false;
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
                     {
-                        AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                        numberOfUnionExpressions--;
+                        if (tableExpression.HasSmartV2UnionExpression())
+                        {
+                            // Union expressions for smart v2 scopes with search parameters needs to be handled differently
+                            smartV2TableCounter = _tableExpressionCounter;
+                            smartV2UnionExpression = unionExpression;
+                            smartV2QueryGenerator = tableExpression.QueryGenerator;
 
-                        if (allOtherRemainingExpressions != null)
+                            var parametersBeforeSmartScopesAreApplied = Parameters.ParametersToHash;
+                            AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator, false);
+
+                            if (hasIncludeExpressions)
+                            {
+                                // For include and revinclude searches we need to mark the parameters added during smart scope union as smart scope parameters
+                                // As we are going to use these parameters to generate a hash for the include filtered data table
+                                MarkNewParametersAsSmartScopeParameter(parametersBeforeSmartScopesAreApplied.ToHashSet());
+                            }
+                        }
+                        else
+                        {
+                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                        }
+
+                        // Keep building the sql the old way when there are other remaining expressions after the union all without smart v2 scopes with search parameters
+                        if ((!hasSmartV2UnionExpressionInTheSet && allOtherRemainingExpressions != null) || (hasSmartV2UnionExpressionInTheSet && allOtherRemainingExpressions != null && numberOfUnionExpressions == 0))
                         {
                             StringBuilder.AppendLine(", ");
                             AppendNewTableExpression(sb, allOtherRemainingExpressions, ++_tableExpressionCounter, context);
+                            _unionAggregateCTEIndex = _tableExpressionCounter;
                         }
                     }
                     else
@@ -141,11 +188,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
-                            AddHash(); // hash is required in upper SQL
+                            AddParametersHash(); // hash is required in upper SQL
                             sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
-                            sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
-                            sb.Append(","); // add comma back
+
+                            if (_smartV2UnionVisited)
+                            {
+                                // If we have smart v2 scopes with search parameters we need to re-generate the scoped restricted data for the include
+                                sb.AppendLine("OPTION (RECOMPILE)");
+                                sb.AppendLine($";WITH");
+                                int saveTableExpressionCounter = _tableExpressionCounter;
+                                _tableExpressionCounter = smartV2TableCounter;
+                                AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
+                                _tableExpressionCounter = saveTableExpressionCounter;
+                                sb.AppendLine();
+                                sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
+                                sb.Append(","); // add comma back
+                            }
+                            else
+                            {
+                                sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
+                                sb.Append(","); // add comma back
+                            }
+
                             visitedInclude = true;
                         }
 
@@ -156,7 +221,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
-            AddHash();
+            if (!visitedInclude)
+            {
+                AddParametersHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
+            }
+            else if (visitedInclude && _smartV2UnionVisited)
+            {
+                AddParametersHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
+            }
 
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
@@ -181,13 +253,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 selectingFromResourceTable = true;
 
-                // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
-                StringBuilder.Append("SELECT DISTINCT ");
-
+                // When there are no SearchParamTableExpressions, we need TOP on the outer SELECT (after ORDER BY)
+                // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
+                // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
+                // Fix for pagination bug introduced in commit 6dd540c7d.
                 if (expression.SearchParamTableExpressions.Count == 0)
                 {
-                    StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
+                    StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
                 }
+                else
+                {
+                    StringBuilder.Append("SELECT * FROM (");
+                }
+
+                // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
+                StringBuilder.Append("SELECT DISTINCT ");
 
                 StringBuilder.Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(", ")
                     .Append(VLatest.Resource.ResourceId, resourceTableAlias).Append(", ")
@@ -209,7 +289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
 
-                if (IsSortValueNeeded(context))
+                if (IsSortValueNeeded(context) && !context.IsIncludesOperation)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
@@ -219,7 +299,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (selectingFromResourceTable)
             {
-                // TODO: Remove logic to add index hint once Lake schema is deployed. Scanning clustered index of CurrentResources is efficient.
                 if (expression.SearchParamTableExpressions.Count == 0 &&
                     !context.ResourceVersionTypes.HasFlag(ResourceVersionType.History) &&
                     !context.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted) &&
@@ -234,7 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
                 else
                 {
-                    StringBuilder.Append("FROM ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
+                    StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
                 }
 
                 if (expression.SearchParamTableExpressions.Count > 0)
@@ -260,9 +339,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (!searchOptions.CountOnly)
                 {
-                    StringBuilder.Append("ORDER BY ");
+                    var orderTableAlias = "t";
+                    StringBuilder.Append(") AS ").Append(orderTableAlias).Append(" ORDER BY ");
 
-                    if (_rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                    var hasIncludes = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+                    if (hasIncludes)
                     {
                         // ensure the matches appear before includes
                         StringBuilder.Append("IsMatch DESC, ");
@@ -278,22 +360,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
                                 _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
                             };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
-                            .AppendLine();
+
+                            if (hasIncludes)
+                            {
+                                // when includes are present, we want to ensure that only matches sorted by the sort field
+                                sb.Append("(CASE WHEN IsMatch = 1 THEN ");
+                                sb.Append(column, orderTableAlias);
+                                sb.Append(" ELSE NULL END) ");
+                            }
+                            else
+                            {
+                                sb.Append(column, orderTableAlias).Append(" ");
+                            }
+
+                            sb.Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        });
+
+                        if (hasIncludes)
+                        {
+                            StringBuilder.Append(", (CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ELSE NULL END) ASC, ");
+                            StringBuilder.Append("(CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).Append(" ELSE NULL END) ASC ");
+                        }
+
+                        StringBuilder.AppendLine();
                     }
-                    else if (IsSortValueNeeded(searchOptions))
+                    else if (IsSortValueNeeded(searchOptions) && !context.IsIncludesOperation)
                     {
+                        if (hasIncludes)
+                        {
+                            StringBuilder
+                                .Append("(CASE WHEN IsMatch = 1 THEN ")
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ELSE NULL END) ");
+                        }
+                        else
+                        {
+                            StringBuilder
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ");
+                        }
+
                         StringBuilder
-                            .Append(TableExpressionName(_tableExpressionCounter))
-                            .Append(".SortValue ")
                             .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
                     else
                     {
                         StringBuilder
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
 
                     AddOptionClause();
@@ -320,8 +436,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AddHash()
+        private void AddParametersHash(bool forSmartV2Include = false)
         {
+            foreach (var searchParamId in Parameters.SearchParamIds)
+            {
+                _searchParamIds.Add(searchParamId);
+            }
+
             if (Parameters.HasParametersToHash && !_reuseQueryPlans) // hash cannot be last comment as it will not be stored in query store
             {
                 // Add a hash of (most of the) parameter values as a comment.
@@ -330,11 +451,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // that are related to TOP clauses or continuation tokens.
                 // We can exclude more in the future.
 
-                StringBuilder.Append("/* HASH ");
-                Parameters.AppendHash(StringBuilder);
-                Parameters.AppendHashedParameterNames(StringBuilder);
-                StringBuilder.AppendLine(" */");
+                StringBuilder.Append(ParametersHashStart);
+                if (forSmartV2Include)
+                {
+                    // Only add the hash for smart scope parameters
+                    Parameters.AppendSmartScopeHash(StringBuilder);
+                    Parameters.AppendSmartScopeParameterNames(StringBuilder);
+                }
+                else
+                {
+                    Parameters.AppendHash(StringBuilder);
+                    Parameters.AppendHashedParameterNames(StringBuilder);
+                }
+
+                StringBuilder.Append(ParametersHashEnd);
             }
+
+            StringBuilder.AppendLine(); // do not include EOL into parameters hash line to get same behavior on Windows and Linux
+        }
+
+        /// <summary>
+        /// Marks parameters that were added after a specific point in time as SMART scope parameters.
+        /// </summary>
+        /// <param name="parametersBefore">The set of parameters that existed before the operation.</param>
+        /// <returns>List of new parameters that were added and marked as SMART scope parameters.</returns>
+        private List<SqlParameter> MarkNewParametersAsSmartScopeParameter(HashSet<SqlParameter> parametersBefore)
+        {
+            var parametersAfter = new HashSet<SqlParameter>(Parameters.ParametersToHash);
+            var newParameters = parametersAfter.Except(parametersBefore).ToList();
+
+            if (newParameters.Any())
+            {
+                foreach (var param in newParameters)
+                {
+                    Parameters.MarkAsSmartScopeParameter(param);
+                }
+            }
+
+            return newParameters;
         }
 
         private static string TableExpressionName(int id) => "cte" + id;
@@ -420,33 +574,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
+            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
-            StringBuilder.Append("SELECT ")
-                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
-
-            var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
-
-            // handle special case where we want to Union a specific resource to the results
-            if (searchParameterExpressionPredicate != null &&
-                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
+            using (StringBuilder.Indent())
             {
-                StringBuilder.Append("FROM ").AppendLine(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource);
-            }
-            else
-            {
-                StringBuilder.Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
-            }
+                StringBuilder.Append("SELECT ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
 
-            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-            {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
 
-                if (searchParamTableExpression.Predicate != null)
+                // handle special case where we want to Union a specific resource to the results
+                if (searchParameterExpressionPredicate != null &&
+                    searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
                 {
-                    delimited.BeginDelimitedElement();
-                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                    specialCaseTableName = VLatest.Resource;
+                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+                }
+                else
+                {
+                    // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
+                    // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
+                    // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                    // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
+                    if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
+                    {
+                        bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
+                            e is SearchParameterExpression spe &&
+                            (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
+
+                        if (allAreResourceTypeOrId)
+                        {
+                            specialCaseTableName = VLatest.Resource;
+                        }
+                    }
+
+                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+                }
+
+                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    // Apply History and Delete clause when querying from Resource table in case of compartment unions
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
+
+                    if (specialCaseTableName.Equals(VLatest.Resource))
+                    {
+                        AppendDeletedClause(delimited, context.ResourceVersionTypes);
+                    }
+
+                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
+                    {
+                        delimited.BeginDelimitedElement();
+                        searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                    }
                 }
             }
 
@@ -455,6 +636,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
+            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
+
             if (searchParamTableExpression.ChainLevel == 0)
             {
                 int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
@@ -483,20 +666,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
             {
-                var tableName = searchParamTableExpression.QueryGenerator.Table;
-
                 // handle special case where we want to Union a specific resource to the results
                 var searchParameterExpressionPredicate = CheckExpressionOrFirstChildIsSearchParam(searchParamTableExpression.Predicate);
                 if (searchParameterExpressionPredicate != null &&
                     searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
                 {
-                    tableName = new VLatest.ResourceTable();
+                    specialCaseTableName = new VLatest.ResourceTable();
                 }
 
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine(tableName)
+                    .Append("FROM ").AppendLine(specialCaseTableName)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
@@ -517,19 +698,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             if (UseAppendWithJoin()
-                && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
+                && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !context.SkipAppendIntersectionWithPredecessor)
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
+                // For smart request when we have union of all scopes ANDed with their respective search parameters
+                // Like (ResourceType = x and searchParam1 = foo) Intersect (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) Intersect (ResourceType = y and searchParam4 = woo)
+                // To get the intersection we need to AppendIntersectionWithPredecessor
                 if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !UseAppendWithJoin())
                 {
-                    // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    if (!context.SkipAppendIntersectionWithPredecessor)
+                    {
+                        // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
+                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    }
                 }
 
                 if (searchParamTableExpression.Predicate != null)
@@ -553,7 +740,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1") // SELECT and FROM can be on same line only for singe line statements
-                    .Append("FROM ").AppendLine(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource)
+                    .Append("FROM ").AppendLine(VLatest.Resource)
                     .Append(_joinShift).Append("JOIN ").Append(cte)
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
@@ -574,7 +761,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                    .Append("FROM ").AppendLine(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource);
+                    .Append("FROM ").AppendLine(VLatest.Resource);
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
@@ -699,7 +886,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "T1, " : "T2, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                 .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
-                .Append(_joinShift).Append("JOIN ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
+                .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
                 .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
                 .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
 
@@ -708,7 +895,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (expressionOnTargetHandledBySecondJoin)
             {
                 const string referenceSourceResourceTableAlias = "refSourceResource";
-                StringBuilder.Append(_joinShift).Append("JOIN ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(' ').Append(referenceSourceResourceTableAlias)
+                StringBuilder.Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceSourceResourceTableAlias)
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceSourceResourceTableAlias)
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceResourceTableAlias)
                     .Append(" AND ");
@@ -788,39 +975,83 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append(VLatest.Resource.ResourceTypeId, table).Append(" AS T1, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, table);
-            if (!context.IsIncludesOperation)
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
-            }
-            else
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
-            }
+
+            // Always project IsPartial to maintain consistent column count across UNION branches
+            StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
-                .Append(_joinShift).Append("JOIN ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
+                .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
                 .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
                 .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                if (!includeExpression.WildCard)
+                // Smart V2 with SearchParam has a special handling for references resources
+                if (!_smartV2UnionVisited)
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
-                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
-
-                    if (includeExpression.TargetResourceType != null)
+                    if (!includeExpression.WildCard)
                     {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
+                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
+
+                        if (includeExpression.TargetResourceType != null)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
+                        }
+                        else if (includeExpression.AllowedResourceTypesByScope != null &&
+                                !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                        {
+                            // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                            // If the list contains "All", then we don't add a filter
+                            // Restrict the reference resource types that are returned to the allowed types by scope
+                            // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                            // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                            // Smart V2 with SP has a special handling for references resources
+                            if (!includeExpression.Reversed)
+                            {
+                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                    .Append(" IN (")
+                                    .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                                    .Append(")");
+                            }
+                            else
+                            {
+                                // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
+                                // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
+                                // In this case, we need to filter the resources referring Patient by the allowed types by scope
+                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                                .Append(" IN (")
+                                .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
+                                .Append(")");
+                            }
+                        }
                     }
-                    else if (includeExpression.AllowedResourceTypesByScope != null &&
+                    else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
                             !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                        // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                        // If the list contains "All", then we don't add a filter
+                        // Restrict the reference resource types that are returned to the allowed types by scope
+                        // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                        // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                        if (!includeExpression.Reversed)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                .Append(" IN (")
+                                .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                                .Append(")");
+                        }
+                        else
+                        {
+                            // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
+                            // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
+                            // In this case, we need to filter the resources referring Patient by the allowed types by scope
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                             .Append(" IN (")
-                            .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                            .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
                             .Append(")");
+                        }
                     }
                 }
 
@@ -946,6 +1177,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 scope.Append(")");
+
+                if (includeExpression.AllowedResourceTypesByScope != null && !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All) && _smartV2UnionVisited)
+                {
+                    if (!includeExpression.Reversed)
+                    {
+                        var scopeForSmartV2 = delimited.BeginDelimitedElement();
+                        scopeForSmartV2.Append("EXISTS (");
+                        scopeForSmartV2.Append("SELECT * FROM ");
+                        scopeForSmartV2.Append(TableExpressionName(_smartv2ScopeUnionCTE))
+                            .Append(" WHERE ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = T1 AND ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias).Append(" = Sid1)");
+                    }
+                    else
+                    {
+                        var scopeForSmartV2 = delimited.BeginDelimitedElement();
+                        scopeForSmartV2.Append("EXISTS (");
+                        scopeForSmartV2.Append("SELECT * FROM ");
+                        scopeForSmartV2.Append(TableExpressionName(_smartv2ScopeUnionCTE))
+                            .Append(" WHERE ").Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(" = T1 AND ")
+                            .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" = Sid1)");
+                    }
+                }
             }
 
             if (context.IsIncludesOperation)
@@ -1018,7 +1271,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
 
             bool sortValueNeeded = IsSortValueNeeded(context);
-            if (sortValueNeeded)
+
+            // The includes operation does not contain matched resources, so no sort value is needed.
+            if (sortValueNeeded && !context.IsIncludesOperation)
             {
                 StringBuilder.AppendLine(", SortValue");
             }
@@ -1042,7 +1297,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.AppendLine("UNION ALL");
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
-                if (sortValueNeeded)
+                if (sortValueNeeded && !context.IsIncludesOperation)
                 {
                     StringBuilder.AppendLine(", NULL as SortValue ");
                 }
@@ -1164,10 +1419,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
-            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
+            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1178,6 +1433,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
+                // Determine the appropriate query generator for this specific inner expression
+                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
@@ -1192,17 +1450,157 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
             for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
             {
-                StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
-
-                if (tableExpressionId < lastInclusiveTableExpressionId)
+                using (StringBuilder.Indent())
                 {
-                    StringBuilder.AppendLine(" UNION ALL");
+                    StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
+
+                    if (tableExpressionId < lastInclusiveTableExpressionId)
+                    {
+                        StringBuilder.AppendLine();
+                        StringBuilder.Append("UNION ALL ");
+                    }
                 }
             }
 
+            StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
+            // check for a previous union all, and if so, join the new union all with the previous one
+            if (_unionAggregateCTEIndex > -1)
+            {
+                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                StringBuilder.Append(", ");
+                StringBuilder.AppendLine();
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                    .AppendLine()
+                    .Append("FROM ").Append(prevUnionAggregateTableName)
+                    .AppendLine()
+                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                    .AppendLine();
+                }
+
+                StringBuilder.Append(")");
+            }
+
+            _unionAggregateCTEIndex = _tableExpressionCounter;
+
             _unionVisited = true;
+            _firstChainAfterUnionVisited = false;
+        }
+
+        private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)
+        {
+            if (unionExpression.Operator != UnionOperator.All)
+            {
+                throw new ArgumentOutOfRangeException(unionExpression.Operator.ToString());
+            }
+
+            List<int> lastAndedCTEs = new List<int>();
+
+            // Iterate through all expressions and create a unique CTE for each one.
+            foreach (Expression innerExpression in unionExpression.Expressions)
+            {
+                context.SkipAppendIntersectionWithPredecessor = false;
+                if (innerExpression is MultiaryExpression innerMultiaryExpression)
+                {
+                    bool firstQueryParamExpression = true;
+                    foreach (Expression childExpression in innerMultiaryExpression.Expressions)
+                    {
+                        // Determine the appropriate query generator for this specific inner expression
+                        StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                        var childQueryGenerator = DetermineQueryGeneratorForExpression(childExpression, defaultQueryGenerator);
+
+                        var childSearchParamExpression = new SearchParamTableExpression(
+                            childQueryGenerator,
+                            childExpression,
+                            SearchParamTableExpressionKind.Normal);
+
+                        context.SkipAppendIntersectionWithPredecessor = firstQueryParamExpression;
+                        firstQueryParamExpression = false;
+                        using (StringBuilder.Indent())
+                        {
+                            childSearchParamExpression.AcceptVisitor(this, context);
+                        }
+
+                        StringBuilder.AppendLine("),");
+                    }
+
+                    lastAndedCTEs.Add(_tableExpressionCounter);
+                }
+                else
+                {
+                    // Determine the appropriate query generator for this specific inner expression
+                    var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+
+                    var searchParamExpression = new SearchParamTableExpression(
+                        queryGenerator,
+                        innerExpression,
+                        SearchParamTableExpressionKind.Union);
+
+                    searchParamExpression.AcceptVisitor(this, context);
+                    lastAndedCTEs.Add(_tableExpressionCounter);
+                }
+            }
+
+            context.SkipAppendIntersectionWithPredecessor = false;
+            int lastInclusiveTableExpressionId = _tableExpressionCounter;
+
+            // Create a final CTE aggregating results from all previous CTEs.
+            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+            _smartv2ScopeUnionCTE = _tableExpressionCounter;
+            foreach (int tableExpressionId in lastAndedCTEs)
+            {
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
+
+                    if (tableExpressionId < lastInclusiveTableExpressionId)
+                    {
+                        StringBuilder.AppendLine();
+                        StringBuilder.Append("UNION ALL ");
+                    }
+                }
+            }
+
+            StringBuilder.AppendLine();
+            StringBuilder.Append(")");
+
+            // check for a previous union all, and if so, join the new union all with the previous one
+            if (!skipJoinFromPreviousUnions && _unionAggregateCTEIndex > -1)
+            {
+                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                StringBuilder.Append(", ");
+                StringBuilder.AppendLine();
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                    .AppendLine()
+                    .Append("FROM ").Append(prevUnionAggregateTableName)
+                    .AppendLine()
+                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                    .AppendLine();
+                }
+
+                StringBuilder.Append(")");
+            }
+
+            _unionVisited = true;
+            _smartV2UnionVisited = true;
+            _firstChainAfterUnionVisited = false;
         }
 
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
@@ -1215,6 +1613,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             sb.Append(")");
+        }
+
+        /// <summary>
+        /// Determines the appropriate query generator for a specific expression within a UNION.
+        /// This allows different expressions in a UNION to use different underlying SQL tables.
+        /// </summary>
+        private SearchParamTableExpressionQueryGenerator DetermineQueryGeneratorForExpression(Expression expression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        {
+            // Use the factory to determine the appropriate query generator for this expression
+            var specificGenerator = expression.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext);
+            return specificGenerator ?? defaultQueryGenerator;
         }
 
         private bool UseAppendWithJoin()
@@ -1324,10 +1733,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, SearchParamTableExpression expression = null, string tableAlias = null)
+        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, SearchParamTableExpression expression = null, string tableAlias = null, string specialCaseTableName = null)
         {
-            if (expression != null && expression.QueryGenerator.Table.TableName.EndsWith("SearchParam", StringComparison.OrdinalIgnoreCase))
+            if (expression != null &&
+                expression.QueryGenerator.Table.TableName.EndsWith("SearchParam", StringComparison.OrdinalIgnoreCase) &&
+                (string.IsNullOrEmpty(specialCaseTableName) ||
+                 expression.QueryGenerator.Table.TableName.Equals(specialCaseTableName, StringComparison.OrdinalIgnoreCase)))
             {
+                // History clause is not applicable for search param tables except for the special case table like Resource in case of Compartment search
                 return;
             }
 

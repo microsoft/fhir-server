@@ -276,6 +276,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.GetBulkDeleteStatusById;
                     break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.GetBulkUpdateStatusById;
+                    break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRef;
+                    break;
+                case OperationsConstants.ValueSetExpand:
+                    routeName = RouteNames.Expand;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
@@ -313,7 +322,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName = RouteNames.AnonymizedExportOperationDefinition;
                     break;
                 case OperationsConstants.Reindex:
-                    routeName = RouteNames.ReindexOperationDefintion;
+                    routeName = RouteNames.ReindexOperationDefinition;
                     break;
                 case OperationsConstants.ResourceReindex:
                     routeName = RouteNames.ResourceReindexOperationDefinition;
@@ -330,11 +339,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.BulkDeleteDefinition;
                     break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.BulkUpdateDefinition;
+                    break;
                 case OperationsConstants.SearchParameterStatus:
                     routeName = RouteNames.SearchParameterStatusOperationDefinition;
                     break;
                 case OperationsConstants.Includes:
                     routeName = RouteNames.IncludesOperationDefinition;
+                    break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRefOperationDefinition;
+                    break;
+                case OperationsConstants.ValueSetExpand:
+                    routeName = RouteNames.ExpandDefinition;
                     break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));

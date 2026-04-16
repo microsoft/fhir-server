@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.FhirPath.Sprache;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -148,6 +149,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             s = s.Replace(EscapedEscapingCharacter, $"{EscapingCharacter}", StringComparison.Ordinal);
 
             return s;
+        }
+
+        public static string GetJsonSection(this string input, int startingIndex)
+        {
+            char startChar = '{';
+            char endChar = '}';
+            char quoteChar = '"';
+            char escapeChar = '\\';
+            bool inQuotes = false;
+            char previousChar = ' ';
+
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
+
+            if (startingIndex < 0 || startingIndex >= input.Length)
+            {
+                throw new ArgumentException("Invalid starting index for JSON section.");
+            }
+
+            var stack = new Stack<int>();
+
+            for (int i = startingIndex; i < input.Length; i++)
+            {
+                if (input[i] == startChar && !inQuotes)
+                {
+                    stack.Push(i);
+                }
+                else if (input[i] == endChar && !inQuotes)
+                {
+                    if (stack.Count > 0)
+                    {
+                        int start = stack.Pop();
+                        if (stack.Count == 0)
+                        {
+                            // Only add substrings for the outermost matching brackets
+                            return input.Substring(start + 1, i - start - 1);
+                        }
+                    }
+                    else
+                    {
+                        // Unmatched closing bracket
+                        throw new ArgumentException("Unmatched closing bracket in input string.");
+                    }
+                }
+                else if (input[i] == quoteChar && previousChar != escapeChar)
+                {
+                    inQuotes = !inQuotes;
+                }
+
+                previousChar = input[i];
+            }
+
+            return string.Empty;
         }
 
         private static List<string> Split(string s, char separator)

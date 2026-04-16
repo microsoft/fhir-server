@@ -6,12 +6,17 @@
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -55,6 +60,103 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
+        }
+
+        [Fact]
+        public async Task GivenASearchResourceRequest_WhenUserHasSearchPermission_ThenSearchSucceeds()
+        {
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            var searchResourceHandler = new SearchResourceHandler(
+                _searchService,
+                _bundleFactory,
+                authorizationService,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
+
+            var request = new SearchResourceRequest("Patient", null);
+            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
+            var expectedBundle = new Bundle().ToResourceElement();
+
+            // Setup authorization to return Search permission
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
+                .Returns(DataActions.Search);
+
+            _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
+            _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
+
+            SearchResourceResponse actualResponse = await searchResourceHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(actualResponse);
+            Assert.Equal(expectedBundle, actualResponse.Bundle);
+        }
+
+        [Fact]
+        public async Task GivenASearchResourceRequest_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionThrown()
+        {
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+
+            // Setup authorization to return only Read permission (no Search permission)
+            // This simulates SMART v2 scope like "patient/Patient.r" which only allows direct access
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.ReadById);
+
+            var searchResourceHandler = new SearchResourceHandler(
+                _searchService,
+                _bundleFactory,
+                authorizationService,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
+
+            var request = new SearchResourceRequest("Patient", null);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+                searchResourceHandler.Handle(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenASearchResourceRequest_WhenUserHasReadAndSearchPermissions_ThenSearchSucceeds()
+        {
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            var searchResourceHandler = new SearchResourceHandler(
+                _searchService,
+                _bundleFactory,
+                authorizationService,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
+
+            var request = new SearchResourceRequest("Patient", null);
+            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
+            var expectedBundle = new Bundle().ToResourceElement();
+
+            // Setup authorization to return Search permission (which is what we check for)
+            // This simulates SMART v1 ".read" or v2 ".rs" scopes
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
+                .Returns(DataActions.Search | DataActions.Read);
+
+            _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
+            _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
+
+            SearchResourceResponse actualResponse = await searchResourceHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(actualResponse);
+            Assert.Equal(expectedBundle, actualResponse.Bundle);
+        }
+
+        [Fact]
+        public async Task GivenASearchResourceRequest_WhenUserHasNoPermissions_ThenUnauthorizedExceptionThrown()
+        {
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            var searchResourceHandler = new SearchResourceHandler(
+                _searchService,
+                _bundleFactory,
+                authorizationService,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
+
+            var request = new SearchResourceRequest("Patient", null);
+
+            // Setup authorization to return no permissions
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
+                .Returns(DataActions.None);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+                searchResourceHandler.Handle(request, CancellationToken.None));
         }
     }
 }

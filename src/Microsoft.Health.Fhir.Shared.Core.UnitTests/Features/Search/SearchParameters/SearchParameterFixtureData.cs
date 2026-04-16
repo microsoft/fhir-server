@@ -11,9 +11,11 @@ using System.Threading.Tasks;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -68,7 +70,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             types = types.Where(x => !searchValueConverterExclusions.Contains(x));
 #endif
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var requestContextAccessor = new FhirRequestContextAccessor();
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(new Uri("https://localhost/"));
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig);
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
@@ -90,7 +95,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             var searchService = Substitute.For<ISearchService>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var definitionManager = new SearchParameterDefinitionManager(
+                modelInfoProvider,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
@@ -110,7 +125,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static async Task<SearchParameterStatusManager> CreateSearchParameterStatusManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             var searchService = Substitute.For<ISearchService>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var definitionManager = new SearchParameterDefinitionManager(
+                modelInfoProvider,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(

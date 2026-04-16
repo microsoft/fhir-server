@@ -5,21 +5,19 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.AnonymousOperation;
@@ -34,7 +32,6 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -45,7 +42,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -53,6 +49,7 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -183,9 +180,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalCreate)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
+            var preferHeader = _fhirRequestContextAccessor.GetReturnPreferenceValue();
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
@@ -196,17 +195,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            if (createResponse == null)
+            if (createResponse?.Outcome == null)
             {
                 return Ok();
             }
 
-            RawResourceElement response = createResponse.Outcome.RawResourceElement;
+            var statusCode = HttpStatusCode.Created;
+            var message = Resources.ConditionalCreateResourceCreated;
+            if (createResponse.Outcome.Outcome != SaveOutcomeType.Created)
+            {
+                statusCode = HttpStatusCode.OK;
+                message = Resources.ConditionalCreateResourceAlreadyExists;
+            }
 
-            return FhirResult.Create(response, HttpStatusCode.Created)
-                .SetETagHeader()
-                .SetLastModifiedHeader()
-                .SetLocationHeader(_urlResolver);
+            return FhirResult.Create(
+                createResponse.Outcome.RawResourceElement,
+                statusCode,
+                true,
+                true,
+                true,
+                _urlResolver,
+                preferHeader,
+                message);
         }
 
         /// <summary>
@@ -214,15 +224,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header</param>
+        /// <param name="metaHistory">Optional query parameter to indicate if the historical version should be recorded if the only changes are to metadata</param>
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
-                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader),
+                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response);
@@ -235,6 +247,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
             SetupConditionalRequestWithQueryOptimizeConcurrency();
@@ -402,6 +415,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
         {
@@ -448,6 +462,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalDelete)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalDelete(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
@@ -474,16 +489,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Patches the specified resource.
         /// </summary>
+        /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
-        public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchJson([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] JsonPatchDocument patchDocument, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             var payload = new JsonPatchPayload(patchDocument);
 
@@ -492,7 +509,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     new ResourceKey(typeParameter, idParameter),
                     payload,
                     GetBundleResourceContext(),
-                    ifMatchHeader),
+                    ifMatchHeader,
+                    metaHistory),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response.Outcome);
@@ -504,11 +522,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">Type of resource to patch.</param>
         /// <param name="patchDocument">The JSON patch document.</param>
          /// <param name="ifMatchHeader">Optional If-Match header.</param>
+         /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
-        public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new JsonPatchPayload(patchDocument);
@@ -516,7 +536,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -524,21 +544,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Patches the specified resource.
         /// </summary>
+        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/fhir+json")]
-        public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchFhir([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Parameters paramsResource, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             var payload = new FhirPathPatchPayload(paramsResource);
 
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(
-                new PatchResourceRequest(new ResourceKey(typeParameter, idParameter), payload, GetBundleResourceContext(), ifMatchHeader),
+                new PatchResourceRequest(new ResourceKey(typeParameter, idParameter), payload, GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -549,11 +571,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">Type of resource to patch.</param>
         /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/fhir+json")]
-        public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new FhirPathPatchPayload(paramsResource);
@@ -561,7 +585,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -648,7 +672,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
         public async Task<IActionResult> WellKnownSmartConfiguration()
         {
-            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
+            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(_fhirRequestContextAccessor.RequestContext.BaseUri, HttpContext.RequestAborted);
 
             return OperationSmartConfigurationResult.Ok(response);
         }
@@ -689,29 +713,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (HttpContext?.Request?.Headers != null)
             {
-                // Step 1 - Retrieve Bundle Processing Logic.
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestProcessingLogic, out StringValues rawBundleProcessingLogic))
+                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, out StringValues rawBundleRequestContext))
                 {
-                    if (Enum.TryParse<BundleProcessingLogic>(rawBundleProcessingLogic, out BundleProcessingLogic bundleProcessingLogic))
-                    {
-                        // Step 2 - Retrieve Bundle Operation ID.
-                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, out StringValues responseOperationId))
-                        {
-                            string rawId = responseOperationId.FirstOrDefault();
-                            if (Guid.TryParse(rawId, out Guid bundleOperationId))
-                            {
-                                // Step 3 - Retrieve resource HTTP verb.
-                                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
-                                {
-                                    string rawHttpVerb = responseHttpVerb.FirstOrDefault();
-                                    if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
-                                    {
-                                        return new BundleResourceContext(bundleProcessingLogic, httpVerb, bundleOperationId);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    BundleResourceContext bundleResourceContext = JObject.Parse(rawBundleRequestContext.FirstOrDefault()).ToObject<BundleResourceContext>();
+                    return bundleResourceContext;
                 }
             }
 

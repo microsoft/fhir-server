@@ -62,12 +62,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         {
             if (_state.Intercepted)
             {
-                return await next();
+                return await next(cancellationToken);
             }
 
             _state.Intercepted = true;
             Provenance provenance = GetProvenanceFromHeader();
-            var response = await next();
+            var response = await next(cancellationToken);
 
             if (response != null && provenance != null)
             {

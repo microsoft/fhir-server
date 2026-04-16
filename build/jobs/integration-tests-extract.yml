@@ -1,0 +1,10 @@
+parameters:
+- name: version
+  type: string
+
+steps:
+  - task: ExtractFiles@1
+    displayName: 'Extract Integration Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'

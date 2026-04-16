@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceVersionTypes = other.ResourceVersionTypes;
             IncludesContinuationToken = other.IncludesContinuationToken;
             IncludesOperationSupported = other.IncludesOperationSupported;
+            IsAsyncOperation = other.IsAsyncOperation;
+            SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
         }
 
         /// <summary>
@@ -112,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             get => _includeCount;
             internal set
             {
-                if (value <= 0)
+                if (value <= 0 && !IncludeContinuationTokenSearch)
                 {
                     throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
                 }
@@ -120,6 +122,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _includeCount = value;
             }
         }
+
+        /// <summary>
+        /// Indicates if the search is being performed just to retrieve the continuation token for includes.
+        /// </summary>
+        public bool IncludeContinuationTokenSearch { get; set; } = false;
 
         /// <summary>
         /// Which version types (latest, soft-deleted, history) to include in search.
@@ -148,9 +155,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool OnlyIds { get; set; }
 
         /// <summary>
-        /// Flag for async operations that want to return a large number of results.
+        /// Flag for async operations.
         /// </summary>
-        public bool IsLargeAsyncOperation { get; internal set; }
+        public bool IsAsyncOperation { get; internal set; }
 
         /// <summary>
         /// Flag for $includes operation.
@@ -166,6 +173,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the value indicating whether or not $includes operation is supported.
         /// </summary>
         public bool IncludesOperationSupported { get; internal set; }
+
+        /// <summary>
+        /// Gets the value indicating whether or not to force Intersection With Predecessor clause in Table.Kind = normal
+        /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
+        /// </summary>
+        public bool SkipAppendIntersectionWithPredecessor { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

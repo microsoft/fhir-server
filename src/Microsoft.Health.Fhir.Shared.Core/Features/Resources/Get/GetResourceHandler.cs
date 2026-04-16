@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -49,10 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckGetAccess(cancellationToken);
 
             var key = request.ResourceKey;
 
@@ -74,6 +72,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
+                {
+                    throw new ResourceNotSupportedException(key.ResourceType);
+                }
+
                 currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
             }
 

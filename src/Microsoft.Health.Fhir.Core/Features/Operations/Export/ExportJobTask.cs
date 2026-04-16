@@ -29,6 +29,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Polly;
+using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+        private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -88,6 +91,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
 
             UpdateExportJob = UpdateExportJobAsync;
+
+            // Retry policy for the actual export job action.
+            _exportSearchRetryPolicy = Policy
+                .Handle<DestinationConnectionException>()
+                .WaitAndRetryAsync(
+                    _exportJobConfiguration.MaxRetryCount,
+                    retryAttempt => TimeSpan.FromMilliseconds(_exportJobConfiguration.RetryDelayMilliseconds),
+                    (exception, timeSpan, retryCount, context) =>
+                    {
+                        _logger.LogWarning(
+                            exception,
+                            "[JobId:{JobId}] Retry {RetryCount} for DestinationConnectionException. Waiting {TimeSpan} before next retry.",
+                            _exportJobRecord?.Id,
+                            retryCount,
+                            timeSpan);
+                    });
         }
 
         public Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
@@ -190,7 +209,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, _exportJobRecord.GlobalStartSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
                 }
 
@@ -210,7 +228,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                {
+                    await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                });
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -393,7 +414,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, cancellationToken);
+                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, false, cancellationToken);
             }
         }
 
@@ -549,26 +570,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
-                    uint resultIndex = 0;
-                    foreach (SearchResultEntry result in searchResult.Results)
+                    var searchResultEntries = searchResult?.Results?.ToList();
+                    if (searchResultEntries?.Any() ?? false)
                     {
-                        // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
-                        // This assumes the order of the search results is the same every time the same search is performed.
-                        if (progress.SubSearch != null && result.Resource.ResourceId != progress.SubSearch.TriggeringResourceId)
+                        var startSurrogateId = sharedQueryParametersList
+                            .Where(x => string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase))
+                            .Select(x => x.Item2)
+                            .FirstOrDefault();
+                        var endSurrogateId = sharedQueryParametersList
+                            .Where(x => string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase))
+                            .Select(x => x.Item2)
+                            .FirstOrDefault();
+                        if (!string.IsNullOrEmpty(startSurrogateId) && !string.IsNullOrEmpty(endSurrogateId))
                         {
+                            _logger.LogInformation($"Processing export job for {searchResultEntries.Count} {_exportJobRecord.ExportType} resources: [{startSurrogateId}, {endSurrogateId}]");
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"Processing export job for {searchResultEntries.Count} {_exportJobRecord.ExportType} resources.");
+                        }
+
+                        sharedQueryParametersList = sharedQueryParametersList
+                                .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                            && !string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                            && !string.Equals(x.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase))
+                                .ToList();
+
+                        uint resultIndex = 0;
+                        foreach (SearchResultEntry result in searchResultEntries)
+                        {
+                            // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
+                            // This assumes the order of the search results is the same every time the same search is performed.
+                            if (progress.SubSearch != null && result.Resource.ResourceId != progress.SubSearch.TriggeringResourceId)
+                            {
+                                resultIndex++;
+                                continue;
+                            }
+
+                            if (progress.SubSearch == null)
+                            {
+                                progress.NewSubSearch(result.Resource.ResourceId);
+                            }
+
+                            await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
                             resultIndex++;
-                            continue;
+
+                            progress.ClearSubSearch();
                         }
-
-                        if (progress.SubSearch == null)
-                        {
-                            progress.NewSubSearch(result.Resource.ResourceId);
-                        }
-
-                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
-                        resultIndex++;
-
-                        progress.ClearSubSearch();
+                    }
+                    else
+                    {
+                        _logger.LogInformation("The search result is null or empty.");
                     }
                 }
 

@@ -34,5 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         /// FHIR Patch Move Operation.
         /// </summary>
         MOVE,
+
+        /// <summary>
+        /// FHIR Patch UPSERT Operation.
+        /// </summary>
+        UPSERT,
     }
 }

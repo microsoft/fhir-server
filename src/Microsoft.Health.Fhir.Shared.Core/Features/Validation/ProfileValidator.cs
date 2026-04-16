@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -11,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
@@ -19,16 +21,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ProfileValidator : IProfileValidator
     {
+        private readonly TimeSpan _validatatorRefresh = TimeSpan.FromMinutes(30);
         private readonly IResourceResolver _resolver;
+        private readonly ILogger<ProfileValidator> _logger;
+        private readonly int _maxExpansionSize;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
-        public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
+        private Validator _validator;
+        private DateTime _lastValidatorRefresh = DateTime.MinValue;
+
+        public ProfileValidator(
+            IProvideProfilesForValidation profilesResolver,
+            IOptions<ValidateOperationConfiguration> options,
+            ILogger<ProfileValidator> logger,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+
+            _logger = logger;
+            _modelInfoProvider = modelInfoProvider;
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
+                int cacheDuration = options.Value.CacheDurationInSeconds <= 0 ? ValidateOperationConfiguration.DefaultCacheDurationInSeconds : options.Value.CacheDurationInSeconds;
+                _maxExpansionSize = options.Value.MaxExpansionSize <= 0 ? ValidateOperationConfiguration.DefaultMaxExpansionSize : options.Value.MaxExpansionSize;
+
+                _logger.LogInformation(
+                    "Creating ProfileValidator with: CacheDuration {CacheDurationInSeconds}; and MaxExpansionSize {MaxExpansionSize}.",
+                    cacheDuration,
+                    _maxExpansionSize);
+
+                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), cacheDuration), profilesResolver);
             }
             catch (Exception)
             {
@@ -37,16 +63,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        private Validator GetValidator()
+        internal Validator GetValidator()
         {
+            if (_validator != null && (DateTime.UtcNow - _lastValidatorRefresh) < _validatatorRefresh)
+            {
+                return _validator;
+            }
+
+            _logger.LogInformation("Refreshing validator");
+            _lastValidatorRefresh = DateTime.UtcNow;
+
             var expanderSettings = new ValueSetExpanderSettings
             {
-                MaxExpansionSize = 20000, // Set your desired max expansion size here
+                MaxExpansionSize = _maxExpansionSize,
             };
 
             var terminologyService = new LocalTerminologyService(_resolver.AsAsync(), expanderSettings);
 
-            var ctx = new ValidationSettings()
+            var ctx = new ValidationSettings
             {
                 ResourceResolver = _resolver,
                 GenerateSnapshot = true,
@@ -55,15 +89,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 TerminologyService = terminologyService,
             };
 
-            var validator = new Validator(ctx);
+            // Append cid-0 constraint to ignore list (FHIR R4/R4B spec error: references non-existent "name" property)
+            // This issue is fixed in R5+
+            if (_modelInfoProvider.Version is FhirSpecification.R4 or FhirSpecification.R4B)
+            {
+                ctx.ConstraintsToIgnore = ctx.ConstraintsToIgnore is { Length: > 0 }
+                    ? ctx.ConstraintsToIgnore.Append("cid-0").ToArray()
+                    : ["cid-0"];
+            }
 
-            return validator;
+            _validator = new Validator(ctx);
+            return _validator;
         }
 
         public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            _logger.LogDebug("Getting Validator");
             var validator = GetValidator();
             OperationOutcome result;
+
+            _logger.LogDebug("Validating");
             if (!string.IsNullOrWhiteSpace(profile))
             {
                 result = validator.Validate(resource, profile);
@@ -71,6 +119,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             else
             {
                 result = validator.Validate(resource);
+            }
+
+            _logger.LogDebug("Finished validating");
+
+            CheckForMissingProfileFailures(result);
+
+            if (stopwatch.ElapsedMilliseconds > 1000)
+            {
+                _logger.LogWarning("Long running validation: {Time}", stopwatch.ElapsedMilliseconds);
             }
 
             var outcomeIssues = result.Issue.OrderBy(x => x.Severity)
@@ -85,6 +142,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .ToArray();
 
             return outcomeIssues;
+        }
+
+        private void CheckForMissingProfileFailures(OperationOutcome operationOutcome)
+        {
+            if (operationOutcome == null || operationOutcome.Errors == 0 || operationOutcome.Issue == null || !operationOutcome.Issue.Any())
+            {
+                return;
+            }
+
+            foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
+            {
+                if (issue.Details?.Text?.Contains("Unable to resolve reference to profile", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogDebug("Validation failure due to missing profile. {Details}", issue.Details.Text);
+                }
+            }
         }
     }
 }

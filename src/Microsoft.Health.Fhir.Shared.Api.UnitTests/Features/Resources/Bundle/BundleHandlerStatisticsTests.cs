@@ -23,30 +23,48 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             const int numberOfResources = 100;
 
-            var bundleStatistics = new BundleHandlerStatistics(Hl7.Fhir.Model.Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, true, 100);
+            var bundleStatistics = new BundleHandlerStatistics(
+                Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                BundleProcessingLogic.Parallel,
+                optimizedQuerySet: true,
+                numberOfResources: numberOfResources,
+                generatedIdentifiers: 5,
+                resolvedReferences: 50);
 
             Parallel.For(0, numberOfResources - 2, i =>
             {
                 // Success.
-                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, i, "200", TimeSpan.Zero);
+                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, "200", TimeSpan.Zero);
             });
 
             // Customer error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, numberOfResources - 2, "400", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, "400", TimeSpan.Zero);
 
             // Server error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, numberOfResources - 1, "500", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, "500", TimeSpan.Zero);
 
             Assert.Equal(numberOfResources, bundleStatistics.NumberOfResources);
+            Assert.Equal(50, bundleStatistics.ResolvedReferences);
             Assert.Equal(numberOfResources, bundleStatistics.RegisteredEntries);
             Assert.Equal(BundleProcessingLogic.Parallel, bundleStatistics.BundleProcessingLogic);
 
-            JObject statisticsAsJson = JObject.Parse(bundleStatistics.GetStatisticsAsJson());
+            string statisticsAsString = bundleStatistics.GetStatisticsAsJson();
+            JObject statisticsAsJson = JObject.Parse(statisticsAsString);
             long success = statisticsAsJson["success"].Value<long>();
             long errors = statisticsAsJson["errors"].Value<long>();
             long customerErrors = statisticsAsJson["customerErrors"].Value<long>();
 
             Assert.Equal(bundleStatistics.RegisteredEntries, success + errors + customerErrors);
+
+            // Generated identifiers.
+            int generatedIdentifiers = statisticsAsJson["references"]["identifiers"].Value<int>();
+            Assert.Equal(5, generatedIdentifiers);
+            Assert.Equal(bundleStatistics.GeneratedIdentifiers, generatedIdentifiers);
+
+            // Resolved references.
+            int resolvedReferences = statisticsAsJson["references"]["references"].Value<int>();
+            Assert.Equal(50, resolvedReferences);
+            Assert.Equal(bundleStatistics.ResolvedReferences, resolvedReferences);
         }
     }
 }

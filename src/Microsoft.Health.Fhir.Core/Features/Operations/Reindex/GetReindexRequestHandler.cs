@@ -47,8 +47,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             else
             {
-                return await GetListOfReindexJobs();
+                return await GetActiveReindexJob(cancellationToken);
             }
+        }
+
+        private async Task<GetReindexResponse> GetActiveReindexJob(CancellationToken cancellationToken)
+        {
+            var reindexJobId = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
+
+            if (reindexJobId.found && reindexJobId.id != null)
+            {
+                return await GetSingleReindexJobAsync(reindexJobId.id, cancellationToken);
+            }
+
+            return await GetListOfReindexJobs();
         }
 
         private static Task<GetReindexResponse> GetListOfReindexJobs()

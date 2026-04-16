@@ -41,5 +41,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             double durationMs,
             string partitionKeyRangeId,
             Exception exception = null);
+
+        /// <summary>
+        /// Logs the diagnostics.
+        /// </summary>
+        /// <param name="activityId">The activity id returned by the Cosmos DB.</param>
+        /// <param name="diagnostics">The diagnostics if any.</param>
+        /// <param name="exception">The exception if any.</param>
+        void LogQueryDiagnostics(
+            string activityId,
+            CosmosDiagnostics diagnostics = null,
+            Exception exception = null);
+
+        /// <summary>
+        /// Logs end to end elapsed time of the request
+        /// </summary>
+        /// <param name="activityId">The activity id returned by the Cosmos DB.</param>
+        /// <param name="clientElapsedTime">end to end elapsed time of the request.</param>
+        /// <param name="exception">The exception if any.</param>
+        void LogQueryClientElapsedTime(
+            string activityId,
+            string clientElapsedTime = null,
+            Exception exception = null);
     }
 }

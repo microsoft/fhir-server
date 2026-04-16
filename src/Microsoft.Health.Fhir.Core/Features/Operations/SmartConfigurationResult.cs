@@ -26,18 +26,84 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             Capabilities = capabilities;
         }
 
+        public SmartConfigurationResult(
+            Uri authorizationEndpoint,
+            Uri tokenEndpoint,
+            ICollection<string> capabilities,
+            ICollection<string> scopesSupported,
+            ICollection<string> codeChallengeMethodsSupported = null,
+            ICollection<string> grantTypesSupported = null,
+            ICollection<string> tokenEndpointAuthMethodsSupported = null,
+            ICollection<string> responseTypesSupported = null,
+            string introspectionEndpoint = null,
+            string managementEndpoint = null,
+            string revocationEndpoint = null,
+            string issuer = null,
+            string jwksUri = null)
+        {
+            EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
+            EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
+            EnsureArg.IsNotNull(capabilities, nameof(capabilities));
+
+            AuthorizationEndpoint = authorizationEndpoint;
+            TokenEndpoint = tokenEndpoint;
+            Capabilities = capabilities;
+            ScopesSupported = scopesSupported;
+            CodeChallengeMethodsSupported = codeChallengeMethodsSupported;
+            GrantTypesSupported = grantTypesSupported;
+            TokenEndpointAuthMethodsSupported = tokenEndpointAuthMethodsSupported;
+            ResponseTypesSupported = responseTypesSupported;
+            IntrospectionEndpoint = introspectionEndpoint;
+            ManagementEndpoint = managementEndpoint;
+            RevocationEndpoint = revocationEndpoint;
+            Issuer = issuer;
+            JwksUri = jwksUri;
+        }
+
         [JsonConstructor]
         public SmartConfigurationResult()
         {
         }
 
-        [JsonProperty("authorizationEndpoint")]
+        [JsonProperty("authorization_endpoint")]
         public Uri AuthorizationEndpoint { get; private set; }
 
-        [JsonProperty("tokenEndpoint")]
+        [JsonProperty("token_endpoint")]
         public Uri TokenEndpoint { get; private set; }
 
         [JsonProperty("capabilities")]
         public ICollection<string> Capabilities { get; private set; }
+
+        [JsonProperty("scopes_supported")]
+        public ICollection<string> ScopesSupported { get; private set; }
+
+        [JsonProperty("code_challenge_methods_supported")]
+        public ICollection<string> CodeChallengeMethodsSupported { get; }
+
+        [JsonProperty("grant_types_supported")]
+        public ICollection<string> GrantTypesSupported { get; }
+
+        [JsonProperty("token_endpoint_auth_methods_supported")]
+        public ICollection<string> TokenEndpointAuthMethodsSupported { get; }
+
+        [JsonProperty("response_types_supported")]
+        public ICollection<string> ResponseTypesSupported { get; }
+
+        [JsonProperty("introspection_endpoint")]
+        public string IntrospectionEndpoint { get; }
+
+        [JsonProperty("management_endpoint")]
+        public string ManagementEndpoint { get; }
+
+        [JsonProperty("revocation_endpoint")]
+        public string RevocationEndpoint { get; }
+
+        [JsonProperty("issuer")]
+        public string Issuer { get; }
+
+#pragma warning disable CA1056 // URI-like properties should not be strings
+        [JsonProperty("jwks_uri")]
+        public string JwksUri { get; }
+#pragma warning restore CA1056 // URI-like properties should not be strings
     }
 }

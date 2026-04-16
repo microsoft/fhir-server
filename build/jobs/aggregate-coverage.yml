@@ -1,0 +1,109 @@
+steps:
+- checkout: none
+
+# Download all coverage artifacts from all test stages
+- task: DownloadPipelineArtifact@2
+  displayName: 'Download all coverage artifacts'
+  inputs:
+    path: '$(Pipeline.Workspace)/AllCoverage'
+    patterns: |
+      Coverage_UnitTests/**
+      Coverage_IntegrationTests_*/**
+
+# Aggregate all coverage files into a single report
+- task: reportgenerator@5
+  displayName: 'Aggregate all coverage reports'
+  inputs:
+    reports: '$(Pipeline.Workspace)/AllCoverage/**/Cobertura.xml'
+    reporttypes: 'Cobertura;HtmlInline_AzurePipelines'
+    targetdir: '$(Pipeline.Workspace)/AggregatedCoverage'
+
+# Publish the aggregated coverage artifact
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish aggregated coverage artifact'
+  continueOnError: true  # Allow re-runs if artifact already exists
+  inputs:
+    pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
+    artifactName: 'Coverage_Aggregated'
+    artifactType: 'container'
+
+# Publish to Azure DevOps for pipeline UI visualization and 1ES telemetry
+- task: PublishCodeCoverageResults@2
+  displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
+  inputs:
+    summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
+    failIfCoverageEmpty: false
+
+# Upload coverage to Codecov for PR diff coverage checks and comments
+- checkout: self
+  fetchDepth: 1
+  displayName: 'Shallow checkout for Codecov git context'
+
+- script: |
+    set -e
+
+    # Fix file paths in Cobertura XML before uploading.
+    # DeterministicReport produces paths with a /_/ prefix:
+    #   /_/src/Microsoft.Health.Fhir.Api/...
+    # Codecov needs repo-relative paths like: src/...
+    REPORT="$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
+    sed -i 's|/_/||g' "$REPORT"
+
+    # Download Codecov CLI
+    curl -Os https://cli.codecov.io/latest/linux/codecov
+    chmod +x codecov
+
+    # Resolve commit SHA and branch for the upload.
+    # For PR builds, Azure DevOps checks out a merge commit that does NOT exist
+    # on GitHub. We must upload to the actual PR head commit SHA so Codecov can
+    # find it on GitHub and associate it with the PR.
+    if [ "$BUILD_REASON" = "PullRequest" ]; then
+      # HEAD^2 = second parent of the merge commit = PR source branch tip
+      COMMIT_SHA=$(git rev-parse HEAD^2 2>/dev/null || true)
+      if [ -z "$COMMIT_SHA" ] || [ ${#COMMIT_SHA} -ne 40 ]; then
+        # Fallback to Azure DevOps variable
+        COMMIT_SHA="$PR_SOURCE_COMMIT_ID"
+      fi
+      BRANCH="$PR_SOURCE_BRANCH"
+      PR_ARGS="-P $PR_NUMBER"
+    else
+      COMMIT_SHA="$BUILD_SOURCE_VERSION"
+      BRANCH="$BUILD_SOURCE_BRANCH"
+      PR_ARGS=""
+    fi
+
+    # Use the documented three-step CLI workflow (create-commit, create-report, do-upload)
+    # instead of undocumented upload-process to ensure --commit-sha is respected
+    ./codecov --verbose create-commit \
+      -t "$CODECOV_TOKEN" \
+      --git-service github \
+      --slug microsoft/fhir-server \
+      -C "$COMMIT_SHA" \
+      -B "$BRANCH" \
+      $PR_ARGS
+
+    ./codecov --verbose create-report \
+      -t "$CODECOV_TOKEN" \
+      --git-service github \
+      --slug microsoft/fhir-server \
+      -C "$COMMIT_SHA"
+
+    ./codecov --verbose do-upload \
+      -t "$CODECOV_TOKEN" \
+      --git-service github \
+      --slug microsoft/fhir-server \
+      -C "$COMMIT_SHA" \
+      -B "$BRANCH" \
+      $PR_ARGS \
+      --disable-search \
+      -f "$REPORT"
+  displayName: 'Upload coverage to Codecov'
+  condition: succeededOrFailed()
+  env:
+    CODECOV_TOKEN: $(CODECOV_TOKEN)
+    BUILD_REASON: $(Build.Reason)
+    BUILD_SOURCE_VERSION: $(Build.SourceVersion)
+    BUILD_SOURCE_BRANCH: $(Build.SourceBranch)
+    PR_SOURCE_BRANCH: $(System.PullRequest.SourceBranch)
+    PR_NUMBER: $(System.PullRequest.PullRequestNumber)
+    PR_SOURCE_COMMIT_ID: $(System.PullRequest.SourceCommitId)

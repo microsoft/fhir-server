@@ -10,9 +10,8 @@ using System.Net;
 using System.Text.RegularExpressions;
 using AngleSharp.Common;
 using Hl7.Fhir.Model;
-using Microsoft.Extensions.Azure;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,8 +29,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class IncludesOperationTests : IClassFixture<IncludesOperationTestFixture>
     {
-        private static readonly Regex ContinuationTokenRegex = new Regex("[?&]ct");
-        private static readonly Regex IncludesContinuationTokenRegex = new Regex("[?&]includesCt");
+        private static readonly Regex ContinuationTokenRegex = new Regex($"[?&]{KnownQueryParameterNames.ContinuationToken}");
+        private static readonly Regex IncludesContinuationTokenRegex = new Regex($"[?&]{KnownQueryParameterNames.IncludesContinuationToken}");
 
         private readonly IncludesOperationTestFixture _fixture;
 
@@ -77,8 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 response,
                 patientResources,
                 relatedResources,
-                _fixture.PatientResources.Count,
-                _fixture.RelatedResources.Count);
+                supportsIncludes);
             ValidateLinks(
                 response,
                 KnownResourceTypes.Patient,
@@ -193,8 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirResponse<Bundle> response,
             IList<Resource> patientResources,
             IList<Resource> relatedResources,
-            int totalPatientResourceCount,
-            int totalRelatedResourceCount)
+            bool supportsIncludes)
         {
             var expectedResources = patientResources.Concat(relatedResources).ToList();
             var actualResources = response.Resource.Entry
@@ -204,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(
                 actualResources,
                 x => expectedResources.Any(y => y.IsExactly(x)));
-            if (patientResources.Count < totalPatientResourceCount || relatedResources.Count < totalRelatedResourceCount)
+            if (actualResources.Count < expectedResources.Count)
             {
                 var operationOutcomeResources = response.Resource.Entry
                     .Select(x => x.Resource)
@@ -216,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     x => x.Issue.Any(
                         y => y.Severity == OperationOutcome.IssueSeverity.Warning
                             && y.Code == OperationOutcome.IssueType.Incomplete
-                            && (y.Diagnostics?.Equals(Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
+                            && (y.Diagnostics?.Equals(supportsIncludes ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
             }
         }
 
@@ -226,13 +223,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string query)
         {
             Assert.NotNull(response.Resource.SelfLink);
-            Assert.StartsWith($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(response.Resource.SelfLink.AbsoluteUri));
+            ValidateUrl($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(response.Resource.SelfLink.AbsoluteUri));
             Assert.Matches(IncludesContinuationTokenRegex, response.Resource.SelfLink.AbsoluteUri);
 
             if (response.Resource.Entry.Any(x => x.TypeName.Equals(KnownResourceTypes.OperationOutcome, StringComparison.OrdinalIgnoreCase)))
             {
                 Assert.NotNull(response.Resource.NextLink);
-                Assert.StartsWith($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(response.Resource.NextLink.AbsoluteUri));
+                ValidateUrl($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(response.Resource.NextLink.AbsoluteUri));
                 Assert.Matches(IncludesContinuationTokenRegex, response.Resource.NextLink.AbsoluteUri);
             }
 
@@ -249,12 +246,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bool supportsIncludes)
         {
             Assert.NotNull(response.Resource.SelfLink);
-            Assert.Equal($"{Server.BaseAddress}{resourceType}?{query}", DecodeUrl(response.Resource.SelfLink.AbsoluteUri));
+            ValidateUrl($"{Server.BaseAddress}{resourceType}?{query}", DecodeUrl(response.Resource.SelfLink.AbsoluteUri));
 
             if (patientResourceCount < _fixture.PatientResources.Count)
             {
                 Assert.NotNull(response.Resource.NextLink);
-                Assert.StartsWith($"{Server.BaseAddress}{resourceType}?{query}", DecodeUrl(response.Resource.NextLink.AbsoluteUri));
+                ValidateUrl($"{Server.BaseAddress}{resourceType}?{query}", DecodeUrl(response.Resource.NextLink.AbsoluteUri));
                 Assert.Matches(ContinuationTokenRegex, response.Resource.NextLink.AbsoluteUri);
             }
 
@@ -262,9 +259,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var relatedLink = response.Resource.Link?.Where(x => x.Relation.Equals("related", StringComparison.Ordinal)).FirstOrDefault();
                 Assert.NotNull(relatedLink);
-                Assert.StartsWith($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(relatedLink.Url));
+                ValidateUrl($"{Server.BaseAddress}{resourceType}/{KnownRoutes.Includes}?{query}", DecodeUrl(relatedLink.Url));
                 Assert.Matches(IncludesContinuationTokenRegex, relatedLink.Url);
             }
+        }
+
+        private void ValidateUrl(string expectedUrl, string actualUrl, bool ignoreCt = true)
+        {
+            if (!Uri.TryCreate(expectedUrl, UriKind.RelativeOrAbsolute, out var expectedUri))
+            {
+                Assert.Fail($"Invalid expected url: {expectedUrl}");
+            }
+
+            if (!Uri.TryCreate(actualUrl, UriKind.RelativeOrAbsolute, out var actualUri))
+            {
+                Assert.Fail($"Invalid actual url: {actualUrl}");
+            }
+
+            Assert.Equal(expectedUri.Scheme, actualUri.Scheme);
+            Assert.Equal(expectedUri.Host, actualUri.Host);
+
+            var expectedSegments = new HashSet<string>(expectedUri.Segments);
+            var actualSegments = new HashSet<string>(actualUri.Segments);
+            Assert.Equal(expectedSegments.Count, actualSegments.Count);
+            Assert.Contains(expectedSegments, x => actualSegments.Contains(x));
+
+            var expectedQueryParams = expectedUri.Query.Split(new char[] { '&' }).Select(x => x.Trim('?'));
+            var actualQueryParams = actualUri.Query.Split(new char[] { '&' }).Select(x => x.Trim('?'));
+            if (ignoreCt)
+            {
+                expectedQueryParams = expectedQueryParams.Where(
+                    x => !x.StartsWith(KnownQueryParameterNames.ContinuationToken) && !x.StartsWith(KnownQueryParameterNames.IncludesContinuationToken));
+                actualQueryParams = actualQueryParams.Where(
+                    x => !x.StartsWith(KnownQueryParameterNames.ContinuationToken) && !x.StartsWith(KnownQueryParameterNames.IncludesContinuationToken));
+            }
+
+            var expectedQuery = new HashSet<string>(expectedQueryParams);
+            var actualQuery = new HashSet<string>(actualQueryParams);
+            Assert.Equal(expectedQuery.Count, actualQuery.Count);
+            Assert.Contains(expectedQuery, x => actualQuery.Contains(x));
         }
 
         private string TagQuery(string query)

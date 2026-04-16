@@ -14,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -30,7 +31,6 @@ using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
-using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -140,6 +140,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosDeletionServiceDataStoreFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<CosmosTransactionHandler>()
                 .Scoped()
                 .AsSelf()
@@ -243,10 +248,6 @@ namespace Microsoft.Extensions.DependencyInjection
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();
 
-            services.Add<ReindexJobCosmosThrottleController>()
-                .Transient()
-                .AsImplementedInterfaces();
-
             services.Add<CosmosDbCollectionPhysicalPartitionInfo>()
                 .Singleton()
                 .AsSelf()
@@ -256,9 +257,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
-            services.Add<CompartmentSearchRewriter>()
+            services.Add<CosmosCompartmentSearchRewriter>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<CompartmentSearchRewriter>();
 
             services.Add<SmartCompartmentSearchRewriter>()
                 .Singleton()
@@ -312,7 +314,12 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.AddHealthChecks()
-                .AddCheck<CosmosHealthCheck>(name: "DataStoreHealthCheck");
+                .AddCheck<CosmosDbHealthCheck>(name: "DataStoreHealthCheck");
+
+            fhirServerBuilder.Services.Add<CosmosDbStatusReporter>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

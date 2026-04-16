@@ -16,14 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
-        private readonly DefaultAzureCredential _azureServiceTokenProvider;
+        private readonly ManagedIdentityCredential _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
         public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = new DefaultAzureCredential();
+            _azureServiceTokenProvider = new ManagedIdentityCredential();
             _logger = logger;
         }
 
@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
             // https://learn.microsoft.com/en-us/dotnet/api/overview/azure/app-auth-migration?view=azure-dotnet
-            var accessTokenContext = new TokenRequestContext(scopes: [resourceUri + "/.default"]);
+            Uri resourceUriScope = new Uri(resourceUri, "/.default"); // Safe URI concatenation.
+            var accessTokenContext = new TokenRequestContext(scopes: [resourceUriScope.ToString()]);
 
             AccessToken accessToken;
             try

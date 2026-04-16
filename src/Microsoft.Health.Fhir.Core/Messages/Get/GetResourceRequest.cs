@@ -13,38 +13,36 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
-    public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability, IBundleInnerRequest
+    public class GetResourceRequest : BaseBundleInnerRequest, IRequest<GetResourceResponse>, IRequireCapability
     {
         public GetResourceRequest(ResourceKey resourceKey, BundleResourceContext bundleResourceContext = null)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
-            BundleResourceContext = bundleResourceContext;
         }
 
         public GetResourceRequest(string type, string id, BundleResourceContext bundleResourceContext = null)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
 
             ResourceKey = new ResourceKey(type, id);
-            BundleResourceContext = bundleResourceContext;
         }
 
         public GetResourceRequest(string type, string id, string versionId, BundleResourceContext bundleResourceContext)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
             EnsureArg.IsNotNull(versionId, nameof(versionId));
 
             ResourceKey = new ResourceKey(type, id, versionId);
-            BundleResourceContext = bundleResourceContext;
         }
 
         public ResourceKey ResourceKey { get; }
-
-        public BundleResourceContext BundleResourceContext { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

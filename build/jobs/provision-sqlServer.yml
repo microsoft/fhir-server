@@ -14,6 +14,9 @@ parameters:
 - name: deploymentName
   type: string
   default: ''
+- name: nspName
+  type: string
+  default: ''
 
 jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
@@ -23,17 +26,23 @@ jobs:
   steps:
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
+    retryCountOnTaskFailure: 1
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
+
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
 
         $adminUserAssignedManagedIdentityName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
         $adminType = "${{ parameters.adminType }}"
         $resourceGroup = "${{ parameters.resourceGroup }}"
         $sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+        $nspName = "${{ parameters.nspName }}"
 
         if ($adminType -eq "userAssignedManagedIdentity" -and $adminUserAssignedManagedIdentityName -eq "") {
           Write-Error "adminUserAssignedManagedIdentityName must be provided when adminType is userAssignedManagedIdentity."
@@ -45,8 +54,10 @@ jobs:
           $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
           $location = $resourceGroupDetails.Location
 
-          # Create user-assigned managed identity
-          $identity = New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location
+          # Create user-assigned managed identity with retry for transient errors
+          $identity = Invoke-WithRetry -OperationName "Create Managed Identity" -ScriptBlock {
+            New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location -ErrorAction Stop
+          }
 
           $principalId = $identity.PrincipalId
           $tenantId = $identity.TenantId
@@ -75,7 +86,62 @@ jobs:
         Write-Host "Provisioning Sql server"
         Write-Host "Resource Group: ${{ parameters.resourceGroup }}"
         Write-Host "SqlServerName: ${{ parameters.sqlServerName }}"
-        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+
+        # Deploy SQL Server with retry for transient errors
+        Invoke-WithRetry -OperationName "SQL Server Deployment" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+        }
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
-        New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
+
+        # Check if the firewall rule already exists
+        $firewallRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -ErrorAction SilentlyContinue
+
+        if (-not $firewallRule) {
+          Write-Host "Creating firewall rule 'AzureDevopsAgent'"
+          # Create firewall rule with retry for SQL Server propagation delays
+          Invoke-WithRetry -OperationName "SQL Firewall Rule" -ScriptBlock {
+            New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIP -EndIPAddress $agentIP -ErrorAction Stop
+          }
+        }
+        else {
+          Write-Host "Firewall rule 'AzureDevopsAgent' already exists. Skipping creation."
+        }
+
+        # Associate SQL Server with Network Security Perimeter if NSP name is provided
+        if (-not [string]::IsNullOrEmpty($nspName)) {
+          Write-Host "Associating SQL Server with Network Security Perimeter: $nspName"
+          
+          $associationName = "sqlserver-$sqlServerName-association"
+            
+          Write-Host "Creating NSP association using external ARM template..."
+          Write-Host "NSP Name: $nspName"
+          Write-Host "SQL Server: $sqlServerName"
+          Write-Host "Association Name: $associationName"
+            
+          $nspTemplateParameters = @{
+              'nspName' = $nspName
+              'resourceName' = $sqlServerName
+              'resourceType' = 'Microsoft.Sql/servers'
+              'associationName' = $associationName
+              'accessMode' = 'Learning'
+              'nspProfile' = 'default'
+          }
+            
+          # Deploy NSP association with retry for transient errors
+          $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
+            New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroup `
+              -Name "$sqlServerName-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $nspTemplateParameters `
+              -Verbose `
+              -ErrorAction Stop
+          }
+            
+          Write-Host "Successfully associated SQL Server with NSP using external ARM template"
+          Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        }
+        else {
+          Write-Host "No NSP name provided, skipping NSP association"
+        }

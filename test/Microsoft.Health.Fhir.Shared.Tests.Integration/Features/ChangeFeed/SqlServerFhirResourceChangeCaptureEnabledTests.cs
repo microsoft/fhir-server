@@ -109,11 +109,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var id = Guid.NewGuid().ToString("N");
             var date = DateTimeOffset.UtcNow;
             var wrapper = CreateTestPatient(id, date.AddHours(-1)); // version 1
-            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, false, CancellationToken.None);
             wrapper = CreateTestPatient(id, date); // version 2
-            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, false, CancellationToken.None);
             wrapper = CreateTestPatient(id, date.AddHours(-2)); // version -1
-            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, false, CancellationToken.None);
 
             Assert.Equal(3, await GetCount());
 
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,

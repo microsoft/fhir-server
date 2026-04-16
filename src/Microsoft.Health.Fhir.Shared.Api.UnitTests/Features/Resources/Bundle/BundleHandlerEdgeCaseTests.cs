@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -163,7 +164,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 mediator,
                 router,
                 profilesResolver,
-                NullLogger<BundleHandler>.Instance);
+                NullLogger<BundleHandler>.Instance,
+                Substitute.For<IModelInfoProvider>());
 
             return fhirRequestContextAccessor.RequestContext;
         }

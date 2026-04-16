@@ -29,24 +29,27 @@ function Set-FhirServerUserAppRoleAssignments {
 
     Set-StrictMode -Version Latest
 
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No context found"
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
-    $aadUser = Get-AzureADUser -Filter "UserPrincipalName eq '$UserPrincipalName'"
-    if (!$aadUser)
+    $mgUser = Get-MgUser -Filter "UserPrincipalName eq '$UserPrincipalName'"
+    if (!$mgUser)
     {
         throw "User not found"
     }
 
-    $servicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$ApiAppId'"
+    $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$ApiAppId'"
 
     # Get the collection of roles for the user
-    $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
+    $existingRoleAssignments = Get-MgUserAppRoleAssignment -UserId $mgUser.Id | Where-Object {$_.ResourceId -eq $servicePrincipal.Id}
 
     $expectedRoles = New-Object System.Collections.ArrayList
     $rolesToAdd = New-Object System.Collections.ArrayList
@@ -56,22 +59,28 @@ function Set-FhirServerUserAppRoleAssignments {
         $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.Value -eq $role })
     }
 
-    foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
-        switch ($diff.SideIndicator) {
-            "<=" {
-                $rolesToAdd += $diff.Id
-            }
-            "=>" {
-                $rolesToRemove += $diff.Id
-            }
+    # Compare expected roles with existing assignments
+    $expectedRoleIds = @($expectedRoles | Select-Object -ExpandProperty Id)
+    $existingRoleIds = @($existingRoleAssignments | Select-Object -ExpandProperty AppRoleId)
+
+    foreach ($expectedRoleId in $expectedRoleIds) {
+        if ($expectedRoleId -notin $existingRoleIds) {
+            $rolesToAdd += $expectedRoleId
+        }
+    }
+
+    foreach ($existingRoleId in $existingRoleIds) {
+        if ($existingRoleId -notin $expectedRoleIds) {
+            $rolesToRemove += $existingRoleId
         }
     }
 
     foreach ($role in $rolesToAdd) {
-        New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
+        New-MgUserAppRoleAssignment -UserId $mgUser.Id -PrincipalId $mgUser.Id -ResourceId $servicePrincipal.Id -AppRoleId $role | Out-Null
     }
 
     foreach ($role in $rolesToRemove) {
-        Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
+        $roleAssignmentToRemove = $existingRoleAssignments | Where-Object { $_.AppRoleId -eq $role }
+        Remove-MgUserAppRoleAssignment -UserId $mgUser.Id -AppRoleAssignmentId $roleAssignmentToRemove.Id | Out-Null
     }
 }

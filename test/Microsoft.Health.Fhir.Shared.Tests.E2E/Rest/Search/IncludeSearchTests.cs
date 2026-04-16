@@ -1285,6 +1285,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest);
         }
 
+        /// <summary>
+        /// Regression test for SQL UNION column count mismatch when combining _include and _revinclude.
+        /// Before the fix, this would throw SqlException: "All queries combined using a UNION, INTERSECT
+        /// or EXCEPT operator must have an equal number of expressions in their target lists."
+        /// </summary>
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenIncludeAndRevIncludeTogether_WhenSearched_ThenNoSqlUnionColumnMismatchError()
+        {
+            // This query combines _include and _revinclude which exercises multiple UNION branches
+            // in the SQL query generator. The bug was that include queries projected 3 columns
+            // (T1, Sid1, IsMatch) while other branches projected 4 columns (T1, Sid1, IsMatch, IsPartial).
+            string query = $"_include=Patient:organization&_revinclude=Observation:patient&_tag={Fixture.Tag}";
+
+            // The search should succeed without SqlException
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+
+            // Validate that we got both matched patients and included/revincluded resources
+            Assert.Contains(bundle.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Match);
+        }
+
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.JobManagement;
 using static Hl7.Fhir.Model.Parameters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
@@ -35,20 +36,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IReadOnlyCollection<ResourceSearchParameterStatus> _resourceSearchParameterStatus = null;
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger;
+        private readonly IQueueClient _queueClient;
         private readonly IAuditLogger _auditLogger;
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
 
-        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IAuditLogger auditLogger, Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory)
+        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IQueueClient queueClient, IAuditLogger auditLogger, Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
 
             _authorizationService = authorizationService;
             _searchParameterStatusManager = searchParameterStatusManager;
             _logger = logger;
+            _queueClient = queueClient;
             _auditLogger = auditLogger;
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
         }
@@ -62,10 +66,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                 throw new UnauthorizedFhirActionException();
             }
 
+            if (await IsReindexRunningAsync(cancellationToken))
+            {
+                throw new PreconditionFailedException("A Reindex Job is currently running. Wait till it has completed before trying again.");
+            }
+
             _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
 
-            if (await IsReindexRunning(cancellationToken))
+            if (await IsReindexRunningAsync(cancellationToken))
             {
                 return CreateBundleResponse(new Dictionary<SearchParameterStatus, List<string>>() { }, new List<OperationOutcomeIssue>() { }, true);
             }
@@ -214,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                                         Code = OperationOutcome.IssueType.Conflict,
                                         Details = new CodeableConcept
                                         {
-                                            Text = Core.Resources.ReindexRunning,
+                                            Text = Core.Resources.ReindexRunningException,
                                         },
                                     },
                             },
@@ -232,19 +241,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             return new SearchParameterStateUpdateResponse(bundle.ToResourceElement());
         }
 
-        private async Task<bool> IsReindexRunning(CancellationToken cancellationToken)
+        private async Task<bool> IsReindexRunningAsync(CancellationToken cancellationToken)
         {
-            // check if reindex job is running
-            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
-            {
-                (var activeReindexJobs, var reindexJobId) = await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken);
-                if (activeReindexJobs)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, true, cancellationToken);
+            return activeJobs.Any();
         }
     }
 }

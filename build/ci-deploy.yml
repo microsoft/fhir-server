@@ -47,6 +47,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
@@ -55,12 +56,73 @@ stages:
         azureSubscription: $(ConnectedServiceName)
         resourceGroupName: $(ResourceGroupName)
 
+- stage: createAcaEnvironment
+  displayName: 'Create ACA Managed Environment'
+  dependsOn:
+  - provisionEnvironment
+  jobs:
+  - job: createAcaEnvironment
+    displayName: 'Create ACA Managed Environment'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Create ACA Managed Environment'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: inlineScript
+        Inline: |
+          $envName = '$(AcaEnvironmentName)'.ToLowerInvariant()
+          $rgName = '$(ResourceGroupName)'
+          $location = '$(ResourceGroupRegion)'
+
+          if ($envName.Length -gt 32) {
+              $envName = $envName.Substring(0, 32).TrimEnd('-')
+          }
+
+          $existing = Get-AzResource -ResourceGroupName $rgName -ResourceType 'Microsoft.App/managedEnvironments' -Name $envName -ErrorAction SilentlyContinue
+          if ($null -ne $existing) {
+              Write-Host "ACA managed environment '$envName' already exists."
+              return
+          }
+
+          Write-Host "Creating ACA managed environment '$envName' in '$rgName'..."
+          New-AzResourceGroupDeployment `
+              -Name "aca-env-$envName" `
+              -ResourceGroupName $rgName `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep `
+              -environmentName $envName `
+              -location $location `
+              -Verbose -ErrorAction Stop
+          Write-Host "ACA managed environment '$envName' created successfully."
+
+- stage: createNsp
+  displayName: 'Create Network Security Perimeter'
+  dependsOn:
+  - provisionEnvironment
+  jobs:
+  - template: ./jobs/provision-nsp.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      nspName: 'nsp-$(ResourceGroupName)'
+      nspProfile: 'default'
+
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment
   dependsOn:
   - provisionEnvironment
   jobs:
+  - job: deleteKeyVaults
+    displayName: 'Delete and Purge Key Vaults'
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./tasks/purge-soft-deleted-keyvaults.yml
   - job: setup
+    dependsOn: deleteKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
@@ -69,6 +131,7 @@ stages:
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
   dependsOn:
+  - createNsp
   - provisionEnvironment
   jobs:
   - template: ./jobs/provision-sqlServer.yml
@@ -78,27 +141,32 @@ stages:
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
       deploymentName: "AppServer"
+      nspName: 'nsp-$(ResourceGroupName)'
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
       adminType: 'federatedServiceConnection'
       deploymentName: "IntegrationTests"
+      nspName: 'nsp-$(ResourceGroupName)'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - createNsp
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -109,20 +177,22 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: Stu3
-      sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameSql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: deployR4
@@ -130,15 +200,18 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - createNsp
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -149,20 +222,22 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R4
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4Sql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: deployR4B
@@ -170,15 +245,18 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - createNsp
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4B)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -189,35 +267,41 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R4B
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4BSql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      sqlServerName: $(DeploymentEnvironmentName)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlComputeTier: 'Hyperscale'
+      reindexEnabled: true
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - createNsp
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -228,18 +312,20 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R5
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5Sql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true

@@ -10,7 +10,8 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 IF @EndDate IS NULL
   SET @EndDate = getUTCdate()
 
-SELECT SurrogateIdRangeFirstValue
+SELECT TOP 10000
+       SurrogateIdRangeFirstValue
       ,VisibleDate
       ,InvisibleHistoryRemovedDate
   FROM dbo.Transactions 

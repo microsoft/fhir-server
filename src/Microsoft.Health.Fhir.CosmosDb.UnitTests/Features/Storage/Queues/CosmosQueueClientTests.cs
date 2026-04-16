@@ -48,7 +48,8 @@ public class CosmosQueueClientTests
             Substitute.For<Func<IScoped<Container>>>(),
             _cosmosQueryFactory,
             _distributedLockFactory,
-            _retryPolicyFactory);
+            _retryPolicyFactory,
+            NullLogger<CosmosQueueClient>.Instance);
     }
 
     [Theory]

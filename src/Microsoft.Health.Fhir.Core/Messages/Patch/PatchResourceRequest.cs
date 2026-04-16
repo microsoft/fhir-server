@@ -15,26 +15,27 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability, IBundleInnerRequest
+    public sealed class PatchResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, BundleResourceContext bundleResourceContext, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, BundleResourceContext bundleResourceContext, WeakETag weakETag = null, bool metaHistory = true)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
             EnsureArg.IsNotNull(payload, nameof(payload));
 
             ResourceKey = resourceKey;
             Payload = payload;
-            BundleResourceContext = bundleResourceContext;
             WeakETag = weakETag;
+            MetaHistory = metaHistory;
         }
 
         public PatchPayload Payload { get; }
 
         public ResourceKey ResourceKey { get; }
 
-        public BundleResourceContext BundleResourceContext { get; }
-
         public WeakETag WeakETag { get; }
+
+        public bool MetaHistory { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

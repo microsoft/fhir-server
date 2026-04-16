@@ -26,6 +26,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -118,6 +119,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // no event log table
+        }
+
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             var results = new List<ResourceWrapper>();
@@ -131,16 +137,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
             if (resources == null || resources.Count == 0)
             {
-                return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
+                return MergeOutcome.Empty;
             }
 
             Stopwatch watch = Stopwatch.StartNew();
@@ -168,7 +174,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.LogDebug("CosmosDbMergeAsync - Resource: {CountOfResources} - {ElapsedTime}ms", resources.Count, watch.ElapsedMilliseconds);
             }
 
-            return results;
+            // Cosmos DB does not support atomic merge operations.
+            // For this reason, even if there are unsuccessful results, the operation state will be set as 'Completed'.
+            return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
         }
 
         private async Task MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> results, int? maxParallelism, CancellationToken cancellationToken)
@@ -792,7 +800,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
@@ -813,7 +821,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 watch = Stopwatch.StartNew();
-                builder = builder.SyncSearchParametersAsync();
+                builder = builder.SyncSearchParameters();
                 _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)
@@ -837,7 +845,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 watch = Stopwatch.StartNew();
-                builder = builder.SyncProfiles();
+                builder = await builder.SyncProfilesAsync(cancellationToken);
                 _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)

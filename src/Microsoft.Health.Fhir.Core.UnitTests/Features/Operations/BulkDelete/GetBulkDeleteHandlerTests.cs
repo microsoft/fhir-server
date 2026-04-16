@@ -256,44 +256,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
-        public async Task GivenMiscountedBulkDeleteJob_WhenStatusRequested_ThenStatusIsReturned()
-        {
-            var patientResult1 = new BulkDeleteResult();
-            patientResult1.ResourcesDeleted.Add(KnownResourceTypes.Patient, 15);
-
-            var resourcesDeleted = new List<Tuple<string, Base>>
-            {
-                new(KnownResourceTypes.Patient, new Integer64(15)),
-            };
-
-            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
-            {
-                { _countLabel, resourcesDeleted },
-            };
-
-            var issues = new List<OperationOutcomeIssue>()
-            {
-                new(
-                    OperationOutcomeConstants.IssueSeverity.Warning,
-                    OperationOutcomeConstants.IssueType.Informational,
-                    detailsText: "There was a count mismatch when checking the job results. This could mean a job was restarted unexpetedly or resources were deleted by another process while the job was running. Please double check that all desired resources have been deleted. Audit logs can be referenced to get a list of the resources deleted during this operation."),
-            };
-
-            await RunGetBulkDeleteTest(
-                new List<Tuple<JobInfo, int>>()
-                {
-                    new Tuple<JobInfo, int>(
-                        new()
-                        {
-                            Status = JobStatus.Completed,
-                            Result = JsonConvert.SerializeObject(patientResult1),
-                        },
-                        17),
-                },
-                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
-        }
-
-        [Fact]
         public async Task GivenUnauthorizedUser_WhenStatusRequested_ThenUnauthorizedIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
@@ -318,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             foreach (var job in jobs)
             {
-                var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, "test", "test", "test", job.Item2));
+                var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, null, "test", "test", "test"));
                 job.Item1.Definition = definition;
             }
 

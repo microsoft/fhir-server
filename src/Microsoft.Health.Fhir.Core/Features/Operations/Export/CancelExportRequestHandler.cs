@@ -8,6 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -69,11 +70,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-                    // If the job is already completed for any reason, return conflict status.
-                    if (outcome.JobRecord.Status.IsFinished())
-                    {
-                        return new CancelExportResponse(HttpStatusCode.Conflict);
-                    }
+                    // If there exist any processing job with CancelledByUser status, then GetExportJobByIdAsync will throw JobNotFoundException
+
+                    // SP is always called by the Orchestrator job Id
+                    // All created jobs will be set as Cancel
+                    // All running jobs will be set is CancelRequested = 1
+                    // Jobs(Orchestrator/Processing) with Status = Compeleted, Failed and Cancelled will not get any status changes)
+                    // The status updated happening here outcome.JobRecord.Status = OperationStatus.Canceled; is not really relayed to the SP
+                    // For export cancellations requested by users SP will add a new processing job with CancelByUser status
+
+                    // If there is no processing job with CancelledByUser status, we accept this request from user
+                    // Set the status to cancel here and let SP handle further work
 
                     // Try to cancel the job.
                     outcome.JobRecord.Status = OperationStatus.Canceled;
@@ -82,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
                     _logger.LogInformation("Attempting to cancel export job {JobId}", request.JobId);
-                    await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
+                    await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, true, cancellationToken);
 
                     return new CancelExportResponse(HttpStatusCode.Accepted);
                 });

@@ -51,5 +51,33 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return null;
         }
+
+        internal static ReturnPreference? GetReturnPreferenceValue(this RequestContextAccessor<IFhirRequestContext> contextAccessor)
+        {
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+
+            if (contextAccessor.RequestContext?.RequestHeaders != null &&
+                contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out StringValues values))
+            {
+                var returnValue = values.SelectMany(x => x.Split(',', StringSplitOptions.TrimEntries)).FirstOrDefault(x => x.StartsWith("return=", StringComparison.OrdinalIgnoreCase));
+                if (returnValue?.Any() ?? false)
+                {
+                    returnValue = returnValue.Substring("return=".Length);
+
+                    if (string.IsNullOrWhiteSpace(returnValue) ||
+                        !Enum.TryParse(returnValue, true, out ReturnPreference returnPreference))
+                    {
+                        throw new BadRequestException(string.Format(
+                            Resources.InvalidReturnPreferenceValue,
+                            returnValue,
+                            string.Join(",", Enum.GetNames<ReturnPreference>())));
+                    }
+
+                    return returnPreference;
+                }
+            }
+
+            return null;
+        }
     }
 }

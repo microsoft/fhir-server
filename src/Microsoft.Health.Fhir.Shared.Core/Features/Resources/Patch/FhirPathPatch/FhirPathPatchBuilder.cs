@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
                     PatchOperationType.REPLACE => new OperationReplace(resource, po).Execute(),
                     PatchOperationType.DELETE => new OperationDelete(resource, po).Execute(),
                     PatchOperationType.MOVE => new OperationMove(resource, po).Execute(),
+                    PatchOperationType.UPSERT => new OperationUpsert(resource, po).Execute(),
                     _ => throw new NotImplementedException(),
                 };
             }

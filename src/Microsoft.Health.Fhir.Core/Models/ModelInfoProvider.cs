@@ -61,9 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Models
             return Instance.GetFhirTypeNameForType(type);
         }
 
-        public static bool IsKnownResource(string name)
+        public static bool IsKnownResource(string name, bool ignoreCase = true)
         {
-            return Instance.IsKnownResource(name);
+            return Instance.IsKnownResource(name, ignoreCase);
         }
 
         public static bool IsKnownCompartmentType(string compartmentType)

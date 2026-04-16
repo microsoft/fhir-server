@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ILogger _logger;
         private readonly CoreFeatureConfiguration _featureConfiguration;
         private SearchParameterInfo _resourceTypeSearchParameter;
-        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.StartSurrogateId, KnownQueryParameterNames.IgnoreSearchParamHash };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -90,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
-        [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
         public SearchOptions Create(
             string compartmentType,
             string compartmentId,
@@ -128,6 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            var notReferencedSearches = new List<string>();
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
@@ -223,6 +224,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(ex.Message);
                     }
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.NotReferenced, StringComparison.OrdinalIgnoreCase))
+                {
+                    notReferencedSearches.Add(query.Item2);
+                }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase))
                 {
                     // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
@@ -293,23 +298,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.MaxItemCountSpecifiedByClient = true;
 
-                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                if (isAsyncOperation)
                 {
-                    if (isAsyncOperation)
-                    {
-                        searchOptions.IsLargeAsyncOperation = true;
-                        searchOptions.MaxItemCount = searchParams.Count.Value;
-                    }
-                    else
-                    {
-                        searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+                    searchOptions.IsAsyncOperation = true;
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
+                else if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                {
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                        _contextAccessor.RequestContext?.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Information,
-                                OperationOutcomeConstants.IssueType.Informational,
-                                string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
-                    }
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
                 }
                 else
                 {
@@ -368,7 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resourceTypes = searchParams.Parameters
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
-                    .Where(ModelInfoProvider.IsKnownResource)
+                    .Where(q => ModelInfoProvider.IsKnownResource(q))
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
@@ -387,9 +389,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
-            CheckFineGrainedAccessControl(searchExpressions);
-
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
+
+            // Form all the include revinclude expressions before for the Smart queries access control check
+            // Collect all the resource types required by the include/revinclude expressions
+            var includeRevincludeSearchExpressions = new List<IncludeExpression>();
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
+
+            // Add the parsed resource types to the required resource types for access control check
+            // Now it contains all the resource types that are requested by the search,
+            // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
+            requiredResourceTypes.AddRange(parsedResourceTypes);
+
+            CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
             q =>
@@ -410,8 +424,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            if (includeRevincludeSearchExpressions.Any())
+            {
+                searchExpressions.AddRange(includeRevincludeSearchExpressions);
+            }
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -450,12 +466,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                     }
 
-                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                    // Don't add the smart compartment twice. this is a patch for bug number AB#152447.
+                    if (!searchExpressions.Any(e => e.ValueInsensitiveEquals(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null))))
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, resourceTypesString));
+                    }
                 }
                 else
                 {
                     throw new InvalidSearchOperationException(
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
+                }
+            }
+
+            var otherSearchErrors = new List<string>();
+            var invalidSearchParameters = new List<Tuple<string, string>>();
+
+            foreach (var notReferencedSearch in notReferencedSearches)
+            {
+                try
+                {
+                    var expression = _expressionParser.ParseNotReferenced(notReferencedSearch);
+
+                    if (expression != null)
+                    {
+                        searchExpressions.Add(expression);
+                    }
+                }
+                catch (FhirException e)
+                {
+                    otherSearchErrors.Add(e.Issues.First().Diagnostics);
+                    invalidSearchParameters.Add(Tuple.Create(KnownQueryParameterNames.NotReferenced, notReferencedSearch));
                 }
             }
 
@@ -468,11 +509,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
-            searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+            invalidSearchParameters.AddRange(unsupportedSearchParameters);
+            searchOptions.UnsupportedSearchParams = invalidSearchParameters;
 
-            var searchSortErrors = new List<string>();
-
-            // Sort is unneded for summary count
+            // Sort is not needed for summary count
             if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
@@ -489,7 +529,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        searchSortErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
+                        otherSearchErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
                     }
                 }
 
@@ -508,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            searchSortErrors.Add(errorMessage);
+                            otherSearchErrors.Add(errorMessage);
                         }
                     }
                 }
@@ -528,7 +568,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
             // depending on the state of the "Prefer" header.
-            if (unsupportedSearchParameters.Any() || searchSortErrors.Any())
+            if (unsupportedSearchParameters.Any() || otherSearchErrors.Any())
             {
                 var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
@@ -536,7 +576,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 
-                allErrors.AddRange(searchSortErrors);
+                allErrors.AddRange(otherSearchErrors);
+
+                var allErrorMessages = string.Empty;
+                foreach (string error in allErrors)
+                {
+                    allErrorMessages += error + ", ";
+                }
+
+                _logger.LogDebug("Search contained errors: {Errors}", allErrorMessages);
 
                 if (_contextAccessor.GetIsStrictHandlingEnabled())
                 {
@@ -721,19 +769,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger.LogInformation(logOutput);
         }
 
-        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions)
+        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
         {
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
+                var finalSmartSearchExpressions = new List<Expression>();
+                bool isFineGrainedAccessControlWithSearchParameters = false;
 
                 foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
                 {
                     if (restriction.Resource == KnownResourceTypes.All)
                     {
                         allowAllResourceTypes = true;
+
+                        // Check if SMART V2 search parameter constraint exists
+                        // If yes then we can add it to searchParams before breaking
+                        // This should get ANDed with main query and be applied as a common search parameter across all resource types
+                        if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
+                        {
+                            // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
+                            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
+                            {
+                                bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+                                if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
+                                {
+                                    throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
+                                }
+                            }
+
+                            foreach (var param in restriction.SearchParameters.Parameters)
+                            {
+                               searchParams.Add(param.Item1, param.Item2);
+                            }
+                        }
+
                         break;
                     }
 
@@ -742,18 +814,119 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new ResourceNotSupportedException(restriction.Resource);
                     }
 
+                    if (!requiredResourceTypes.Contains(KnownResourceTypes.DomainResource) && !requiredResourceTypes.Contains(restriction.Resource))
+                    {
+                        // For a system level search requiredResourceTypes will have DomainResource as default. For system level search we need to apply all clinical scope restrictions.
+                        // Not a system level search and the scope restricted resource type is not a required resource type then do not add the scope restriction
+                        continue;
+                    }
+
+                    // Form the AND expression for resource type and its searchParameters restrictions.
+                    var smartSearchExpressions = new List<Expression>();
+
+                    // Check if there are any search parameter constraint for this clinicalScopeResourceType
+                    // If search parameters are defined in the restriction, add them to searchParams.
+                    if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
+                    {
+                        // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
+                        if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
+                        {
+                            bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+                            if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
+                            {
+                                throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
+                            }
+                        }
+
+                        isFineGrainedAccessControlWithSearchParameters = true;
+                        var andedSmartSmartSearchExpressions = new List<Expression>();
+                        foreach (var param in restriction.SearchParameters.Parameters)
+                        {
+                            var fineGrainedSmartSearchExpressions = new List<Expression>();
+                            fineGrainedSmartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
+
+                            // We need to parse the search parameters for each resource type since the same search parameter can have different definitions for different resource types
+                            var smartSearchParams = new SearchParams();
+                            smartSearchParams.Add(param.Item1, param.Item2);
+                            fineGrainedSmartSearchExpressions.AddRange(smartSearchParams.Parameters.Select(
+                                q =>
+                                {
+                                    try
+                                    {
+                                        return _expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2);
+                                    }
+                                    catch (SearchParameterNotSupportedException)
+                                    {
+                                        return null;
+                                    }
+                                })
+                                .Where(item => item != null));
+                            var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
+                            individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                            andedSmartSmartSearchExpressions.Add(individualAndExp);
+                        }
+
+                        var andExp = Expression.And(andedSmartSmartSearchExpressions.ToArray());
+                        andExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                        finalSmartSearchExpressions.Add(andExp);
+                    }
+                    else
+                    {
+                        smartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
+                        finalSmartSearchExpressions.Add(Expression.And(smartSearchExpressions.ToArray()));
+                    }
+
                     clinicalScopeResources.Add(clinicalScopeResourceType);
                 }
 
                 if (!allowAllResourceTypes)
                 {
-                    if (clinicalScopeResources.Any())
+                    // We are applying smart scopes only for the resource types that are requested in the search
+                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation type
+                    // i.e. if the search is for /Observation?_include=Observation:subject, then we should only apply smart scopes for the Observation and Patient type
+                    // i.e. if the search is for /_type=Observation,Practitioner then we should only apply smart scopes for the Observation and Practitioner type
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
-                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                        // Check if any scopes with search parameters were present
+                        // If yes then, go ahead with the Union expression
+                        // If not then, we can simply use clinicalScopeResources
+                        if (isFineGrainedAccessControlWithSearchParameters)
+                        {
+                            // Builds the search expression like (((ResourceType = A AND <search params 1 for A>) AND (ResourceType = A AND <search params 2 for A>)) OR ((ResourceType = B AND <search params 1 for B>) AND (ResourceType = B AND <search params 2 for B>)))
+                            var unionExpr = Expression.Union(UnionOperator.All, finalSmartSearchExpressions);
+                            unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                            searchExpressions.Add(unionExpr);
+                        }
+                        else if (clinicalScopeResources.Any())
+                        {
+                            if (clinicalScopeResources.Count == 1)
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResources[0].ToString(), false)));
+                            }
+                            else
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                            }
+                        }
                     }
-                    else // block all queries
+                    else
                     {
-                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                        // If ApplyFineGrainedAccessControlWithSearchParameters is false, we only filter by resource type and use format like (ResourceType in (A, B))
+                        if (clinicalScopeResources.Any())
+                        {
+                            if (clinicalScopeResources.Count == 1)
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResources[0].ToString(), false)));
+                            }
+                            else
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                            }
+                        }
+                        else // block all queries
+                        {
+                            searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                        }
                     }
                 }
             }

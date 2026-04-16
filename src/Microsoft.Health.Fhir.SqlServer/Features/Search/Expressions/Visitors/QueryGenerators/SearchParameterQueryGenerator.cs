@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
+using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -124,6 +126,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.Append(" "); // Replaced CR by space keeping code "protection".
 
             return context;
+        }
+
+        public override SearchParameterQueryGeneratorContext VisitNotReferenced(NotReferencedExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            context.StringBuilder.AppendLine($"{VLatest.Resource.IsHistory} = 0");
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsDeleted} = 0");
+            context.StringBuilder.AppendLine("AND NOT EXISTS ").AppendLine("(");
+            using (context.StringBuilder.Indent())
+            {
+                context.StringBuilder.AppendLine($"SELECT *");
+                context.StringBuilder.Append($"FROM (SELECT SourceResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, {VLatest.ReferenceSearchParam.SearchParamId}, {VLatest.ReferenceSearchParam.ReferenceResourceId}, {VLatest.ReferenceSearchParam.ReferenceResourceTypeId} FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(") R");
+
+                using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
+                {
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceId} = {VLatest.Resource.ResourceId}");
+
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {VLatest.Resource.ResourceTypeId}");
+
+                    if (expression.SourceResourceType != null)
+                    {
+                        var resourceTypeId = context.Model.GetResourceTypeId(expression.SourceResourceType);
+
+                        nestedDelimited.BeginDelimitedElement();
+                        context.StringBuilder.Append($"SourceResourceTypeId = {resourceTypeId}");
+
+                        if (expression.ReferenceSearchParameter != null)
+                        {
+                            var searchParamId = context.Model.GetSearchParamId(expression.ReferenceSearchParameter.Url);
+
+                            nestedDelimited.BeginDelimitedElement();
+                            context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.SearchParamId} = {searchParamId}");
+                        }
+                    }
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
+
+            return base.VisitNotReferenced(expression, context);
         }
 
         protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)

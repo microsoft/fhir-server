@@ -33,8 +33,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None);
 
-            await mockValidator1.Received().ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>());
-            await mockValidator2.Received().ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>());
+            await mockValidator1.Received().ValidateAsync(
+                Arg.Is<ValidationContext<UpsertResourceRequest>>(ctx => ctx.InstanceToValidate == upsertResourceRequest),
+                Arg.Is<CancellationToken>(ct => ct == CancellationToken.None));
+            await mockValidator2.Received().ValidateAsync(
+                Arg.Is<ValidationContext<UpsertResourceRequest>>(ctx => ctx.InstanceToValidate == upsertResourceRequest),
+                Arg.Is<CancellationToken>(ct => ct == CancellationToken.None));
         }
 
         [Fact]
@@ -50,10 +54,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var validationError = Task.FromResult(new ValidationResult(new[] { new ValidationFailure("Id", "Id should not be null") }));
 
             mockValidator2
-                .ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>())
+                .ValidateAsync(
+                    Arg.Is<ValidationContext<UpsertResourceRequest>>(ctx => ctx.InstanceToValidate == upsertResourceRequest),
+                    Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(validationError);
 
-            await Assert.ThrowsAsync<ResourceNotValidException>(async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotValidException>(
+                async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
         }
 
         [Fact]
@@ -65,15 +72,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
 
-            var operationOutcomeIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, "Id was Invalid");
+            var operationOutcomeIssue = new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Invalid,
+                "Id was Invalid");
 
             var validationError = new ValidationResult(new[] { new FhirValidationFailure("Id", operationOutcomeIssue.Diagnostics, operationOutcomeIssue) });
             validationError.Errors[0].ErrorCode = "Custom";
+
             mockValidator
-                .ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>())
+                .ValidateAsync(
+                    Arg.Is<ValidationContext<UpsertResourceRequest>>(ctx => ctx.InstanceToValidate == upsertResourceRequest),
+                    Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(Task.FromResult(validationError));
 
-            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(
+                async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
 
             Assert.Contains(operationOutcomeIssue, exception.Issues);
         }

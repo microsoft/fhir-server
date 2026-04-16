@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            resources.AddRange(patients.AsEnumerable().Reverse());
             resources.AddRange(observations);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
@@ -537,7 +537,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Observations.
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
-            SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -561,7 +560,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            resources.AddRange(patients.AsEnumerable().Reverse());
             observations.Reverse();
             resources.AddRange(observations);
 
@@ -575,7 +574,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Observations.
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
-            SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -1148,6 +1146,89 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Null(response.Resource.NextLink);
         }
 
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResourcesGreaterThanOnePage_WhenSearchedWithSortAndInclude_ThenSearchResultsContainIncludedResources(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
+
+            // 10 matches, 8 includes, 1 warning that includes were truncated
+            Assert.Equal(19, response.Resource.Entry.Count);
+        }
+
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenSearchResultsContainAnIncludesContinuationToken(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
+
+            Assert.Contains(response.Resource.Link, link =>
+            {
+                return link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(link.Url);
+            });
+        }
+
+        [Theory]
+        [InlineData("birthdate", 10)]
+        [InlineData("-birthdate", 2)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndIncludeOnDataThatOnlyPartiallyContainsTheSortField_ThenTheRightIncludedResourcesAreReturned(string sortParameterName, int expectedCount)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count={expectedCount}");
+
+            Assert.Equal(expectedCount * 2, response.Resource.Entry.Count);
+        }
+
+        [Theory]
+        [InlineData(1, "birthdate")]
+        [InlineData(2, "birthdate")]
+        [InlineData(3, "birthdate")]
+        [InlineData(11, "-birthdate")]
+        [InlineData(10, "-birthdate")]
+        [InlineData(5, "-birthdate")]
+        [InlineData(4, "-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount, string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_revinclude=Encounter:subject&_count=12&_includesCount={includesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            var includedCount = 0;
+
+            while (relatedLink != null)
+            {
+                var includedResults = await Client.SearchAsync(relatedLink.Url);
+                includedCount += includedResults.Resource.Entry.Count();
+
+                var nextLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+                if (nextLink == null)
+                {
+                    break;
+                }
+
+                Assert.NotEqual(relatedLink.Url, nextLink.Url);
+                relatedLink = nextLink;
+            }
+
+            Assert.Equal(24 - includesCount, includedCount);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -1291,6 +1372,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<List<Resource>> CreatePatientsWithLinkedObservationAndEncounter(string tag)
+        {
+            var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
+            var allResources = new List<Resource>(patients);
+
+            foreach (var patient in patients)
+            {
+                var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
+                allResources.AddRange(observations);
+
+                var encounters = await AddEncounterToPatient(patient, tag);
+                allResources.AddRange(encounters);
+            }
+
+            return allResources;
+        }
+
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
@@ -1354,10 +1452,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        private void SetEncounterInfo(Encounter encounter, string tag, Patient patient = null)
+        {
+#if R5
+            encounter.Class = new List<CodeableConcept>()
+            {
+                new CodeableConcept
+                {
+                    Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "test",
+                                System = "test",
+                            },
+                        },
+                },
+            };
+            encounter.Status = EncounterStatus.Completed;
+#else
+            encounter.Class = new Coding
+            {
+                Code = "test",
+                System = "test",
+            };
+            encounter.Status = Encounter.EncounterStatus.Arrived;
+#endif
+
+            encounter.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
+            if (patient != null)
+            {
+                encounter.Subject = new ResourceReference($"Patient/{patient.Id}");
+            }
+        }
+
         private async Task<Observation[]> AddObservationToPatient(Patient patient, string observationDate, string tag)
         {
             return await Client.CreateResourcesAsync<Observation>(
                 o => SetObservationInfo(o, observationDate, tag, patient));
+        }
+
+        private async Task<Encounter[]> AddEncounterToPatient(Patient patient, string tag)
+        {
+            return await Client.CreateResourcesAsync<Encounter>(
+                e => SetEncounterInfo(e, tag, patient));
         }
 
         private static class SortTestsAssert

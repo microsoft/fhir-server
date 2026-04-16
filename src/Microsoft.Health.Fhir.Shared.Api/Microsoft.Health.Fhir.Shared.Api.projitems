@@ -10,7 +10,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\DocRefController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
@@ -20,12 +22,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtension.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\MemberMatchResult.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationSmartConfigurationResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\ActionExecutedStatistics.cs" />
@@ -41,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ParametersExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerParallelOperations.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerRuntime.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerStatistics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleRouter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
@@ -61,6 +65,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\OAuth2BadRequestException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OAuth2ExceptionFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\WeakETagBinder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatter.cs" />
@@ -85,6 +91,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\TerminologyModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>

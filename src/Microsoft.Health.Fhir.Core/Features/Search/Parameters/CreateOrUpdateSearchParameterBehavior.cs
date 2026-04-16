@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next();
+            return await next(cancellationToken);
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
@@ -51,7 +52,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
-                ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                ResourceWrapper prevSearchParamResource = null;
+
+                try
+                {
+                    prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                }
+                catch (ResourceNotFoundException)
+                {
+                    // Resource doesn't exist yet, which is valid for PUT operations (upsert behavior)
+                    // We'll treat this as a create operation
+                    prevSearchParamResource = null;
+                }
+
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
@@ -60,12 +73,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
                 else
                 {
+                    // No previous version exists or it was deleted, so add it as a new SearchParameter
                     await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance, cancellationToken);
                 }
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next();
+            return await next(cancellationToken);
         }
     }
 }

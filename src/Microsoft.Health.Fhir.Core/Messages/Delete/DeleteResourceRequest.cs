@@ -13,32 +13,30 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
-    public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability, IBundleInnerRequest
+    public class DeleteResourceRequest : BaseBundleInnerRequest, IRequest<DeleteResourceResponse>, IRequireCapability
     {
         public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
             DeleteOperation = deleteOperation;
-            BundleResourceContext = bundleResourceContext;
             AllowPartialSuccess = allowPartialSuccess;
         }
 
         public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
 
             ResourceKey = new ResourceKey(type, id);
             DeleteOperation = deleteOperation;
-            BundleResourceContext = bundleResourceContext;
             AllowPartialSuccess = allowPartialSuccess;
         }
 
         public ResourceKey ResourceKey { get; }
-
-        public BundleResourceContext BundleResourceContext { get; }
 
         public DeleteOperation DeleteOperation { get; }
 

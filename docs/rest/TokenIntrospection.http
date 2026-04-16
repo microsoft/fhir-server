@@ -1,0 +1,149 @@
+# .SUMMARY Sample requests for RFC 7662 Token Introspection endpoint
+# 
+# Token introspection allows authorized clients to validate access tokens
+# and retrieve associated metadata. This is useful for resource servers
+# to verify tokens and make authorization decisions.
+#
+# Prerequisites:
+# - FHIR server running locally with OpenIddict enabled
+# - Authentication configured in appsettings.json
+#
+# Introspection endpoint: /connect/introspect
+# Per RFC 7662, responses return:
+# - active=true with claims for valid tokens
+# - active=false (only) for invalid/expired tokens
+
+@hostname = localhost:44348
+@introspectionEndpoint = https://{{hostname}}/connect/introspect
+
+###############################################################################
+# SECTION 1: Obtain Access Tokens
+###############################################################################
+
+### Get GlobalAdmin token for introspection requests
+# @name globalAdminToken
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Get GlobalReader user token (different client for comparison)
+# @name globalReaderToken
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalReaderUserApp
+&client_secret=globalReaderUserApp
+&scope=fhir-api
+
+### Get SMART user token (includes fhirUser claim)
+# @name smartUserToken
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read fhirUser fhir-api
+
+###############################################################################
+# SECTION 2: Valid Token Introspection
+###############################################################################
+
+### Introspect valid GlobalAdmin token
+# Expected: 200 OK with active=true and standard claims (sub, iss, aud, exp, client_id, token_type)
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+token={{globalAdminToken.response.body.access_token}}
+
+### Introspect valid GlobalReader user token
+# Expected: 200 OK with active=true and different client_id than GlobalAdmin
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalReaderToken.response.body.access_token}}
+
+token={{globalReaderToken.response.body.access_token}}
+
+### Introspect SMART user token (should include fhirUser claim)
+# Expected: 200 OK with active=true, fhirUser claim, and scope as space-separated string
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{smartUserToken.response.body.access_token}}
+
+token={{smartUserToken.response.body.access_token}}
+
+### Cross-introspect: Use GlobalAdmin token to introspect GlobalReader token
+# Expected: 200 OK with active=true - authorized clients can introspect other valid tokens
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+token={{globalReaderToken.response.body.access_token}}
+
+###############################################################################
+# SECTION 3: Invalid Token Scenarios
+###############################################################################
+
+### Introspect an invalid/garbage token
+# Expected: 200 OK with {"active": false} only (per RFC 7662 section 2.2)
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+token=invalid.jwt.token
+
+### Introspect a malformed token (not even JWT format)
+# Expected: 200 OK with {"active": false} only
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+token=not-even-three-parts
+
+### Introspect a token that looks like JWT but has invalid signature
+# Expected: 200 OK with {"active": false}
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkZha2UgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.FakeSignatureThatWillNotValidate
+
+###############################################################################
+# SECTION 4: Error Scenarios
+###############################################################################
+
+### Missing token parameter - should return 400 Bad Request
+# Expected: 400 Bad Request with error message about missing token parameter
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer {{globalAdminToken.response.body.access_token}}
+
+
+### No Authorization header - should return 401 Unauthorized
+# Expected: 401 Unauthorized (introspection endpoint requires authentication)
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+
+token={{globalAdminToken.response.body.access_token}}
+
+### Invalid Authorization header format
+# Expected: 401 Unauthorized
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: InvalidScheme {{globalAdminToken.response.body.access_token}}
+
+token={{globalAdminToken.response.body.access_token}}
+
+### Expired bearer token for authentication (simulated with invalid token)
+# Expected: 401 Unauthorized - the authenticating token must be valid
+POST {{introspectionEndpoint}}
+content-type: application/x-www-form-urlencoded
+Authorization: Bearer expired.invalid.token
+
+token={{globalAdminToken.response.body.access_token}}

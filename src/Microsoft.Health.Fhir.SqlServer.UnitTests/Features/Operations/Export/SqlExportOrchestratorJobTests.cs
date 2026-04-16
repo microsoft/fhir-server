@@ -38,21 +38,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
         private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
         [Theory]
-        [InlineData(ExportJobType.Patient)]
-        [InlineData(ExportJobType.Group)]
-        public async Task GivenANonSystemLevelExportJob_WhenRun_ThenOneProcessingJobShouldBeCreated(ExportJobType exportJobType)
+        [InlineData(ExportJobType.Patient, 100, 100)]
+        [InlineData(ExportJobType.Group, 1, 1)]
+        public async Task GivenANonSystemLevelExportJob_WhenRun_ThenOneProcessingJobShouldBeCreated(ExportJobType exportJobType, int expectedEnqueueCalls, int expectedJobCount)
         {
-            int numExpectedJobs = 1;
             long orchestratorJobId = 10000;
 
-            SetupMockQueue(numExpectedJobs, orchestratorJobId);
+            SetupMockQueue(1, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
 
-            CheckJobsQueued(1, numExpectedJobs);
+            CheckJobsQueued(expectedEnqueueCalls, expectedJobCount);
         }
 
         [Fact]
@@ -195,16 +194,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 int numRanges = x.ArgAt<int>(4);
-                var ranges = new List<(long StartId, long EndId)>();
+                var ranges = new List<(long StartId, long EndId, int Count)>();
                 if (x.ArgAt<long>(1) <= x.ArgAt<long>(2)) // start <= end to break internal loop
                 {
                     for (int i = 0; i < numRanges; i++)
                     {
-                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1));
+                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1, int.MaxValue - 1));
                     }
                 }
 
-                return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
+                return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
             });
 
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>

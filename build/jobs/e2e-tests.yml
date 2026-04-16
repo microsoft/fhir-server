@@ -1,96 +1,51 @@
 parameters:
 - name: version
   type: string
-- name: appServiceName
+- name: containerAppName
   type: string
 - name: appServiceType
   type: string
+- name: categoryFilter
+  type: string
+  default: 'Category!=ExportLongRunning'
+- name: testRunTitleSuffix
+  type: string
+  default: ''
 
 steps:
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
 
-  - task: AzurePowerShell@5
-    displayName: 'Set Variables'
+  - template: ../tasks/e2e-set-variables.yml
+    parameters:
+      containerAppName: ${{ parameters.containerAppName }}
+      version: ${{ parameters.version }}
+      appServiceType: ${{ parameters.appServiceType }}
+
+  - task: PowerShell@2
+    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      ScriptType: inlineScript
-      Inline: |
-        $keyVault = "$(DeploymentEnvironmentName)-ts"
-        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
-
-        foreach($secret in $secrets)
-        {
-            $environmentVariableName = $secret.Name.Replace("--","_")
-
-            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
-            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainValue))
-            {
-                throw "$($secret.Name) is empty"
-            }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
         }
 
-        $appServiceName = "${{ parameters.appServiceName }}"
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
-        $acrLoginServer = $acrSettings[0].Value
-        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
 
-        ## This needs to be moved to MI, WI #125246  
-        # $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
-        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
-        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
 
-        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
-        $exportStoreUri = $exportStoreSettings[0].Value
-        Write-Host "$exportStoreUri"
-        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
-        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
-        
-        Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
-
-        $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
-        $integrationStoreUri = $integrationStoreSettings[0].Value
-        Write-Host "$integrationStoreUri"
-        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
-        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
-
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
-        
-        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
-        foreach($secret in $secrets)
-        {
-            $environmentVariableName = $secret.Name.Replace("--","_")
-
-            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
-            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainValue))
-            {
-                throw "$($secret.Name) is empty"
-            }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        if ($LASTEXITCODE -ne 0) {
+          throw "E2E tests failed with exit code $LASTEXITCODE"
         }
-        # ----------------------------------------
-
-        dotnet dev-certs https
-
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
-
-  - task: DotNetCoreCLI@2
-    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
-    inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -123,7 +78,21 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'app_smartUserClient_id': $(app_smartUserClient_id)
+      'app_smartUserClient_secret': $(app_smartUserClient_secret)
       'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()

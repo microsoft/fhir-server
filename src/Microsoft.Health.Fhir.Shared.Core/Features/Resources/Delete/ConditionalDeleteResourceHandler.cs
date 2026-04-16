@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
@@ -67,12 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions dataActions = (request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete) | DataActions.Read;
-
-            if (await AuthorizationService.CheckAccess(dataActions, cancellationToken) != dataActions)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckConditionalDeleteAccess(
+                cancellationToken,
+                request.DeleteOperation != DeleteOperation.SoftDelete);
 
             try
             {
@@ -99,7 +97,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 logger: _logger);
 
             int count = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
-            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(
+                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
 
             if (count == 0)
             {

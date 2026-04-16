@@ -41,10 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="continuationToken">An optional ContinuationToken</param>
         /// <param name="versionType">The versions of a resource to return</param>
         /// <param name="onlyIds">Whether to return only resource ids or the full resource</param>
+        /// <param name="isIncludesOperation">Whether to search for included resources</param>
         /// <param name="logger">The logger</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
-        internal static async Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken)> ConditionalSearchAsync(
+        internal static async Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken, string IncludesContinuationToken)> ConditionalSearchAsync(
             this ISearchService searchService,
             string instanceType,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string continuationToken = null,
             ResourceVersionType versionType = ResourceVersionType.Latest,
             bool onlyIds = false,
+            bool isIncludesOperation = false,
             ILogger logger = null)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
@@ -67,48 +69,51 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
+            SearchResult results;
             var matchedResults = new List<SearchResultEntry>();
             var includeResults = new List<SearchResultEntry>();
-            string lastContinuationToken = continuationToken;
             LongRunningOperationStatistics statistics = new LongRunningOperationStatistics(operationName: "conditionalSearchAsync");
             try
             {
                 statistics.StartCollectingResults();
-                do
+
+                var searchParameters = new List<Tuple<string, string>>(filteredParameters);
+                if (!string.IsNullOrEmpty(continuationToken))
                 {
-                    var searchParameters = new List<Tuple<string, string>>(filteredParameters);
-                    if (!string.IsNullOrEmpty(lastContinuationToken))
+                    if (isIncludesOperation)
                     {
-                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(lastContinuationToken)));
+                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
                     }
-
-                    statistics.Iterate();
-
-                    SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken, resourceVersionTypes: versionType, onlyIds: onlyIds);
-                    lastContinuationToken = results?.ContinuationToken;
-
-                    // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
-                    int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
-                    if (totalUnusedParameters == userProvidedParameterCount)
+                    else
                     {
-                        logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
-                        throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
-                    }
-
-                    if (results?.Results?.Any() == true)
-                    {
-                        matchedResults.AddRange(
-                            results?.Results
-                                .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
-                                .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
-
-                        // This will get include results and outcome results. Outcome results are needed to check for too many includes warning.
-                        includeResults.AddRange(
-                            results?.Results
-                                .Where(x => x.SearchEntryMode != ValueSets.SearchEntryMode.Match));
+                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
                     }
                 }
-                while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));
+
+                statistics.Iterate();
+
+                results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken, resourceVersionTypes: versionType, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
+
+                // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
+                int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
+                if (totalUnusedParameters == userProvidedParameterCount)
+                {
+                    logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
+                    throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
+                }
+
+                if (results?.Results?.Any() == true)
+                {
+                    matchedResults.AddRange(
+                        results?.Results
+                            .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                            .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+
+                    // This will get include results and outcome results. Outcome results are needed to check for too many includes warning.
+                    includeResults.AddRange(
+                        results?.Results
+                            .Where(x => x.SearchEntryMode != ValueSets.SearchEntryMode.Match));
+                }
             }
             finally
             {
@@ -128,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             var resultsToReturn = matchedResults.Concat(includeResults).ToList();
-            return (resultsToReturn, lastContinuationToken);
+            return (resultsToReturn, isIncludesOperation ? results?.IncludesContinuationToken : results?.ContinuationToken, results?.IncludesContinuationToken);
         }
     }
 }

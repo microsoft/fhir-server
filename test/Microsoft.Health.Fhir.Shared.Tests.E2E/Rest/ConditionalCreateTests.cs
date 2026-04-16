@@ -4,10 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -67,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}");
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
-            Assert.Null(updateResponse.Resource);
+            Assert.NotNull(updateResponse.Resource);
         }
 
         [Fact]
@@ -139,6 +142,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             Assert.Single(exception.OperationOutcome.Issue);
             Assert.Equal(exception.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, "Observation"));
+        }
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(null, true)]
+        [InlineData("return=minimal", true)]
+        [InlineData("return=representation", true)]
+        [InlineData("return=OperationOutcome", true)]
+        [InlineData("return=", false)]
+        public async Task GivenAMatchedResource_WhenCreatingConditionallyWithPreferHeader_TheResponseShouldHaveCorrectContentAndHeaders(
+            string returnPreference,
+            bool valid)
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            var identifier = Guid.NewGuid().ToString();
+
+            observation.Identifier.Add(new Identifier("http://e2etests", identifier));
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+
+            Dictionary<string, string> additionalHeaders = null;
+            if (!string.IsNullOrWhiteSpace(returnPreference))
+            {
+                additionalHeaders = new Dictionary<string, string>
+                {
+                    { KnownHeaders.Prefer, returnPreference },
+                };
+            }
+
+            try
+            {
+                using FhirResponse<Resource> updateResponse = await _client.CreateAsync<Resource>(
+                    resource: observation2,
+                    conditionalCreateCriteria: $"identifier={identifier}",
+                    additionalHeaders: additionalHeaders);
+
+                Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+                Assert.Equal(response.Response.Headers.ETag?.ToString(), updateResponse.Response.Headers.ETag?.ToString());
+                Assert.Equal(response.Response.Content.Headers.LastModified, updateResponse.Response.Content.Headers.LastModified);
+                Assert.True(!string.IsNullOrWhiteSpace(updateResponse.Response.Headers.Location?.AbsolutePath));
+
+                if (string.IsNullOrWhiteSpace(returnPreference) || returnPreference.Equals("return=representation", StringComparison.Ordinal))
+                {
+                    Assert.NotNull(updateResponse.Resource);
+                    Assert.Equal(response.Resource.TypeName, updateResponse.Resource.TypeName);
+                    Assert.Equal(response.Resource.Id, updateResponse.Resource.Id);
+                }
+                else if (returnPreference.Equals("return=minimal", StringComparison.Ordinal))
+                {
+                    Assert.Null(updateResponse.Resource);
+                }
+                else if (returnPreference.Equals("return=OperationOutcome", StringComparison.Ordinal))
+                {
+                    Assert.NotNull(updateResponse.Resource);
+                    Assert.Equal(KnownResourceTypes.OperationOutcome, updateResponse.Resource.TypeName);
+                    Assert.Contains(
+                        ((OperationOutcome)updateResponse.Resource).Issue,
+                        x => x.Severity == OperationOutcome.IssueSeverity.Information && !string.IsNullOrEmpty(x.Details?.Text));
+                }
+
+                Assert.True(valid);
+            }
+            catch (FhirClientException ex)
+            {
+                Assert.False(valid);
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            }
         }
     }
 }

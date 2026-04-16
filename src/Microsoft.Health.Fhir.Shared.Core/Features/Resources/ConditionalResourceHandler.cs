@@ -49,10 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            // Get the required permissions for this specific conditional operation
+            await CheckAccess(cancellationToken);
 
             var results = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
@@ -83,5 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         public abstract Task<TResponse> HandleSingleMatch(TRequest request, SearchResultEntry match, CancellationToken cancellationToken);
 
         public abstract Task<TResponse> HandleNoMatch(TRequest request, CancellationToken cancellationToken);
+
+        public abstract Task<DataActions> CheckAccess(CancellationToken cancellationToken);
     }
 }

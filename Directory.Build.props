@@ -9,6 +9,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
+    <DeterministicSourcePaths Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</DeterministicSourcePaths>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <HighEntropyVA>true</HighEntropyVA>
     <LangVersion>latest</LangVersion>
@@ -37,14 +38,27 @@
   </Choose>
 
   <Choose>
-    <When Condition="$(MSBuildProjectName.Contains('Test'))">
+    <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' != 'false'">
+      <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
+        <OutputType>Exe</OutputType>
+      </PropertyGroup>
+      <ItemGroup>
+        <PackageReference Include="YTest.MTP.XUnit2" />
+        <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+        <PackageReference Remove="xunit.runner.visualstudio" />
+      </ItemGroup>
+    </When>
+    <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' == 'false'">
       <PropertyGroup>
         <IsPackable>false</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
-      <ItemGroup>
-        <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
-      </ItemGroup>
     </When>
     <Otherwise>
       <PropertyGroup>

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -20,6 +20,8 @@ using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -44,20 +46,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         internal static void Build(
             IReadOnlyCollection<ITypedElement> searchParameters,
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
-            ILogger logger)
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
+            ILogger logger,
+            bool isSystemDefined = false)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
                 searchParameters,
                 uriDictionary,
-                modelInfoProvider).ToLookup(
+                modelInfoProvider,
+                isSystemDefined).ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
 
@@ -68,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider, logger);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, uriDictionary, modelInfoProvider, searchParameterComparer, logger);
             }
         }
 
@@ -106,21 +112,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<string, SearchParameterInfo> uriDictionary)
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary)
         {
-            // Return SearchParameterInfo that has already been created for this Uri
-            if (uriDictionary.TryGetValue(searchParameter.Url, out var spi))
-            {
-                return spi;
-            }
-
-            return new SearchParameterInfo(searchParameter);
+            return uriDictionary.GetOrAdd(searchParameter.Url, _ => new SearchParameterInfo(searchParameter));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
             IReadOnlyCollection<ITypedElement> searchParamCollection,
-            IDictionary<string, SearchParameterInfo> uriDictionary,
-            IModelInfoProvider modelInfoProvider)
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
+            IModelInfoProvider modelInfoProvider,
+            bool isSystemDefined = false)
         {
             var issues = new List<OperationOutcomeIssue>();
             var searchParameters = searchParamCollection.Select((x, entryIndex) =>
@@ -150,16 +151,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
 
+                    // Mark spec-defined search parameters as system-defined
+                    searchParameterInfo.IsSystemDefined = isSystemDefined;
+
                     if (searchParameterInfo.Code == "_profile" && searchParameterInfo.Type == SearchParamType.Reference)
                     {
                         // _profile can't be handled as a reference since it points to an external permalink
                         searchParameterInfo.Type = SearchParamType.Uri;
-                    }
-
-                    // TODO: We need a way to update the uri dictionary with one from the store when the dictionary already have the uri.
-                    if (!uriDictionary.TryGetValue(searchParameter.Url, out _))
-                    {
-                        uriDictionary.Add(searchParameter.Url, searchParameterInfo);
                     }
                 }
                 catch (FormatException)
@@ -181,6 +179,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // _type is currently missing from the search params definition bundle, so we inject it in here.
                 (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
             };
+
+            // _type is a system-defined parameter baked into the FHIR specification.
+            // It must always be marked as such so that SearchParameterStatusManager never sets
+            // IsSearchable = false on it (which causes SearchParameterNotSupportedException
+            // in background tasks that lack an HTTP request context).
+            // Note: Build() is called multiple times — once with isSystemDefined=true for the
+            // spec bundle, and again with isSystemDefined=false for custom/user SearchParameters.
+            // We unconditionally set true here because _type is always system-defined regardless
+            // of which call site invokes Build().
+            SearchParameterInfo.ResourceTypeSearchParameter.IsSystemDefined = true;
+
+            // Unconditionally register the static ResourceTypeSearchParameter in uriDictionary.
+            // The R4B/R5 bundles include a _type entry whose parsed type may differ from the
+            // authoritative static definition (Token). Overwriting ensures the Token-typed
+            // definition is always the single source of truth.
+            string resourceTypeUrl = SearchParameterInfo.ResourceTypeSearchParameter.Url?.OriginalString;
+            if (!string.IsNullOrWhiteSpace(resourceTypeUrl))
+            {
+                uriDictionary[resourceTypeUrl] = SearchParameterInfo.ResourceTypeSearchParameter;
+            }
 
             // Do the second pass to make sure the definition is valid.
             foreach (var searchParameter in searchParameters)
@@ -304,14 +322,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private static HashSet<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> resourceTypeDictionary,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             HashSet<SearchParameterInfo> results;
-            if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> cachedSearchParameters))
+            if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<string>> cachedSearchParameters))
             {
-                results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
+                results = new HashSet<SearchParameterInfo>(
+                    cachedSearchParameters.Values
+                        .SelectMany(x => x)
+                        .Where(uri => uriDictionary.TryGetValue(uri, out _))
+                        .Select(uri => uriDictionary[uri]));
             }
             else
             {
@@ -326,19 +350,98 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null && !string.Equals(KnownResourceTypes.Base, baseType, StringComparison.OrdinalIgnoreCase))
             {
-                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider, logger);
+                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, uriDictionary, modelInfoProvider, searchParameterComparer, logger);
                 results.UnionWith(baseResults);
             }
 
             results.UnionWith(searchParametersLookup[resourceType]);
 
-            var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
+            var searchParameterDictionary = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
             foreach (SearchParameterInfo searchParam in results)
             {
-                if (!searchParameterDictionary.TryAdd(searchParam.Code, searchParam) && searchParameterDictionary.TryGetValue(searchParam.Code, out SearchParameterInfo searchPWithSameCode))
+                string searchParamUrl = searchParam?.Url?.OriginalString;
+                if (string.IsNullOrWhiteSpace(searchParamUrl))
                 {
-                    logger.LogWarning("SearchParameterDefinitionBuilder: Search parameter name {SearchParam1} with Base Resource Type {BaseResourceTypes1} has same code {Code} as Search Param name {SearchParam2} with Base Resource Type {BaseResourceTypes2}", searchParam.Name, searchParam.BaseResourceTypes, searchParam.Code, searchPWithSameCode.Name, searchPWithSameCode.BaseResourceTypes);
+                    logger.LogError(
+                        "Search parameter has no URL. ResourceType={ResourceType}, Code={Code}, Type={Type}",
+                        resourceType,
+                        searchParam?.Code,
+                        searchParam?.Type);
+
+                    throw new InvalidOperationException(
+                        $"Search parameter '{searchParam?.Code ?? "<null>"}' on resource type '{resourceType}' has no URL.");
                 }
+
+                searchParameterDictionary.AddOrUpdate(
+                    searchParam.Code,
+                    _ => new ConcurrentQueue<string>(new[] { searchParamUrl }),
+                    (_, existing) =>
+                    {
+                        var isBaseTypeSearchParameter = searchParam.IsBaseTypeSearchParameter();
+                        if (existing.TryPeek(out var existingUrl) &&
+                            !string.IsNullOrWhiteSpace(existingUrl) &&
+                            uriDictionary.TryGetValue(existingUrl, out var sp) &&
+                            sp != null)
+                        {
+                            if (searchParam.Type != sp.Type)
+                            {
+                                logger.LogWarning("The types of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            isBaseTypeSearchParameter |= sp.IsBaseTypeSearchParameter();
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression, isBaseTypeSearchParameter) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            if (searchParam.Type == SearchParamType.Composite)
+                            {
+                                var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                if (searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
+                                {
+                                    logger.LogWarning("The components of the incoming and existing search parameter are different.");
+                                    return existing;
+                                }
+                            }
+                        }
+
+                        var existingUrls = existing
+                            .Where(url =>
+                            {
+                                if (string.IsNullOrWhiteSpace(url))
+                                {
+                                    return false;
+                                }
+
+                                return uriDictionary.TryGetValue(url, out SearchParameterInfo _);
+                            })
+                            .ToList();
+
+                        var list = existingUrls
+                            .Select(url => uriDictionary[url])
+                            .ToList();
+
+                        if (!existingUrls.Contains(searchParamUrl, StringComparer.Ordinal))
+                        {
+                            list.Add(searchParam);
+                        }
+
+                        if (isBaseTypeSearchParameter)
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter));
+                        }
+                        else
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(y.Expression, x.Expression));
+                        }
+
+                        return new ConcurrentQueue<string>(
+                            list.Select(sp => sp.Url?.OriginalString)
+                                .Where(url => !string.IsNullOrWhiteSpace(url)));
+                    });
             }
 
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))

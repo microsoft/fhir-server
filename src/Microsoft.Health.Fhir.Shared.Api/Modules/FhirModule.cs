@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
@@ -35,8 +34,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -73,6 +73,28 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
                 return resource.ToResourceElement();
             }
+
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<Resource, string>>>(
+            provider =>
+            {
+                var jsonSerializer = provider.GetRequiredService<FhirJsonSerializer>();
+                var xmlSerializer = provider.GetRequiredService<FhirXmlSerializer>();
+
+                return new Dictionary<FhirResourceFormat, Func<Resource, string>>
+                {
+                    {
+                        FhirResourceFormat.Json, resource => jsonSerializer.SerializeToString(resource)
+                    },
+                    {
+                        FhirResourceFormat.Xml, resource => xmlSerializer.SerializeToString(resource)
+                    },
+                };
+            });
+
+            services.Add<ResourceSerializer>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IResourceSerializer>();
 
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(_ =>
             {
@@ -131,11 +153,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
 
-            services.Add<FhirRequestContextAccessor>()
-                .Singleton()
-                .AsSelf()
-                .AsService<RequestContextAccessor<IFhirRequestContext>>();
-
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
@@ -179,12 +196,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
 
             // Registers a health check to ensure storage gets initialized
-            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<StorageInitializedNotification>>()
+            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<StorageInitializedHealthCheck>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IHealthCheck>()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 
@@ -192,6 +209,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddScoped();
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
+
+            services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
         }
     }
 }
