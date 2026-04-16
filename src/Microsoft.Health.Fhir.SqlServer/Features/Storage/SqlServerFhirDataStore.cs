@@ -192,13 +192,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict)
+                        else if (sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict && retries++ < maxRetries)
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (DuplicateKeyConflict)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
 
-                            // Do not retry immediately as it is likely that the surrogate ID generation is the root cause.
-                            // Regular requests should fail, but background operations (like import) can retry.
+                            await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
+                            continue;
                         }
                     }
 
