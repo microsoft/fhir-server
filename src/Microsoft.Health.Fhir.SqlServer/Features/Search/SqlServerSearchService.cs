@@ -1679,33 +1679,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (!string.IsNullOrWhiteSpace(searchParamHash))
             {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
                 sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
 
-                sqlCommand.CommandText = @"
+                sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
+            WHERE ResourceTypeId = {resourceTypeId} 
+              AND ResourceSurrogateId >= {startId} 
+              AND ResourceSurrogateId <= {endId}
               AND IsHistory = 0 
               AND IsDeleted = 0
               AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
             }
             else
             {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
-
-                sqlCommand.CommandText = @"
+                sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
+            WHERE ResourceTypeId = {resourceTypeId} 
+              AND ResourceSurrogateId >= {startId} 
+              AND ResourceSurrogateId <= {endId}
               AND IsHistory = 0 
               AND IsDeleted = 0";
             }
