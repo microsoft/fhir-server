@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
+        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);
             var searchParameterUrl = searchParameterWrapper.Url;
@@ -93,7 +93,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        if (refreshCache)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -207,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 cancellationToken);
         }
 
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken)
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken, bool refreshCache)
         {
             var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParam);
             var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");
@@ -221,7 +224,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        if (refreshCache)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);

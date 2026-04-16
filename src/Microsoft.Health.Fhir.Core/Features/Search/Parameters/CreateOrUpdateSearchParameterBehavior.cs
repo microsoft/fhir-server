@@ -65,16 +65,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     prevSearchParamResource = null;
                 }
 
+                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
+
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
                     // to the fhirpath or the datatype
-                    await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken);
+                    await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken, refreshCache);
                 }
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance, cancellationToken);
+                    await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
                 }
             }
 

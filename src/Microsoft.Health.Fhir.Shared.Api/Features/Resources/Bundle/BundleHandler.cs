@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -91,6 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -139,7 +141,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IRouter router,
             IProvideProfilesForValidation profilesResolver,
             ILogger<BundleHandler> logger,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterOperations searchParameterOperations)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -160,6 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _profilesResolver = EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
@@ -219,6 +223,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
                     {
                         CheckConflictsAcrossInputSearchParams(bundleResource);
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken); // refresh search param cache
                     }
 
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
@@ -254,6 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
 
                     CheckConflictsAcrossInputSearchParams(bundleResource);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken); // refresh search param cache
 
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
