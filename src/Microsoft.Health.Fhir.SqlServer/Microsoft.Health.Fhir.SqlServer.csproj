@@ -82,6 +82,12 @@
     <EmbeddedResource Remove="Features\Operations\Reindex\**" />
     <None Remove="Features\Operations\Reindex\**" />
   </ItemGroup>
+  <ItemGroup>
+    <SqlScript Remove="Features\Schema\Sql\Sprocs\GetAllStatistics.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Features\Schema\Sql\Sprocs\GetAllStatistics.sql" />
+  </ItemGroup>
 
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />

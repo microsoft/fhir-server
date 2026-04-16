@@ -140,6 +140,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public Expression Expression { get; internal set; }
 
+        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; }
+
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
