@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private const string HttpPostName = "POST";
@@ -39,21 +38,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IFhirDataStore fhirDataStore,
             ISearchIndexer searchIndexer,
             IResourceDeserializer deserializer,
-            ISearchParameterOperations searchParameterOperations,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _authorizationService = authorizationService;
             _fhirDataStore = fhirDataStore;
             _searchIndexer = searchIndexer;
             _resourceDeserializer = deserializer;
-            _searchParameterOperations = searchParameterOperations;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
@@ -74,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, request.ResourceType, request.ResourceId));
             }
 
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
 
             // We need to extract the "new" search indices since the assumption is that
             // a new search parameter has been added to the fhir server.

@@ -161,7 +161,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                     _scopedDataStore.Value,
                                                     _searchIndexer,
                                                     Deserializers.ResourceDeserializer,
-                                                    _searchParameterOperations,
                                                     _searchParameterDefinitionManager);
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
@@ -327,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (Exception)
                     {
@@ -843,7 +842,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 bool tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out var searchParamInfo);
                 Assert.False(tryGetSearchParamResult);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await _searchParameterDefinitionManager2.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // now we should have sync'd the search parameter
                 tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
@@ -954,10 +953,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 await WaitForReindexCompletionAsync(response, cancellationTokenSource);
-
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // Now test the actual search functionality
                 // Rerun the same search as above

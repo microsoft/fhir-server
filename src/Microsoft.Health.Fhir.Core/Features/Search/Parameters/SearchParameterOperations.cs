@@ -277,10 +277,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _logger,
                 cancellationToken);
         }
-
-        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool zeroWaitForSemaphore = false)
-        {
-            return await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken, zeroWaitForSemaphore);
-        }
     }
 }
