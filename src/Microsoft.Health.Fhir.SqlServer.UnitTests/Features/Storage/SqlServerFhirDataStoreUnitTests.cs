@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.FailedDependency, "Duplicated keys.");
+            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.DuplicateKeyConflict, "Duplicated keys.");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(

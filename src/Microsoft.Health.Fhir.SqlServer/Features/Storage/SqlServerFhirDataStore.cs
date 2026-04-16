@@ -192,9 +192,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxRetries)
+                        else if (sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict && retries++ < maxRetries)
                         {
-                            _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (FailedDependency)", retries);
+                            _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (DuplicateKeyConflict)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
                             await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
                             continue;
@@ -492,9 +492,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
+                    if (sqlEx != null && (sqlEx.Number == SqlErrorCodes.Conflict || sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict) && retries++ < maxRetries)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
+                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}} error={{SqlErrorCode}}", retries, resources.Count, sqlEx.Number);
                         await Task.Delay(retries > 3 ? 10 : 1000, cancellationToken); // if >3 assume that it is id generation problem
                         continue;
                     }
