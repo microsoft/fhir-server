@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await WaitForRefresh(); // wait for M * cache refresh intervals
 
             // Update the reindex job record with the latest hash map
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var currentDate = _searchParameterDefinitionManager.SearchParamLastUpdated.HasValue ? _searchParameterDefinitionManager.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");

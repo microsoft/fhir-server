@@ -240,13 +240,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
-                        Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
-                            fhirDataStoreScope,
+                            () => _scopedDataStore.Value.CreateMockScope(),
                             _resourceWrapperFactory,
-                            _searchParameterOperations,
-                            _searchParameterStatusManager,
+                            _searchParameterDefinitionManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -1246,13 +1244,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Definition = JsonConvert.SerializeObject(jobDefinition),
             };
 
-            Func<IScoped<IFhirDataStore>> dataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
             var processingJob = new ReindexProcessingJob(
                 () => _searchService,
-                dataStoreScope,
+                () => _scopedDataStore.Value.CreateMockScope(),
                 _resourceWrapperFactory,
-                _searchParameterOperations,
-                _searchParameterStatusManager,
+                _searchParameterDefinitionManager,
                 NullLogger<ReindexProcessingJob>.Instance);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
