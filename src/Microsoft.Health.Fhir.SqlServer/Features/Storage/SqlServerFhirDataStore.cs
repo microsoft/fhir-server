@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict && retries++ < maxRetries)
+                        else if (sqlEx.Number == FhirSqlErrorCodes.DuplicateKeyConflict)
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (DuplicateKeyConflict)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
