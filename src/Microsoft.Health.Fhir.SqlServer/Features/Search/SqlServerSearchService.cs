@@ -1681,6 +1681,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
 
+#pragma warning disable CA2100 // Only numeric types (short, long) are interpolated; no SQL injection risk
                 sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
@@ -1690,9 +1691,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
               AND IsHistory = 0 
               AND IsDeleted = 0
               AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
+#pragma warning restore CA2100
             }
             else
             {
+#pragma warning disable CA2100 // Only numeric types (short, long) are interpolated; no SQL injection risk
                 sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
@@ -1701,6 +1704,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
               AND ResourceSurrogateId <= {endId}
               AND IsHistory = 0 
               AND IsDeleted = 0";
+#pragma warning restore CA2100
             }
 
             LogSqlCommand(sqlCommand);
