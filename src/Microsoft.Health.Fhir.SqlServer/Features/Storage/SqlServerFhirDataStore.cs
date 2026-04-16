@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (sqlEx != null)
                     {
                         // SQL Conflict (50409) - It indicates a conflict with another concurrent operation, which could be resolved by retrying.
-                        // SQL Failed Dependency (50424) - Rare scenario. It indicates an issue with the surrogate ID generation, which could be resolved by retrying.
+                        // SQL Duplicated Key Conflict (50424) - Rare scenario. It indicates an issue with the surrogate ID generation. Regular API calls should not retry.
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
@@ -196,8 +196,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (DuplicateKeyConflict)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                            await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
-                            continue;
+
+                            // Do not retry immediately as it is likely that the surrogate ID generation is the root cause.
+                            // Regular requests should fail, but background operations (like import) can retry.
                         }
                     }
 

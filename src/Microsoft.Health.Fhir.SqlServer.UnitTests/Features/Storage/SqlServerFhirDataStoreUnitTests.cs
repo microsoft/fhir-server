@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -257,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task MergeAsync_OnSqlFailedDependency_RetriesBeforeThrowing()
+        public async Task MergeAsync_OnSqlDuplicateKeyConflict_DoNotRetryBeforeThrowing()
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -273,23 +274,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Arg.Any<bool>())
             .Throws(sqlException);
 
-            sqlRetryService
-                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-                .Returns(async callInfo =>
-                {
-                    cts.Cancel();
-                    await Task.CompletedTask;
-                });
-
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations();
 
-            // Act & Assert
-            await Assert.ThrowsAsync<TaskCanceledException>(
+            // Act & Assert.
+            SqlException sqlExceptionAsFinalResult = await Assert.ThrowsAsync<SqlException>(
                 () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
 
-            await sqlRetryService.Received(1)
-                .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+            Assert.True(sqlExceptionAsFinalResult.Errors.Cast<SqlError>().Any(e => e.Number == FhirSqlErrorCodes.DuplicateKeyConflict), "Expected a DuplicateKeyConflict error.");
         }
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
