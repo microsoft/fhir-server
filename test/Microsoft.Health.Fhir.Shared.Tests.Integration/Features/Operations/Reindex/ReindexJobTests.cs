@@ -239,6 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _searchParameterOperations,
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
+                            Substitute.For<IMediator>(),
                             _coreFeatureConfig,
                             _operationsConfig);
                     }
@@ -251,7 +252,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _resourceWrapperFactory,
                             _searchParameterOperations,
                             _searchParameterStatusManager,
-                            NullLogger<ReindexProcessingJob>.Instance);
+                            NullLogger<ReindexProcessingJob>.Instance,
+                            Substitute.For<IMediator>());
                     }
                     else
                     {
@@ -1109,6 +1111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     _searchParameterOperations,
                     runtimeConfiguration,
                     NullLoggerFactory.Instance,
+                    Substitute.For<IMediator>(),
                     _coreFeatureConfig,
                     _operationsConfig);
 
@@ -1261,7 +1264,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _resourceWrapperFactory,
                 _searchParameterOperations,
                 _searchParameterStatusManager,
-                NullLogger<ReindexProcessingJob>.Instance);
+                NullLogger<ReindexProcessingJob>.Instance,
+                Substitute.For<IMediator>());
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
             var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(resultJson);

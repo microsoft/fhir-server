@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.AspNetCore.JsonPatch.Internal;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IMediator _mediator;
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
@@ -91,6 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISearchParameterOperations searchParameterOperations,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
+            IMediator mediator,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<OperationsConfiguration> operationsConfiguration)
         {
@@ -101,6 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
             EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
@@ -113,6 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
+            _mediator = mediator;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
 
@@ -179,6 +184,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 HandleException(ex);
             }
+
+            await PublishReindexMetricsNotification();
 
             return JsonConvert.SerializeObject(_currentResult);
         }
@@ -749,6 +756,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             LogReindexJobRecordErrorMessage();
 
             _logger.LogJobError(ex, _jobInfo, "ReindexJob Failed and didn't complete.");
+        }
+
+        /// <summary>
+        /// Publishes a metrics notification with the final reindex job results.
+        /// Wrapped in try/catch to prevent metrics failures from affecting the job outcome.
+        /// </summary>
+        private async Task PublishReindexMetricsNotification()
+        {
+            try
+            {
+                var notification = new ReindexJobMetricsNotification(
+                    _jobInfo.Id.ToString(),
+                    _reindexJobRecord.Status.ToString(),
+                    _jobInfo.CreateDate,
+                    Clock.UtcNow,
+                    _currentResult.SucceededResources,
+                    _currentResult.FailedResources,
+                    _currentResult.CreatedJobs,
+                    _currentResult.CompletedJobs,
+                    _reindexJobRecord.SearchParams?.ToList() ?? new List<string>(),
+                    _reindexJobRecord.Resources?.ToList() ?? new List<string>());
+
+                await _mediator.Publish(notification, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobWarning(ex, _jobInfo, "Failed to publish reindex job metrics notification.");
+            }
         }
 
         private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, List<string> readySearchParameters, CancellationToken cancellationToken)

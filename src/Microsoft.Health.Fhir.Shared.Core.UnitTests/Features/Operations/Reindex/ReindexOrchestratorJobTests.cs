@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat.Enforcers;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -76,9 +77,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null, int waitMultiplier = 0)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null, int waitMultiplier = 0, IMediator mediator = null)
         {
             runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
+            mediator ??= Substitute.For<IMediator>();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
@@ -97,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 _searchParameterOperations,
                 runtimeConfig,
                 NullLoggerFactory.Instance,
+                mediator,
                 coreFeatureConfig,
                 operationsConfig);
         }
@@ -275,6 +278,49 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(jobResult);
             Assert.NotNull(jobResult.Error);
             Assert.Contains(jobResult.Error, e => e.Diagnostics.Contains("cancelled"));
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenCompleted_PublishesMetricsNotification()
+        {
+            var mediator = Substitute.For<IMediator>();
+            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(new List<ResourceSearchParameterStatus>());
+
+            var orchestrator = CreateReindexOrchestratorJob(mediator: mediator);
+            var jobInfo = await CreateReindexJobRecord();
+
+            await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            _ = mediator.Received(1).Publish(
+                Arg.Is<ReindexJobMetricsNotification>(
+                    notification => notification.Id == jobInfo.Id.ToString() &&
+                    notification.FhirOperation == "reindex" &&
+                    notification.SucceededCount == 0 &&
+                    notification.FailedCount == 0),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenCancelled_StillPublishesMetricsNotification()
+        {
+            var mediator = Substitute.For<IMediator>();
+            var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(new List<ResourceSearchParameterStatus>());
+
+            var orchestrator = CreateReindexOrchestratorJob(mediator: mediator);
+            var jobInfo = await CreateReindexJobRecord();
+
+            await orchestrator.ExecuteAsync(jobInfo, cts.Token);
+
+            _ = mediator.Received(1).Publish(
+                Arg.Is<ReindexJobMetricsNotification>(
+                    notification => notification.Id == jobInfo.Id.ToString() &&
+                    notification.FhirOperation == "reindex"),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
