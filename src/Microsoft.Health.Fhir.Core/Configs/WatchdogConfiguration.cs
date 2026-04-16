@@ -14,5 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets the expired resource cleanup configuration.
         /// </summary>
         public ExpiredResourceConfiguration ExpiredResource { get; } = new ExpiredResourceConfiguration();
+
+        /// <summary>
+        /// Gets the SQL metrics watchdog configuration.
+        /// </summary>
+        public SqlMetricsWatchdogConfiguration SqlMetrics { get; } = new SqlMetricsWatchdogConfiguration();
     }
 }

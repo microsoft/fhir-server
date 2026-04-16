@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
+using Microsoft.Health.Fhir.SqlServer.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -188,8 +189,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFactory<IScoped<TransactionWatchdog>>();
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
             services.Add<ExpiredResourceCleanupWatchdog>().Singleton().AsSelf();
-
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
+            services.Add<SqlDatabaseResourceStatsReader>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.AddSingleton<ISqlDatabaseResourceMetricHandler, DefaultSqlDatabaseResourceMetricHandler>();
+            services.Add<SqlDatabaseMetricsWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

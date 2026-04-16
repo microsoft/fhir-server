@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
+        private readonly SqlDatabaseMetricsWatchdog _sqlDatabaseMetricsWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
 
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            SqlDatabaseMetricsWatchdog sqlDatabaseMetricsWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _sqlDatabaseMetricsWatchdog = EnsureArg.IsNotNull(sqlDatabaseMetricsWatchdog, nameof(sqlDatabaseMetricsWatchdog));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
         }
@@ -79,6 +82,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (_watchdogConfiguration.ExpiredResource.Enabled)
             {
                 tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token));
+            }
+
+            if (_watchdogConfiguration.SqlMetrics.Enabled)
+            {
+                tasks.Add(_sqlDatabaseMetricsWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);
