@@ -2294,6 +2294,115 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
         }
 
+        [Fact]
+        public async Task GivenSearchWithOutOfMemoryException_WhenRun_ThenExceptionBubblesUp()
+        {
+            // Arrange
+            SetupExportJobRecordAndOperationDataStore();
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns<SearchResult>(callInfo =>
+                {
+                    throw new OutOfMemoryException("Simulated OOM when fetching large batch of resources");
+                });
+
+            // Act & Assert - OOM should bubble up for ExportProcessingJob to handle
+            await Assert.ThrowsAsync<OutOfMemoryException>(() =>
+                _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken));
+        }
+
+        [Theory]
+        [InlineData(ExportJobType.All, null)]
+        [InlineData(ExportJobType.Group, "group")]
+        public async Task GivenExportWithOomOnSearchAsync_WhenRun_ThenExceptionBubblesUp(ExportJobType exportJobType, string groupId)
+        {
+            // Arrange
+            var exportJobRecord = CreateExportJobRecord(
+                exportJobType: exportJobType,
+                groupId: groupId,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+
+            if (exportJobType == ExportJobType.Group)
+            {
+                _groupMemberExtractor.GetGroupPatientIds(
+                    groupId,
+                    Arg.Any<DateTimeOffset>(),
+                    _cancellationToken).Returns(new HashSet<string> { "1", "2" });
+            }
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns<SearchResult>(callInfo =>
+                {
+                    throw new OutOfMemoryException("Simulated OOM on SearchAsync");
+                });
+
+            // Act & Assert
+            await Assert.ThrowsAsync<OutOfMemoryException>(() =>
+                _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken));
+        }
+
+        [Fact]
+        public async Task GivenGroupExportWithOomOnCompartmentSearch_WhenRun_ThenExceptionBubblesUp()
+        {
+            // Arrange - Group export: patients found, but OOM on compartment search
+            var exportJobRecord = CreateExportJobRecord(
+                exportJobType: ExportJobType.Group,
+                groupId: "group",
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+
+            _groupMemberExtractor.GetGroupPatientIds(
+                "group",
+                Arg.Any<DateTimeOffset>(),
+                _cancellationToken).Returns(new HashSet<string> { "1" });
+
+            _searchService.SearchAsync(
+                KnownResourceTypes.Patient,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(new[]
+                    {
+                        CreateSearchResultEntry("1", KnownResourceTypes.Patient),
+                    });
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns<SearchResult>(callInfo =>
+                {
+                    throw new OutOfMemoryException("Simulated OOM on compartment search");
+                });
+
+            // Act & Assert
+            await Assert.ThrowsAsync<OutOfMemoryException>(() =>
+                _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken));
+        }
+
         private class TestLogger : ILogger<ExportJobTask>
         {
             public List<ResourceKey> ResourceKeyList { get; set; } = new List<ResourceKey>();
