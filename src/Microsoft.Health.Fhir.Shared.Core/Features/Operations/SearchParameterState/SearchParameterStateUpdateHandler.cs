@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -61,10 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.SearchParameter, cancellationToken) != DataActions.SearchParameter)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.SearchParameter, true, cancellationToken);
 
             if (await IsReindexRunningAsync(cancellationToken))
             {
