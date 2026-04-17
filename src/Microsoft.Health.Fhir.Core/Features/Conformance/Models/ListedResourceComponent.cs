@@ -14,21 +14,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     {
         public ListedResourceComponent()
         {
-            Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
-            SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
+            Interaction = new ThreadSafeHashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
+            SearchParam = new ThreadSafeHashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
 
-            SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
-            SearchInclude = new HashSet<string>(StringComparer.Ordinal);
-            ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
+            SearchRevInclude = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
+            SearchInclude = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
+            ReferencePolicy = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
 
             Versioning = new DefaultOptionHashSet<string>(ResourceVersionPolicy.Versioned, StringComparer.Ordinal);
-            SupportedProfile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition.ToString()));
+            SupportedProfile = new ThreadSafeHashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Operation = new ThreadSafeHashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition.ToString()));
 
             ConditionalUpdate = false;
             ConditionalCreate = false;
             ConditionalDelete = new DefaultOptionHashSet<string>(ConditionalDeleteStatus.Single, StringComparer.Ordinal);
-            ConditionalRead = new HashSet<string>(StringComparer.Ordinal);
+            ConditionalRead = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
         }
 
         public bool? UpdateCreate { get; set; }

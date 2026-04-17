@@ -3,6 +3,10 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
+- name: cosmosContainerAppName
+  type: string
+- name: sqlContainerAppName
+  type: string
 
 jobs:
 - job: 'cosmosE2eTests'
@@ -15,6 +19,25 @@ jobs:
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
+
+  - task: AzurePowerShell@5
+    displayName: 'Resolve ACA FQDN (Cosmos)'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        $containerAppName = "${{ parameters.cosmosContainerAppName }}".ToLowerInvariant()
+        $containerApp = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' not found in resource group '$(ResourceGroupName)'"
+        }
+        $fqdn = $containerApp.Properties.configuration.ingress.fqdn
+        $url = "https://$fqdn"
+        Write-Host "Resolved Cosmos ACA URL: $url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]$url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}]$url"
 
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
@@ -136,6 +159,25 @@ jobs:
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
+
+  - task: AzurePowerShell@5
+    displayName: 'Resolve ACA FQDN (SQL)'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        $containerAppName = "${{ parameters.sqlContainerAppName }}".ToLowerInvariant()
+        $containerApp = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' not found in resource group '$(ResourceGroupName)'"
+        }
+        $fqdn = $containerApp.Properties.configuration.ingress.fqdn
+        $url = "https://$fqdn"
+        Write-Host "Resolved SQL ACA URL: $url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]$url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}_Sql]$url"
   
   - task: AzurePowerShell@5
     displayName: 'Set Variables'

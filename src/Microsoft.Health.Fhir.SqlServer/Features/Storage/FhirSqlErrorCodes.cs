@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public const int MergeResourcesConcurrentCallsIsAboveOptimal = 50410;
 
         /// <summary>
-        /// Failed dependency. Not enough resources to perform the operation: limit on surrogate IDs per second reached.
+        /// Surrogate ID collision. Not enough resources to perform the operation: limit on surrogate IDs per second reached.
         /// This is a transient error and retrying the operation may succeed.
         /// </summary>
-        public const int FailedDependency = 50424;
+        public const int SurrogateIdCollision = 50424;
     }
 }
