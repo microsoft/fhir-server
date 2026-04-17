@@ -15,7 +15,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
@@ -24,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.JobManagement;
 using static Hl7.Fhir.Model.Parameters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
@@ -34,27 +32,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         private const string FailedSearchParameterUpdates = "FailedSearchParameterUpdates";
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private IReadOnlyCollection<ResourceSearchParameterStatus> _resourceSearchParameterStatus = null;
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger;
-        private readonly IQueueClient _queueClient;
         private readonly IAuditLogger _auditLogger;
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
 
-        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IQueueClient queueClient, IAuditLogger auditLogger, Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory)
+        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ISearchParameterOperations searchParameterOperations, ILogger<SearchParameterStateUpdateHandler> logger, IAuditLogger auditLogger)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
-            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
 
             _authorizationService = authorizationService;
             _searchParameterStatusManager = searchParameterStatusManager;
+            _searchParameterOperations = searchParameterOperations;
             _logger = logger;
-            _queueClient = queueClient;
             _auditLogger = auditLogger;
-            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
         }
 
         public async Task<SearchParameterStateUpdateResponse> Handle(SearchParameterStateUpdateRequest request, CancellationToken cancellationToken)
@@ -66,22 +61,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (await IsReindexRunningAsync(cancellationToken))
-            {
-                throw new PreconditionFailedException("A Reindex Job is currently running. Wait till it has completed before trying again.");
-            }
+            await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
 
             _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
 
-            if (await IsReindexRunningAsync(cancellationToken))
-            {
-                return CreateBundleResponse(new Dictionary<SearchParameterStatus, List<string>>() { }, new List<OperationOutcomeIssue>() { }, true);
-            }
-
             foreach (var statusGroup in searchParametersToUpdate)
             {
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(statusGroup.Value, statusGroup.Key, cancellationToken);
+                await _searchParameterOperations.UpdateSearchParameterStatusAsync(statusGroup.Value, statusGroup.Key, cancellationToken);
             }
 
             return CreateBundleResponse(searchParametersToUpdate, invalidSearchParameters);
@@ -239,12 +226,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             };
 
             return new SearchParameterStateUpdateResponse(bundle.ToResourceElement());
-        }
-
-        private async Task<bool> IsReindexRunningAsync(CancellationToken cancellationToken)
-        {
-            var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, true, cancellationToken);
-            return activeJobs.Any();
         }
     }
 }

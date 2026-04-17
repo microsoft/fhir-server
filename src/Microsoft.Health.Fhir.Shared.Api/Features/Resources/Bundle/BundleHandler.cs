@@ -48,6 +48,8 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -88,6 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -106,6 +109,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         // Total number of resolved references in the bundle.
         private int _totalResolvedReferences = 0;
+
+        // Accumulated pending search parameter statuses collected across bundle entries for deferred flush.
+        private readonly List<ResourceSearchParameterStatus> _accumulatedPendingStatuses = new();
 
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
@@ -138,6 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IMediator mediator,
             IRouter router,
             IProvideProfilesForValidation profilesResolver,
+            ISearchParameterStatusDataStore searchParameterStatusDataStore,
             ILogger<BundleHandler> logger,
             IModelInfoProvider modelInfoProvider)
             : this()
@@ -158,6 +165,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _router = EnsureArg.IsNotNull(router, nameof(router));
             _profilesResolver = EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
+            _searchParameterStatusDataStore = EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
@@ -531,6 +539,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     using (var transaction = _transactionHandler.BeginTransaction())
                     {
                         await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, BundleProcessingLogic.Sequential, cancellationToken);
+                        await FlushPendingSearchParameterStatusesAsync(cancellationToken);
                         transaction.Complete();
                     }
                 }
@@ -549,6 +558,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _logger.LogError(tae, "Failed to commit a transaction. Throwing BadRequest as a default exception.");
                 throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
             }
+        }
+
+        /// <summary>
+        /// After each bundle entry's handler invocation, drains any pending search parameter statuses
+        /// from the request context into <see cref="_accumulatedPendingStatuses"/>.
+        /// This ensures statuses survive across context replacements in SetupContexts.
+        /// </summary>
+        private void DrainPendingSearchParameterStatuses()
+        {
+            var context = _fhirRequestContextAccessor.RequestContext;
+            if (context?.Properties == null ||
+                !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value) ||
+                value is not List<ResourceSearchParameterStatus> statuses ||
+                statuses.Count == 0)
+            {
+                return;
+            }
+
+            _accumulatedPendingStatuses.AddRange(statuses);
+            context.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
+        }
+
+        private async Task FlushPendingSearchParameterStatusesAsync(CancellationToken cancellationToken)
+        {
+            // Also drain any remaining statuses from the last entry's context.
+            DrainPendingSearchParameterStatuses();
+
+            if (_accumulatedPendingStatuses.Count == 0)
+            {
+                return;
+            }
+
+            _logger.LogInformation(
+                "FlushPendingSearchParameterStatuses: Flushing {Count} accumulated statuses.",
+                _accumulatedPendingStatuses.Count);
+
+            await _searchParameterStatusDataStore.UpsertStatuses(_accumulatedPendingStatuses, cancellationToken);
+            _accumulatedPendingStatuses.Clear();
         }
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
@@ -720,6 +767,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
 
                         await resourceContext.Context.Handler.Invoke(httpContext);
+
+                        DrainPendingSearchParameterStatuses();
 
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)

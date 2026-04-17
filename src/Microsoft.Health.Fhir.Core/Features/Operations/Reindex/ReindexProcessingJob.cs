@@ -132,8 +132,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
             if (isBad)
             {
-                _logger.LogJobWarning(_jobInfo, msg);
+                _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                throw new ReindexJobException(msg);
             }
             else
             {
@@ -150,11 +151,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
             msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            //// Cannot just refresh here because we might be missing resources updated via API.
             if (isBad)
             {
-                _logger.LogJobWarning(_jobInfo, msg);
+                _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                throw new ReindexJobException(msg);
             }
             else // normal
             {
