@@ -456,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     Status = suggestedStatus;
                 }
-                else if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.WaitingForResources && (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled))
                 {
                     throw new BundleOrchestratorOperationCanceledException($"Bundle Operation {Id}. Operation is already in terminal state '{Status}'. Ignoring transition to '{suggestedStatus}'.");
                 }
