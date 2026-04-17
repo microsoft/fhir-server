@@ -85,13 +85,17 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 foreach (SingleFlag[] closedVariant in closedSets)
                 {
-                    var testClassName = effectiveAttribute.CollectionBehavior == FixtureArgumentSetCollectionBehavior.PerClass
-                        ? testClass.Class.FullName
-                        : null;
+                    // Always scope the collection to the test class. In xunit v3 test collections are the unit of
+                    // parallelism (methods within a collection run serially, collections run in parallel). If multiple
+                    // classes share a collection (as they would under SharedPerVariant), every test across those classes
+                    // is forced to run serially, which causes massive slowdowns in large integration test runs.
+                    // Scoping per-class preserves xunit v2 behavior: one IClassFixture per class, methods within a
+                    // class run serially, classes run in parallel.
+                    var testClassName = testClass.Class.FullName;
 
-                    // Key the cache by the collection display identity (variant + optional class scoping). Methods that
+                    // Key the cache by the collection display identity (variant + class scoping). Methods that
                     // resolve to the same key share one collection instance.
-                    var variantKey = (testClassName ?? string.Empty) + "|" + string.Join(",", closedVariant.Select(v => v.EnumValue));
+                    var variantKey = testClassName + "|" + string.Join(",", closedVariant.Select(v => v.EnumValue));
 
                     if (!collectionCache.TryGetValue(variantKey, out var cached))
                     {
