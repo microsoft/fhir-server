@@ -98,6 +98,91 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task WhenProcessingABundle_ResourceIdIsSharedBetweenResourceTypes_AllOperationsSucceed()
+        {
+            // In this test we validate that when multiple resources in the same bundle share the same ID, all operations complete successfully and the version of each resource is increased as expected.
+            // This is an edge case, but it can leave resources in a bad state where all available versions are set as historical.
+
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            // 0 - Create an unique ID to be used in all resources.
+            Guid uniqueIdToAllResource = Guid.NewGuid();
+
+            const int observationInitialVersions = 5;
+
+            // 1 - Create an observation with 5 versions.
+            for (int i = 0; i < observationInitialVersions; i++)
+            {
+                Observation observation = CreateObservation(uniqueIdToAllResource);
+
+                FhirResponse<Observation> response = await _client.UpdateAsync<Observation>(observation, cancellationToken: cancellationToken);
+                Assert.True(response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created, "Bundle ingestion did not complete as expected.");
+                Assert.True(response.Resource.Meta.VersionId == (i + 1).ToString(), "Observation version did not match expected value.");
+            }
+
+            // 2 - Create bundles with Patient and Observation, all with the same Resource ID.
+            int patientVersionAfterUpdates = 1;
+            int observationVersionAfterUpdates = observationInitialVersions + 1;
+            for (int i = 0; i < 10; i++)
+            {
+                Bundle bundle = new Bundle() { Type = BundleType.Batch };
+
+                Patient patient = CreatePatient(uniqueIdToAllResource);
+                bundle.Entry.Add(CreatePutEntryComponent(patient));
+
+                Observation observation = CreateObservation(uniqueIdToAllResource);
+                bundle.Entry.Add(CreatePutEntryComponent(observation));
+
+                FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(
+                    bundle,
+                    new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel },
+                    cancellationToken);
+
+                Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "Bundle ingestion did not complete as expected.");
+
+                foreach (EntryComponent item in bundleResponse.Resource.Entry)
+                {
+                    if (item.Resource is Patient)
+                    {
+                        Assert.True(item.Resource.Meta.VersionId == patientVersionAfterUpdates.ToString(), "Patient version did not match expected value.");
+                    }
+                    else if (item.Resource is Observation)
+                    {
+                        Assert.True(item.Resource.Meta.VersionId == observationVersionAfterUpdates.ToString(), "Observation version did not match expected value.");
+                    }
+
+                    Assert.True(item.Response.Status == "200" || item.Response.Status == "201");
+                }
+
+                Patient patientResponse = await _client.ReadAsync<Patient>($"Patient/{uniqueIdToAllResource}", cancellationToken);
+                Assert.True(patientResponse.Meta.VersionId == patientVersionAfterUpdates.ToString(), "Patient version did not match expected value.");
+
+                Observation observationResponse = await _client.ReadAsync<Observation>($"Observation/{uniqueIdToAllResource}", cancellationToken);
+                Assert.True(observationResponse.Meta.VersionId == observationVersionAfterUpdates.ToString(), "Observation version did not match expected value.");
+
+                patientVersionAfterUpdates++;
+                observationVersionAfterUpdates++;
+            }
+
+            // 3 - Run additional updates to ensure resource is updatable after all those operations.
+            for (int i = 0; i < 5; i++)
+            {
+                Patient patient = CreatePatient(uniqueIdToAllResource);
+                FhirResponse<Patient> patientResponse = await _client.UpdateAsync(patient, cancellationToken: cancellationToken);
+                Assert.True(patientResponse.StatusCode == HttpStatusCode.OK, "Patient update did not complete as expected.");
+                Assert.True(patientResponse.Resource.Meta.VersionId == patientVersionAfterUpdates.ToString(), "Patient version did not match expected value.");
+
+                Observation observation = CreateObservation(uniqueIdToAllResource);
+                FhirResponse<Observation> observationResponse = await _client.UpdateAsync(observation, cancellationToken: cancellationToken);
+                Assert.True(observationResponse.StatusCode == HttpStatusCode.OK, "Observation update did not complete as expected.");
+                Assert.True(observationResponse.Resource.Meta.VersionId == observationVersionAfterUpdates.ToString(), "Observation version did not match expected value.");
+
+                patientVersionAfterUpdates++;
+                observationVersionAfterUpdates++;
+            }
+        }
+
+        [Fact]
         public async Task WhenProcessingABundle_IfItContainsHistoryEndpointRequests_ThenReturnTheResourcesAsExpected()
         {
             CancellationToken cancellationToken = CancellationToken.None;
@@ -204,7 +289,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     // Create Patient clones in memory.
                     Patient tempPatient = Clone(patientsUserForInitialization[j]);
 
-                    EntryComponent entryComponent = CreateEntryComponent(tempPatient);
+                    EntryComponent entryComponent = CreatePutEntryComponent(tempPatient);
 
                     bundle.Entry.Add(entryComponent);
                 }
@@ -258,6 +343,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"Total mumber of created patients ({numberOfPatientsPerBundle}) is different than the number ingested during the test {uniquePatientIds}.");
         }
 
+        private static Observation CreateObservation(Guid id)
+        {
+            return new Observation()
+            {
+                Category = new List<CodeableConcept>()
+                    {
+                        new CodeableConcept("x", "10"),
+                    },
+                Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+                Id = id.ToString(),
+                Issued = DateTime.UtcNow,
+                Status = ObservationStatus.Amended,
+                Code = new CodeableConcept("x", "10"),
+            };
+        }
+
+        private static Patient CreatePatient(Guid id)
+        {
+            return new Patient()
+            {
+                Id = id.ToString(),
+                Name = new List<HumanName> { new HumanName() { Family = "Rush", Given = new List<string> { $"John" } } },
+                Gender = AdministrativeGender.Male,
+                BirthDate = "1974-12-21",
+                Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+            };
+        }
+
         private static Patient Clone(Patient patient)
         {
             // Patient does not have a native Clone method.
@@ -274,15 +387,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return clone;
         }
 
-        private static EntryComponent CreateEntryComponent(Patient patient)
+        private static EntryComponent CreatePutEntryComponent(Resource resource)
         {
             EntryComponent entryComponent = new EntryComponent()
             {
-                Resource = patient,
+                Resource = resource,
                 Request = new RequestComponent()
                 {
                     Method = HTTPVerb.PUT,
-                    Url = $"Patient/{patient.Id}",
+                    Url = $"{resource.TypeName}/{resource.Id}",
                 },
             };
 

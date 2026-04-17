@@ -3,20 +3,38 @@ parameters:
   type: string
 - name: subscription
   type: string
+- name: resourceGroup
+  type: string
 
 jobs:
 - job: provisionEnvironment
   pool:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
-  steps:  
-  - task: AzureAppServiceManage@0
-    displayName: 'Azure App Service Restart'
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Restart Container App'
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
-      action: 'Restart Azure App Service'
-      WebAppName: '${{ parameters.webAppName }}'
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        $containerAppName = "${{ parameters.webAppName }}".ToLower()
+        $rgName = "${{ parameters.resourceGroup }}"
 
-  - template: ./provision-healthcheck.yml
-    parameters: 
-      webAppName: ${{ parameters.webAppName }}
+        # Create a new revision to force restart
+        $suffix = "r$(Get-Date -Format 'yyMMddHHmmss')"
+        Write-Host "Restarting container app '$containerAppName' with revision suffix '$suffix'..."
+        az containerapp update `
+          --name $containerAppName `
+          --resource-group $rgName `
+          --revision-suffix $suffix
+
+        if ($LASTEXITCODE -ne 0) { throw "Failed to restart container app '$containerAppName'" }
+        Write-Host "Container app revision updated successfully."
+
+  - template: ../tasks/container-app-health-check.yml
+    parameters:
+      containerAppName: ${{ parameters.webAppName }}
+      resourceGroup: ${{ parameters.resourceGroup }}
+      subscription: ${{ parameters.subscription }}

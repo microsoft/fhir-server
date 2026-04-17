@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
         private readonly Timer _refreshTimer;
-        private readonly SemaphoreSlim _refreshSemaphore;
         private bool _isInitialized;
         private CancellationToken _stoppingToken;
 
@@ -53,9 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             // Create timer but don't start it yet - wait for SearchParametersInitializedNotification
             _refreshTimer = new Timer(OnRefreshTimer, null, Timeout.InfiniteTimeSpan, _refreshInterval);
-
-            // Create semaphore to prevent concurrent refresh operations (max 1 concurrent operation)
-            _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -108,18 +104,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 return;
             }
 
-            // Try to acquire the semaphore immediately - if we can't, it means another refresh is already running
-            if (!await _refreshSemaphore.WaitAsync(0, _stoppingToken))
-            {
-                _logger.LogDebug("SearchParameter cache refresh already in progress. Skipping this timer execution to prevent concurrent operations.");
-                return;
-            }
-
             try
             {
                 _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
-                _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
+                var complete = await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, true);
+                if (complete)
+                {
+                    _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
+                }
+                else
+                {
+                    _logger.LogInformation("Skipped incremental SearchParameter cache refresh.");
+                }
             }
             catch (OperationCanceledException)
             {
@@ -134,11 +130,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogError(ex, "Error occurred during SearchParameter cache refresh. Will retry on next scheduled interval.");
 
                 // Don't rethrow from timer callback to avoid crashing the timer
-            }
-            finally
-            {
-                // Always release the semaphore to allow the next refresh operation
-                _refreshSemaphore.Release();
             }
         }
 
@@ -178,7 +169,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public override void Dispose()
         {
             _refreshTimer?.Dispose();
-            _refreshSemaphore?.Dispose();
             base.Dispose();
             GC.SuppressFinalize(this);
         }

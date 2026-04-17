@@ -3,7 +3,7 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-- name: appServiceName
+- name: containerAppName
   type: string
 jobs:
 
@@ -42,10 +42,16 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-        $appServiceName = '${{ parameters.appServiceName }}'
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $dataStoreResourceId = $appSettings | where {$_.Name -eq "FhirServer__ResourceManager__DataStoreResourceId"}
-        $dataStoreResourceId = $dataStoreResourceId[0].Value
+        $containerAppName = '${{ parameters.containerAppName }}'
+        $containerApp = Get-AzResource -ResourceGroupName $(UniqueResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
+        }
+
+        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $envSettings = $containerAppData.Properties.template.containers[0].env
+
+        $dataStoreResourceId = ($envSettings | Where-Object { $_.name -eq "FhirServer__ResourceManager__DataStoreResourceId" } | Select-Object -First 1).value
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
@@ -110,7 +116,7 @@ jobs:
   - template: e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: ${{ parameters.appServiceName }}
+      containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'CosmosDb'
       categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
 
@@ -125,7 +131,7 @@ jobs:
   - template: e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: ${{ parameters.appServiceName }}
+      containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'CosmosDb'
       categoryFilter: 'Category=IndexAndReindex'
       testRunTitleSuffix: ' Reindex'
