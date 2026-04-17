@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 if (ex is CosmosException cosmosException && cosmosException.Diagnostics is not null)
                 {
                     message = message + " CosmosDiagnostics: {CosmosDiagnostics}";
-                    logArgs = logArgs.Append(cosmosException.Diagnostics.ToString());
+                    logArgs = logArgs.Append(GetDiagnosticsDetails(cosmosException));
                 }
 
                 _logger.Log(logLevel, ex, message, logArgs.ToArray());
@@ -233,6 +233,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 }
             }
             while (true);
+        }
+
+        private static string GetDiagnosticsDetails(CosmosException ex)
+        {
+            try
+            {
+                return ex.Diagnostics != null ? ex.Diagnostics.ToString() : "No CosmosDiagnostics available.";
+            }
+            catch (InvalidOperationException ioe) when (ioe.Message.Contains("Collection was modified; enumeration operation may not execute.", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Diagnostics - Collection was modified in parallel. More details are not present.";
+            }
         }
     }
 }
