@@ -94,12 +94,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         SearchParameterInfo GetSearchParameter(string definitionUri);
 
         /// <summary>
-        /// Updates the existing resource type - search parameter hash mapping with the given new values.
-        /// </summary>
-        /// <param name="updatedSearchParamHashMap">Dictionary containing resource type to search parameter hash values</param>
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap);
-
-        /// <summary>
         /// Gets the hash of the current search parameters that are supported for the given resource type.
         /// </summary>
         /// <param name="resourceType">Resource type for which we need the hash of search parameters.</param>

@@ -234,19 +234,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return null;
         }
 
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
-        {
-            EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));
-
-            foreach (KeyValuePair<string, string> kvp in updatedSearchParamHashMap)
-            {
-                _resourceTypeSearchParameterHashMap.AddOrUpdate(
-                    kvp.Key,
-                    kvp.Value,
-                    (resourceType, existingValue) => kvp.Value);
-            }
-        }
-
         public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
             SearchParameterDefinitionBuilder.Build(
@@ -293,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // find all derived resources from the list of base resources
-            var allResourceTypes = GetDerivedResourceTypes(searchParameterInfo.BaseResourceTypes);
+            var allResourceTypes = GetDerivedResourceTypes(_modelInfoProvider, searchParameterInfo.BaseResourceTypes);
             var updated = false;
             foreach (var resourceType in allResourceTypes)
             {
@@ -388,12 +375,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 .FirstOrDefault();
 
             return searchParameter != null;
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
-        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
-        {
-            return GetDerivedResourceTypes(_modelInfoProvider, resourceTypes);
         }
 
         public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)

@@ -123,19 +123,6 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             return null;
         }
 
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
-        {
-            EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));
-
-            foreach (KeyValuePair<string, string> kvp in updatedSearchParamHashMap)
-            {
-                _resourceTypeSearchParameterHashMap.AddOrUpdate(
-                    kvp.Key,
-                    kvp.Value,
-                    (resourceType, existingValue) => kvp.Value);
-            }
-        }
-
         public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
             MinimalSearchParameterDefinitionBuilder.Build(
