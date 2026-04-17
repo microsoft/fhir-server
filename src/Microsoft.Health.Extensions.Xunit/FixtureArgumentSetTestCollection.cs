@@ -21,8 +21,8 @@ namespace Microsoft.Health.Extensions.Xunit
         private IReadOnlyList<SingleFlag> _fixtureArguments;
         private string _testClassName;
 
-        public FixtureArgumentSetTestCollection(IXunitTestAssembly testAssembly, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null)
-            : base(testAssembly, collectionDefinition: null, disableParallelization: false, displayName: string.Empty, uniqueID: string.Empty)
+        public FixtureArgumentSetTestCollection(IXunitTestAssembly testAssembly, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null, bool disableParallelization = false)
+            : base(testAssembly, collectionDefinition: null, disableParallelization: disableParallelization, displayName: string.Empty, uniqueID: string.Empty)
         {
             EnsureArg.IsNotNull(testAssembly, nameof(testAssembly));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
