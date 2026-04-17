@@ -398,6 +398,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)
         {
+            if (resourceTypes == null || resourceTypes.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
             var completeResourceList = new HashSet<string>(resourceTypes);
 
             foreach (var baseResourceType in resourceTypes)
