@@ -1,0 +1,4 @@
+{
+    "$schema": "https://xunit.net/schema/v3/configuration",
+    "parallelizeAssembly": true
+}
