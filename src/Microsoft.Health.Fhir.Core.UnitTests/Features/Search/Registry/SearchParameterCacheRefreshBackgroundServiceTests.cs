@@ -6,8 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
@@ -322,35 +326,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         public async Task WhenBackgroundIsBlockedByAPI_BackgroundShouldSkipRefresh()
         {
             var statusStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var run = 0;
             statusStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
                 .Returns(callInfo =>
                 {
-                    Thread.Sleep(1000); // Block to simulate long-running operation.
+                    run++;
+                    Thread.Sleep(run == 2 ? 1000 : 0);
                     return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>([]);
                 });
 
-            ISearchParameterStatusManager statusManager = new SearchParameterStatusManager(
-                statusStore,
-                Substitute.For<ISearchParameterDefinitionManager>(),
-                Substitute.For<ISearchParameterSupportResolver>(),
-                Substitute.For<IMediator>(),
-                Substitute.For<ILogger<SearchParameterStatusManager>>());
-
             var definitionManager = new SearchParameterDefinitionManager(
-                Substitute.For<IModelInfoProvider>(),
+                CreateMockedModelInfoProviderWithBundleSupport(),
                 Substitute.For<IMediator>(),
                 Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 statusStore.CreateMockScopeProvider(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
-            // Start a long-running API call that holds the semaphore
+            // run = 1
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            // run = 2
             var apiTask = Task.Run(async () => { await definitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None); });
 
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(definitionManager, _coreFeatureConfiguration, mockLogger);
 
-            // Start service that skipps refresh
+            // run = 3
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             await apiTask;
@@ -369,41 +371,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         public async Task WhenAPIIsBlockedByBackground_ApiShouldWait()
         {
             var statusStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var run = 0;
             statusStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
                 .Returns(callInfo =>
                 {
-                    Thread.Sleep(5000); // Block to simulate long-running operation.
-                    return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>([]);
+                    run++;
+                    Thread.Sleep(run == 2 ? 2000 : 0);
+                    return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(Array.Empty<ResourceSearchParameterStatus>());
                 });
 
-            var statusManager = new SearchParameterStatusManager(
-                statusStore,
-                Substitute.For<ISearchParameterDefinitionManager>(),
-                Substitute.For<ISearchParameterSupportResolver>(),
-                Substitute.For<IMediator>(),
-                Substitute.For<ILogger<SearchParameterStatusManager>>());
-
             var definitionManager = new SearchParameterDefinitionManager(
-                Substitute.For<IModelInfoProvider>(),
+                CreateMockedModelInfoProviderWithBundleSupport(),
                 Substitute.For<IMediator>(),
                 Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 statusStore.CreateMockScopeProvider(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
+            // run = 1
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
+
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(definitionManager, _coreFeatureConfiguration, mockLogger);
 
-            // Start service that holds the semaphore
+            // run = 2
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Start API call that waits
+            // run = 3
             var sw = Stopwatch.StartNew();
             var apiTask = Task.Run(async () => { await definitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None); });
             await apiTask;
-            Assert.True(sw.Elapsed.TotalMilliseconds >= 4000, "API call should have been blocked by background operation.");
+            Assert.True(sw.Elapsed.TotalMilliseconds >= 1500, "API call should have been blocked by background operation.");
 
             service.Dispose();
+        }
+
+        private static IModelInfoProvider CreateMockedModelInfoProviderWithBundleSupport()
+        {
+            var modelInfoProvider = Substitute.For<IModelInfoProvider>();
+            modelInfoProvider.Version.Returns(FhirSpecification.R4);
+
+            // Create a minimal Bundle ITypedElement for search-parameters.json
+            var searchParamsBundle = CreateMockBundleTypedElement();
+            var msSearchParamsBundle = CreateMockBundleTypedElement();
+
+            // Mock ToTypedElement to return our mocked bundles
+            var callCount = 0;
+            modelInfoProvider.ToTypedElement(Arg.Any<RawResource>())
+                .Returns(callInfo =>
+                {
+                    callCount++;
+
+                    // First call is for search-parameters.json, second is for ms-search-parameters.json
+                    return callCount == 1 ? searchParamsBundle : msSearchParamsBundle;
+                });
+
+            return modelInfoProvider;
+        }
+
+        private static ITypedElement CreateMockBundleTypedElement()
+        {
+            var bundleElement = Substitute.For<ITypedElement>();
+            bundleElement.InstanceType.Returns("Bundle");
+            bundleElement.Name.Returns("Bundle");
+
+            // Mock the 'entry' child - return empty list
+            bundleElement.Children("entry").Returns(Enumerable.Empty<ITypedElement>());
+
+            return bundleElement;
         }
     }
 }
