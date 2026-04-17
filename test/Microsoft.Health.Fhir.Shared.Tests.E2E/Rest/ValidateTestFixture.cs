@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
         }
 
-        protected override async System.Threading.Tasks.Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             // Delete all profile related resources before starting the test suite.
             var sd = new List<string>()

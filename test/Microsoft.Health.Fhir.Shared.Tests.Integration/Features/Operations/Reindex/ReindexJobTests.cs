@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _output = output;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _operationsConfig.Value.Returns(new OperationsConfiguration());
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             StartCacheUpdateTask(_backgroundCts.Token);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             // Clean up resources before finishing test class
             await DeleteTestResources();

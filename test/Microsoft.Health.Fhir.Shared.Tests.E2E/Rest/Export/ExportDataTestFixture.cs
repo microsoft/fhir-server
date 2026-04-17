@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime:O}";
         }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             await SaveTestResourcesToServer();
         }

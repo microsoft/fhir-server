@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }
