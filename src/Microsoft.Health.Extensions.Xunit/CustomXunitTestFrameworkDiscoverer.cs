@@ -44,6 +44,12 @@ namespace Microsoft.Health.Extensions.Xunit
             // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
             SingleFlag[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
 
+            // Cache collections (and classes) per variant within a single test class so that all methods of the same class + variant
+            // share the same test collection instance. This matches the xunit v2 behavior where methods of a test class belong to
+            // a single collection and therefore run serially (and share IClassFixture lifetime). Without this caching, xunit v3
+            // schedules each method as its own collection and runs them in parallel, breaking fixture/state sharing assumptions.
+            var collectionCache = new Dictionary<string, (FixtureArgumentSetTestCollection Collection, FixtureArgumentSetTestClass Class)>(StringComparer.Ordinal);
+
             foreach (var method in testClass.Methods)
             {
                 var fixtureParameterAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
@@ -82,10 +88,21 @@ namespace Microsoft.Health.Extensions.Xunit
                     var testClassName = effectiveAttribute.CollectionBehavior == FixtureArgumentSetCollectionBehavior.PerClass
                         ? testClass.Class.FullName
                         : null;
-                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
-                    var closedVariantTestClass = new FixtureArgumentSetTestClass(testClass.Class, closedVariantTestCollection, closedVariant, UniqueIDGenerator.ForTestClass(closedVariantTestCollection.UniqueID, testClass.Class.FullName));
-                    closedVariantTestClass.ApplyFixtureArguments(closedVariant);
-                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
+
+                    // Key the cache by the collection display identity (variant + optional class scoping). Methods that
+                    // resolve to the same key share one collection instance.
+                    var variantKey = (testClassName ?? string.Empty) + "|" + string.Join(",", closedVariant.Select(v => v.EnumValue));
+
+                    if (!collectionCache.TryGetValue(variantKey, out var cached))
+                    {
+                        var newCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
+                        var newClass = new FixtureArgumentSetTestClass(testClass.Class, newCollection, closedVariant, UniqueIDGenerator.ForTestClass(newCollection.UniqueID, testClass.Class.FullName));
+                        newClass.ApplyFixtureArguments(closedVariant);
+                        cached = (newCollection, newClass);
+                        collectionCache[variantKey] = cached;
+                    }
+
+                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(cached.Class, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(cached.Class.UniqueID, method.Name));
 
                     closedVariantTestMethod.UpdateArgumentsFromMethod();
 
