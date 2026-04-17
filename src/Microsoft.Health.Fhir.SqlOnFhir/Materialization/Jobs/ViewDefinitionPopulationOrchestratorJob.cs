@@ -89,6 +89,7 @@ public sealed class ViewDefinitionPopulationOrchestratorJob : IJob
             BatchSize = definition.BatchSize,
             ContinuationToken = null,
             LibraryResourceId = definition.LibraryResourceId,
+            Target = definition.Target,
         };
 
         string serializedDefinition = JsonConvert.SerializeObject(processingDefinition);

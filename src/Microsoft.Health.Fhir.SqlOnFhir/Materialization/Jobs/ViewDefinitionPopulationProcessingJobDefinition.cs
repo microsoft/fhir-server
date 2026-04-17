@@ -57,4 +57,13 @@ public class ViewDefinitionPopulationProcessingJobDefinition : IJobData
     /// back to the Library resource, enabling cross-node status updates.
     /// </summary>
     public string? LibraryResourceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the materialization target for this ViewDefinition.
+    /// Propagated from the orchestrator so the processing job uses the correct
+    /// materializer even if the in-memory registration is not available (e.g., after restart).
+    /// Defaults to <see cref="MaterializationTarget.SqlServer"/> for backward compatibility
+    /// with jobs enqueued before the target field was added.
+    /// </summary>
+    public MaterializationTarget Target { get; set; } = MaterializationTarget.SqlServer;
 }

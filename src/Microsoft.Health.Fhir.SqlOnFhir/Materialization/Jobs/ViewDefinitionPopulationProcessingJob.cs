@@ -61,9 +61,19 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
     {
         var definition = jobInfo.DeserializeDefinition<ViewDefinitionPopulationProcessingJobDefinition>();
 
-        // Resolve the materialization target from the in-memory registration, falling back to the factory default
-        ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(definition.ViewDefinitionName);
-        MaterializationTarget target = registration?.Target ?? _materializerFactory.DefaultTarget;
+        // Use the target from the job definition (propagated from orchestrator).
+        // Fall back to in-memory registration, then factory default, for backward compatibility
+        // with jobs enqueued before the target field was added.
+        MaterializationTarget target = definition.Target;
+        if (target == MaterializationTarget.SqlServer)
+        {
+            // Could be the real target or the default — check the registration for a more specific target
+            ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(definition.ViewDefinitionName);
+            if (registration != null)
+            {
+                target = registration.Target;
+            }
+        }
 
         _logger.LogInformation(
             "Starting ViewDefinition population processing for '{ViewDefName}' (resource type: {ResourceType}, target: {Target})",
@@ -169,6 +179,7 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                 BatchSize = definition.BatchSize,
                 ContinuationToken = currentContinuationToken,
                 LibraryResourceId = definition.LibraryResourceId,
+                Target = target,
             };
 
             await _queueClient.EnqueueAsync(
