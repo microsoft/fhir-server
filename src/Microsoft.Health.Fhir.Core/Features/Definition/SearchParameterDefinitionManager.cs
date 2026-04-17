@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)
         {
-            if (resourceTypes == null || resourceTypes.Count == 0)
+            if (resourceTypes == null || resourceTypes.Count == 0) // this is helpful in unit tests
             {
                 return Array.Empty<string>();
             }
