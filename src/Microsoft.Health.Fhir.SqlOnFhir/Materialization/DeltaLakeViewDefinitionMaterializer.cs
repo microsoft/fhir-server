@@ -95,6 +95,39 @@ public sealed class DeltaLakeViewDefinitionMaterializer : IViewDefinitionMateria
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Creates a Delta Lake checkpoint for the specified ViewDefinition table.
+    /// This writes the <c>_last_checkpoint</c> file that Fabric requires to recognize
+    /// tables with many transaction log entries.
+    /// </summary>
+    /// <param name="viewDefinitionName">The ViewDefinition name (Delta table name).</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    public async Task CheckpointAsync(string viewDefinitionName, CancellationToken cancellationToken)
+    {
+        string tableUri = GetTableUri(viewDefinitionName);
+
+        try
+        {
+            using ITable table = await _engine.LoadTableAsync(
+                new TableOptions { TableLocation = tableUri, StorageOptions = GetStorageOptions() },
+                cancellationToken);
+
+            await table.CheckpointAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Delta Lake checkpoint created for '{ViewDefName}' at version {Version}",
+                viewDefinitionName,
+                table.Version());
+        }
+        catch (Exception ex)
+        {
+            const string message =
+                "Failed to create Delta Lake checkpoint for '{ViewDefName}'. "
+                + "Fabric may show the table as 'Unidentified' until a checkpoint is created";
+            _logger.LogWarning(ex, message, viewDefinitionName);
+        }
+    }
+
     /// <inheritdoc />
     public async Task<int> UpsertResourceAsync(
         string viewDefinitionJson,

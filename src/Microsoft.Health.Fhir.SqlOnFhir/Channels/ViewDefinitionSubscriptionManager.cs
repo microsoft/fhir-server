@@ -457,6 +457,31 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 registration.Status,
                 notification.RowsInserted);
 
+            // Create a checkpoint for Delta Lake tables so Fabric can recognize the table.
+            // This writes the _last_checkpoint file after all population MERGE operations.
+            // Checkpointing is Fabric/Delta Lake-specific — only triggered when the target includes Fabric.
+            if (notification.Success && registration.Target.HasFlag(MaterializationTarget.Fabric))
+            {
+                try
+                {
+                    using IServiceScope scope = _scopeFactory.CreateScope();
+                    var deltaLakeMaterializer = scope.ServiceProvider.GetService<DeltaLakeViewDefinitionMaterializer>();
+                    if (deltaLakeMaterializer != null)
+                    {
+                        await deltaLakeMaterializer.CheckpointAsync(
+                            registration.ViewDefinitionName,
+                            cancellationToken);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    const string checkpointError =
+                        "Failed to create Delta Lake checkpoint for '{ViewDefName}'. "
+                        + "Fabric may show the table as 'Unidentified' until a checkpoint is created";
+                    _logger.LogWarning(ex, checkpointError, notification.ViewDefinitionName);
+                }
+            }
+
             // Persist the final status to the Library resource so it survives restarts
             // and is visible to other nodes via the SyncService.
             string libraryId = registration.LibraryResourceId ?? notification.LibraryResourceId;
