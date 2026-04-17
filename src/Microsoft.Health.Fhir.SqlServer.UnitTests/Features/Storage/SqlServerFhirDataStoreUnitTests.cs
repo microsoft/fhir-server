@@ -258,11 +258,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task MergeAsync_OnSqlDuplicateKeyConflict_RetryBeforeThrowing()
+        public async Task MergeAsync_OnSqlSurrogateIdCollision_RetryBeforeThrowing()
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.DuplicateKeyConflict, "Duplicated keys.");
+            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.SurrogateIdCollision, "Surrogate Id Collision.");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(

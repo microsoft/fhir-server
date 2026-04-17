@@ -165,9 +165,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
             }
-            catch (SqlException ex) when (ex.Number == FhirSqlErrorCodes.DuplicateKeyConflict)
+            catch (SqlException ex) when (ex.Number == FhirSqlErrorCodes.SurrogateIdCollision)
             {
-                _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on key conflicts. Most likely reason - too many input resources with the same last updated.");
+                _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on Surrogate Id Collision. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);
             }
