@@ -62,18 +62,8 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
         var definition = jobInfo.DeserializeDefinition<ViewDefinitionPopulationProcessingJobDefinition>();
 
         // Use the target from the job definition (propagated from orchestrator).
-        // Fall back to in-memory registration, then factory default, for backward compatibility
-        // with jobs enqueued before the target field was added.
+        // The target is always explicitly set — no fallback to a default materializer.
         MaterializationTarget target = definition.Target;
-        if (target == MaterializationTarget.SqlServer)
-        {
-            // Could be the real target or the default — check the registration for a more specific target
-            ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(definition.ViewDefinitionName);
-            if (registration != null)
-            {
-                target = registration.Target;
-            }
-        }
 
         _logger.LogInformation(
             "Starting ViewDefinition population processing for '{ViewDefName}' (resource type: {ResourceType}, target: {Target})",

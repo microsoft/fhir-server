@@ -74,9 +74,20 @@ public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
             viewDefName,
             subscriptionInfo.ResourceId);
 
-        // Resolve the materialization target for this ViewDefinition
+        // Resolve the materialization target for this ViewDefinition.
+        // The registration must exist — if it doesn't, we cannot determine the correct materializer.
         ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(viewDefName!);
-        MaterializationTarget target = registration?.Target ?? _materializerFactory.DefaultTarget;
+        if (registration == null)
+        {
+            _logger.LogError(
+                "ViewDefinitionRefreshChannel: no registration found for '{ViewDefName}'. " +
+                "Cannot determine materialization target — skipping {ResourceCount} resource(s)",
+                viewDefName,
+                resources.Count);
+            return;
+        }
+
+        MaterializationTarget target = registration.Target;
 
         int totalRowsUpserted = 0;
         int failedResources = 0;

@@ -40,6 +40,17 @@ public class ViewDefinitionRefreshChannelTests
         _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         _subscriptionManager = Substitute.For<IViewDefinitionSubscriptionManager>();
 
+        // Provide a registration so the channel can resolve the materialization target
+        _subscriptionManager.GetRegistration("patient_demographics").Returns(
+            new ViewDefinitionRegistration
+            {
+                ViewDefinitionJson = ViewDefinitionJson,
+                ViewDefinitionName = "patient_demographics",
+                ResourceType = "Patient",
+                Target = MaterializationTarget.SqlServer,
+                Status = ViewDefinitionStatus.Active,
+            });
+
         var config = Options.Create(new SqlOnFhirMaterializationConfiguration { DefaultTarget = MaterializationTarget.SqlServer });
         var factory = new MaterializerFactory(
             _materializer,

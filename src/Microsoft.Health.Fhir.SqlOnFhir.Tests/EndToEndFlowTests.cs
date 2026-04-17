@@ -103,6 +103,26 @@ public class EndToEndFlowTests
             NullLogger<MaterializerFactory>.Instance);
         var subscriptionManager = Substitute.For<IViewDefinitionSubscriptionManager>();
 
+        // Provide registrations so the channel can resolve materialization targets
+        subscriptionManager.GetRegistration("patient_demographics").Returns(
+            new ViewDefinitionRegistration
+            {
+                ViewDefinitionJson = PatientDemographicsViewDef,
+                ViewDefinitionName = "patient_demographics",
+                ResourceType = "Patient",
+                Target = MaterializationTarget.SqlServer,
+                Status = ViewDefinitionStatus.Active,
+            });
+        subscriptionManager.GetRegistration("us_core_blood_pressures").Returns(
+            new ViewDefinitionRegistration
+            {
+                ViewDefinitionJson = BloodPressureViewDef,
+                ViewDefinitionName = "us_core_blood_pressures",
+                ResourceType = "Observation",
+                Target = MaterializationTarget.SqlServer,
+                Status = ViewDefinitionStatus.Active,
+            });
+
         _channel = new ViewDefinitionRefreshChannel(
             factory,
             subscriptionManager,
