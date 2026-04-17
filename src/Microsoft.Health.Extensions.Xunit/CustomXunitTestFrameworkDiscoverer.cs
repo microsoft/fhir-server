@@ -38,11 +38,6 @@ namespace Microsoft.Health.Extensions.Xunit
                 return await base.FindTestsForType(testClass, discoveryOptions, callback);
             }
 
-            // Honor [CollectionDefinition(DisableParallelization = true)] on the test class so that classes
-            // explicitly opting into serial execution are not parallelized by our custom test collection.
-            var collectionDefinitionAttribute = testClass.Class.GetCustomAttributes(typeof(CollectionDefinitionAttribute), inherit: false).OfType<CollectionDefinitionAttribute>().FirstOrDefault();
-            bool disableParallelization = collectionDefinitionAttribute != null && collectionDefinitionAttribute.DisableParallelization;
-
             // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
             SingleFlag[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attribute);
 
@@ -87,7 +82,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     var testClassName = effectiveAttribute.CollectionBehavior == FixtureArgumentSetCollectionBehavior.PerClass
                         ? testClass.Class.FullName
                         : null;
-                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName, disableParallelization);
+                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
                     var closedVariantTestClass = new FixtureArgumentSetTestClass(testClass.Class, closedVariantTestCollection, closedVariant, UniqueIDGenerator.ForTestClass(closedVariantTestCollection.UniqueID, testClass.Class.FullName));
                     closedVariantTestClass.ApplyFixtureArguments(closedVariant);
                     var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
