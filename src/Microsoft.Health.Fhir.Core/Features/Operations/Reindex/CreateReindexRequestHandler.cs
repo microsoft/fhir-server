@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // We need to pull in latest search parameter updates from the data store before creating a reindex job.
             // There could be a potential delay of <see cref="ReindexJobConfiguration.JobPollingFrequency"/> before
             // search parameter updates on one instance propagates to other instances.
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
 
             // What this handles is the scenario where a user is effectively forcing a reindex to run by passing
             // in a parameter of targetSearchParameterTypes. From those we can identify the base resource types.
