@@ -46,7 +46,8 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/unit-test-results/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
     condition: succeededOrFailed()
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
