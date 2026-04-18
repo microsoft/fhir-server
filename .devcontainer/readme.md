@@ -1,33 +1,66 @@
-## DevContainers
+## Dev Containers
 
-[DevContainers](https://code.visualstudio.com/docs/remote/containers) lets you use a Docker container as a full-featured development environment. It allows you to open any folder inside (or mounted into) a container and take advantage of Visual Studio Code's full feature set.
+This repository ships multiple Dev Container variants under `.devcontainer/`:
 
-In this project the devcontainer starts two containers:
-1) the dev container with .net SDK
-2) a container with the Azure CosmosDB emulator
+- `SQL/` - FHIR server plus SQL Server
+- `Cosmos/` - FHIR server plus Azure Cosmos DB emulator
+- `Lite/` - FHIR server only
 
-The two containers are wired so after switching to the remote container, just hit 'debug/run' (cosmos version) and start debugging.
+Shared assets such as the base `Dockerfile` and lifecycle scripts stay at the root of `.devcontainer/`.
 
 ### Prerequisites
 
-Visual Studio Code
+- Visual Studio Code with the **Dev Containers** extension
+- Docker Desktop or another Docker engine compatible with Dev Containers
 
-### Usage
+### Opening a variant
 
-1. Install the 'Visual Studio Code Remote - Containers' extension.
-2. Visual Studio Code will ask to open the folder inside a container. Allow it.
-3. Your dev env is ready for use.
+1. Open the repository in Visual Studio Code.
+2. Run **Dev Containers: Reopen in Container**.
+3. Choose the variant you want from the picker.
 
-Another option
-1. Install the 'Visual Studio Code Remote - Containers' extension.
-2. Click on the bottom left corner and click 'reopen in a container'
-![Start](../docs/images/devcontainers/devcontainer1.png)&nbsp;
-![Start](../docs/images/devcontainers/devcontainer2.png)&nbsp;
-3. The container will start
-![Start](../docs/images/devcontainers/devcontainer3.png)&nbsp;
+VS Code will discover the `devcontainer.json` files in the variant folders and let you choose between SQL, Cosmos, and Lite.
 
-### Running / Debugging FHIR
+### Variant notes
 
-1. Run the selected profile
-![Start](../docs/images/devcontainers/devcontainer4.png)&nbsp;
-2. Use postman to query the server. e.g. https://localhost:44348/Patient
+#### SQL
+
+- Starts SQL Server and the dev container on the same Docker network.
+- The dev container reaches SQL Server at `sql:1433`.
+- The host reaches SQL Server on forwarded port `1433`.
+
+#### Cosmos
+
+- Uses the Linux-based Azure Cosmos DB emulator container on `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview`.
+- Supports x64 and ARM64 machines, including Apple Silicon Macs.
+- Starts the emulator in HTTPS mode and installs the emulator certificate into the dev container during creation.
+- Forwards the emulator endpoint on `8081` over HTTPS and the explorer UI on `1234` over HTTP.
+- Current emulator limitations still apply, including the documented NoSQL API and gateway-mode constraints.
+
+#### Lite
+
+- Starts only the dev container and relies on the usual forwarded application ports.
+
+### Running and debugging
+
+Use the existing launch configurations in `.vscode/launch.json` after the container is ready.
+
+The default FHIR endpoint is available at `https://localhost:44348`.
+
+### Manual validation
+
+#### SQL
+
+1. Reopen the repository in the `SQL` dev container.
+2. Run one of the SQL launch configurations from `.vscode/launch.json`.
+3. Verify the FHIR server responds on `https://localhost:44348`.
+4. Verify SQL Server is reachable on `localhost:1433`.
+
+#### Cosmos
+
+1. Reopen the repository in the `Cosmos` dev container.
+2. Wait for the post-create certificate installation to finish.
+3. Run one of the Cosmos launch configurations from `.vscode/launch.json`.
+4. Verify the emulator responds on `https://localhost:8081`.
+5. Verify the explorer UI is reachable on `http://localhost:1234`.
+6. Verify the FHIR server responds on `https://localhost:44348`.

@@ -1,0 +1,29 @@
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: localDev1!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql-data:/var/opt/mssql
+
+  fhir:
+    depends_on:
+      - sql
+    build:
+      context: ../../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        USER_UID: 1000
+        USER_GID: 1000
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock
+      - ../..:/workspace:cached
+    command: sleep infinity
+
+volumes:
+  sql-data:

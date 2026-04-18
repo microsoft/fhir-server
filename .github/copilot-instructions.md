@@ -9,6 +9,7 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
 - Follow the project's coding standards, which adhere to C#, .NET conventions, and Azure development best practices.
 - Ensure solutions strictly align with Fast Healthcare Interoperability Resources (FHIR) standards.
 - Prioritize security, compliance, maintainability, and performance in all implementations.
+- Search and consult the online FHIR Standards documentation if you're unsure about any specification issue: https://www.hl7.org/fhir/
 
 ---
 
@@ -19,6 +20,10 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
   - Use camelCase for private fields and local variables, with an underscore prefix (_fieldName).
 - Include XML documentation for all public members
 - On creation of new class, ensure there is a new line between namespace and class declaration
+  - Follow modern .NET best practices, including asynchronous programming (`async`/`await`).
+  - Implement defensive programming:
+    - Validate inputs rigorously.
+    - Handle exceptions gracefully, avoiding unhandled exceptions in runtime.
 
 ---
 
@@ -29,9 +34,8 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
 - Follow Arrange-Act-Assert pattern in tests
 - Use NSubstitute for external dependencies in tests.
 - Add an E2E test when relevant.
-- Implement defensive programming:
-  - Validate inputs rigorously.
-  - Handle exceptions gracefully, avoiding unhandled exceptions in runtime.
+- Ensure tests are detailed with meaningful assertions to verify functionality.
+- Explicitly relate tests to user story acceptance criteria to reinforce the connection between testing and user requirements.
 
 ---
 
@@ -66,7 +70,6 @@ Here's a high-level overview of key directories and their purposes. Consider how
 - **tools/**: Auxiliary utilities for development and maintenance tasks.
 
 ---
-
 ## Architectural Guidance
 
 - Maintain clear separation of concerns across layers: API, Business Logic, Data Access, and Infrastructure.
@@ -74,6 +77,7 @@ Here's a high-level overview of key directories and their purposes. Consider how
 - Use dependency injection and interface-based designs for improved testability and loose coupling.
 - Utilize the Request/Response/Handler pattern based on the .NET Mediatr library.
 - Clearly link architectural decisions back to user stories or business requirements to enhance traceability and clarity.
+- When creating an ADR, please think thoroughly through possible states, behaviors, outcomes and edgecases. Describe how the change may impact each of these. Use background information from the codebase, previous ADRs and the FHIR Specification. If a decision makes a previous ADR obselete you should mark it as such.
 - When creating an ADR, please think thoroughly through possible states, behaviors, outcomes and edgecases. Describe how the change may impact each of these. Use background information from the codebase, previous ADRs and the FHIR Specification. If a decision makes a previous ADR obsolete you should update it as such.
 
 ---
@@ -101,6 +105,14 @@ Here's a high-level overview of key directories and their purposes. Consider how
 
 ---
 
+## Documentation
+
+- Provide clear inline XML documentation comments (`///`) for public methods and complex implementations.
+- Include detailed explanations and context within pull requests for any significant logic or architectural changes.
+- Encourage documenting references to user stories or acceptance criteria within pull requests or commit messages to improve traceability.
+
+---
+
 ## Security and Compliance
 
 - Follow Azure and industry-standard security best practices:
@@ -119,5 +131,6 @@ Here's a high-level overview of key directories and their purposes. Consider how
 
 ---
 
+By following these guidelines, your contributions will maintain the project's high standards for consistency, security, compliance, and performance.
 Happy coding!
 

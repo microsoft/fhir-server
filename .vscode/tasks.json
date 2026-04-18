@@ -21,6 +21,24 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "build7.0",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "build",
+                // Ask dotnet build to generate full paths for file names.
+                "/property:GenerateFullPaths=true",
+                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+                "/consoleloggerparameters:NoSummary",
+                "/p:TargetFramework=net7.0"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "buildR4",
             "command": "dotnet",
             "type": "shell",

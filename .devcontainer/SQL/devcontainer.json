@@ -1,0 +1,66 @@
+{
+	"name": "FHIR Dev Container - SQL",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "fhir",
+	"runServices": [
+		"sql",
+		"fhir"
+	],
+	"workspaceFolder": "/workspace",
+	"hostRequirements": {
+		"cpus": 4,
+		"memory": "8gb",
+		"storage": "32gb"
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+	"containerEnv": {
+		"FHIR_SERVER_SQL_SERVER_BASE_CONNECTION_STRING": "Server=sql,1433;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"github.copilot",
+				"github.copilot-chat",
+				"ms-azuretools.vscode-docker",
+				"ms-dotnettools.csharp",
+				"ms-dotnettools.csdevkit",
+				"ms-dotnettools.vscodeintellicode-csharp",
+				"ms-azuretools.vscode-cosmosdb",
+				"ms-mssql.mssql",
+				"humao.rest-client",
+				"azurite.azurite",
+				"ms-azuretools.vscode-health-fhir-converter",
+				"yannick-lagger.vscode-fhir-tools",
+				"edenlabio.fhir-profiler-tool",
+				"cqframework.cql",
+				"github.vscode-pull-request-github",
+				"github.github-vscode-theme"
+			],
+			"settings": {
+				"omnisharp.enableMsBuildLoadProjectsOnDemand": true,
+				"omnisharp.enableRoslynAnalyzers": true,
+				"omnisharp.enableEditorConfigSupport": true,
+				"omnisharp.enableAsyncCompletion": true
+			}
+		}
+	},
+	"remoteUser": "vscode",
+	"forwardPorts": [
+		1433,
+		44348
+	],
+	"portsAttributes": {
+		"1433": {
+			"label": "SQL Server",
+			"onAutoForward": "silent",
+			"requireLocalPort": true
+		},
+		"44348": {
+			"label": "FHIR server",
+			"protocol": "https"
+		}
+	}
+}
