@@ -45,12 +45,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             _dataStore = fixture.DataStore;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             // Clean up is handled by fixture disposal
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [Fact]

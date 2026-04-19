@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected internal TestFhirServer TestFhirServer { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             Exception lastException = null;
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 lastException);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await OnDisposedAsync();
         }
@@ -112,8 +112,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return $"{TestFhirServer.BaseAddress}{relativeUrl}";
         }
 
-        protected virtual Task OnInitializedAsync() => Task.CompletedTask;
+        protected virtual ValueTask OnInitializedAsync() => ValueTask.CompletedTask;
 
-        protected virtual Task OnDisposedAsync() => Task.CompletedTask;
+        protected virtual ValueTask OnDisposedAsync() => ValueTask.CompletedTask;
     }
 }

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public List<string> ResourcesToCleanup { get; } = new List<string>();
 
-        protected override async Task OnDisposedAsync()
+        protected override async ValueTask OnDisposedAsync()
         {
             await base.OnDisposedAsync();
 

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
