@@ -28,7 +28,7 @@ namespace Microsoft.Health.Extensions.Xunit
         public override async ValueTask RunTestCases(IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
         {
             var runner = new FixtureArgumentSetAssemblyRunner();
-            await runner.Run((IXunitTestAssembly)TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
+            await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
 
         private sealed class FixtureArgumentSetTestAssembly : XunitTestAssembly
@@ -63,7 +63,12 @@ namespace Microsoft.Health.Extensions.Xunit
                             .ToArray();
 #pragma warning restore CS0618
 
-                        AssemblyFixtureTypesField?.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
+                        if (AssemblyFixtureTypesField == null)
+                        {
+                            throw new InvalidOperationException("Unable to initialize assembly fixtures because XunitTestAssembly.assemblyFixtureTypes was not found.");
+                        }
+
+                        AssemblyFixtureTypesField.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
                     }
 
                     return _assemblyFixtureTypes;
@@ -101,10 +106,33 @@ namespace Microsoft.Health.Extensions.Xunit
             private static readonly FieldInfo ParentMappingManagerField = typeof(FixtureMappingManager)
                 .GetField("parentMappingManager", BindingFlags.Instance | BindingFlags.NonPublic);
 
-            protected override ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
+            private ExecutionContext _executionContext;
+
+            protected override async ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
             {
                 InjectFixtureArguments(context);
-                return base.OnTestClassStarting(context);
+                var result = await base.OnTestClassStarting(context);
+                _executionContext = ExecutionContext.Capture();
+                return result;
+            }
+
+            protected override async ValueTask<bool> OnTestClassFinished(XunitTestClassRunnerContext context, RunSummary summary)
+            {
+                _executionContext?.Dispose();
+                _executionContext = null;
+                return await base.OnTestClassFinished(context, summary);
+            }
+
+            protected override ValueTask<RunSummary> RunTestMethod(XunitTestClassRunnerContext context, IXunitTestMethod testMethod, IReadOnlyCollection<IXunitTestCase> testCases, object[] constructorArguments)
+            {
+                if (_executionContext == null)
+                {
+                    return base.RunTestMethod(context, testMethod, testCases, constructorArguments);
+                }
+
+                ValueTask<RunSummary> summary = default;
+                ExecutionContext.Run(_executionContext, _ => summary = base.RunTestMethod(context, testMethod, testCases, constructorArguments), null);
+                return summary;
             }
 
             protected override ValueTask<object> GetConstructorArgument(XunitTestClassRunnerContext context, ConstructorInfo constructor, int index, ParameterInfo parameter)
@@ -259,10 +287,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         continue;
                     }
 
-                    if (testCase is ITestCaseMetadata metadata)
-                    {
-                        MergeTraits(traits, metadata.Traits);
-                    }
+                    MergeTraits(traits, ((ITestCaseMetadata)testCase).Traits);
                 }
 
                 return traits.ToDictionary(

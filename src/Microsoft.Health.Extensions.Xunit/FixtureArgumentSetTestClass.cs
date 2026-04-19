@@ -16,7 +16,7 @@ namespace Microsoft.Health.Extensions.Xunit
     internal sealed class FixtureArgumentSetTestClass : XunitTestClass
     {
         private static readonly FieldInfo UniqueIdField = typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic);
-        private Type _testClassType;
+        private readonly Type _testClassType;
         private IReadOnlyList<SingleFlag> _fixtureArguments;
 
         public FixtureArgumentSetTestClass(Type testClassType, IXunitTestCollection testCollection, IReadOnlyList<SingleFlag> fixtureArguments, string uniqueId)

@@ -32,17 +32,26 @@ namespace Microsoft.Health.Extensions.Xunit
             EnsureArg.IsNotNull(discoveryOptions, nameof(discoveryOptions));
 
             var attribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+            var methodAttributes = testClass.Methods.ToDictionary(
+                method => method,
+                method => method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
 
-            if (attribute == null)
+            if (attribute == null && methodAttributes.Values.All(value => value == null))
             {
                 return await base.FindTestsForType(testClass, discoveryOptions, callback);
             }
 
-            // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-            SingleFlag[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attribute);
+            SingleFlag[][] classLevelOpenParameterSets = Array.Empty<SingleFlag[]>();
+            SingleFlag[][] classLevelClosedParameterSets = Array.Empty<SingleFlag[]>();
 
-            // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
-            SingleFlag[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+            if (attribute != null)
+            {
+                // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
+                classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attribute);
+
+                // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
+                classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+            }
 
             // Cache collections (and classes) per variant within a single test class so that all methods of the same class + variant
             // share the same test collection instance. This matches the xunit v2 behavior where methods of a test class belong to
@@ -52,12 +61,28 @@ namespace Microsoft.Health.Extensions.Xunit
 
             foreach (var method in testClass.Methods)
             {
-                var fixtureParameterAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
-                var effectiveAttribute = fixtureParameterAttribute ?? attribute;
+                var fixtureParameterAttribute = methodAttributes[method];
+
+                if (attribute == null && fixtureParameterAttribute == null)
+                {
+                    var passthroughTestMethod = new XunitTestMethod(testClass, method, Array.Empty<object>(), uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name));
+                    if (!await FindTestsForMethod(passthroughTestMethod, discoveryOptions, callback))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
 
                 SingleFlag[][] closedSets = classLevelClosedParameterSets;
 
-                if (fixtureParameterAttribute != null)
+                if (attribute == null)
+                {
+                    // Method-level parameter sets with no class-level fallback.
+                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
+                    closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+                }
+                else if (fixtureParameterAttribute != null)
                 {
                     // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
                     SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
@@ -99,9 +124,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
                     if (!collectionCache.TryGetValue(variantKey, out var cached))
                     {
-                        var newCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
+                        var newCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection, closedVariant, testClassName);
                         var newClass = new FixtureArgumentSetTestClass(testClass.Class, newCollection, closedVariant, UniqueIDGenerator.ForTestClass(newCollection.UniqueID, testClass.Class.FullName));
-                        newClass.ApplyFixtureArguments(closedVariant);
                         cached = (newCollection, newClass);
                         collectionCache[variantKey] = cached;
                     }

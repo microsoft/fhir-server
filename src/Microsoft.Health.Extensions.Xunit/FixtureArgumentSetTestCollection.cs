@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using EnsureThat;
 using Xunit.Sdk;
 using Xunit.v3;
@@ -15,59 +14,42 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     internal sealed class FixtureArgumentSetTestCollection : XunitTestCollection
     {
-        private static readonly FieldInfo TestCollectionDisplayNameField = typeof(XunitTestCollection).GetField("testCollectionDisplayName", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo UniqueIdField = typeof(XunitTestCollection).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        private IReadOnlyList<SingleFlag> _fixtureArguments;
-        private string _testClassName;
-
-        public FixtureArgumentSetTestCollection(IXunitTestAssembly testAssembly, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null)
-            : base(testAssembly, collectionDefinition: null, disableParallelization: false, displayName: string.Empty, uniqueID: string.Empty)
+        public FixtureArgumentSetTestCollection(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null)
+            : base(
+                EnsureArg.IsNotNull(sourceCollection, nameof(sourceCollection)).TestAssembly,
+                sourceCollection.CollectionDefinition,
+                sourceCollection.DisableParallelization,
+                BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName),
+                uniqueID: BuildUniqueId(sourceCollection, fixtureArguments, testClassName))
         {
-            EnsureArg.IsNotNull(testAssembly, nameof(testAssembly));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
-
-            _fixtureArguments = fixtureArguments;
-            _testClassName = testClassName;
-
-            UpdateDisplayAndUniqueId(testAssembly.UniqueID);
         }
 
 #pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
         public FixtureArgumentSetTestCollection()
         {
-            _fixtureArguments = Array.Empty<SingleFlag>();
         }
 #pragma warning restore CS0618
 
-        internal void ApplyFixtureArguments(IReadOnlyList<SingleFlag> fixtureArguments)
+        private static string BuildDisplayName(string baseDisplayName, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName)
         {
-            if (fixtureArguments == null)
+            EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
+
+            if (fixtureArguments.Count == 0)
             {
-                return;
+                return string.IsNullOrEmpty(testClassName) ? baseDisplayName : testClassName;
             }
 
-            _fixtureArguments = fixtureArguments;
-            UpdateDisplayAndUniqueId(TestAssembly.UniqueID);
+            var argsLabel = string.Join(", ", fixtureArguments.Select(v => v.EnumValue));
+            return string.IsNullOrEmpty(testClassName)
+                ? $"{baseDisplayName}({argsLabel})"
+                : $"{testClassName}({argsLabel})";
         }
 
-        private void UpdateDisplayAndUniqueId(string assemblyUniqueId)
+        private static string BuildUniqueId(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName)
         {
-            if (_fixtureArguments.Count == 0)
-            {
-                return;
-            }
-
-            // Collection display name is either the variant label (shared-per-variant) or
-            // test class + variant (per-class), depending on the caller's choice.
-#pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
-            var argsLabel = string.Join(", ", _fixtureArguments.Select(v => v.EnumValue));
-            var displayName = string.IsNullOrEmpty(_testClassName)
-                ? $"{base.TestCollectionDisplayName}({argsLabel})"
-                : $"{_testClassName}({argsLabel})";
-            TestCollectionDisplayNameField?.SetValue(this, displayName);
-            UniqueIdField?.SetValue(this, UniqueIDGenerator.ForTestCollection(assemblyUniqueId, displayName, base.TestCollectionClassName));
-#pragma warning restore SA1100
+            var displayName = BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName);
+            return UniqueIDGenerator.ForTestCollection(sourceCollection.TestAssembly.UniqueID, displayName, sourceCollection.TestCollectionClassName);
         }
     }
 }

@@ -64,7 +64,7 @@ jobs:
         }
 
         foreach ($project in $projects) {
-          $outputDir = Join-Path $project.Directory.FullName "bin\$(buildConfiguration)\$(defaultBuildFramework)"
+          $outputDir = [System.IO.Path]::Combine($project.Directory.FullName, "bin", "$(buildConfiguration)", "$(defaultBuildFramework)")
           $configPath = Join-Path $outputDir "xunit.runner.json"
           if (-not (Test-Path $configPath)) {
             throw "xunit.runner.json not found for $($project.FullName) at $configPath"
