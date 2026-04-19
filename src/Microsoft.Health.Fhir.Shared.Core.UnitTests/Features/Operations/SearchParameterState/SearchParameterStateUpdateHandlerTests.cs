@@ -83,13 +83,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
             searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
 
-            // Create a proper IScopeProvider<IFhirDataStore> mock
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
-            fhirDataStoreScope.Value.Returns(fhirDataStore);
-            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
-            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
-
             // Create SearchParameterDefinitionManager with proper dependencies
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
@@ -97,7 +90,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 searchServiceProvider,
                 _searchParameterComparer,
                 searchParameterStatusDataStoreProvider,
-                fhirDataStoreProvider,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);

@@ -244,7 +244,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _searchParameterDefinitionManager,
                             ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
-                            _searchParameterOperations,
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
                             _coreFeatureConfig,
@@ -257,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             () => _searchService,
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
-                            _searchParameterOperations,
+                            _searchParameterDefinitionManager,
                             _searchParameterStatusManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
@@ -338,7 +337,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (Exception)
                     {
@@ -866,7 +865,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 for (int attempt = 0; attempt < 30 && !tryGetSearchParamResult; attempt++)
                 {
-                    await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                    await _searchParameterDefinitionManager2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
                     tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                     if (!tryGetSearchParamResult)
                     {
@@ -909,7 +908,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Assert.True(tryGetSearchParamResult1);
 
                 // Sync service2 to match the scenario and ensure deterministic pre-delete state.
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                await _searchParameterDefinitionManager2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
                 bool tryGetSearchParamResult2 = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.True(tryGetSearchParamResult2);
 
@@ -918,7 +917,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // Simulate the delete: upsert a deleted wrapper so GetAndApplySearchParameterUpdates can pick up the deletion.
                 UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+                await _searchParameterDefinitionManager2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
 
                 // If the SearchParameter resource is missing at sync time, service2 should handle refresh without throwing.
                 _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
@@ -1115,7 +1114,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     _searchParameterDefinitionManager,
                     ModelInfoProvider.Instance,
                     _searchParameterStatusManager,
-                    _searchParameterOperations,
                     runtimeConfiguration,
                     NullLoggerFactory.Instance,
                     _coreFeatureConfig,
@@ -1268,7 +1266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _searchService,
                 dataStoreScope,
                 _resourceWrapperFactory,
-                _searchParameterOperations,
+                _searchParameterDefinitionManager,
                 _searchParameterStatusManager,
                 NullLogger<ReindexProcessingJob>.Instance);
 
@@ -1411,7 +1409,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 SearchParameterStatus.Supported,
                 CancellationToken.None);
 
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
 
             return searchParam;
         }
@@ -1535,7 +1533,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _fixture.SearchService.CreateMockScopeProvider(),
                 searchParameterComparer,
                 _fixture.SearchParameterStatusDataStore.CreateMockScopeProvider(),
-                _fixture.DataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);

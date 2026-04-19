@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 
@@ -24,8 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     /// </summary>
     public class SearchParameterCacheRefreshBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
@@ -34,13 +34,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private CancellationToken _stoppingToken;
 
         public SearchParameterCacheRefreshBackgroundService(
-            ISearchParameterStatusManager searchParameterStatusManager,
-            ISearchParameterOperations searchParameterOperations,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SearchParameterCacheRefreshBackgroundService> logger)
         {
-            _searchParameterStatusManager = EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
-            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -107,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             try
             {
                 _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
-                var complete = await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, true);
+                var complete = await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(_stoppingToken, true);
                 if (complete)
                 {
                     _logger.LogInformation("Completed incremental SearchParameter cache refresh.");

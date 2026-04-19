@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly int _searchParameterCacheRefreshIntervalSeconds;
@@ -96,7 +95,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterStatusManager searchParameterStatusManager,
-            ISearchParameterOperations searchParameterOperations,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
@@ -108,7 +106,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
             EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
@@ -120,7 +117,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
-            _searchParameterOperations = searchParameterOperations;
             _operationsConfiguration = operationsConfiguration.Value;
             _searchParameterCacheRefreshIntervalSeconds = coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds;
 
@@ -221,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await Task.Delay(delayMs, _cancellationToken);
             }
 
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var currentDate = _searchParameterDefinitionManager.SearchParamLastUpdated.HasValue ? _searchParameterDefinitionManager.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
@@ -240,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     if (result.IsConsistent)
                     {
-                        var logDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+                        var logDate = _searchParameterDefinitionManager.SearchParamLastUpdated.HasValue ? _searchParameterDefinitionManager.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
                         _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={logDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
                         break;
                     }
