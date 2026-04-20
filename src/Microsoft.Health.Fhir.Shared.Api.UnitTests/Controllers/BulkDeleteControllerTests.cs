@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Models;
@@ -23,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
@@ -79,9 +81,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<string>())
                 .Returns(new Uri(OperationResultUrl));
 
+            var searchService = Substitute.For<ISearchService>();
+            searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<string>>(new List<string> { KnownResourceTypes.Patient }));
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+
             _controller = new BulkDeleteController(
                 _mediator,
                 _searchParameterOperations,
+                () => scopedSearchService,
                 urlResolver);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
