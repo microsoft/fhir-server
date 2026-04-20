@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         _logger.LogJobError(
                             oomEx,
                             jobInfo,
-                            "OutOfMemoryException could not be recovered after {AttemptCount} reductions. Final batch size was {BatchSize}.",
+                            "OutOfMemoryException during export could not be recovered after {AttemptCount} reductions. Final batch size was {BatchSize}.",
                             oomReductionCount,
                             _effectiveBatchSize);
 
@@ -229,12 +230,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 previousBatchSize,
                 _effectiveBatchSize);
 
-            // Determine the resource type for the range split query.
-            // For ExportType.All, the orchestrator assigns a single ResourceType per processing job.
-            // For Patient/Group, the orchestrator ranges over Patient resources.
-            string resourceType = !string.IsNullOrEmpty(record.ResourceType)
-                ? record.ResourceType.Split(',')[0]
-                : "Resource";
+            // Determine the resource type for the range split query, matching the orchestrator's behavior.
+            // For ExportType.All, the orchestrator assigns a single ResourceType per processing job (e.g. "Observation").
+            // For ExportType.Patient, the orchestrator splits on Patient surrogate IDs regardless of _type filter.
+            // Group export never has surrogate IDs, so it won't reach this code path.
+            string resourceType = record.ExportType == ExportJobType.Patient
+                ? KnownResourceTypes.Patient
+                : record.ResourceType?.Split(',')[0];
+
+            if (string.IsNullOrEmpty(resourceType))
+            {
+                _logger.LogJobError(
+                    jobInfo,
+                    "Cannot split surrogate range: resource type is not set on the export job record. ExportType={ExportType}, RangeStart={StartId}, RangeEnd={EndId}.",
+                    record.ExportType,
+                    failedRange.StartId,
+                    failedRange.EndId);
+                ThrowOomJobFailure(record, oomEx);
+            }
 
             IReadOnlyList<(long StartId, long EndId, int Count)> subRanges;
             using (IScoped<ISearchService> searchService = _searchServiceFactory())

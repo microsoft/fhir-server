@@ -442,9 +442,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(ExportJobType.Patient, "Patient", "100", "200")]
-        [InlineData(ExportJobType.All, "Observation", "500", "1000")]
-        public async Task GivenSqlExportJobOfAnyType_WhenOomOccurs_ThenSplitsRangeAndRetries(ExportJobType exportJobType, string resourceType, string startId, string endId)
+        [InlineData(ExportJobType.Patient, "Condition,Observation", "Patient", "100", "200")] // Patient export: _type filter is Condition,Observation but GetSurrogateIdRanges should use "Patient"
+        [InlineData(ExportJobType.All, "Observation", "Observation", "500", "1000")] // All export: single resource type from orchestrator
+        public async Task GivenSqlExportJobOfAnyType_WhenOomOccurs_ThenSplitsRangeAndRetries(ExportJobType exportJobType, string resourceType, string expectedRangeResourceType, string startId, string endId)
         {
             int callCount = 0;
             IExportJobTask MakeMockJobWithOomOnFirstRange()
@@ -496,7 +496,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Verify GetSurrogateIdRanges was called with correct resource type and range
             await searchService.Received(1).GetSurrogateIdRanges(
-                resourceType,
+                expectedRangeResourceType,
                 long.Parse(startId),
                 long.Parse(endId),
                 Arg.Any<int>(),
