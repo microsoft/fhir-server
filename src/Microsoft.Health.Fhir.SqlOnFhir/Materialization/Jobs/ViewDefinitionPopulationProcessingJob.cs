@@ -65,11 +65,12 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
         // The target is always explicitly set — no fallback to a default materializer.
         MaterializationTarget target = definition.Target;
 
-        _logger.LogInformation(
-            "Starting ViewDefinition population processing for '{ViewDefName}' (resource type: {ResourceType}, target: {Target})",
+        _logger.LogWarning(
+            "[VDPopulate] Processing job started for '{ViewDefName}' (resource type: {ResourceType}, target: {Target}, continuationToken: {HasToken})",
             definition.ViewDefinitionName,
             definition.ResourceType,
-            target);
+            target,
+            !string.IsNullOrEmpty(definition.ContinuationToken));
 
         long totalResourcesProcessed = 0;
         long totalRowsInserted = 0;
@@ -108,14 +109,20 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
 
             var results = searchResult.Results.ToList();
 
-            _logger.LogInformation(
-                "Batch {BatchNumber}: Found {Count} {ResourceType} resources to materialize for '{ViewDefName}'",
+            _logger.LogWarning(
+                "[VDPopulate] Batch {BatchNumber}/{MaxBatches} for '{ViewDefName}': found {Count} {ResourceType} resources (cumulative: {TotalProcessed} processed, {TotalRows} rows, {TotalFailed} failed)",
                 batchesProcessedInThisJob + 1,
+                maxBatchesPerJob,
+                definition.ViewDefinitionName,
                 results.Count,
                 definition.ResourceType,
-                definition.ViewDefinitionName);
+                totalResourcesProcessed,
+                totalRowsInserted,
+                totalFailedResources);
 
-            // Materialize each resource
+            // Deserialize resources and build the batch. Any individual resource that fails to
+            // deserialize is skipped and counted as a failure — the rest still get batched together.
+            var batch = new List<(ResourceElement Resource, string ResourceKey)>(results.Count);
             foreach (SearchResultEntry entry in results)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -127,27 +134,73 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                 {
                     ResourceElement resourceElement = _resourceDeserializer.Deserialize(entry.Resource);
                     string resourceKey = $"{entry.Resource.ResourceTypeName}/{entry.Resource.ResourceId}";
-
-                    int rowsInserted = await _materializerFactory.UpsertResourceAsync(
-                        target,
-                        definition.ViewDefinitionJson,
-                        definition.ViewDefinitionName,
-                        resourceElement,
-                        resourceKey,
-                        cancellationToken);
-
-                    totalRowsInserted += rowsInserted;
-                    totalResourcesProcessed++;
+                    batch.Add((resourceElement, resourceKey));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     totalFailedResources++;
                     _logger.LogWarning(
                         ex,
-                        "Failed to materialize resource {ResourceType}/{ResourceId} for ViewDefinition '{ViewDefName}'",
+                        "Failed to deserialize resource {ResourceType}/{ResourceId} for ViewDefinition '{ViewDefName}'",
                         entry.Resource.ResourceTypeName,
                         entry.Resource.ResourceId,
                         definition.ViewDefinitionName);
+                }
+            }
+
+            if (batch.Count > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    int rowsInserted = await _materializerFactory.UpsertResourceBatchAsync(
+                        target,
+                        definition.ViewDefinitionJson,
+                        definition.ViewDefinitionName,
+                        batch,
+                        cancellationToken);
+
+                    totalRowsInserted += rowsInserted;
+                    totalResourcesProcessed += batch.Count;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // If the batch fails as a whole, fall back to per-resource upserts to isolate
+                    // the failing resource(s) and still make forward progress on the rest.
+                    _logger.LogWarning(
+                        ex,
+                        "[VDPopulate] Batch upsert failed for '{ViewDefName}' ({Count} resources); falling back to per-resource upsert",
+                        definition.ViewDefinitionName,
+                        batch.Count);
+
+                    foreach ((ResourceElement resourceElement, string resourceKey) in batch)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        try
+                        {
+                            int rowsInserted = await _materializerFactory.UpsertResourceAsync(
+                                target,
+                                definition.ViewDefinitionJson,
+                                definition.ViewDefinitionName,
+                                resourceElement,
+                                resourceKey,
+                                cancellationToken);
+                            totalRowsInserted += rowsInserted;
+                            totalResourcesProcessed++;
+                        }
+                        catch (Exception innerEx) when (innerEx is not OperationCanceledException)
+                        {
+                            totalFailedResources++;
+                            _logger.LogWarning(
+                                innerEx,
+                                "Failed to materialize resource '{ResourceKey}' for ViewDefinition '{ViewDefName}' (fallback path)",
+                                resourceKey,
+                                definition.ViewDefinitionName);
+                        }
+                    }
                 }
             }
 
@@ -179,42 +232,40 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                 forceOneActiveJobGroup: false,
                 cancellationToken);
 
-            _logger.LogInformation(
-                "Enqueued follow-up processing job for '{ViewDefName}' with continuation token",
-                definition.ViewDefinitionName);
+            _logger.LogWarning(
+                "[VDPopulate] Enqueued follow-up processing job for '{ViewDefName}' after {Processed} resources ({Rows} rows); more batches remain",
+                definition.ViewDefinitionName,
+                totalResourcesProcessed,
+                totalRowsInserted);
         }
         else
         {
             // No more resources — population is complete. Notify the subscription manager.
-            _logger.LogInformation(
-                "Publishing ViewDefinitionPopulationCompleteNotification for '{ViewDefName}' " +
-                "(success={Success}, rows={Rows})",
+            _logger.LogWarning(
+                "[VDPopulate] Publishing ViewDefinitionPopulationCompleteNotification for '{ViewDefName}' " +
+                "(success={Success}, totalResources={Resources}, totalRows={Rows}, failures={Failures})",
                 definition.ViewDefinitionName,
                 totalFailedResources == 0,
-                totalRowsInserted);
+                totalResourcesProcessed,
+                totalRowsInserted,
+                totalFailedResources);
 
-            try
-            {
-                await _mediator.Publish(
-                    new ViewDefinitionPopulationCompleteNotification(
-                        definition.ViewDefinitionName,
-                        success: totalFailedResources == 0,
-                        rowsInserted: totalRowsInserted,
-                        errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null,
-                        libraryResourceId: definition.LibraryResourceId),
-                    cancellationToken);
+            // Propagate notification failures so the job itself fails, letting the JobQueue framework
+            // retry deterministically. We rely on the job framework as the source of truth for "done"
+            // — we never infer readiness. The last batch is idempotent (DELETE+MERGE for Delta, upsert
+            // for SQL), so re-processing on retry is safe.
+            await _mediator.Publish(
+                new ViewDefinitionPopulationCompleteNotification(
+                    definition.ViewDefinitionName,
+                    success: totalFailedResources == 0,
+                    rowsInserted: totalRowsInserted,
+                    errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null,
+                    libraryResourceId: definition.LibraryResourceId),
+                cancellationToken);
 
-                _logger.LogInformation(
-                    "ViewDefinitionPopulationCompleteNotification published for '{ViewDefName}'",
-                    definition.ViewDefinitionName);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(
-                    ex,
-                    "Failed to publish ViewDefinitionPopulationCompleteNotification for '{ViewDefName}'",
-                    definition.ViewDefinitionName);
-            }
+            _logger.LogInformation(
+                "ViewDefinitionPopulationCompleteNotification published for '{ViewDefName}'",
+                definition.ViewDefinitionName);
         }
 
         var result = new ViewDefinitionPopulationProcessingJobResult

@@ -505,13 +505,36 @@ public class FhirDemoService
         var doc = JsonNode.Parse(bundleJson);
         if (doc == null) return bundleJson;
 
+        var entries = doc["entry"]?.AsArray();
+        if (entries == null) return bundleJson;
+
+        // First pass: build a map of urn:uuid:<guid> (entry.fullUrl) → "{ResourceType}/{id}".
+        // Synthea emits transaction bundles where intra-bundle references use urn:uuid form;
+        // the FHIR server only resolves these in transaction mode. Since we convert to batch
+        // (below) so partial failures don't cascade, we must resolve the references ourselves
+        // — otherwise stored Conditions/Observations carry raw "urn:uuid:..." in subject/encounter
+        // and ViewDefinition FHIRPath like `subject.getReferenceKey(Patient)` returns null.
+        var urnToReference = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            string? fullUrl = entry?["fullUrl"]?.GetValue<string>();
+            var resource = entry?["resource"];
+            string? resourceType = resource?["resourceType"]?.GetValue<string>();
+            string? id = resource?["id"]?.GetValue<string>();
+
+            if (!string.IsNullOrEmpty(fullUrl)
+                && fullUrl.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(resourceType)
+                && !string.IsNullOrEmpty(id))
+            {
+                urnToReference[fullUrl] = $"{resourceType}/{id}";
+            }
+        }
+
         // Convert transaction to batch — each entry processes independently, so reference
         // failures don't roll back the whole bundle. This also avoids a NullReferenceException
         // in CreateResourceHandler.IsBundleParallelTransaction for transaction bundles.
         doc["type"] = "batch";
-
-        var entries = doc["entry"]?.AsArray();
-        if (entries == null) return bundleJson;
 
         var sanitizedEntries = new JsonArray();
 
@@ -542,11 +565,60 @@ public class FhirDemoService
             // Inject demo tag into resource meta for targeted bulk delete
             InjectDemoTag(resource);
 
-            sanitizedEntries.Add(entry!.DeepClone());
+            // Clone first so we mutate the copy, then walk it to rewrite urn:uuid references.
+            var clonedEntry = entry!.DeepClone();
+            var clonedResource = clonedEntry["resource"];
+            if (clonedResource != null && urnToReference.Count > 0)
+            {
+                RewriteUrnUuidReferences(clonedResource, urnToReference);
+            }
+
+            sanitizedEntries.Add(clonedEntry);
         }
 
         doc["entry"] = sanitizedEntries;
         return doc.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+    }
+
+    /// <summary>
+    /// Recursively walks a JsonNode and rewrites any property named "reference" whose value
+    /// is a string starting with "urn:uuid:" to its resolved "{ResourceType}/{id}" form,
+    /// using the provided lookup map. Unmapped urn:uuid references are left as-is.
+    /// </summary>
+    private static void RewriteUrnUuidReferences(JsonNode node, IReadOnlyDictionary<string, string> urnToReference)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var kvp in obj.ToList())
+                {
+                    if (string.Equals(kvp.Key, "reference", StringComparison.Ordinal)
+                        && kvp.Value is JsonValue value
+                        && value.TryGetValue<string>(out string? refStr)
+                        && refStr != null
+                        && refStr.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase)
+                        && urnToReference.TryGetValue(refStr, out string? resolved))
+                    {
+                        obj[kvp.Key] = resolved;
+                    }
+                    else if (kvp.Value != null)
+                    {
+                        RewriteUrnUuidReferences(kvp.Value, urnToReference);
+                    }
+                }
+
+                break;
+            case JsonArray arr:
+                foreach (var item in arr)
+                {
+                    if (item != null)
+                    {
+                        RewriteUrnUuidReferences(item, urnToReference);
+                    }
+                }
+
+                break;
+        }
     }
 
     /// <summary>

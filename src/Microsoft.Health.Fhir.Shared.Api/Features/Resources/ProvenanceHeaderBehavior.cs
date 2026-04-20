@@ -87,6 +87,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         private Provenance GetProvenanceFromHeader()
         {
+            // HttpContext can be null when the request is dispatched from a background/scoped
+            // service (e.g., ViewDefinition materialization updating a Library resource) rather
+            // than from an incoming HTTP request.
+            if (_httpContextAccessor.HttpContext == null)
+            {
+                return null;
+            }
+
             if (!_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(KnownHeaders.ProvenanceHeader, out Microsoft.Extensions.Primitives.StringValues value))
             {
                 return null;

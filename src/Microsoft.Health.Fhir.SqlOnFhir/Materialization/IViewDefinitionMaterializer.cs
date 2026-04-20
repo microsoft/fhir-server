@@ -63,6 +63,40 @@ public interface IViewDefinitionMaterializer
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Upserts a batch of resources in a single logical operation. Materializers that can amortize
+    /// per-write overhead (e.g. Delta Lake, which incurs a full transaction commit per MERGE) should
+    /// override this to produce one write per batch instead of one per resource.
+    /// <para>
+    /// The default implementation falls back to calling <see cref="UpsertResourceAsync"/> per entry.
+    /// </para>
+    /// </summary>
+    /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
+    /// <param name="viewDefinitionName">The ViewDefinition name.</param>
+    /// <param name="batch">The resources and their resource keys to upsert.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The total number of rows written across all resources in the batch.</returns>
+    async Task<int> UpsertResourceBatchAsync(
+        string viewDefinitionJson,
+        string viewDefinitionName,
+        IReadOnlyList<(ResourceElement Resource, string ResourceKey)> batch,
+        CancellationToken cancellationToken)
+    {
+        int total = 0;
+        foreach ((ResourceElement resource, string resourceKey) in batch)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            total += await UpsertResourceAsync(
+                viewDefinitionJson, viewDefinitionName, resource, resourceKey, cancellationToken);
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Removes all materialized table rows for a resource that has been deleted.
     /// </summary>
     /// <param name="viewDefinitionName">The ViewDefinition name (matches the table name in the <c>sqlfhir</c> schema).</param>
@@ -73,4 +107,25 @@ public interface IViewDefinitionMaterializer
         string viewDefinitionName,
         string resourceKey,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads materialized rows from this materializer's storage for the specified ViewDefinition.
+    /// Used by <c>$viewdefinition-run</c> to return already-computed results without re-evaluating.
+    /// <para>
+    /// The default implementation throws <see cref="NotSupportedException"/>; materializers that
+    /// can serve reads (SQL Server, Delta Lake) should override this.
+    /// </para>
+    /// </summary>
+    /// <param name="viewDefinitionName">The ViewDefinition name.</param>
+    /// <param name="limit">Optional row limit. <c>null</c> means no limit.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The materialized rows as ordered dictionaries (column name → value).</returns>
+    Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ReadRowsAsync(
+        string viewDefinitionName,
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException(
+            $"{GetType().Name} does not support reading materialized rows.");
+    }
 }

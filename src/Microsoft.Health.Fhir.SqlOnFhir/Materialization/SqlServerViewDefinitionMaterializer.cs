@@ -166,6 +166,54 @@ public sealed class SqlServerViewDefinitionMaterializer : IViewDefinitionMateria
         return deletedCount;
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ReadRowsAsync(
+        string viewDefinitionName,
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionName);
+
+        if (!await _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken))
+        {
+            return Array.Empty<IReadOnlyDictionary<string, object?>>();
+        }
+
+        string qualifiedTable = SqlServerViewDefinitionSchemaManager.GetQualifiedTableName(viewDefinitionName);
+        string limitClause = limit.HasValue ? $"TOP ({limit.Value}) " : string.Empty;
+        string sql = $"SELECT {limitClause}* FROM {qualifiedTable}";
+
+        var rows = new List<IReadOnlyDictionary<string, object?>>();
+
+        // CA2100: Dynamic SQL is safe — table name is bracket-quoted and validated via regex in SchemaManager.
+        #pragma warning disable CA2100
+        using var cmd = new SqlCommand(sql);
+        #pragma warning restore CA2100
+
+        await _sqlRetryService.ExecuteSql(
+            cmd,
+            async (sqlCmd, ct) =>
+            {
+                using var reader = await sqlCmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    var row = new Dictionary<string, object?>(reader.FieldCount, StringComparer.Ordinal);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
+                    }
+
+                    rows.Add(row);
+                }
+            },
+            _logger,
+            $"ReadRows:{viewDefinitionName}",
+            cancellationToken,
+            isReadOnly: true);
+
+        return rows;
+    }
+
     /// <summary>
     /// Builds a SQL batch that atomically deletes existing rows and inserts new ones for a resource.
     /// </summary>

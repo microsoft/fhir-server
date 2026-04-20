@@ -12,7 +12,10 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -185,16 +188,15 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
         try
         {
-            // Only create a SQL table when the target includes SqlServer.
-            // Fabric (Delta Lake) and Parquet targets create their own storage structures
-            // during materialization — no SQL table is needed.
-            if (resolvedTarget.HasFlag(MaterializationTarget.SqlServer))
-            {
-                if (!await _schemaManager.TableExistsAsync(name, cancellationToken))
-                {
-                    await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
-                }
-            }
+            // Provision storage for every materializer applicable to the resolved target.
+            // This ensures Fabric/Delta and Parquet tables are created up-front (not just on first
+            // write) so they appear in OneLake/lakehouse catalogs even when the ViewDefinition
+            // is registered against an empty dataset.
+            await _materializerFactory.EnsureStorageAsync(
+                resolvedTarget,
+                viewDefinitionJson,
+                name,
+                cancellationToken);
 
             // Step 2: Enqueue full population background job.
             // This is best-effort — the subscription will handle incremental updates even if
@@ -308,10 +310,26 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             }
         }
 
-        // Optionally drop the materialized table
+        // Drop materialized storage for every target the registration spans (SQL table,
+        // Fabric/Delta Lake directory, Parquet files). Previously this only called the SQL
+        // schema manager, which left Fabric Delta tables behind in OneLake on Library delete.
         if (dropTable)
         {
-            await _schemaManager.DropTableAsync(viewDefinitionName, cancellationToken);
+            foreach (IViewDefinitionMaterializer materializer in _materializerFactory.GetMaterializers(registration.Target))
+            {
+                try
+                {
+                    await materializer.CleanupStorageAsync(viewDefinitionName, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to clean up materialized storage for ViewDefinition '{ViewDefName}' on materializer '{Materializer}'",
+                        viewDefinitionName,
+                        materializer.GetType().Name);
+                }
+            }
         }
 
         _logger.LogInformation("Unregistered ViewDefinition '{ViewDefName}'", viewDefinitionName);
@@ -402,8 +420,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// </summary>
     public async Task Handle(ViewDefinitionPopulationCompleteNotification notification, CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
-            "Handle ViewDefinitionPopulationCompleteNotification received for '{ViewDefName}' (success={Success}, rows={Rows})",
+        _logger.LogWarning(
+            "[VDPopulate] Handle ViewDefinitionPopulationCompleteNotification received for '{ViewDefName}' (success={Success}, rows={Rows})",
             notification.ViewDefinitionName,
             notification.Success,
             notification.RowsInserted);
@@ -451,8 +469,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             registration.Status = notification.Success ? ViewDefinitionStatus.Active : ViewDefinitionStatus.Error;
             registration.ErrorMessage = notification.ErrorMessage;
 
-            _logger.LogInformation(
-                "ViewDefinition '{ViewDefName}' population complete: {Status} ({Rows} rows)",
+            _logger.LogWarning(
+                "[VDPopulate] ViewDefinition '{ViewDefName}' transitioned to {Status} ({Rows} rows)",
                 notification.ViewDefinitionName,
                 registration.Status,
                 notification.RowsInserted);
@@ -505,7 +523,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// Persists the materialization metadata (status and subscription references) on the Library
     /// resource so it survives server restarts and is visible to other nodes. Subscription IDs
     /// are stored as <c>relatedArtifact</c> entries with type <c>depends-on</c>.
-    /// This is best-effort — failures are logged but do not affect in-memory tracking.
+    /// Retries transient failures up to 3 times with exponential backoff; throws on final failure
+    /// so the caller (MediatR notification → job framework) can retry deterministically.
     /// </summary>
     private async Task UpdateLibraryMaterializationStatusAsync(
         string libraryResourceId,
@@ -514,100 +533,156 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         IEnumerable<string>? subscriptionIds = null,
         MaterializationTarget? target = null)
     {
-        try
+        // Retry the full read-modify-write cycle — transient DB errors and optimistic-concurrency
+        // conflicts are the common failure modes here, and getting the Library persisted reliably
+        // is critical: if we fail, the SyncService will read stale "Populating" status on the next
+        // restart and revert in-memory state.
+        const int maxAttempts = 3;
+        Exception? lastException = null;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // Read the current Library resource
-            var getResponse = await SendScopedAsync<GetResourceResponse>(
-                new GetResourceRequest("Library", libraryResourceId),
-                cancellationToken);
-
-            string rawJson = getResponse.Resource.RawResource.Data;
-            var parser = new FhirJsonParser();
-            Library library = await parser.ParseAsync<Library>(rawJson);
-
-            // Clear meta.versionId and meta.lastUpdated to prevent version conflicts.
-            // FhirJsonParser preserves these from the fetched resource, but when upserting
-            // back through the pipeline, a stale versionId causes the data store to detect
-            // a version conflict and silently skip the update. Clearing these fields lets
-            // the server assign a new version.
-            if (library.Meta != null)
+            try
             {
-                library.Meta.VersionId = null;
-                library.Meta.LastUpdated = null;
-            }
+                // Read the current Library resource (re-read each attempt to pick up any intervening writes)
+                var getResponse = await SendScopedAsync<GetResourceResponse>(
+                    new GetResourceRequest("Library", libraryResourceId),
+                    cancellationToken);
 
-            // Add or update the materialization-status extension
-            string statusValue = status.ToString().ToLowerInvariant();
-            Extension? existingExt = library.Extension.FirstOrDefault(
-                e => e.Url == MaterializationStatusExtensionUrl);
+                string rawJson = getResponse.Resource.RawResource.Data;
+                var parser = new FhirJsonParser();
+                Library library = await parser.ParseAsync<Library>(rawJson);
 
-            if (existingExt != null)
-            {
-                existingExt.Value = new Code(statusValue);
-            }
-            else
-            {
-                library.Extension.Add(new Extension(MaterializationStatusExtensionUrl, new Code(statusValue)));
-            }
-
-            // Add or update the materialization-target extension
-            if (target.HasValue)
-            {
-                string targetValue = target.Value.ToString();
-                Extension? existingTargetExt = library.Extension.FirstOrDefault(
-                    e => e.Url == MaterializationTargetExtensionUrl);
-
-                if (existingTargetExt != null)
+                // Clear meta.versionId and meta.lastUpdated to prevent version conflicts.
+                // FhirJsonParser preserves these from the fetched resource, but when upserting
+                // back through the pipeline, a stale versionId causes the data store to detect
+                // a version conflict and silently skip the update. Clearing these fields lets
+                // the server assign a new version.
+                if (library.Meta != null)
                 {
-                    existingTargetExt.Value = new Code(targetValue);
+                    library.Meta.VersionId = null;
+                    library.Meta.LastUpdated = null;
+                }
+
+                // Add or update the materialization-status extension
+                string statusValue = status.ToString().ToLowerInvariant();
+                Extension? existingExt = library.Extension.FirstOrDefault(
+                    e => e.Url == MaterializationStatusExtensionUrl);
+
+                if (existingExt != null)
+                {
+                    existingExt.Value = new Code(statusValue);
                 }
                 else
                 {
-                    library.Extension.Add(new Extension(MaterializationTargetExtensionUrl, new Code(targetValue)));
+                    library.Extension.Add(new Extension(MaterializationStatusExtensionUrl, new Code(statusValue)));
                 }
-            }
 
-            // Persist subscription IDs as relatedArtifact entries (type=depends-on)
-            if (subscriptionIds != null)
-            {
-                // Remove existing auto-created subscription references
-                library.RelatedArtifact.RemoveAll(
-                    ra => ra.Type == RelatedArtifact.RelatedArtifactType.DependsOn
-                        && ra.Resource != null
-                        && ra.Resource.StartsWith("Subscription/", StringComparison.OrdinalIgnoreCase));
-
-                foreach (string subId in subscriptionIds)
+                // Add or update the materialization-target extension
+                if (target.HasValue)
                 {
-                    library.RelatedArtifact.Add(new RelatedArtifact
+                    string targetValue = target.Value.ToString();
+                    Extension? existingTargetExt = library.Extension.FirstOrDefault(
+                        e => e.Url == MaterializationTargetExtensionUrl);
+
+                    if (existingTargetExt != null)
                     {
-                        Type = RelatedArtifact.RelatedArtifactType.DependsOn,
-                        Resource = $"Subscription/{subId}",
-                        Display = "Auto-created materialization subscription",
-                    });
+                        existingTargetExt.Value = new Code(targetValue);
+                    }
+                    else
+                    {
+                        library.Extension.Add(new Extension(MaterializationTargetExtensionUrl, new Code(targetValue)));
+                    }
+                }
+
+                // Persist subscription IDs as relatedArtifact entries (type=depends-on)
+                if (subscriptionIds != null)
+                {
+                    // Remove existing auto-created subscription references
+                    library.RelatedArtifact.RemoveAll(
+                        ra => ra.Type == RelatedArtifact.RelatedArtifactType.DependsOn
+                            && ra.Resource != null
+                            && ra.Resource.StartsWith("Subscription/", StringComparison.OrdinalIgnoreCase));
+
+                    foreach (string subId in subscriptionIds)
+                    {
+                        library.RelatedArtifact.Add(new RelatedArtifact
+                        {
+                            Type = RelatedArtifact.RelatedArtifactType.DependsOn,
+                            Resource = $"Subscription/{subId}",
+                            Display = "Auto-created materialization subscription",
+                        });
+                    }
+                }
+
+                // Upsert the modified Library back through the pipeline.
+                // Suppress the ViewDefinitionLibraryRegistrationBehavior for this internal write
+                // so it does not recursively call RegisterAsync (which would re-enqueue a population
+                // job and overwrite our just-written status with 'Populating'). Only client-originated
+                // POST/PUT should trigger registration; the system's own status writes must not.
+                var resourceElement = new ResourceElement(library.ToTypedElement());
+                bool previousSuppress = ViewDefinitionLibraryRegistrationBehavior.SuppressRegistration.Value;
+                ViewDefinitionLibraryRegistrationBehavior.SuppressRegistration.Value = true;
+                try
+                {
+                    await SendScopedAsync<UpsertResourceResponse>(
+                        new UpsertResourceRequest(resourceElement),
+                        cancellationToken);
+                }
+                finally
+                {
+                    ViewDefinitionLibraryRegistrationBehavior.SuppressRegistration.Value = previousSuppress;
+                }
+
+                _logger.LogInformation(
+                    "[VDPopulate] Persisted materialization metadata on Library '{LibraryId}' " +
+                    "(status={Status}, target={Target}, subscriptions={SubCount}, attempt={Attempt})",
+                    libraryResourceId,
+                    statusValue,
+                    target?.ToString() ?? "default",
+                    subscriptionIds?.Count() ?? 0,
+                    attempt);
+
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+
+                if (attempt < maxAttempts)
+                {
+                    int backoffMs = 500 * (1 << (attempt - 1));
+                    const string retryMessage =
+                        "[VDPopulate] Attempt {Attempt}/{Max} to persist materialization metadata on Library '{LibraryId}' "
+                        + "(desired status: {DesiredStatus}) failed; retrying in {BackoffMs}ms";
+                    _logger.LogWarning(ex, retryMessage, attempt, maxAttempts, libraryResourceId, status, backoffMs);
+
+                    try
+                    {
+                        await Task.Delay(backoffMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
                 }
             }
-
-            // Upsert the modified Library back through the pipeline
-            var resourceElement = new ResourceElement(library.ToTypedElement());
-            await SendScopedAsync<UpsertResourceResponse>(
-                new UpsertResourceRequest(resourceElement),
-                cancellationToken);
-
-            _logger.LogInformation(
-                "Persisted materialization metadata on Library '{LibraryId}' (status={Status}, target={Target}, subscriptions={SubCount})",
-                libraryResourceId,
-                statusValue,
-                target?.ToString() ?? "default",
-                subscriptionIds?.Count() ?? 0);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            const string errorMessage =
-                "Failed to persist materialization metadata on Library '{LibraryId}' (desired status: {DesiredStatus}). "
-                + "In-memory state may differ from the Library resource. "
-                + "The SyncService will not recover this until the server restarts or the ViewDefinition is re-registered";
-            _logger.LogError(ex, errorMessage, libraryResourceId, status);
-        }
+
+        const string errorMessage =
+            "[VDPopulate] All {MaxAttempts} attempts failed to persist materialization metadata on Library '{LibraryId}' "
+            + "(desired status: {DesiredStatus}). Notification handler will propagate the failure so the JobQueue can retry";
+        _logger.LogError(lastException, errorMessage, maxAttempts, libraryResourceId, status);
+
+        // Propagate so the MediatR notification publish inside the processing job fails, which fails the job,
+        // which causes the JobQueue framework to retry the job deterministically. We never infer readiness.
+        throw new InvalidOperationException(
+            $"Failed to persist materialization status '{status}' on Library '{libraryResourceId}' after {maxAttempts} attempts.",
+            lastException);
     }
 
     /// <summary>
@@ -777,6 +852,27 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     private async Task<TResponse> SendScopedAsync<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken)
     {
         using IServiceScope scope = _scopeFactory.CreateScope();
+
+        // When invoked from a background JobQueue task there is no ambient FhirRequestContext.
+        // Downstream pipeline components (e.g., ResourceWrapperFactory.Create) dereference
+        // RequestContextAccessor.RequestContext.Method/Uri and would throw NullReferenceException.
+        // Set a synthetic background context if none is present, so internal upserts succeed
+        // outside of an HTTP request scope.
+        var contextAccessor = scope.ServiceProvider.GetService<RequestContextAccessor<IFhirRequestContext>>();
+        if (contextAccessor != null && contextAccessor.RequestContext == null)
+        {
+            contextAccessor.RequestContext = new FhirRequestContext(
+                method: "BACKGROUND",
+                uriString: "https://sql-on-fhir/internal",
+                baseUriString: "https://sql-on-fhir/internal",
+                correlationId: Guid.NewGuid().ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+        }
+
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         return await mediator.Send(request, cancellationToken);
     }

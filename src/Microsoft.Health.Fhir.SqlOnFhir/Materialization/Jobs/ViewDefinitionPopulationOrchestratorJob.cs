@@ -101,10 +101,11 @@ public sealed class ViewDefinitionPopulationOrchestratorJob : IJob
             forceOneActiveJobGroup: false,
             cancellationToken);
 
-        _logger.LogInformation(
-            "Enqueued {JobCount} processing job(s) for ViewDefinition '{ViewDefName}'",
+        _logger.LogWarning(
+            "[VDPopulate] Orchestrator enqueued {JobCount} processing job(s) for ViewDefinition '{ViewDefName}' (target: {Target})",
             enqueuedJobs.Count,
-            definition.ViewDefinitionName);
+            definition.ViewDefinitionName,
+            definition.Target);
 
         var result = new
         {

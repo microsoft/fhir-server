@@ -6,7 +6,6 @@
 using System.Text;
 using System.Text.Json;
 using MediatR;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
@@ -15,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlOnFhir.Channels;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir.Operations;
 
@@ -23,7 +21,9 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Operations;
 /// Handles the $viewdefinition-run operation. Two modes:
 /// <list type="bullet">
 ///   <item>Inline ViewDefinition: evaluates on-the-fly via Ignixa against server resources</item>
-///   <item>Registered ViewDefinition: reads from the materialized sqlfhir table (fast, already computed)</item>
+///   <item>Registered ViewDefinition: reads from the materialized storage backing the registration's
+///   <see cref="MaterializationTarget"/> (SQL Server table, Fabric/Delta Lake table, etc.) — the
+///   data is already computed, so this just streams rows back to the caller</item>
 /// </list>
 /// </summary>
 public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRunRequest, ViewDefinitionRunResponse>
@@ -31,11 +31,10 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
     private readonly IViewDefinitionEvaluator _evaluator;
-    private readonly IViewDefinitionSchemaManager _schemaManager;
     private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
+    private readonly MaterializerFactory _materializerFactory;
     private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
     private readonly IResourceDeserializer _resourceDeserializer;
-    private readonly ISqlRetryService _sqlRetryService;
     private readonly ILogger<ViewDefinitionRunHandler> _logger;
 
     /// <summary>
@@ -43,19 +42,17 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
     /// </summary>
     public ViewDefinitionRunHandler(
         IViewDefinitionEvaluator evaluator,
-        IViewDefinitionSchemaManager schemaManager,
         IViewDefinitionSubscriptionManager subscriptionManager,
+        MaterializerFactory materializerFactory,
         Func<IScoped<ISearchService>> searchServiceFactory,
         IResourceDeserializer resourceDeserializer,
-        ISqlRetryService sqlRetryService,
         ILogger<ViewDefinitionRunHandler> logger)
     {
         _evaluator = evaluator;
-        _schemaManager = schemaManager;
         _subscriptionManager = subscriptionManager;
+        _materializerFactory = materializerFactory;
         _searchServiceFactory = searchServiceFactory;
         _resourceDeserializer = resourceDeserializer;
-        _sqlRetryService = sqlRetryService;
         _logger = logger;
     }
 
@@ -81,57 +78,39 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
         int? limit,
         CancellationToken cancellationToken)
     {
-        // Check if this ViewDefinition targets a non-SQL materializer (e.g., Fabric).
-        // The $viewdefinition-run endpoint only supports querying SQL Server tables.
         ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(viewDefinitionName);
-        if (registration != null && !registration.Target.HasFlag(MaterializationTarget.SqlServer))
+        if (registration is null)
         {
             throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException(
-                $"ViewDefinition '{viewDefinitionName}' is materialized to {registration.Target} — " +
-                "the $viewdefinition-run endpoint only supports querying SQL Server materialized tables. " +
-                "Query the data directly from the target storage (e.g., Fabric SQL Analytics Endpoint).");
+                $"ViewDefinition '{viewDefinitionName}' is not registered.");
         }
 
-        if (!await _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken))
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> materializedRows;
+        try
         {
-            throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException($"Materialized table for ViewDefinition '{viewDefinitionName}' does not exist.");
+            materializedRows = await _materializerFactory.ReadRowsAsync(
+                registration.Target, viewDefinitionName, limit, cancellationToken);
+        }
+        catch (NotSupportedException ex)
+        {
+            throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException(
+                $"ViewDefinition '{viewDefinitionName}' is materialized to {registration.Target}, " +
+                "which does not support direct reads via $viewdefinition-run. " +
+                $"Query the data directly from the target storage. ({ex.Message})");
         }
 
-        string qualifiedTable = SqlServerViewDefinitionSchemaManager.GetQualifiedTableName(viewDefinitionName);
-        string limitClause = limit.HasValue ? $"TOP ({limit.Value})" : string.Empty;
-        string sql = $"SELECT {limitClause} * FROM {qualifiedTable}";
-
-        var rows = new List<Dictionary<string, object?>>();
-
-        #pragma warning disable CA2100
-        using var cmd = new SqlCommand(sql);
-        #pragma warning restore CA2100
-
-        await _sqlRetryService.ExecuteSql(
-            cmd,
-            async (sqlCmd, ct) =>
-            {
-                using var reader = await sqlCmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
-                {
-                    var row = new Dictionary<string, object?>();
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        row[reader.GetName(i)] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
-                    }
-
-                    rows.Add(row);
-                }
-            },
-            _logger,
-            $"ViewDefinitionRun:read:{viewDefinitionName}",
-            cancellationToken,
-            isReadOnly: true);
+        // Materialized readers return read-only dictionaries; convert to mutable copies for FormatResponse.
+        var rows = new List<Dictionary<string, object?>>(materializedRows.Count);
+        foreach (IReadOnlyDictionary<string, object?> r in materializedRows)
+        {
+            rows.Add(new Dictionary<string, object?>(r, StringComparer.Ordinal));
+        }
 
         _logger.LogInformation(
-            "$viewdefinition-run read {RowCount} rows from materialized table '{ViewDefName}'",
+            "$viewdefinition-run read {RowCount} rows from materialized '{ViewDefName}' (target: {Target})",
             rows.Count,
-            viewDefinitionName);
+            viewDefinitionName,
+            registration.Target);
 
         return FormatResponse(rows, format);
     }

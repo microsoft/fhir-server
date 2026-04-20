@@ -58,6 +58,19 @@ public class SqlOnFhirMaterializationConfiguration
     public string DefaultContainer { get; set; } = "sqlfhir";
 
     /// <summary>
+    /// Gets or sets the schema segment to insert between the storage root and the table name
+    /// for the Delta Lake / Fabric target. This is required for <b>schema-enabled</b> Fabric
+    /// lakehouses, which expect paths of the form <c>Tables/{schema}/{tableName}/</c> — without
+    /// it, Fabric treats the ViewDefinition name as the schema and reports the table contents
+    /// as <i>Unidentified</i>.
+    /// <para>
+    /// Defaults to <c>dbo</c>. Set to <c>null</c> or empty string for schema-less lakehouses
+    /// (path <c>Tables/{tableName}/</c>).
+    /// </para>
+    /// </summary>
+    public string? DeltaSchema { get; set; } = "dbo";
+
+    /// <summary>
     /// Gets or sets the default materialization target when not specified per-ViewDefinition.
     /// Defaults to <see cref="MaterializationTarget.SqlServer"/>.
     /// Set to <see cref="MaterializationTarget.Fabric"/> for Delta Lake on OneLake.

@@ -64,7 +64,7 @@ public class DeltaLakeViewDefinitionMaterializerTests
         Assert.IsType<Int64Type>(schema.GetFieldByName("int64Col").DataType);
         Assert.IsType<DoubleType>(schema.GetFieldByName("decCol").DataType);
         Assert.IsType<StringType>(schema.GetFieldByName("strCol").DataType);
-        Assert.IsType<StringType>(schema.GetFieldByName("dateCol").DataType);
+        Assert.IsType<Date32Type>(schema.GetFieldByName("dateCol").DataType);
         Assert.IsType<StringType>(schema.GetFieldByName("nullTypeCol").DataType);
     }
 

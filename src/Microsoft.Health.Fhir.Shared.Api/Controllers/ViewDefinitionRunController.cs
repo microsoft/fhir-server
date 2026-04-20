@@ -181,6 +181,15 @@ public class ViewDefinitionRunController : Controller
             Value = new FhirBoolean(status.TableExists),
         });
 
+        if (!string.IsNullOrEmpty(status.Target))
+        {
+            parameters.Parameter.Add(new Parameters.ParameterComponent
+            {
+                Name = "target",
+                Value = new FhirString(status.Target),
+            });
+        }
+
         if (!string.IsNullOrEmpty(status.ErrorMessage))
         {
             parameters.Parameter.Add(new Parameters.ParameterComponent

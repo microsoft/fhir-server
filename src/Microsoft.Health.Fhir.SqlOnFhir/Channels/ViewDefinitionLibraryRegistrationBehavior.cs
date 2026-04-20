@@ -23,6 +23,15 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
     IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
     IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
 {
+    /// <summary>
+    /// AsyncLocal flag set by the SubscriptionManager when it issues an internal Library upsert
+    /// (e.g., to persist materialization status). When true, this behavior short-circuits and
+    /// performs no registration side-effects so the system does not recursively re-enqueue
+    /// population jobs or overwrite Active status with Populating.
+    /// Only client-originated POST/PUT calls (where this flag is false) trigger registration.
+    /// </summary>
+    internal static readonly AsyncLocal<bool> SuppressRegistration = new();
+
     private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly ILogger<ViewDefinitionLibraryRegistrationBehavior> _logger;
 
@@ -49,6 +58,14 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
 
         // Let the Library resource be created first
         UpsertResourceResponse response = await next(cancellationToken);
+
+        // Skip side-effects when the upsert was issued internally by the system
+        // (e.g., from UpdateLibraryMaterializationStatusAsync writing status=Active back to Library).
+        // Only client-originated POST/PUT should trigger registration.
+        if (SuppressRegistration.Value)
+        {
+            return response;
+        }
 
         // Check if this is a Library resource with the ViewDefinition profile
         if (!IsViewDefinitionLibrary(request))
@@ -93,6 +110,15 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
         _logger.LogDebug("ViewDefinitionLibraryRegistrationBehavior (Upsert) invoked for {ResourceType}", request.Resource.InstanceType);
 
         UpsertResourceResponse response = await next(cancellationToken);
+
+        // Skip side-effects when the upsert was issued internally by the system
+        // (e.g., from UpdateLibraryMaterializationStatusAsync writing status=Active back to Library).
+        // Without this guard, our own status writes recursively call RegisterAsync, which can
+        // re-enqueue population jobs and overwrite Active status with Populating.
+        if (SuppressRegistration.Value)
+        {
+            return response;
+        }
 
         if (!IsViewDefinitionLibraryElement(request.Resource))
         {

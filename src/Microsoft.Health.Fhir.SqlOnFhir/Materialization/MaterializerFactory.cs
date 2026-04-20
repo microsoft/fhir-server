@@ -166,6 +166,49 @@ public sealed class MaterializerFactory
     }
 
     /// <summary>
+    /// Upserts a batch of resources across all materializers for the given target.
+    /// Each materializer is given the opportunity to process the whole batch in one call,
+    /// which can dramatically reduce per-write overhead (Delta Lake transactions, SQL round trips).
+    /// </summary>
+    /// <param name="target">The materialization target(s).</param>
+    /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
+    /// <param name="viewDefinitionName">The ViewDefinition name.</param>
+    /// <param name="batch">The resources and their resource keys to upsert.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The maximum number of rows written by any single materializer.</returns>
+    public async Task<int> UpsertResourceBatchAsync(
+        MaterializationTarget target,
+        string viewDefinitionJson,
+        string viewDefinitionName,
+        IReadOnlyList<(ResourceElement Resource, string ResourceKey)> batch,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<IViewDefinitionMaterializer> materializers = GetMaterializers(target);
+        if (materializers.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot materialize ViewDefinition '{viewDefinitionName}': no materializers available for target '{target}'. " +
+                "Verify that storage is configured in SqlOnFhirMaterialization settings.");
+        }
+
+        if (batch.Count == 0)
+        {
+            return 0;
+        }
+
+        int totalRows = 0;
+
+        foreach (IViewDefinitionMaterializer materializer in materializers)
+        {
+            int rows = await materializer.UpsertResourceBatchAsync(
+                viewDefinitionJson, viewDefinitionName, batch, cancellationToken);
+            totalRows = Math.Max(totalRows, rows);
+        }
+
+        return totalRows;
+    }
+
+    /// <summary>
     /// Deletes a resource across all materializers for the given target.
     /// </summary>
     public async Task<int> DeleteResourceAsync(
@@ -240,5 +283,42 @@ public sealed class MaterializerFactory
         {
             await materializer.CleanupStorageAsync(viewDefinitionName, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Reads materialized rows for the given target. When multiple materializers are configured
+    /// for the target, the read is served from the first available source in this preference order:
+    /// SQL Server (lowest latency), Fabric/Delta Lake, Parquet. The selected materializer is
+    /// expected to override <see cref="IViewDefinitionMaterializer.ReadRowsAsync"/>.
+    /// </summary>
+    /// <param name="target">The materialization target(s).</param>
+    /// <param name="viewDefinitionName">The ViewDefinition name.</param>
+    /// <param name="limit">Optional row limit.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The materialized rows.</returns>
+    public Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ReadRowsAsync(
+        MaterializationTarget target,
+        string viewDefinitionName,
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        // Prefer SQL Server when present — local + indexed.
+        if (target.HasFlag(MaterializationTarget.SqlServer))
+        {
+            return _sqlMaterializer.ReadRowsAsync(viewDefinitionName, limit, cancellationToken);
+        }
+
+        if (target.HasFlag(MaterializationTarget.Fabric) && _deltaLakeMaterializer != null)
+        {
+            return _deltaLakeMaterializer.ReadRowsAsync(viewDefinitionName, limit, cancellationToken);
+        }
+
+        if (target.HasFlag(MaterializationTarget.Parquet) && _parquetMaterializer != null)
+        {
+            return _parquetMaterializer.ReadRowsAsync(viewDefinitionName, limit, cancellationToken);
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot read materialized rows for ViewDefinition '{viewDefinitionName}': no readable materializer available for target '{target}'.");
     }
 }

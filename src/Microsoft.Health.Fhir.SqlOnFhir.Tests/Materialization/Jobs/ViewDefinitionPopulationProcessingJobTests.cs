@@ -99,19 +99,22 @@ public class ViewDefinitionPopulationProcessingJobTests
             .Returns(CreateSearchResult(new[] { mockWrapper }, continuationToken: null));
 
         _resourceDeserializer.Deserialize(mockWrapper).Returns(mockElement);
-        _materializer.UpsertResourceAsync(
-                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ResourceElement>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _materializer.UpsertResourceBatchAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<(ResourceElement, string)>>(),
+                Arg.Any<CancellationToken>())
             .Returns(1);
 
         // Act
         string result = await _job.ExecuteAsync(jobInfo, CancellationToken.None);
 
         // Assert
-        await _materializer.Received(1).UpsertResourceAsync(
+        await _materializer.Received(1).UpsertResourceBatchAsync(
             ViewDefinitionJson,
             "patient_demographics",
-            mockElement,
-            "Patient/p1",
+            Arg.Is<IReadOnlyList<(ResourceElement Resource, string ResourceKey)>>(b =>
+                b.Count == 1 && b[0].ResourceKey == "Patient/p1"),
             Arg.Any<CancellationToken>());
 
         // No follow-up job should be enqueued
@@ -158,8 +161,11 @@ public class ViewDefinitionPopulationProcessingJobTests
 
         var mockElement = Substitute.For<ResourceElement>(Substitute.For<Hl7.Fhir.ElementModel.ITypedElement>());
         _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(mockElement);
-        _materializer.UpsertResourceAsync(
-                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ResourceElement>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _materializer.UpsertResourceBatchAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<(ResourceElement, string)>>(),
+                Arg.Any<CancellationToken>())
             .Returns(1);
 
         _queueClient.EnqueueAsync(
@@ -211,8 +217,11 @@ public class ViewDefinitionPopulationProcessingJobTests
         string result = await _job.ExecuteAsync(jobInfo, CancellationToken.None);
 
         // Assert
-        await _materializer.DidNotReceive().UpsertResourceAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ResourceElement>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _materializer.DidNotReceive().UpsertResourceBatchAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyList<(ResourceElement, string)>>(),
+            Arg.Any<CancellationToken>());
 
         var resultObj = JsonConvert.DeserializeObject<ViewDefinitionPopulationProcessingJobResult>(result);
         Assert.NotNull(resultObj);
@@ -250,7 +259,15 @@ public class ViewDefinitionPopulationProcessingJobTests
 
         _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(mockElement);
 
-        // First call succeeds, second call throws
+        // Batch upsert fails, triggering fallback to per-resource upserts.
+        _materializer.UpsertResourceBatchAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<(ResourceElement, string)>>(),
+                Arg.Any<CancellationToken>())
+            .Returns<int>(_ => throw new InvalidOperationException("Batch failure"));
+
+        // Fallback path: first resource succeeds, second throws.
         _materializer.UpsertResourceAsync(
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ResourceElement>(), "Patient/p1", Arg.Any<CancellationToken>())
             .Returns(1);
