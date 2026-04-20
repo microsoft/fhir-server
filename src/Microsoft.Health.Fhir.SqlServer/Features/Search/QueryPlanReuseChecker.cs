@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class QueryPlanReuseChecker
     {
+        // Holds a list of urls for skewed search parameters. If the search parameters are skewed, the query plan should not be reused.
         private readonly List<string> _skewedParameters = new List<string>();
 
         private ISqlRetryService _sqlRetryService;
@@ -32,10 +33,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public static bool CanReuseQueryPlan(SearchOptions searchOptions)
+        public bool CanReuseQueryPlan(SearchOptions searchOptions)
         {
             // Check the skew of the search parameters. If the search parameters are skewed, the query plan should not be reused.
             var parameters = searchOptions.SearchParameters;
+
+            foreach (var parameter in parameters)
+            {
+                if (_skewedParameters.Contains(parameter.Url.OriginalString))
+                {
+                    return false;
+                }
+            }
 
             return true;
         }

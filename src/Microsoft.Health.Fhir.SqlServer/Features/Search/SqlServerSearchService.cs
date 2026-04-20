@@ -53,10 +53,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSearchService : SearchService
     {
+        internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
+        internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
+        internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
+        internal const int LongRunningThresholdMillisecondsDefault = 5000;
+        private const string SortValueColumnName = "SortValue";
+
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
-
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
@@ -67,23 +72,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-        private const string SortValueColumnName = "SortValue";
-        private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
-        private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly QueryPlanReuseChecker _queryPlanReuseChecker;
+
+        private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
+        private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static CachedParameter<SqlServerSearchService> _reuseQueryPlans;
-        internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
-        internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
-        internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
-        internal const int LongRunningThresholdMillisecondsDefault = 5000;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
         public SqlServerSearchService(
@@ -103,6 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            QueryPlanReuseChecker queryPlanReuseChecker,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -115,6 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(queryPlanReuseChecker, nameof(queryPlanReuseChecker));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -129,6 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
+            _queryPlanReuseChecker = queryPlanReuseChecker;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -541,7 +546,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,
-                                reuseQueryPlans,
+                                reuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 
@@ -1853,7 +1858,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,
-                                _reuseQueryPlans.IsEnabled(_sqlRetryService),
+                                _reuseQueryPlans.IsEnabled(_sqlRetryService) && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 

@@ -5,30 +5,30 @@ AS
 set nocount on
 DECLARE @i int = 0,
 		@count int,
-		@stat_name nvarchar,
-		@table_name nvarchar,
+		@stat_name nvarchar(128),
+		@table_name nvarchar(128),
 		@min_rows int,
 		@max_rows int,
-		@column nvarchar;
+		@column nvarchar(128);
 
 CREATE TABLE #results
 (
-	stat_name nvarchar,
-	table_name nvarchar,
+	stat_name nvarchar(128),
+	table_name nvarchar(128),
 	skew int,
-	primary_column nvarchar,
+	primary_column nvarchar(128),
 );
 
 CREATE TABLE #stats_density
 (
 	all_density float,
 	average_length float,
-	columns nvarchar,
+	columns nvarchar(128),
 );
 
 CREATE TABLE #stats_histogram
 (
-	range_hi_key nvarchar,
+	range_hi_key nvarchar(128),
 	range_rows int,
 	eq_rows int,
 	distinct_range_rows int,
@@ -44,7 +44,8 @@ FROM sys.stats AS s
 		ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id
 	JOIN sys.columns AS c
 		ON sc.object_id = c.object_id AND sc.column_id = c.column_id
-WHERE OBJECT_NAME(s.object_id) like '%SearchParam';
+WHERE OBJECT_NAME(s.object_id) LIKE '%SearchParam'
+AND s.name LIKE 'ST_%';
 
 SELECT @count = count(*) FROM #stat_names;
 
