@@ -7,7 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BundleOrchestratorException : Exception
+    public class BundleOrchestratorException : Exception
     {
         public BundleOrchestratorException(string message)
             : base(message)

@@ -1,75 +1,132 @@
 parameters:
-- name: appServiceName
+- name: containerAppName
+  type: string
+- name: version
+  type: string
+- name: appServiceType
   type: string
 
 steps:
 - task: AzurePowerShell@5
-  displayName: 'Set Variables'
+  displayName: 'Set Variables (ACA)'
   inputs:
     azureSubscription: $(ConnectedServiceName)
     azurePowerShellVersion: latestVersion
     pwsh: true
     ScriptType: InlineScript
     Inline: |
-        $keyVault = "$(KeyVaultBaseName)-ts"
-        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        function Set-SecretsAsPipelineVariables {
+            param(
+                [Parameter(Mandatory = $true)]
+                [string]$VaultName
+            )
 
-        foreach($secret in $secrets)
-        {
-            $environmentVariableName = $secret.Name.Replace("--","_")
+            $secrets = Get-AzKeyVaultSecret -VaultName $VaultName
+            foreach ($secret in $secrets) {
+                $environmentVariableName = $secret.Name.Replace("--", "_")
 
-            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
-            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainValue))
-            {
-                throw "$($secret.Name) is empty"
+                $secretValue = Get-AzKeyVaultSecret -VaultName $VaultName -Name $secret.Name
+                # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+                $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+                if ([string]::IsNullOrEmpty($plainValue)) {
+                    throw "$($secret.Name) is empty"
+                }
+
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
             }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
-        $appServiceName = "${{ parameters.appServiceName }}"
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
-        $acrLoginServer = $acrSettings[0].Value
-        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        function Get-ContainerEnvValue {
+            param(
+                [Parameter(Mandatory = $true)]
+                [array]$EnvSettings,
+                [Parameter(Mandatory = $true)]
+                [string]$Name
+            )
 
-        ## This needs to be moved to MI, WI #125246  
-        # $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
-        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
-        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+            $setting = $EnvSettings | Where-Object { $_.name -eq $Name } | Select-Object -First 1
+            if ($null -eq $setting) {
+                return $null
+            }
 
-        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
-        $exportStoreUri = $exportStoreSettings[0].Value
+            if ($null -ne $setting.value) {
+                return [string]$setting.value
+            }
+
+            return $null
+        }
+
+        function Set-TestEnvironmentUrlVariables {
+            param(
+                [Parameter(Mandatory = $true)]
+                [psobject]$ContainerAppData,
+                [Parameter(Mandatory = $true)]
+                [string]$Version,
+                [Parameter(Mandatory = $true)]
+                [string]$AppServiceType
+            )
+
+            $fqdn = $ContainerAppData.Properties.configuration.ingress.fqdn
+            if ([string]::IsNullOrEmpty($fqdn) -or $fqdn -eq 'null') {
+                throw "Container App '$containerAppName' does not have an ingress FQDN configured."
+            }
+
+            $url = "https://$fqdn"
+            if ($AppServiceType -eq 'SqlServer') {
+                $defaultVariableName = 'TestEnvironmentUrl_Sql'
+                $versionVariableName = "TestEnvironmentUrl_${Version}_Sql"
+            }
+            else {
+                $defaultVariableName = 'TestEnvironmentUrl'
+                $versionVariableName = "TestEnvironmentUrl_$Version"
+            }
+
+            Write-Host "Resolved ACA URL for $AppServiceType/$($Version): $url"
+            Write-Host "Setting pipeline variables '$defaultVariableName' and '$versionVariableName'"
+            Write-Host "##vso[task.setvariable variable=$defaultVariableName]$url"
+            Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
+        }
+
+        $keyVault = "$(KeyVaultBaseName)-ts"
+        Set-SecretsAsPipelineVariables -VaultName $keyVault
+
+        $containerAppName = "${{ parameters.containerAppName }}"
+        $containerApp = Get-AzResource -ResourceGroupName $(UniqueResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
+        }
+
+        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $envSettings = $containerAppData.Properties.template.containers[0].env
+        if ($null -eq $envSettings) {
+            throw "Container App '$containerAppName' has no environment variables configured."
+        }
+
+        Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
+
+        $acrLoginServer = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
+
+        $exportStoreUri = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__Export__StorageAccountUri"
+        if ([string]::IsNullOrEmpty($exportStoreUri) -or $exportStoreUri -eq "null") {
+            throw "FhirServer__Operations__Export__StorageAccountUri is missing on container app '$containerAppName'."
+        }
         Write-Host "$exportStoreUri"
-        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
-        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(UniqueResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
-        
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
 
-        $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
-        $integrationStoreUri = $integrationStoreSettings[0].Value
+        $integrationStoreUri = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"
+        if ([string]::IsNullOrEmpty($integrationStoreUri) -or $integrationStoreUri -eq "null") {
+            throw "FhirServer__Operations__IntegrationDataStore__StorageAccountUri is missing on container app '$containerAppName'."
+        }
         Write-Host "$integrationStoreUri"
-        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
 
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
-        
-        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
-        foreach($secret in $secrets)
-        {
-            $environmentVariableName = $secret.Name.Replace("--","_")
-
-            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
-            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainValue))
-            {
-                throw "$($secret.Name) is empty"
-            }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        if (-not [string]::IsNullOrEmpty($acrLoginServer) -and $acrLoginServer -ne "null") {
+            Write-Host "ACA convert-data registry server: $acrLoginServer"
         }
-        # ----------------------------------------
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
+
+        Set-SecretsAsPipelineVariables -VaultName resolute-oss-tenant-info
 
         dotnet dev-certs https
 
