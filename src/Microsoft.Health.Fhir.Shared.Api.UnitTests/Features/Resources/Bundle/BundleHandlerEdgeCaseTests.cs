@@ -166,6 +166,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 router,
                 profilesResolver,
                 Substitute.For<ISearchParameterStatusDataStore>(),
+                Substitute.For<IBundleSqlTransactionContext>(),
                 NullLogger<BundleHandler>.Instance,
                 Substitute.For<IModelInfoProvider>());
 

@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly IBundleSqlTransactionContext _bundleSqlTransactionContext;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -145,6 +146,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IRouter router,
             IProvideProfilesForValidation profilesResolver,
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
+            IBundleSqlTransactionContext bundleSqlTransactionContext,
             ILogger<BundleHandler> logger,
             IModelInfoProvider modelInfoProvider)
             : this()
@@ -166,6 +168,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _router = EnsureArg.IsNotNull(router, nameof(router));
             _profilesResolver = EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             _searchParameterStatusDataStore = EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
+            _bundleSqlTransactionContext = EnsureArg.IsNotNull(bundleSqlTransactionContext, nameof(bundleSqlTransactionContext));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
@@ -537,6 +540,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (processingLogic == BundleProcessingLogic.Sequential)
                 {
                     using (var transaction = _transactionHandler.BeginTransaction())
+                    using (_bundleSqlTransactionContext.Enter())
                     {
                         await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, BundleProcessingLogic.Sequential, cancellationToken);
                         await FlushPendingSearchParameterStatusesAsync(cancellationToken);
