@@ -43,7 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
-        private ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly IScopeProvider<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
+        private ISearchParameterStatusDataStore _statusDataStore;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
@@ -72,8 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
+            _searchParameterStatusDataStoreFactory = searchParameterStatusDataStoreFactory;
             _searchParameterComparer = searchParameterComparer;
-            _searchParameterStatusDataStore = searchParameterStatusDataStoreFactory.Invoke().Value;
             _logger = logger;
             _refreshSemaphore = new SemaphoreSlim(1, 1);
 
@@ -111,6 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             try
             {
+                _statusDataStore = _searchParameterStatusDataStoreFactory.Invoke().Value;
                 await GetAndApplySearchParameterUpdates(cancellationToken);
                 await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
                 _initialized = true;
@@ -546,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
                     var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
-                    await _searchParameterStatusDataStore.TryLogEvent(_searchParameterStatusDataStore.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
+                    await _statusDataStore.TryLogEvent(_statusDataStore.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
                 }
             }
             finally
@@ -597,7 +599,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+            _statusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
@@ -605,7 +607,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
-            var searchParamStatuses = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken, startLastUpdated);
+            var searchParamStatuses = await _statusDataStore.GetSearchParameterStatuses(cancellationToken, startLastUpdated);
             var lastUpdated = searchParamStatuses.Any() ? searchParamStatuses.Max(_ => _.LastUpdated) : (DateTimeOffset?)null;
             return (searchParamStatuses, lastUpdated);
         }
