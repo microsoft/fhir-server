@@ -902,10 +902,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 return await searchService.Value.SearchAsync(
-                    resourceType: KnownResourceTypes.Patient,
-                    queryParametersList,
-                    cancellationToken,
-                    true);
+                               resourceType: KnownResourceTypes.Patient,
+                               queryParametersList,
+                               cancellationToken,
+                               true);
             }
         }
     }

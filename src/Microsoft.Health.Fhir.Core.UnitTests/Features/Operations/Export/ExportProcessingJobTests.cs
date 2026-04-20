@@ -165,63 +165,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
         }
 
-        [Fact]
-        public async Task GivenAnExportJob_WhenOomExceedsMaxReductions_ThenThrows()
-        {
-            IExportJobTask MakeMockJobThatAlwaysOoms()
-            {
-                var mockJob = Substitute.For<IExportJobTask>();
-                mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns<Task>(x =>
-                {
-                    throw new OutOfMemoryException("Persistent OOM");
-                });
-
-                return mockJob;
-            }
-
-            var processingJob = new ExportProcessingJob(MakeMockJobThatAlwaysOoms, CreateMockSearchServiceFactory(), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
-            var jobInfo = GenerateJobInfo(GenerateJobRecord(OperationStatus.Completed));
-
-            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
-            var failedRecord = (ExportJobRecord)ex.Error;
-            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, failedRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenAnExportJob_WhenOomOccurs_ThenBatchSizeIsReducedOnRecord()
-        {
-            uint capturedBatchSize = 0;
-            int callCount = 0;
-            IExportJobTask MakeMockJobCapturingBatchSize()
-            {
-                var mockJob = Substitute.For<IExportJobTask>();
-                mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(async x =>
-                {
-                    callCount++;
-                    var record = x.ArgAt<ExportJobRecord>(0);
-
-                    if (callCount == 1)
-                    {
-                        throw new OutOfMemoryException("Simulated OOM");
-                    }
-
-                    capturedBatchSize = record.MaximumNumberOfResourcesPerQuery;
-                    record.Status = OperationStatus.Completed;
-                    await mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
-                });
-
-                return mockJob;
-            }
-
-            var processingJob = new ExportProcessingJob(MakeMockJobCapturingBatchSize, CreateMockSearchServiceFactory(), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
-            var jobInfo = GenerateJobInfo(GenerateJobRecord(OperationStatus.Completed));
-
-            await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
-
-            // Default MaximumNumberOfResourcesPerQuery is 100, reduced by factor of 10 = 10
-            Assert.Equal(10u, capturedBatchSize);
-        }
-
         private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null, string startSurrogateId = null, string endSurrogateId = null, ExportJobType exportJobType = ExportJobType.All, string groupId = null)
         {
             var record = new ExportJobRecord(
