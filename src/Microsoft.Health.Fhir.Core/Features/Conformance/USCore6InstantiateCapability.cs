@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     /// <summary>
-    /// Provides instantiation capability for US Core 6.0.0 profiles.
+    /// Provides instantiation capability for US Core 6.1.0 profiles.
     /// </summary>
     public class USCore6InstantiateCapability : IInstantiateCapability
     {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         };
 
         private const string UrlPrefix = "http://hl7.org/fhir/us/core/StructureDefinition/";
-        private const string Version = "6.0.0";
+        private const string Version = "6.1.0";
 
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger<USCore6InstantiateCapability> _logger;
