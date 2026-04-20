@@ -127,5 +127,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<FhirJobConflictException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             await _deleter.DidNotReceiveWithAnyArgs().DeleteMultipleAsync(default, default, default);
         }
+
+        [Fact]
+        public async Task GivenProcessingJobWithSearchParameterLaterInTheChain_WhenReindexStartsBeforeExecution_ThenConflictIsThrownBeforeAnyDelete()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient,SearchParameter", new List<Tuple<string, string>>(), new List<string>(), "https:\\test.com", "https:\\test.com", "test");
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            await Assert.ThrowsAsync<FhirJobConflictException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            await _deleter.DidNotReceiveWithAnyArgs().DeleteMultipleAsync(default, default, default);
+        }
     }
 }

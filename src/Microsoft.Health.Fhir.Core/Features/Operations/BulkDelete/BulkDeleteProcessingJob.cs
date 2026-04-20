@@ -83,9 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
-                if (types.Count > 0
-                    && string.Equals(types[0], KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)
-                    && !(definition.ExcludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) ?? false))
+                if (CanAffectSearchParameters(types, definition.ExcludedResourceTypes))
                 {
                     await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
                 }
@@ -145,6 +143,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
             }
+        }
+
+        private static bool CanAffectSearchParameters(IReadOnlyCollection<string> resourceTypes, IList<string> excludedResourceTypes)
+        {
+            if (excludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                return false;
+            }
+
+            return resourceTypes.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

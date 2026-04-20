@@ -325,6 +325,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
                 var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
+                var cycleConclusive = statuses.Count == 0 || (inCache && allHaveResources);
 
                 // If cache is updated directly and not from the database not all will have corresponding resources.
                 // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
@@ -333,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
                 }
 
-                if (_searchParamLastUpdated.HasValue)
+                if (cycleConclusive && _searchParamLastUpdated.HasValue)
                 {
                     // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
                     var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
