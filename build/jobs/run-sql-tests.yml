@@ -3,7 +3,7 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-- name: appServiceName
+- name: containerAppName
   type: string
 - name: integrationSqlServerName
   type: string
@@ -27,10 +27,10 @@ jobs:
       version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}-sql'
+      KeyVaultName: '${{ parameters.keyVaultName }}'
 
   - task: AzurePowerShell@5
     displayName: 'Set Workload Identity Variables'
@@ -103,7 +103,7 @@ jobs:
   - template: e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
+      containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
 
@@ -118,7 +118,7 @@ jobs:
   - template: e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
+      containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: 'Category=IndexAndReindex'
       testRunTitleSuffix: ' Reindex'
@@ -134,7 +134,7 @@ jobs:
   - template: e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
+      containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: 'Category=BulkUpdate'
       testRunTitleSuffix: ' BulkUpdate'

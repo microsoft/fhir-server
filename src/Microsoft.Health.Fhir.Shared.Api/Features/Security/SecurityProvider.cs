@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     }
                     else
                     {
-                        var (authorizationEndpoint, tokenEndpoint) = await _oidcDiscoveryService.ResolveEndpointsAsync(
+                        var (authorizationEndpoint, tokenEndpoint, _, _) = await _oidcDiscoveryService.ResolveEndpointsAsync(
                             _securityConfiguration.Authentication.Authority,
                             cancellationToken);
 

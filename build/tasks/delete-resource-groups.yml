@@ -13,6 +13,12 @@ steps:
       $prNumber = "$(prName)"
       $resourceGroupRoot = "$(resourceGroupRoot)"
       $currentRgName = "$(UniqueResourceGroupName)"
+
+      if ([string]::IsNullOrWhiteSpace($prNumber)) {
+        Write-Warning "Skipping cleanup because prName is empty."
+        return
+      }
+
       $pattern = "$resourceGroupRoot-$prNumber*"
       
       Write-Host "Looking for old resource groups matching pattern: $pattern"

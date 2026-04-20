@@ -45,6 +45,7 @@ stages:
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployStu3Sql
   displayName: 'Redeploy STU3 SQL Site'
@@ -54,6 +55,7 @@ stages:
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR4
   displayName: 'Redeploy R4 Site'
@@ -63,6 +65,7 @@ stages:
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
@@ -72,6 +75,7 @@ stages:
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
@@ -84,6 +88,8 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
+      cosmosContainerAppName: $(DeploymentEnvironmentName)
+      sqlContainerAppName: $(DeploymentEnvironmentNameSql)
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -96,6 +102,8 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      cosmosContainerAppName: $(DeploymentEnvironmentNameR4)
+      sqlContainerAppName: $(DeploymentEnvironmentNameR4Sql)
 
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'

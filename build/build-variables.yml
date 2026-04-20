@@ -16,6 +16,7 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
+  AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
   # Key Vault names (shorter due to 24 character limit)
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'

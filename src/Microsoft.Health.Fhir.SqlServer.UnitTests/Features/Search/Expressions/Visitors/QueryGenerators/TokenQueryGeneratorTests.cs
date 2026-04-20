@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenUsesSubquery()
+        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenUsesScalarSubquery()
         {
             const string systemValue = "http://custom-system.org";
 
@@ -107,8 +107,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Matches(@"SystemId\s+IN\s*\(\s*SELECT", sql);
+            // dbo.System has a primary key on Value, so there is always at most one matching
+            // SystemId — a scalar subquery with = is correct and avoids an unnecessary IN list.
+            Assert.Matches(@"SystemId\s*=\s*\(\s*SELECT", sql);
+            Assert.DoesNotContain(" IN ", sql);
             Assert.Contains(VLatest.System.TableName, sql);
+        }
+
+        [Fact]
+        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenSubqueryFiltersOnValue()
+        {
+            const string systemValue = "http://custom-system.org";
+
+            _model.TryGetSystemId(systemValue, out Arg.Any<int>())
+                .Returns(false);
+
+            var expression = new StringExpression(StringOperator.Equals, FieldName.TokenSystem, null, systemValue, true);
+            var context = CreateContext();
+
+            TokenQueryGenerator.Instance.VisitString(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            // The subquery must filter on System.Value so the correct SystemId is returned.
+            Assert.Contains(VLatest.System.Value.Metadata.Name, sql);
+            Assert.Contains(VLatest.System.SystemId.Metadata.Name, sql);
         }
 
         [Fact]
