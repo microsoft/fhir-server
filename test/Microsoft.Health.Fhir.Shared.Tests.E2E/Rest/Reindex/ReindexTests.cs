@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 return;
             }
-            
+
             await CancelAnyRunningReindexJobsAsync();
 
             var searchParam = new SearchParameter();
