@@ -182,6 +182,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             InitializeJobHosting();
 
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
             StartCacheUpdateTask(_backgroundCts.Token);
         }
 
