@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -107,7 +108,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public short GetResourceTypeId(string resourceTypeName)
         {
             ThrowIfNotInitialized();
-            return _resourceTypeToId[resourceTypeName];
+
+            if (_resourceTypeToId.TryGetValue(resourceTypeName, out short resourceTypeId))
+            {
+                return resourceTypeId;
+            }
+
+            throw new ResourceNotFoundException($"Resource type '{resourceTypeName}' is not a known resource type.");
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
