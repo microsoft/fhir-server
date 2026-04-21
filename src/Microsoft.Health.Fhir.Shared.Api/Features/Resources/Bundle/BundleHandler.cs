@@ -105,6 +105,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Indicates if any of the resources in the bundle require Profile refresh.
         private bool _forceProfilesRefresh = false;
 
+        // Indicates if the bundle contains at least one SearchParameter resource. Used to short-circuit
+        // search-parameter-specific bookkeeping (e.g., status flushing) for the common case.
+        private bool _containsSearchParameter = false;
+
         // Total number of generated IDs in the bundle.
         private int _totalGeneratedIdentifiers = 0;
 
@@ -257,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
                         }
-                        else if (bundleResource.Entry.Any(_ => _.Resource?.TypeName == KnownResourceTypes.SearchParameter))
+                        else if (_containsSearchParameter)
                         {
                             _logger.LogInformation("Sequential transaction bundle contains a search parameter, execution is forced to be parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
@@ -586,6 +590,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FlushPendingSearchParameterStatusesAsync(CancellationToken cancellationToken)
         {
+            // Skip entirely when the bundle contained no SearchParameter resources.
+            if (!_containsSearchParameter)
+            {
+                return;
+            }
+
             // Also drain any remaining statuses from the last entry's context.
             DrainPendingSearchParameterStatuses();
 
@@ -625,6 +635,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     _emptyRequestsOrder.Add(order++);
                     continue;
+                }
+
+                if (!_containsSearchParameter &&
+                    string.Equals(entry.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                {
+                    _containsSearchParameter = true;
                 }
 
                 await GenerateRequest(entry, order++, cancellationToken);
