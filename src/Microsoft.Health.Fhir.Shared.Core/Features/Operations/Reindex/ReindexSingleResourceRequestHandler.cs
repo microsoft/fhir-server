@@ -74,6 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, request.ResourceType, request.ResourceId));
             }
 
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+
             // We need to extract the "new" search indices since the assumption is that
             // a new search parameter has been added to the fhir server.
             ResourceElement resourceElement = _resourceDeserializer.Deserialize(storedResource);
