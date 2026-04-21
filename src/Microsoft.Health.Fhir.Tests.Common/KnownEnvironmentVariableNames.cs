@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string CosmosDbKey = "CosmosDb__Key";
         public const string CosmosDbPreferredLocations = "CosmosDb__PreferredLocations";
         public const string CosmosDbUseManagedIdentity = "CosmosDb__UseManagedIdentity";
+        public const string FhirServerSqlServerBaseConnectionString = "FHIR_SERVER_SQL_SERVER_BASE_CONNECTION_STRING";
         public const string SqlServerConnectionString = "SqlServer:ConnectionString";
         public const string SystemAccessToken = "SYSTEM_ACCESSTOKEN";
         public const string TestContainerRegistryPassword = "TestContainerRegistryPassword";

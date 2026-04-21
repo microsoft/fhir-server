@@ -25,14 +25,16 @@ RUN apt-get update \
 
 # Install .net SDK
 COPY global.json /setup/global.json
-COPY build/dotnet6-compat/global.json /setup/global-dotnet6-compat.json
 COPY build/dotnet8-compat/global.json /setup/global-dotnet8-compat.json
 RUN dos2unix /setup/*.sh
 RUN chmod +x /setup/*.sh
 RUN sudo mkdir -p /usr/share/dotnet
-RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global-dotnet6-compat.json
 RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global-dotnet8-compat.json
 RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global.json
+# Keep runtime patches current so build-time generators can run even when package
+# runtime requirements are newer than the SDK-bundled runtimes.
+RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --runtime dotnet --channel 8.0 --quality ga
+RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --runtime dotnet --channel 9.0 --quality ga
 RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 # [Optional] Uncomment this section to install additional OS packages.

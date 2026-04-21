@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Newtonsoft.Json.Linq;
 
@@ -49,6 +50,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
+
+            if (dataStore == DataStore.SqlServer)
+            {
+                string baseConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.FhirServerSqlServerBaseConnectionString);
+
+                if (!string.IsNullOrWhiteSpace(baseConnectionString))
+                {
+                    var configuredConnectionString = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
+                    var effectiveConnectionString = new SqlConnectionStringBuilder(baseConnectionString)
+                    {
+                        InitialCatalog = configuredConnectionString.InitialCatalog,
+                        Encrypt = configuredConnectionString.Encrypt,
+                        TrustServerCertificate = configuredConnectionString.TrustServerCertificate,
+                    };
+
+                    configuration["SqlServer:ConnectionString"] = effectiveConnectionString.ToString();
+                }
+            }
+
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";

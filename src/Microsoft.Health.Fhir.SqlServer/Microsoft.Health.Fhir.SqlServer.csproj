@@ -117,4 +117,14 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="RemoveStaleGeneratedFiles" AfterTargets="ComputeGeneratorInputs" BeforeTargets="GenerateFiles">
+    <ItemGroup>
+      <ExistingGeneratedFiles Include="Features\Schema\Model\*.Generated.$(TargetFramework).cs" />
+      <StaleGeneratedFiles Include="@(ExistingGeneratedFiles)" Exclude="@(Generated)" />
+      <Compile Remove="@(StaleGeneratedFiles->'%(FullPath)')" />
+    </ItemGroup>
+
+    <Delete Files="@(StaleGeneratedFiles->'%(FullPath)')" />
+  </Target>
+
 </Project>

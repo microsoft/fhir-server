@@ -45,6 +45,9 @@
             "args": [
                 "build",
                 "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/Microsoft.Health.Fhir.R4.Web.csproj",
+                // Reduce peak memory usage in dev containers.
+                "/m:1",
+                "/p:BuildInParallel=false",
                 // Ask dotnet build to generate full paths for file names.
                 "/property:GenerateFullPaths=true",
                 // Do not generate summary otherwise it leads to duplicate errors in Problems panel
@@ -94,7 +97,6 @@
         }
     ]
 }
-
 
 
 
