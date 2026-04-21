@@ -25,7 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         public StaleJobMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _gauge = MetricMeter.CreateObservableGauge("fhir_oldest_queued_job_age_seconds", ObserveValues);
+            _gauge = MetricMeter.CreateObservableGauge(
+                "Jobs.OldestQueuedAgeSeconds",
+                ObserveValues,
+                unit: "s",
+                description: "Age in seconds of the oldest queued job per queue type when no jobs are running.");
         }
 
         public Task Handle(StaleJobMetricsNotification notification, CancellationToken cancellationToken)
