@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -61,10 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
             var key = new ResourceKey(request.ResourceType, request.ResourceId);
             ResourceWrapper storedResource = await _fhirDataStore.GetAsync(key, cancellationToken);
