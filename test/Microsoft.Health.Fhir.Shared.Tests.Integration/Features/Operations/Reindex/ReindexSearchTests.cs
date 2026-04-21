@@ -209,7 +209,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenSystemSearchParam_WhenDisabled_ThenCurrentAndNewInstancesShouldBeInSyncWithDatabase()
         {
-            var systemSearchParamUrl = "http://hl7.org/fhir/SearchParameter/Flag-status";
+            var systemSearchParamUrl = _searchParameterDefinitionManager.AllSearchParameters.Select(_ => _.Url.OriginalString).FirstOrDefault(_ => _.StartsWith("http://hl7.org/fhir/SearchParameter/Flag"));
+            Assert.NotNull(systemSearchParamUrl);
 
             VerifyParamStateInCache(_searchParameterDefinitionManager, systemSearchParamUrl, SearchParameterStatus.Enabled);
 
