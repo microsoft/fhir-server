@@ -1,0 +1,15 @@
+// These bindings from https://www.uship.com/blog/shipping-code/visual-studioresharper-level-productivity-in-vscode/
+[
+	{ "key": "alt+enter",                 "command": "editor.action.quickFix",
+                                     "when": "editorTextFocus" },
+	{ "key": "cmd+b",               "command": "editor.action.goToDeclaration",
+                                     "when": "editorTextFocus" },
+	{ "key": "alt+f7",               "command": "editor.action.referenceSearch.trigger",
+                                     "when": "editorTextFocus" },
+	{ "key": "cmd+shift+alt+n",                 "command": "workbench.action.showAllSymbols" },
+	{ "key": "cmd+n",                 "command": "workbench.action.quickOpen" },
+	{ "key": "cmd+shift+n",                 "command": "workbench.action.quickOpen" },			
+	{ "key": "cmd+f12",			"command": "workbench.action.gotoSymbol"},
+	{ "key": "cmd+t l", 			"command": "workbench.action.tasks.test"},
+	{ "key": "cmd+p",			"command": "editor.action.triggerParameterHints"}
+]

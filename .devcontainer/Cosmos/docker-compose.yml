@@ -1,0 +1,32 @@
+services:
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    restart: unless-stopped
+    mem_limit: 3g
+    cpu_count: 2
+    environment:
+      PROTOCOL: https
+    ports:
+      - "8081:8081"
+      - "1234:1234"
+    volumes:
+      - cosmos-data:/data
+
+  fhir:
+    depends_on:
+      - cosmos
+    build:
+      context: ../../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        USER_UID: 1000
+        USER_GID: 1000
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock
+      - ../..:/workspace:cached
+    network_mode: service:cosmos
+    command: sleep infinity
+
+volumes:
+  cosmos-data:
