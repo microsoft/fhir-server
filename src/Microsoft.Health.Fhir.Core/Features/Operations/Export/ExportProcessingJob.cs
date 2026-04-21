@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 try
                 {
                     IExportJobTask exportJobTask = _exportJobTaskFactory();
-                    exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo, ref record);
+                    exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo);
                     await exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
                 }
                 catch (OutOfMemoryException oomEx)
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             while (true)
             {
                 IExportJobTask exportJobTask = _exportJobTaskFactory();
-                exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo, ref record);
+                exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo);
 
                 try
                 {
@@ -161,6 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             oomReductionCount,
                             _effectiveBatchSize);
 
+                        record.MaximumNumberOfResourcesPerQuery = (uint)_effectiveBatchSize;
                         ThrowOomJobFailure(record, oomEx);
                     }
 
@@ -185,6 +186,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             OutOfMemoryException oomEx,
             CancellationToken cancellationToken)
         {
+            int reductionCount = failedRange.OomReductionCount + 1;
+            if (reductionCount > MaxOomReductionsBeforeSoftFail)
+            {
+                _logger.LogJobError(
+                    oomEx,
+                    jobInfo,
+                    "OutOfMemoryException persisted after {MaxAttempts} reductions during export. CurrentBatchSize={CurrentBatchSize}, RangeStart={StartId}, RangeEnd={EndId}.",
+                    MaxOomReductionsBeforeSoftFail,
+                    _effectiveBatchSize,
+                    failedRange.StartId,
+                    failedRange.EndId);
+
+                record.MaximumNumberOfResourcesPerQuery = (uint)_effectiveBatchSize;
+                ThrowOomJobFailure(record, oomEx);
+            }
+
             int previousBatchSize = _effectiveBatchSize;
             bool wasReduced = TryReduceEffectiveBatchSize();
 
@@ -198,21 +215,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     failedRange.StartId,
                     failedRange.EndId);
 
-                ThrowOomJobFailure(record, oomEx);
-            }
-
-            int reductionCount = failedRange.OomReductionCount + 1;
-            if (reductionCount > MaxOomReductionsBeforeSoftFail)
-            {
-                _logger.LogJobError(
-                    oomEx,
-                    jobInfo,
-                    "OutOfMemoryException persisted after {MaxAttempts} reductions during export. CurrentBatchSize={CurrentBatchSize}, RangeStart={StartId}, RangeEnd={EndId}.",
-                    MaxOomReductionsBeforeSoftFail,
-                    _effectiveBatchSize,
-                    failedRange.StartId,
-                    failedRange.EndId);
-
+                record.MaximumNumberOfResourcesPerQuery = (uint)_effectiveBatchSize;
                 ThrowOomJobFailure(record, oomEx);
             }
 
@@ -336,16 +339,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> CreateUpdateExportJobCallback(JobInfo jobInfo, ref ExportJobRecord record)
+        private Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> CreateUpdateExportJobCallback(JobInfo jobInfo)
         {
-            // Capture record by reference via a local so the callback can update it for the caller.
-            var capturedRecord = record;
-
             return async (ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken innerCancellationToken) =>
             {
-                capturedRecord = exportJobRecord;
-
-                if (capturedRecord.Status == OperationStatus.Running)
+                if (exportJobRecord.Status == OperationStatus.Running)
                 {
                     // Update Export Job is called in three scenarios:
                     // 1. A page of search results is processed and there is a continuation token.
@@ -407,7 +405,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         throw;
                     }
 
-                    capturedRecord.Status = OperationStatus.Completed;
+                    exportJobRecord.Status = OperationStatus.Completed;
 
                     // TODO: Ideally we would process predefined pages of data like SQL vs pagination through continuation tokens/this exception.
                     throw new JobSegmentCompletedException();
