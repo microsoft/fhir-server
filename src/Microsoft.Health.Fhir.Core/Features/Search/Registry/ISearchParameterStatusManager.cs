@@ -13,12 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public interface ISearchParameterStatusManager
     {
-        Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken);
-
-        Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken);
-
-        Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken);
-
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken);
 
         Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken);

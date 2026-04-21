@@ -1639,19 +1639,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                     _output.WriteLine($"SearchParameter status already deleted: {url}");
                                 }
 
-                                try
-                                {
-                                    if (_searchParameterStatusManager2 != null)
-                                    {
-                                        await _searchParameterStatusManager2.DeleteSearchParameterStatusAsync(url, cancellationToken);
-                                    }
-                                }
-                                catch (SearchParameterNotSupportedException)
-                                {
-                                    // Already deleted by test cleanup - this is fine
-                                    _output.WriteLine($"SearchParameter status already deleted from manager2: {url}");
-                                }
-
                                 _output.WriteLine($"Deleted SearchParameter definition and status: {url}");
                             }
                         }

@@ -49,8 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger = logger;
         }
 
-        public string SearchParamCacheUpdateProcessName => _searchParameterStatusDataStore.SearchParamCacheUpdateProcessName;
-
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
@@ -174,19 +172,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
         }
 
-        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
-        {
-            // new search parameters are added as supported, until reindexing occurs, when
-            // they will be fully enabled
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
-        }
-
-        public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
-        {
-            var searchParamUris = new List<string>() { url };
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
-        }
-
         public async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             var searchParamStatuses = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken, startLastUpdated);
@@ -200,48 +185,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return (await GetSearchParameterStatusUpdates(cancellationToken)).Statuses;
         }
 
-        /// <summary>
-        /// Used to apply search parameter status updates to the SearchParameterDefinitionManager.Used in reindex operation when checking every 10 minutes or so.
-        /// </summary>
-        /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        // This is a conveniance wrapper method
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            if (!updatedSearchParameterStatus.Any())
-            {
-                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply.");
-                return;
-            }
-
-            var updated = new List<SearchParameterInfo>();
-
-            foreach (var paramStatus in updatedSearchParameterStatus)
-            {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri.OriginalString, out var param))
-                {
-                    var tempStatus = EvaluateSearchParamStatus(paramStatus);
-
-                    param.IsSearchable = tempStatus.IsSearchable;
-                    param.IsSupported = tempStatus.IsSupported;
-                    param.IsPartiallySupported = tempStatus.IsPartiallySupported;
-                    param.SortStatus = paramStatus.SortStatus;
-                    param.SearchParameterStatus = paramStatus.Status;
-                    updated.Add(param);
-                }
-                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && (p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled)))
-                {
-                    // if we cannot find the search parameter in the search parameter definition manager
-                    // and there is an entry in the list of updates with a delete status then it indicates
-                    // the search parameter was deleted before it was added to this instance, and there is no issue
-                    // however if there is no indication that the search parameter was deleted, then there is a problem
-                    _logger.LogError(Core.Resources.UnableToUpdateSearchParameter, paramStatus.Uri);
-                }
-            }
-
-            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
-
-            _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
@@ -265,16 +212,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             tempStatus.IsPartiallySupported = paramStatus.IsPartiallySupported;
 
             return tempStatus;
-        }
-
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
-        {
-            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
-        }
-
-        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-        {
-            await _searchParameterStatusDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private struct TempStatus
