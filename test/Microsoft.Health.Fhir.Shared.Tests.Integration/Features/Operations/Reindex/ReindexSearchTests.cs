@@ -42,8 +42,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly FhirStorageTestsFixture _fixture;
 
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
-
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
@@ -211,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenSystemSearchParam_WhenDisabled_ThenCurrentAndNewInstancesShouldBeInSyncWithDatabase()
         {
-            var systemSearchParamUrl = "http://hl7.org/fhir/SearchParameter/Flag-identifier";
+            var systemSearchParamUrl = "http://hl7.org/fhir/SearchParameter/Flag-status";
 
             VerifyParamStateInCache(_searchParameterDefinitionManager, systemSearchParamUrl, SearchParameterStatus.Enabled);
 
