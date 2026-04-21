@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)
         {
-            resourceTypes = resourceTypes ?? []; // treat null list as empty
+            resourceTypes ??= []; // treat null list as empty
 
             var completeResourceList = new HashSet<string>(resourceTypes);
 
