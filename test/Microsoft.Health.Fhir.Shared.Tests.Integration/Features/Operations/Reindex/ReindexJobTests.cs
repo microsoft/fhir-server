@@ -182,8 +182,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             InitializeJobHosting();
 
-            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
-
             StartCacheUpdateTask(_backgroundCts.Token);
         }
 
@@ -339,7 +337,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken, true);
                     }
                     catch (Exception)
                     {
@@ -1403,36 +1401,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             if (!_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
             {
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+                _searchParameterDefinitionManager.AddNewSearchParameters([searchParam.ToTypedElement()]);
             }
 
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
-                new List<string> { searchParam.Url },
-                SearchParameterStatus.Supported,
-                CancellationToken.None);
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None);
 
-            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             return searchParam;
-        }
-
-        private async Task<SearchResult> SearchForSearchParameterByUrlAsync(string searchParamUrl, CancellationToken cancellationToken, int maxAttempts = 10, int delayMilliseconds = 200)
-        {
-            SearchResult result = null;
-            var queryParams = new List<Tuple<string, string>> { new("url", searchParamUrl) };
-
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                result = await _searchService.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (result.Results.Any())
-                {
-                    return result;
-                }
-
-                await Task.Delay(delayMilliseconds, cancellationToken);
-            }
-
-            return result;
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
