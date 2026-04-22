@@ -575,6 +575,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// </summary>
         private void DrainPendingSearchParameterStatuses()
         {
+            // Skip entirely when the bundle contained no SearchParameter resources.
+            if (!_containsSearchParameter)
+            {
+                return;
+            }
+
             var context = _fhirRequestContextAccessor.RequestContext;
             if (context?.Properties == null ||
                 !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value) ||
