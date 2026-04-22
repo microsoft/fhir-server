@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
         }
 
-        private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null, string startSurrogateId = null, string endSurrogateId = null, ExportJobType exportJobType = ExportJobType.All, string groupId = null)
+        private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null, string startSurrogateId = null, string endSurrogateId = null, ExportJobType exportJobType = ExportJobType.All, string groupId = null, uint maximumNumberOfResourcesPerQuery = 100)
         {
             var record = new ExportJobRecord(
                 requestUri: new Uri("https://localhost/ExportJob/"),
@@ -176,7 +176,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 hash: "hash",
                 rollingFileSizeInMB: 0,
                 feedRange: feedRange,
-                groupId: groupId);
+                groupId: groupId,
+                maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery);
             record.Status = status;
             if (failureReason != null)
             {
@@ -527,6 +528,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Verify batch size was reduced (100 / 10 = 10)
             Assert.Equal(10u, capturedBatchSize);
+        }
+
+        [Theory]
+        [InlineData(null, null)] // Cosmos path
+        [InlineData("100", "200")] // SQL path
+        public async Task GivenExportJob_WhenOomExceedsMaxReductions_ThenFailureMessageContainsCurrentBatchSize(string startSurrogateId, string endSurrogateId)
+        {
+            IExportJobTask MakeMockJobThatAlwaysOoms()
+            {
+                var mockJob = Substitute.For<IExportJobTask>();
+                mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns<Task>(x =>
+                {
+                    throw new OutOfMemoryException("Persistent OOM");
+                });
+
+                return mockJob;
+            }
+
+            var searchService = Substitute.For<ISearchService>();
+            searchService.GetSurrogateIdRanges(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>()).Returns(new List<(long StartId, long EndId, int Count)>
+                {
+                    (100, 150, 50),
+                    (150, 200, 50),
+                });
+
+            var scoped = Substitute.For<IScoped<ISearchService>>();
+            scoped.Value.Returns(searchService);
+            Func<IScoped<ISearchService>> factory = () => scoped;
+
+            var processingJob = new ExportProcessingJob(MakeMockJobThatAlwaysOoms, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", startSurrogateId: startSurrogateId, endSurrogateId: endSurrogateId);
+            var jobInfo = GenerateJobInfo(jobRecord);
+
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            var failedRecord = (ExportJobRecord)ex.Error;
+
+            // The failure message should contain the final (reduced) batch size, not the original
+            Assert.Contains(failedRecord.MaximumNumberOfResourcesPerQuery.ToString(), failedRecord.FailureDetails.FailureReason);
+        }
+
+        [Fact]
+        public async Task GivenCosmosExportJobWithLargeBatchSize_WhenOomExceedsMaxReductions_ThenFailsViaReductionCountBeforeBatchMinimum()
+        {
+            // With batch size 10000 and OomReductionFactor=10, Cosmos path reductions are: 10000→1000→100→10
+            // MaxOomReductionsBeforeSoftFail=3 so the 4th OOM should fail via reductionCount (count=4 > 3),
+            // NOT via minimum batch size. This verifies the reductionCount check fires before TryReduceEffectiveBatchSize.
+            var mockJob = Substitute.For<IExportJobTask>();
+            mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns<Task>(x =>
+            {
+                throw new OutOfMemoryException("Persistent OOM");
+            });
+
+            var scoped = Substitute.For<IScoped<ISearchService>>();
+            Func<IScoped<ISearchService>> factory = () => scoped;
+
+            var processingJob = new ExportProcessingJob(() => mockJob, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", maximumNumberOfResourcesPerQuery: 10000);
+            var jobInfo = GenerateJobInfo(jobRecord);
+
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            var failedRecord = (ExportJobRecord)ex.Error;
+            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, failedRecord.FailureDetails.FailureStatusCode);
+
+            // Batch size should still be 10 (3 successful reductions: 10000→1000→100→10), not 1.
+            // The 4th OOM triggers reductionCount > MaxOomReductionsBeforeSoftFail BEFORE another reduction occurs.
+            Assert.Equal(10u, failedRecord.MaximumNumberOfResourcesPerQuery);
         }
     }
 }
