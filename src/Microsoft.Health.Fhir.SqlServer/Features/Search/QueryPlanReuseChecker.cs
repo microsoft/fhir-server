@@ -13,17 +13,19 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Build.Framework;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    internal class QueryPlanReuseChecker
+    internal class QueryPlanReuseChecker : INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Regex _skewedParameterRegex = new Regex(@"^ST_.*_WHERE_ResourceTypeId_(\d*)_SearchParamId_(\d*)$");
         private readonly double _refreshPeriod = 3600;
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private ILogger<QueryPlanReuseChecker> _logger;
 
         private bool _isInitialized = false;
+        private bool _storageReady = false;
 
         public QueryPlanReuseChecker(ISqlRetryService sqlRetryService, ILogger<QueryPlanReuseChecker> logger)
         {
@@ -45,7 +48,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             // this should wait for storage to be ready.
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            RefreshCache(CancellationToken.None);
             StartRefreshTimer();
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
         }
@@ -64,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (_skewedParameters.Any(skew => skew.Key == parameter.Url.OriginalString))
                 {
+                    _logger.LogInformation("Search parameter {SearchParameter} is skewed. Query plan will not be reused.", parameter.Url.OriginalString);
                     return false;
                 }
             }
@@ -71,10 +74,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return true;
         }
 
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _storageReady = true;
+            return Task.CompletedTask;
+        }
+
         private async Task StartRefreshTimer()
         {
             try
             {
+                while (!_storageReady)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                }
+
+                _logger.LogInformation("Starting QueryPlanReuseChecker refresh timer.");
+
+                await RefreshCache(CancellationToken.None);
                 await _timer.ExecuteAsync("QueryPlanReuseChecker.RefreshCache", _refreshPeriod, RefreshCache, CancellationToken.None);
             }
             catch (Exception ex)
@@ -87,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.GetAllStatistics";
+            cmd.CommandText = "dbo.GetPreciseStatisticsProperties";
 
             var results = await cmd.ExecuteReaderAsync<(string ResourceTypeId, string SearchParamId)>(
                 _sqlRetryService,
@@ -113,6 +130,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 },
                 _logger,
                 CancellationToken.None);
+
+            if (results == null || !results.Any(r => !string.IsNullOrEmpty(r.ResourceTypeId) && !string.IsNullOrEmpty(r.SearchParamId)))
+            {
+                _logger.LogInformation("No skewed search parameters found. Query plan reuse will not be affected.");
+                _skewedParameters = new List<IGrouping<string, (string Uri, string ResourceTypeId)>>();
+                _isInitialized = true;
+                return;
+            }
 
             var searchParamIds = results.Where(r => !string.IsNullOrEmpty(r.ResourceTypeId) && !string.IsNullOrEmpty(r.SearchParamId)).Select(r => r.SearchParamId).Distinct().Aggregate((a, b) => a + "," + b);
 

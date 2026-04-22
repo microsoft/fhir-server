@@ -71,6 +71,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.RemoveServiceTypeExact<QueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>>()
+                .Add<QueryPlanReuseChecker>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlServerFhirDataStore>()
                 .Scoped()
                 .AsSelf()

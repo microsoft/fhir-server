@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private readonly QueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
 
         public SqlServerSearchServiceTests()
@@ -67,6 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
+            _queryPlanReuseChecker = Substitute.For<QueryPlanReuseChecker>();
 
             var config = new SqlServerDataStoreConfiguration
             {
@@ -106,6 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _requestContextAccessor,
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
+                _queryPlanReuseChecker,
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -149,6 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
+                    _queryPlanReuseChecker,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -195,6 +199,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
+                    _queryPlanReuseChecker,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -241,6 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
+                    _queryPlanReuseChecker,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
