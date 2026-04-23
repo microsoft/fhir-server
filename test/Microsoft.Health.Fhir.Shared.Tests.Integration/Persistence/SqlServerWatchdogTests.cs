@@ -19,6 +19,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -30,6 +32,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
@@ -706,6 +709,57 @@ RAISERROR('Test',18,127)
             }
 
             return coordCompleted && coordArchived && workArchived;
+        }
+
+        [Fact]
+        public async Task StaleJobWatchdog_WhenQueueIsEmpty_PublishesNotificationWithAllQueueTypes()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            var mediator = Substitute.For<IMediator>();
+            StaleJobMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<StaleJobMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (StaleJobMetricsNotification)info[0]);
+
+            var wd = new StaleJobWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<StaleJobWatchdog>.Create(_testOutputHelper),
+                sqlQueueClient,
+                mediator)
+            {
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+                AllowRebalance = true,
+            };
+
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{wd.PeriodSecId}', '{wd.LeasePeriodSecId}')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.PeriodSecId}', 1)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.LeasePeriodSecId}', 2)");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (captured == null && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cts.Token);
+            }
+
+            await cts.CancelAsync();
+            await wdTask;
+
+            Assert.NotNull(captured);
+            foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
+            {
+                Assert.True(captured.QueueAges.ContainsKey(queueType), $"Missing queue type {queueType}");
+                Assert.True(captured.QueueAges[queueType] >= 0, $"Negative age for {queueType}");
+            }
         }
     }
 }
