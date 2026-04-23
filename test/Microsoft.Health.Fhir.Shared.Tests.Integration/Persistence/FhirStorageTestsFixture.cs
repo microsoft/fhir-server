@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly DataResourceFilter _dataResourceFilter;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private SearchParameterOperations _searchParameterOperations;
-        private DataStore _dataStoreType;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -81,7 +80,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _ => throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null),
             })
         {
-            _dataStoreType = dataStore;
         }
 
         internal FhirStorageTestsFixture(IServiceProvider fixture)
@@ -106,8 +104,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
             }
         }
-
-        public DataStore DataStoreType => _dataStoreType;
 
         public Mediator Mediator { get; private set; }
 
