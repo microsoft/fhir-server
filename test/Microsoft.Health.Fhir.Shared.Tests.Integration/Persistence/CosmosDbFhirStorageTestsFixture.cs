@@ -16,6 +16,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = new FhirRequestContextAccessor();
 
         private Container _container;
         private CosmosFhirDataStore _fhirDataStore;
@@ -98,6 +99,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CollectionId = Guid.NewGuid().ToString(),
                 InitialCollectionThroughput = 1500,
             };
+
+            // context is relevant for search param creates
+            var fhirRequestContext = new FhirRequestContext(
+                method: "POST",
+                uriString: "http://localhost/",
+                baseUriString: "http://localhost/",
+                correlationId: Guid.NewGuid().ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                RouteName = "routeName",
+            };
+
+            _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
         public Container Container => _container;
@@ -115,9 +130,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
-
-            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
-            _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,

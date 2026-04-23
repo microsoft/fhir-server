@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly DataResourceFilter _dataResourceFilter;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private SearchParameterOperations _searchParameterOperations;
+        private DataStore _dataStoreType;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -80,6 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _ => throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null),
             })
         {
+            _dataStoreType = dataStore;
         }
 
         internal FhirStorageTestsFixture(IServiceProvider fixture)
@@ -104,6 +106,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
             }
         }
+
+        public DataStore DataStoreType => _dataStoreType;
 
         public Mediator Mediator { get; private set; }
 
@@ -237,24 +241,85 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), FhirRequestContextAccessor, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
-            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
-            collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
-            collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
+            collection.AddSingleton(DataStore);
+            collection.AddSingleton(SearchParameterStatusManager);
+            collection.AddSingleton<ISearchParameterStatusManager>(SearchParameterStatusManager);
+            collection.AddSingleton(SearchParameterDefinitionManager);
+            collection.AddSingleton<ISearchParameterDefinitionManager>(SearchParameterDefinitionManager);
+            collection.AddSingleton(FhirRequestContextAccessor);
+            collection.AddSingleton(ModelInfoProvider.Instance);
+
+            var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+            collection.AddSingleton(searchParameterSupportResolver);
+
+            var dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+            dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x => { return true; });
+            collection.AddSingleton(dataStoreSearchParameterValidator);
+
+            collection.AddSingleton<Func<IScoped<IFhirOperationDataStore>>>((IServiceProvider sp) => () => OperationDataStore.CreateMockScope());
+            collection.AddSingleton<Func<IScoped<ISearchService>>>((IServiceProvider sp) => () => SearchService.CreateMockScope());
+            collection.AddSingleton<ILogger<SearchParameterOperations>>(NullLogger<SearchParameterOperations>.Instance);
+
+            // Register SearchParameterOperations
+            collection.AddSingleton<ISearchParameterOperations, SearchParameterOperations>();
+
+            // Register pipeline behaviors
+            collection.AddTransient<
+                IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
+                CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>>();
+
+            collection.AddTransient<
+                IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
+                CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>>();
+
+            // Register request handlers
+            collection.AddScoped<IRequestHandler<CreateResourceRequest, UpsertResourceResponse>>(sp =>
+                new CreateResourceHandler(
+                    DataStore,
+                    new Lazy<IConformanceProvider>(() => ConformanceProvider),
+                    resourceWrapperFactory,
+                    _resourceIdProvider,
+                    new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()),
+                    DisabledFhirAuthorizationService.Instance));
+            collection.AddScoped<IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>>(sp =>
+                new UpsertResourceHandler(
+                    DataStore,
+                    new Lazy<IConformanceProvider>(() => ConformanceProvider),
+                    resourceWrapperFactory,
+                    _resourceIdProvider,
+                    new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()),
+                    FhirRequestContextAccessor,
+                    DisabledFhirAuthorizationService.Instance,
+                    ModelInfoProvider.Instance));
+            collection.AddScoped<IRequestHandler<GetResourceRequest, GetResourceResponse>>(sp => GetResourceHandler);
+            collection.AddSingleton(
+                typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>),
+                new DeleteResourceHandler(
+                    DataStore,
+                    new Lazy<IConformanceProvider>(() => ConformanceProvider),
+                    resourceWrapperFactory,
+                    _resourceIdProvider,
+                    DisabledFhirAuthorizationService.Instance,
+                    deleter));
+            collection.AddSingleton(
+                typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>),
+                new SearchResourceHistoryHandler(
+                    SearchService,
+                    bundleFactory,
+                    DisabledFhirAuthorizationService.Instance,
+                    new DataResourceFilter(MissingDataFilterCriteria.Default)));
+            collection.AddSingleton(
+                typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>),
+                new SearchResourceHandler(
+                    SearchService,
+                    bundleFactory,
+                    DisabledFhirAuthorizationService.Instance,
+                    new DataResourceFilter(MissingDataFilterCriteria.Default)));
 
             ServiceProvider services = collection.BuildServiceProvider();
 
-            _searchParameterOperations = new SearchParameterOperations(
-                SearchParameterStatusManager,
-                SearchParameterDefinitionManager,
-                ModelInfoProvider.Instance,
-                Substitute.For<ISearchParameterSupportResolver>(),
-                Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
-                () => Substitute.For<IScoped<ISearchService>>(),
-                NullLogger<SearchParameterOperations>.Instance);
+            _searchParameterOperations = services.GetRequiredService<ISearchParameterOperations>() as SearchParameterOperations;
 
             Mediator = new Mediator(services);
         }

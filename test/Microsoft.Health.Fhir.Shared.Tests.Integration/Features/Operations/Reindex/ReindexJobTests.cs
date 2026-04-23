@@ -86,11 +86,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager2;
         private SearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-
         private readonly ITestOutputHelper _output;
         private IScoped<ISearchService> _searchService;
 
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
@@ -134,6 +132,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
             _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
+            _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
+            _searchParameterOperations = _fixture.SearchParameterOperations;  // ✅ ADD THIS
 
             _resourceWrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
                 new RawResourceFactory(new FhirJsonSerializer()),
@@ -141,18 +141,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchIndexer,
                 _searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer);
-
-            _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
-
-            _searchParameterOperations = new SearchParameterOperations(
-                _searchParameterStatusManager,
-                _searchParameterDefinitionManager,
-                ModelInfoProvider.Instance,
-                _searchParameterSupportResolver,
-                _dataStoreSearchParameterValidator,
-                () => _fhirOperationDataStore.CreateMockScope(),
-                () => _searchService,
-                NullLogger<SearchParameterOperations>.Instance);
 
             // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
@@ -1396,18 +1384,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 #else
             searchParam.Base = new List<VersionIndependentResourceTypesAll?>() { Enum.Parse<VersionIndependentResourceTypesAll>(baseType) };
 #endif
-
-            await _fixture.Mediator.UpsertResourceAsync(searchParam.ToResourceElement());
-
-            if (!_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
-            {
-                _searchParameterDefinitionManager.AddNewSearchParameters([searchParam.ToTypedElement()]);
-            }
-
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None);
-
-            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
+            await _fixture.Mediator.UpsertResourceAsync(searchParam.ToResourceElement()); // persists status too
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None); // update cache
             return searchParam;
         }
 
