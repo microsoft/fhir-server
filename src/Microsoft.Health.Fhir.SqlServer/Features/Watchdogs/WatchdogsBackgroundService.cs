@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
+        private readonly StaleJobWatchdog _staleJobWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
 
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            StaleJobWatchdog staleJobWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _staleJobWatchdog = EnsureArg.IsNotNull(staleJobWatchdog, nameof(staleJobWatchdog));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
         }
@@ -68,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _staleJobWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
