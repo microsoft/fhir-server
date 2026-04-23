@@ -12,8 +12,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -38,8 +36,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly SchemaInformation _schemaInformation;
         private readonly ISqlServerFhirModel _fhirModel;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IBundleSqlTransactionContext _bundleSqlTransactionContext;
-        private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerSearchParameterStatusDataStore> _logger;
 
         public SqlServerSearchParameterStatusDataStore(
@@ -47,24 +43,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             SchemaInformation schemaInformation,
             ISqlServerFhirModel fhirModel,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IBundleSqlTransactionContext bundleSqlTransactionContext,
-            IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             ILogger<SqlServerSearchParameterStatusDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(bundleSqlTransactionContext, nameof(bundleSqlTransactionContext));
-            EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlRetryService = sqlRetryService;
             _schemaInformation = schemaInformation;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _bundleSqlTransactionContext = bundleSqlTransactionContext;
-            _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _logger = logger;
         }
 
@@ -208,22 +198,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
-
-            if (_bundleSqlTransactionContext.IsActive)
-            {
-                using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke();
-                using SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-
-                if (sqlConnectionWrapper.SqlTransaction is not null)
-                {
-                    cmd.Connection = sqlConnectionWrapper.SqlConnection;
-                    cmd.Transaction = sqlConnectionWrapper.SqlTransaction;
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
-                    return;
-                }
-
-                _logger.LogWarning("IBundleSqlTransactionContext was active, but no SQL transaction was available. Falling back to retry service execution.");
-            }
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }

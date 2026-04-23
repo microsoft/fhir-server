@@ -155,11 +155,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
-            services.Add<BundleSqlTransactionContext>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IBundleSqlTransactionContext>();
-
             // Add conformance provider for implementation metadata.
             services.RemoveServiceTypeExact<SystemConformanceProvider, INotificationHandler<RebuildCapabilityStatement>>()
                 .Add<SystemConformanceProvider>()

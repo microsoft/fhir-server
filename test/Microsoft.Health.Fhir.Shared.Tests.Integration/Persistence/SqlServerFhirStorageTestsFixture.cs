@@ -228,8 +228,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 sqlServerFhirModel,
                 _searchParameterDefinitionManager,
-                new BundleSqlTransactionContext(),
-                SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 NullLogger<SqlServerSearchParameterStatusDataStore>.Instance);
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
