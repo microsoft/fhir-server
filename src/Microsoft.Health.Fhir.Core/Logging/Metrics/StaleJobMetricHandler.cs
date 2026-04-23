@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
     {
         private readonly ObservableGauge<double> _gauge;
 
-        internal readonly ConcurrentDictionary<QueueType, double> QueueAges = new();
+        private IReadOnlyDictionary<QueueType, double> _queueAges = new Dictionary<QueueType, double>();
 
         public StaleJobMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
@@ -32,21 +31,23 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
                 description: "Age in seconds of the oldest queued job per queue type when no jobs are running.");
         }
 
+        internal IReadOnlyDictionary<QueueType, double> QueueAges => Volatile.Read(ref _queueAges);
+
         public Task Handle(StaleJobMetricsNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            foreach (var (queueType, age) in notification.QueueAges)
-            {
-                QueueAges[queueType] = age;
-            }
+            // Atomically swap the reference so observers never see a partial update.
+            var snapshot = new Dictionary<QueueType, double>(notification.QueueAges);
+            Volatile.Write(ref _queueAges, snapshot);
 
             return Task.CompletedTask;
         }
 
         private IEnumerable<Measurement<double>> ObserveValues()
         {
-            return QueueAges.Select(kv => new Measurement<double>(
+            var snapshot = Volatile.Read(ref _queueAges);
+            return snapshot.Select(kv => new Measurement<double>(
                 kv.Value,
                 new KeyValuePair<string, object?>("queue_type", kv.Key.ToString())));
         }

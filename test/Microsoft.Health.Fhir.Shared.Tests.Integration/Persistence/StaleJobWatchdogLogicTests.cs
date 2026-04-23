@@ -43,8 +43,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
 
+            // Export has a running job -> 0. Import has no running job and a 20-minute-old created job -> 1200s.
             Assert.Equal(0, result[QueueType.Export]);
-            Assert.Equal(0, result[QueueType.Import]);
+            Assert.Equal(20 * 60, result[QueueType.Import]);
         }
 
         [Fact]
@@ -77,6 +78,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
 
             Assert.Equal(0, result[QueueType.Export]);
+        }
+
+        [Fact]
+        public void ComputeQueueAges_IsPerQueue_NotGlobal()
+        {
+            // A running job in one queue must NOT mask staleness in another queue.
+            var jobs = new Dictionary<QueueType, IReadOnlyList<JobInfo>>
+            {
+                [QueueType.Export] = new List<JobInfo>
+                {
+                    new JobInfo { Status = JobStatus.Running, CreateDate = _now.AddMinutes(-1) },
+                },
+                [QueueType.Import] = new List<JobInfo>
+                {
+                    new JobInfo { Status = JobStatus.Created, CreateDate = _now.AddSeconds(-900) },
+                },
+            };
+
+            var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
+
+            Assert.Equal(0, result[QueueType.Export]);
+            Assert.Equal(900, result[QueueType.Import]);
         }
 
         [Fact]

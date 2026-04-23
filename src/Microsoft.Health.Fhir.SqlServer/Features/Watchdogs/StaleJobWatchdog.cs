@@ -74,15 +74,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             Dictionary<QueueType, IReadOnlyList<JobInfo>> jobsByQueue,
             DateTime utcNow)
         {
-            bool anyRunning = jobsByQueue.Values
-                .SelectMany(j => j)
-                .Any(j => j.Status == JobStatus.Running);
-
             var result = new Dictionary<QueueType, double>();
 
             foreach (var (queueType, jobs) in jobsByQueue)
             {
-                if (anyRunning)
+                if (jobs.Any(j => j.Status == JobStatus.Running))
                 {
                     result[queueType] = 0;
                     continue;
