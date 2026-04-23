@@ -90,9 +90,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 searchServiceProvider,
                 _searchParameterComparer,
                 searchParameterStatusDataStoreProvider,
+                _searchParameterSupportResolver,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
-            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
+            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
                 _authorizationService,
                 _searchParameterStatusManager,

@@ -155,5 +155,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return _inner.GetAndApplySearchParameterUpdates(cancellationToken, zeroWaitForSemaphore);
         }
+
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        {
+            return _inner.EnsureInitializedAsync(cancellationToken);
+        }
     }
 }

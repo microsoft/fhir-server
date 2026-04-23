@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _manager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
-                _searchParameterSupportResolver,
-                _mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _resourceSearchParameterStatuses = new[]
@@ -134,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenSearchParameterIsUpdatedFromRegistry()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
 
@@ -167,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenUpdatedSearchParametersInNotification()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             // Id should not be modified in this test case
             var modifiedItems = _searchParameterInfos.Skip(1).ToArray();
@@ -182,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenRegistryShouldNotUpdateNewlyFoundParameters()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             await _searchParameterStatusDataStore
                 .DidNotReceive()
@@ -196,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[2]))
                 .Returns(x => throw new FormatException("Unable to resolve"));
 
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
 
@@ -210,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         public async Task GivenASPStatusManager_WhenUpdatingStatus_ThenInMemoryCacheIsNotMutatedAndMediatorIsNotPublished()
         {
             // Arrange - Initialize so search parameters have known in-memory state
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
 

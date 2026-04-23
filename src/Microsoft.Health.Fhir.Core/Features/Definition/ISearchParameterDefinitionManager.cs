@@ -140,5 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>
         /// <returns>A task that returns true if the refresh was performed.</returns>
         Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool zeroWaitForSemaphore = false);
+
+        Task EnsureInitializedAsync(CancellationToken cancellationToken);
     }
 }

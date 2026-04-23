@@ -181,6 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => (ISearchParameterStatusDataStore)SqlServerSearchParameterStatusDataStore),
+                Substitute.For<ISearchParameterSupportResolver>(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
@@ -321,8 +322,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 SqlServerSearchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
-                searchParameterSupportResolver,
-                mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);

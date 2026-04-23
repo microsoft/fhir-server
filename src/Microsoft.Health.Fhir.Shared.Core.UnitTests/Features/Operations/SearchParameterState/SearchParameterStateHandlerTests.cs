@@ -59,9 +59,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
-        private const string HttpGetName = "GET";
-        private const string HttpPostName = "POST";
-
         public SearchParameterStateHandlerTests()
         {
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
@@ -70,8 +67,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 _searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
                 _searchParameterStatusDataStore.CreateMockScopeProvider(),
+                _searchParameterSupportResolver,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
-            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
+            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _logger);
             _searchParameterHandler = new SearchParameterStateHandler(_authorizationService, _searchParameterDefinitionManager, _searchParameterStatusManager);
             _cancellationToken = CancellationToken.None;
 

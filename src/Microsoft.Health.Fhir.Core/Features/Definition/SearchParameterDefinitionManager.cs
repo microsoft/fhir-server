@@ -45,10 +45,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly IScopeProvider<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
         private ISearchParameterStatusDataStore _statusDataStore;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
         private readonly int _maxSecondsToWaitForSemaphore = 100;
+        private readonly List<string> _enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
 
         private bool _initialized = false;
 
@@ -58,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IScopeProvider<ISearchService> searchServiceFactory,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
+            ISearchParameterSupportResolver searchParameterSupportResolver,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -75,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _searchServiceFactory = searchServiceFactory;
             _searchParameterStatusDataStoreFactory = searchParameterStatusDataStoreFactory;
             _searchParameterComparer = searchParameterComparer;
+            _searchParameterSupportResolver = EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             _logger = logger;
             _refreshSemaphore = new SemaphoreSlim(1, 1);
 
@@ -114,6 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 _statusDataStore = _searchParameterStatusDataStoreFactory.Invoke().Value;
                 await GetAndApplySearchParameterUpdates(cancellationToken);
+                await SetStatesOfKnownParameters(cancellationToken);
                 await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
                 _initialized = true;
             }
@@ -719,6 +724,93 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             tempStatus.IsPartiallySupported = paramStatus.IsPartiallySupported;
 
             return tempStatus;
+        }
+
+        private async Task SetStatesOfKnownParameters(CancellationToken cancellationToken)
+        {
+            var updated = new List<SearchParameterInfo>();
+            var searchParamResourceStatus = await _statusDataStore.GetSearchParameterStatuses(cancellationToken);
+            var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri?.OriginalString, StringComparer.Ordinal);
+
+            // Set states of known parameters
+            foreach (SearchParameterInfo p in AllSearchParameters)
+            {
+                if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
+                {
+                    var tempStatus = EvaluateSearchParamStatus(result);
+
+                    if (result.Status == SearchParameterStatus.Unsupported)
+                    {
+                        // Re-check if this parameter is now supported.
+                        (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
+                        tempStatus.IsSupported = supportedResult.Supported;
+                        tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
+                    }
+
+                    if (p.IsSearchable != tempStatus.IsSearchable ||
+                        p.IsSupported != tempStatus.IsSupported ||
+                        p.IsPartiallySupported != tempStatus.IsPartiallySupported ||
+                        p.SortStatus != result.SortStatus ||
+                        p.SearchParameterStatus != result.Status)
+                    {
+                        p.IsSearchable = tempStatus.IsSearchable;
+                        p.IsSupported = tempStatus.IsSupported;
+                        p.IsPartiallySupported = tempStatus.IsPartiallySupported;
+                        p.SortStatus = result.SortStatus;
+                        p.SearchParameterStatus = result.Status;
+
+                        updated.Add(p);
+                    }
+                }
+                else
+                {
+                    // ResourceTypeSearchParameter is a special hardcoded parameter added to
+                    // AllSearchParameters by the UrlLookup registration. It has no entry in the
+                    // status store and SearchParameterSupportResolver.IsSearchParameterSupported
+                    // throws "No target resources defined" for it because it has no BaseResourceTypes
+                    // or TargetResourceTypes. Force it to searchable/supported so background tasks
+                    // (which use SearchableSearchParameterDefinitionManager with UsePartialSearchParams=false)
+                    // don't throw SearchParameterNotSupportedException.
+                    if (p.Url == SearchParameterNames.ResourceTypeUri)
+                    {
+                        p.IsSearchable = true;
+                        p.IsSupported = true;
+                        updated.Add(p);
+                        continue;
+                    }
+
+                    p.IsSearchable = false;
+
+                    // Check if this parameter is now supported.
+                    (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
+                    p.IsSupported = supportedResult.Supported;
+                    p.IsPartiallySupported = supportedResult.IsPartiallySupported;
+
+                    updated.Add(p);
+                }
+            }
+
+            var disableSortIndicesList = AllSearchParameters.Where(u => _enabledSortIndices.Contains(u.Url.ToString()) && u.SortStatus != SortParameterStatus.Enabled);
+            if (disableSortIndicesList.Any())
+            {
+                _logger.LogError("SearchParameterDefinitionManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
+            }
+
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
+        }
+
+        private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
+        {
+            try
+            {
+                return _searchParameterSupportResolver.IsSearchParameterSupported(parameterInfo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Unable to resolve search parameter {Code}. Exception: {Exception}", parameterInfo?.Code, ex);
+                return (false, false);
+            }
         }
 
         public void Dispose()

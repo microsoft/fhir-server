@@ -254,6 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchServiceProvider,
                 searchParameterComparer,
                 searchParameterStatusDataStoreProvider,
+                Substitute.For<ISearchParameterSupportResolver>(),
                 logger);
 
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);

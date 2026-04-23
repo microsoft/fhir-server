@@ -137,6 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchParameterStatusDataStore),
+                Substitute.For<ISearchParameterSupportResolver>(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
@@ -242,8 +243,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
-                searchParameterSupportResolver,
-                mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _fhirDataStore = new CosmosFhirDataStore(

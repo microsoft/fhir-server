@@ -1657,6 +1657,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     searchService.CreateMockScopeProvider(),
                     searchParameterComparer,
                     statusDataStore.CreateMockScopeProvider(),
+                    Substitute.For<ISearchParameterSupportResolver>(),
                     logger);
             }
 

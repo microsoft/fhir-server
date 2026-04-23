@@ -230,5 +230,10 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         {
             throw new NotImplementedException();
         }
+
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

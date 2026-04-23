@@ -1486,12 +1486,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _fixture.SearchService.CreateMockScopeProvider(),
                 searchParameterComparer,
                 _fixture.SearchParameterStatusDataStore.CreateMockScopeProvider(),
+                _searchParameterSupportResolver,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
+            await _supportedSearchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
 
-            _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, _searchParameterSupportResolver, mediator, NullLogger<SearchParameterStatusManager>.Instance);
-            await _searchParameterStatusManager2.EnsureInitializedAsync(CancellationToken.None);
+            _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, NullLogger<SearchParameterStatusManager>.Instance);
 
             _searchParameterOperations2 = new SearchParameterOperations(
                 _searchParameterStatusManager2,

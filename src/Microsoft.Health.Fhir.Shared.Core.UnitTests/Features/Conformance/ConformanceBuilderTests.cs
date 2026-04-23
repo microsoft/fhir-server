@@ -54,8 +54,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 Substitute.For<ISearchParameterStatusDataStore>(),
                 _searchParameterDefinitionManager,
-                Substitute.For<Core.Features.Search.Parameters.ISearchParameterSupportResolver>(),
-                Substitute.For<IMediator>(),
                 Substitute.For<Microsoft.Extensions.Logging.ILogger<SearchParameterStatusManager>>());
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,

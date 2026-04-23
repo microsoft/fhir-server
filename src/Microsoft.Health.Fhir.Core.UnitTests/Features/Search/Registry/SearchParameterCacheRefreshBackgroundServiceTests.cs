@@ -338,6 +338,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 statusStore.CreateMockScopeProvider(),
+                Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
             // run = 1
@@ -383,6 +384,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 statusStore.CreateMockScopeProvider(),
+                Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
             // run = 1
