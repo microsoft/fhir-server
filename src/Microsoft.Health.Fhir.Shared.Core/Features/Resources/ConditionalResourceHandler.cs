@@ -82,6 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         public abstract Task<TResponse> HandleNoMatch(TRequest request, CancellationToken cancellationToken);
 
-        public abstract Task<DataActions> CheckAccess(CancellationToken cancellationToken);
+        public abstract Task<bool> CheckAccess(CancellationToken cancellationToken);
     }
 }

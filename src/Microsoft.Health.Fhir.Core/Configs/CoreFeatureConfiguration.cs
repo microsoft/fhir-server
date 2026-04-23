@@ -136,5 +136,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the rebuild interval in seconds for the SystemConformanceProvider background service.
         /// </summary>
         public int SystemConformanceProviderRebuildIntervalSeconds { get; set; } = 14400; // 4 hours.
+
+        /// <summary>
+        /// Gets or sets a value indicating whether FHIR resources with dangerous href schemes
+        /// (e.g., javascript:, vbscript:) in narrative HTML should be rejected during validation.
+        /// When false (default), a warning is logged but the resource is accepted.
+        /// When true, the resource is rejected with a validation error.
+        /// </summary>
+        public bool RejectDangerousNarrativeHrefs { get; set; } = false;
     }
 }
