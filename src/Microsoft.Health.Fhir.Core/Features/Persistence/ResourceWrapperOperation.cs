@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -45,6 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public bool MetaHistory { get; }
 
         public BundleResourceContext BundleResourceContext { get; }
+
+        public IReadOnlyList<ResourceSearchParameterStatus> PendingSearchParameterStatuses { get; internal set; }
 
 #pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()
