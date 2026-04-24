@@ -91,7 +91,7 @@
   </ItemGroup>
 
   <!-- Target contains sql build tasks -->
-  <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
+  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" />
 
   <!--
   <Target Name="PrintEmbeddedResources" BeforeTargets="ComputeGeneratorInputs">
