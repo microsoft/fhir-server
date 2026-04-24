@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 
@@ -78,10 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Export, cancellationToken) != DataActions.Export)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 

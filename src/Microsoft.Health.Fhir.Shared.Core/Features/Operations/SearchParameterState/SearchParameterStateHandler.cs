@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Parameters;
@@ -44,10 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
             IEnumerable<SearchParameterInfo> searchParameterResult = new List<SearchParameterInfo>();
             if (request.Queries.Count == 0)
