@@ -108,7 +108,7 @@ The expected plan-cost improvement on the motivating query shape is ~19x, based 
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Consequences
 
