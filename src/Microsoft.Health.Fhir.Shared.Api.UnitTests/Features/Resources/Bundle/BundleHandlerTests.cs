@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -70,8 +71,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             {
                 BaseUri = new Uri("https://localhost/"),
                 CorrelationId = Guid.NewGuid().ToString(),
-                ResponseHeaders = new HeaderDictionary(),
-                RequestHeaders = new HeaderDictionary(),
+                ResponseHeaders = HeaderDictionaryFactory.Create(),
+                RequestHeaders = HeaderDictionaryFactory.Create(),
             };
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

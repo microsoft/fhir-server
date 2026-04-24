@@ -143,8 +143,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             {
                 BaseUri = new Uri("https://localhost/"),
                 CorrelationId = Guid.NewGuid().ToString(),
-                ResponseHeaders = new HeaderDictionary(),
-                RequestHeaders = new HeaderDictionary(),
+                ResponseHeaders = HeaderDictionaryFactory.Create(),
+                RequestHeaders = HeaderDictionaryFactory.Create(),
             };
 
             fhirRequestContext.DecorateRequestContextWithOptimizedConcurrency();
