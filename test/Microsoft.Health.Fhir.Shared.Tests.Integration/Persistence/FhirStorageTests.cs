@@ -17,6 +17,7 @@ using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -1204,6 +1205,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
             // Add the search parameter to the datastore
             await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported, CancellationToken.None);
+
+            await _fixture.SearchParameterDefinitionManager.GetAndApplySearchParameterUpdates();
 
             return searchParam;
         }

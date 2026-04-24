@@ -5,6 +5,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Hosting;
@@ -33,6 +34,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
         }
+
+        public DateTimeOffset? SearchParamLastUpdated { get; }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
@@ -219,6 +222,16 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         }
 
         public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool zeroWaitForSemaphore = false)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

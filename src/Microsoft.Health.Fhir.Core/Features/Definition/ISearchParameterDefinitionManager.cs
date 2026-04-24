@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -18,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
 
         public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerResolver();
+
+        public DateTimeOffset? SearchParamLastUpdated { get; }
 
         /// <summary>
         /// Gets the list of all search parameters.
@@ -127,5 +132,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to update.</param>
         /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
         void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
+
+        /// <summary>
+        /// This method should be called to get updates to search params cache
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>
+        /// <returns>A task that returns true if the refresh was performed.</returns>
+        Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool zeroWaitForSemaphore = false);
+
+        Task EnsureInitializedAsync(CancellationToken cancellationToken);
     }
 }

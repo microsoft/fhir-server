@@ -97,14 +97,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -114,10 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 definitionManager,
-                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
-                Substitute.For<IMediator>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
-            await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
             return definitionManager;
         }
@@ -127,14 +123,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -144,10 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 definitionManager,
-                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
-                Substitute.For<IMediator>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
-            await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
             return statusManager;
         }

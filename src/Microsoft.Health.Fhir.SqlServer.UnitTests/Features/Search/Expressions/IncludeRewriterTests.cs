@@ -1649,7 +1649,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 var searchService = Substitute.For<ISearchService>();
                 var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
                 var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-                var fhirDataStore = Substitute.For<IFhirDataStore>();
                 var logger = NullLogger<SearchParameterDefinitionManager>.Instance;
 
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(
@@ -1658,7 +1657,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     searchService.CreateMockScopeProvider(),
                     searchParameterComparer,
                     statusDataStore.CreateMockScopeProvider(),
-                    fhirDataStore.CreateMockScopeProvider(),
+                    Substitute.For<ISearchParameterSupportResolver>(),
                     logger);
             }
 

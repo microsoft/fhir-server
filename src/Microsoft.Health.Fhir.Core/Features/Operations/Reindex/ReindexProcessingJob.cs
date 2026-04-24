@@ -19,6 +19,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -85,14 +86,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
-            ISearchParameterOperations searchParameterOperations,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterStatusManager searchParameterStatusManager,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterStatusManager = searchParameterStatusManager;
-            _searchParameterOperations = searchParameterOperations;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
 
@@ -126,14 +127,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckDiscrepancies(CancellationToken cancellationToken)
         {
             var resourceType = _reindexProcessingJobDefinition.ResourceType;
-            var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
+            var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceType);
             var requestedSearchParameterHash = _reindexProcessingJobDefinition.SearchParameterHash;
             var isBad = requestedSearchParameterHash != searchParameterHash;
             var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
             if (isBad)
             {
-                _logger.LogJobWarning(_jobInfo, msg);
+                _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                throw new ReindexJobException(msg);
             }
             else
             {
@@ -144,17 +146,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // use the same value as used in resource writes
             _searchParameterHash = searchParameterHash;
 
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var currentDate = _searchParameterDefinitionManager.SearchParamLastUpdated.HasValue ? _searchParameterDefinitionManager.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
             isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
             msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            //// Cannot just refresh here because we might be missing resources updated via API.
             if (isBad)
             {
-                _logger.LogJobWarning(_jobInfo, msg);
+                _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                throw new ReindexJobException(msg);
             }
             else // normal
             {

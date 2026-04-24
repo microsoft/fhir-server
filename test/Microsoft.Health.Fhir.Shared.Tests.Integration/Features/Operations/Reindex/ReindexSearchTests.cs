@@ -5,14 +5,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -35,14 +40,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
+        private readonly FhirStorageTestsFixture _fixture;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
+            _fixture = fixture;
         }
 
         [Fact]
@@ -199,6 +204,77 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             wrapper.SearchParameterHash = "hash";
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenSystemSearchParam_WhenDisabled_ThenCurrentAndNewInstancesShouldBeInSyncWithDatabase()
+        {
+            var systemSearchParamUrl = _searchParameterDefinitionManager.AllSearchParameters.Select(_ => _.Url.OriginalString).FirstOrDefault(_ => _.StartsWith("http://hl7.org/fhir/SearchParameter/Flag"));
+            Assert.NotNull(systemSearchParamUrl);
+
+            VerifyParamStateInCache(_searchParameterDefinitionManager, systemSearchParamUrl, SearchParameterStatus.Enabled);
+
+            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([systemSearchParamUrl], SearchParameterStatus.Disabled, CancellationToken.None);
+
+            await VerifyParamStateInDatabaseAsync(systemSearchParamUrl, SearchParameterStatus.Disabled);
+
+            await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            VerifyParamStateInCache(_searchParameterDefinitionManager, systemSearchParamUrl, SearchParameterStatus.Disabled);
+
+            VerifyParamStateInCache(await CreateNewSearchParameterDefinitionManagerInstance(), systemSearchParamUrl, SearchParameterStatus.Disabled);
+        }
+
+        private async Task<SearchParameterDefinitionManager> CreateNewSearchParameterDefinitionManagerInstance()
+        {
+            var modelInfoProvider = ModelInfoProvider.Instance;
+            var mediator = _fixture.Mediator;
+
+            var searchServiceScope = Substitute.For<IScoped<ISearchService>>();
+            searchServiceScope.Value.Returns(_fixture.SearchService);
+            var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
+            searchServiceProvider.Invoke().Returns(searchServiceScope);
+
+            var searchParameterStatusDataStoreScope = Substitute.For<IScoped<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreScope.Value.Returns(_fixture.SearchParameterStatusDataStore);
+            var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
+
+            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataStoreScope.Value.Returns(_fixture.DataStore);
+            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
+            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
+
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var logger = NullLogger<SearchParameterDefinitionManager>.Instance;
+
+            var definitionManager = new SearchParameterDefinitionManager(
+                modelInfoProvider,
+                mediator,
+                searchServiceProvider,
+                searchParameterComparer,
+                searchParameterStatusDataStoreProvider,
+                Substitute.For<ISearchParameterSupportResolver>(),
+                logger);
+
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            return definitionManager;
+        }
+
+        private void VerifyParamStateInCache(SearchParameterDefinitionManager manager, string searchParamUrl, SearchParameterStatus expectedStatus)
+        {
+            var param = manager.AllSearchParameters.FirstOrDefault(sp => sp.Url.ToString() == searchParamUrl);
+            Assert.NotNull(param);
+            Assert.True(expectedStatus == param.SearchParameterStatus, $"Status expected={expectedStatus} actual={param.SearchParameterStatus}");
+        }
+
+        private async Task VerifyParamStateInDatabaseAsync(string searchParamUrl, SearchParameterStatus expectedStatus)
+        {
+            var statuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+            var param = statuses.FirstOrDefault(s => s.Uri.ToString() == searchParamUrl);
+            Assert.NotNull(param);
+            Assert.True(expectedStatus == param.Status, $"Status expected={expectedStatus} actual={param.Status}");
         }
     }
 }

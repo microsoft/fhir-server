@@ -131,14 +131,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 Substitute.For<IMediator>(),
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                Substitute.For<ISearchParameterSupportResolver>(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
