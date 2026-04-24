@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;

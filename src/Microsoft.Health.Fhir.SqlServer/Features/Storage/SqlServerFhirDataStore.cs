@@ -903,7 +903,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 // For non-transaction operations, extract pending statuses now so they are merged with the resource.
-                // Transaction bundles skip this; statuses are flushed at the end of the bundle by BundleHandler.
+                // Transaction bundles never reach this branch with pending statuses: any transaction bundle that
+                // contains a SearchParameter resource is forced to the parallel path (handled above), where the
+                // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
                 if (!isBundleTransaction)
                 {
                     TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);

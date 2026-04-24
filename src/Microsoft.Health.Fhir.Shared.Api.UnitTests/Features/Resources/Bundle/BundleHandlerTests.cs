@@ -35,7 +35,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -140,7 +139,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _profilesResolver,
-                Substitute.For<ISearchParameterStatusDataStore>(),
                 NullLogger<BundleHandler>.Instance,
                 Substitute.For<IModelInfoProvider>());
         }
