@@ -1,0 +1,100 @@
+parameters:
+- name: resourceGroup
+  type: string
+- name: sqlServerName
+  type: string
+- name: elasticPoolName
+  type: string
+- name: edition
+  type: string
+  default: 'GeneralPurpose'
+- name: family
+  type: string
+  default: 'Gen5'
+- name: capacity
+  type: number
+  default: 8
+- name: maxSizeBytes
+  type: string
+  default: '549755813888' # 512 GB
+- name: dbMinCapacity
+  type: number
+  default: 0
+- name: dbMaxCapacity
+  type: number
+  default: 8
+
+jobs:
+- job: 'provisionSqlPool_${{ parameters.elasticPoolName }}'
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzurePowerShell@5
+    displayName: 'Ensure SQL elastic pool ${{ parameters.elasticPoolName }} exists'
+    retryCountOnTaskFailure: 1
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
+        $resourceGroup   = "${{ parameters.resourceGroup }}"
+        $sqlServerName   = "${{ parameters.sqlServerName }}".ToLower()
+        $poolName        = "${{ parameters.elasticPoolName }}"
+        $edition         = "${{ parameters.edition }}"
+        $family          = "${{ parameters.family }}"
+        $capacity        = [int]"${{ parameters.capacity }}"
+        $maxSizeBytes    = [long]"${{ parameters.maxSizeBytes }}"
+        $dbMinCapacity   = [double]"${{ parameters.dbMinCapacity }}"
+        $dbMaxCapacity   = [double]"${{ parameters.dbMaxCapacity }}"
+
+        Write-Host "Checking for elastic pool '$poolName' on server '$sqlServerName'..."
+        $existing = Get-AzSqlElasticPool -ResourceGroupName $resourceGroup -ServerName $sqlServerName -ElasticPoolName $poolName -ErrorAction SilentlyContinue
+
+        if ($null -eq $existing) {
+          Write-Host "Creating elastic pool '$poolName' ($edition $family, $capacity vCores, $($maxSizeBytes/1GB) GB)..."
+          Invoke-WithRetry -OperationName "Create SQL Elastic Pool" -ScriptBlock {
+            New-AzSqlElasticPool `
+              -ResourceGroupName $resourceGroup `
+              -ServerName $sqlServerName `
+              -ElasticPoolName $poolName `
+              -Edition $edition `
+              -ComputeGeneration $family `
+              -VCore $capacity `
+              -DatabaseVCoreMin $dbMinCapacity `
+              -DatabaseVCoreMax $dbMaxCapacity `
+              -StorageMB ($maxSizeBytes / 1MB) `
+              -ErrorAction Stop
+          }
+          Write-Host "Elastic pool '$poolName' created."
+        } else {
+          Write-Host "Elastic pool '$poolName' already exists. State: $($existing.State); vCore: $($existing.Capacity); MaxSize: $($existing.MaxSizeBytes / 1GB) GB."
+
+          $needsUpdate = ($existing.Capacity -ne $capacity) `
+            -or ($existing.DatabaseVCoreMin -ne $dbMinCapacity) `
+            -or ($existing.DatabaseVCoreMax -ne $dbMaxCapacity) `
+            -or ($existing.MaxSizeBytes -ne $maxSizeBytes)
+
+          if ($needsUpdate) {
+            Write-Host "Reconciling pool to: $capacity vCores, perDb min=$dbMinCapacity max=$dbMaxCapacity, $($maxSizeBytes/1GB) GB..."
+            Invoke-WithRetry -OperationName "Update SQL Elastic Pool" -ScriptBlock {
+              Set-AzSqlElasticPool `
+                -ResourceGroupName $resourceGroup `
+                -ServerName $sqlServerName `
+                -ElasticPoolName $poolName `
+                -Edition $edition `
+                -ComputeGeneration $family `
+                -VCore $capacity `
+                -DatabaseVCoreMin $dbMinCapacity `
+                -DatabaseVCoreMax $dbMaxCapacity `
+                -StorageMB ($maxSizeBytes / 1MB) `
+                -ErrorAction Stop
+            }
+            Write-Host "Elastic pool '$poolName' reconciled."
+          } else {
+            Write-Host "Elastic pool '$poolName' already matches desired configuration; no update needed."
+          }
+        }
