@@ -89,6 +89,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
+        public void GivenApproximateDateOnlyExpression_WhenRewritten_PassesThrough()
+        {
+            // Simulate the AST shape that Ap produces: same structure as Eq but with constants
+            // shifted by an approximate delta (Start moved earlier, End moved later).
+            // The rewriter must NOT collapse this; the resulting End value would not match any stored row.
+            var approxStart = StartOfDay.AddDays(-30);
+            var approxEnd = EndOfDay.AddDays(30);
+
+            var apPattern = (MultiaryExpression)Expression.And(
+                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, approxStart),
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, approxEnd));
+
+            var expr = new SearchParameterExpression(BuildParam(isDateOnly: true), apPattern);
+
+            var result = expr.AcceptVisitor(DateOnlyEqualityRewriter.Instance, null);
+
+            // Must pass through unchanged — collapsing would produce an EndDateTime equality
+            // on approxEnd, which never appears in any stored row.
+            Assert.Same(expr, result);
+        }
+
+        [Fact]
         public void GivenCompositeParameter_WhenEqualityPatternMatched_ThenPassThrough()
         {
             // Composite parameters are out of scope for v1; the rewriter must not recurse into Component.

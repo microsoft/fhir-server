@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
@@ -62,6 +63,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 endLe = first;
             }
             else
+            {
+                return expression;
+            }
+
+            // VALUE-SHAPE guard: confirm the constants describe exactly one calendar day.
+            // SearchComparator.Eq always produces startOfDay (TimeOfDay == 0) and endOfDay == startOfDay + 1 day - 1 tick.
+            // SearchComparator.Ap emits the identical AST structure but with constants shifted by an approximate delta,
+            // so endValue != startValue.AddDays(1).AddTicks(-1). We must NOT collapse Ap queries because the resulting
+            // EndDateTime equality value would not match any stored row (all stored rows have endOfDay, not approxEnd).
+            if (startGe.Value is not DateTimeOffset startValue || endLe.Value is not DateTimeOffset endValue)
+            {
+                return expression;
+            }
+
+            if (startValue.TimeOfDay != TimeSpan.Zero ||
+                endValue != startValue.AddDays(1).AddTicks(-1))
             {
                 return expression;
             }
