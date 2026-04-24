@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 /// <summary>
 /// Describes the decision to rewrite a search expression for a single-point search parameter.
 /// </summary>
-public enum SinglePointRewriteDecision
+internal enum SinglePointRewriteDecision
 {
     /// <summary>
     /// No rewrite should be applied.

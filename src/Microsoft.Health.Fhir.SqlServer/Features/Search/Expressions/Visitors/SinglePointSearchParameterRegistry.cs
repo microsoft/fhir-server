@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 /// <summary>
 /// Registry of allowlisted search parameters that have single-point search behavior.
 /// </summary>
-internal static class SinglePointSearchParameterRegistry
+internal class SinglePointSearchParameterRegistry
 {
     private static readonly Dictionary<string, SinglePointSearchBehavior> AllowlistedParameters = new(StringComparer.Ordinal)
     {
@@ -20,32 +20,28 @@ internal static class SinglePointSearchParameterRegistry
     };
 
     /// <summary>
-    /// Gets the single-point search behavior for the specified search parameter.
-    /// </summary>
-    /// <param name="searchParameterUrl">The URL of the search parameter.</param>
-    /// <returns>The single-point search behavior, or <see cref="SinglePointSearchBehavior.None"/> if not allowlisted.</returns>
-    public static SinglePointSearchBehavior GetBehavior(string searchParameterUrl)
-    {
-        if (string.IsNullOrEmpty(searchParameterUrl))
-        {
-            return SinglePointSearchBehavior.None;
-        }
-
-        return AllowlistedParameters.TryGetValue(searchParameterUrl, out var behavior) ? behavior : SinglePointSearchBehavior.None;
-    }
-
-    /// <summary>
-    /// Gets the single-point search behavior for the specified search parameter info.
+    /// Attempts to get the single-point search behavior for the specified search parameter.
     /// </summary>
     /// <param name="searchParameterInfo">The search parameter info.</param>
-    /// <returns>The single-point search behavior, or <see cref="SinglePointSearchBehavior.None"/> if not allowlisted.</returns>
-    public static SinglePointSearchBehavior GetBehavior(SearchParameterInfo searchParameterInfo)
+    /// <param name="behavior">The single-point search behavior, if found.</param>
+    /// <returns>True if the parameter is allowlisted; false otherwise.</returns>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:MarkMembersAsStatic", Justification = "Instance method for extensibility in Task 3")]
+    public bool TryGetBehavior(SearchParameterInfo searchParameterInfo, out SinglePointSearchBehavior behavior)
     {
+        behavior = SinglePointSearchBehavior.None;
+
         if (searchParameterInfo?.Url == null)
         {
-            return SinglePointSearchBehavior.None;
+            return false;
         }
 
-        return GetBehavior(searchParameterInfo.Url.OriginalString);
+        var url = searchParameterInfo.Url.OriginalString;
+        if (AllowlistedParameters.TryGetValue(url, out var foundBehavior))
+        {
+            behavior = foundBehavior;
+            return true;
+        }
+
+        return false;
     }
 }

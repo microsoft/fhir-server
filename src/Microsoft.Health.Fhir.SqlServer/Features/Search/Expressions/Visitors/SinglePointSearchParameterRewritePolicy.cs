@@ -3,70 +3,48 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
 /// <summary>
-/// Policy for rewriting search expressions for single-point search parameters.
+/// Policy for deciding on rewrite strategies for single-point search parameters.
+/// Consults the allowlist registry and determines the appropriate rewrite decision based on
+/// the parameter and the normalized AST rewrite pattern.
 /// </summary>
 internal class SinglePointSearchParameterRewritePolicy
 {
+    private readonly SinglePointSearchParameterRegistry _registry;
+
     /// <summary>
-    /// Internal enum describing rewrite patterns for single-point search parameters.
+    /// Initializes a new instance of the <see cref="SinglePointSearchParameterRewritePolicy"/> class.
     /// </summary>
-    private enum SinglePointRewritePattern
+    /// <param name="registry">The allowlist registry for single-point search parameters.</param>
+    public SinglePointSearchParameterRewritePolicy(SinglePointSearchParameterRegistry registry)
     {
-        /// <summary>
-        /// The pattern is not supported for rewriting.
-        /// </summary>
-        Unsupported = 0,
-
-        /// <summary>
-        /// The pattern is an equality comparison.
-        /// </summary>
-        Equality = 1,
-
-        /// <summary>
-        /// The pattern is a greater-than comparison.
-        /// </summary>
-        GreaterThan = 2,
-
-        /// <summary>
-        /// The pattern is a greater-than-or-equal comparison.
-        /// </summary>
-        GreaterThanOrEqual = 3,
-
-        /// <summary>
-        /// The pattern is a less-than comparison.
-        /// </summary>
-        LessThan = 4,
-
-        /// <summary>
-        /// The pattern is a less-than-or-equal comparison.
-        /// </summary>
-        LessThanOrEqual = 5,
+        _registry = registry;
     }
 
     /// <summary>
-    /// Determines the rewrite decision for a search expression with a given search parameter and comparison operator.
+    /// Determines the rewrite decision for a search parameter with a given rewrite pattern.
     /// </summary>
     /// <param name="searchParameterInfo">The search parameter info.</param>
-    /// <param name="binaryOperator">The binary operator.</param>
+    /// <param name="pattern">The normalized rewrite pattern.</param>
     /// <returns>The rewrite decision.</returns>
-    public static SinglePointRewriteDecision GetRewriteDecision(SearchParameterInfo searchParameterInfo, BinaryOperator binaryOperator)
+    public SinglePointRewriteDecision Decide(SearchParameterInfo searchParameterInfo, SinglePointRewritePattern pattern)
     {
         // Check if the parameter is allowlisted
-        var behavior = SinglePointSearchParameterRegistry.GetBehavior(searchParameterInfo);
+        if (!_registry.TryGetBehavior(searchParameterInfo, out var behavior))
+        {
+            return SinglePointRewriteDecision.NoRewrite;
+        }
+
         if (behavior == SinglePointSearchBehavior.None)
         {
             return SinglePointRewriteDecision.NoRewrite;
         }
 
-        // Determine the rewrite pattern based on the binary operator
-        var pattern = GetRewritePattern(binaryOperator);
-
+        // Decide based on the rewrite pattern
         return pattern switch
         {
             SinglePointRewritePattern.Equality => SinglePointRewriteDecision.RewriteToEndDateTimeEquality,
@@ -75,22 +53,6 @@ internal class SinglePointSearchParameterRewritePolicy
                 SinglePointRewritePattern.LessThan or
                 SinglePointRewritePattern.LessThanOrEqual => SinglePointRewriteDecision.UseExistingExpression,
             _ => SinglePointRewriteDecision.NoRewrite,
-        };
-    }
-
-    /// <summary>
-    /// Maps a binary operator to a rewrite pattern.
-    /// </summary>
-    private static SinglePointRewritePattern GetRewritePattern(BinaryOperator binaryOperator)
-    {
-        return binaryOperator switch
-        {
-            BinaryOperator.Equal => SinglePointRewritePattern.Equality,
-            BinaryOperator.GreaterThan => SinglePointRewritePattern.GreaterThan,
-            BinaryOperator.GreaterThanOrEqual => SinglePointRewritePattern.GreaterThanOrEqual,
-            BinaryOperator.LessThan => SinglePointRewritePattern.LessThan,
-            BinaryOperator.LessThanOrEqual => SinglePointRewritePattern.LessThanOrEqual,
-            _ => SinglePointRewritePattern.Unsupported,
         };
     }
 }

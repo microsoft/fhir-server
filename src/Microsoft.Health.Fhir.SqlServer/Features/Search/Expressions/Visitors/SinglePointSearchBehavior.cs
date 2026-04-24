@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 /// <summary>
 /// Describes the search behavior for a single-point search parameter.
 /// </summary>
-public enum SinglePointSearchBehavior
+internal enum SinglePointSearchBehavior
 {
     /// <summary>
     /// No special behavior is defined.
