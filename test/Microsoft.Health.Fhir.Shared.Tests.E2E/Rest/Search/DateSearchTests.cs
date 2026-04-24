@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -235,6 +236,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithDateOnlyBirthdate_WhenSearchedByEqualityAndRange_ThenCorrectPatientsAreReturned()
+        {
+            // Arrange: create three patients, two born on 2016-07-06 and one born on 2016-07-07.
+            // A unique tag scopes the search results to this test run only.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2016-07-06", tag),
+                p => SetPatientBirthDate(p, "2016-07-06", tag),
+                p => SetPatientBirthDate(p, "2016-07-07", tag));
+
+            // Act + Assert: equality search should return only patients born on exactly 2016-07-06.
+            Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
+            ValidateBundle(equalityBundle, patients[0], patients[1]);
+
+            // Act + Assert: range search (gt) should return only the patient born after 2016-07-06.
+            Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
+            ValidateBundle(rangeBundle, patients[2]);
+        }
+
+        private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
+        {
+            patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
+            patient.BirthDate = birthDate;
         }
     }
 }
