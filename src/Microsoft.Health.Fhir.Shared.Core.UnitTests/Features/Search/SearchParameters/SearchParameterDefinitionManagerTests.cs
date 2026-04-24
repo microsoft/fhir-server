@@ -1012,5 +1012,108 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Null(exception);
         }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenHandled_ThenFullChainPublishesSearchParametersInitialized()
+        {
+            // This tests the full initialization chain triggered by StorageInitializedNotification:
+            // StorageInitialized → DefinitionManager.EnsureInitializedAsync
+            //   → publishes SearchParameterDefinitionManagerInitialized
+            //   → StatusManager.EnsureInitializedAsync → publishes SearchParametersInitializedNotification
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await _searchParameterDefinitionManager.Handle(notification, CancellationToken.None);
+
+            await _mediator.Received().Publish(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenDefinitionStageFails_ThenRetriesTotalThreeTimesAndDoesNotPublish()
+        {
+            // Simulate definition-stage failure by making the status data store throw,
+            // which is called during LoadSearchParamsFromDataStore.
+            // Need a fresh definition manager that hasn't been initialized yet
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(_ => throw new InvalidOperationException("Simulated failure"));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var mediator = Substitute.For<IMediator>();
+
+            var definitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await definitionManager.Handle(notification, CancellationToken.None);
+
+            // Should have retried 3 times total and then given up silently
+            await statusDataStore.Received(3).GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>());
+
+            // SearchParameterDefinitionManagerInitialized should never have been published
+            await mediator.DidNotReceive().Publish(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenStatusStageFails_ThenRetriesTotalThreeTimesAndDoesNotPublishFinalNotification()
+        {
+            // The status manager receives SearchParameterDefinitionManagerInitialized and calls
+            // EnsureInitializedAsync. If it fails, the exception bubbles back to the definition
+            // manager's EnsureInitializedAsync, which resets _initialized and rethrows.
+            // The definition manager Handle() retries the whole thing 3 times.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var mediator = Substitute.For<IMediator>();
+
+            var definitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
+            // When SearchParameterDefinitionManagerInitialized is published, simulate a status-stage failure
+            mediator.Publish(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>())
+                .Returns(_ => throw new InvalidOperationException("Simulated status-stage failure"));
+
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await definitionManager.Handle(notification, CancellationToken.None);
+
+            // The definition manager retries 3 times; each attempt publishes
+            // SearchParameterDefinitionManagerInitialized (which then fails in the status manager)
+            await mediator.Received(3).Publish(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+
+            // SearchParametersInitializedNotification should never have been published
+            // because the status manager failed every time
+            await mediator.DidNotReceive().Publish(
+                Arg.Any<Messages.Search.SearchParametersInitializedNotification>(),
+                Arg.Any<CancellationToken>());
+        }
     }
 }
