@@ -1142,6 +1142,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal static string StripDboSchemaPrefix(string procName) =>
             procName?.Replace("dbo.", string.Empty, StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Returns the column names used for filtered statistics on the given search parameter table.
+        /// Only tables that benefit from per-resource-type filtered statistics are included.
+        /// </summary>
+        /// <param name="table">The fully-qualified table name (e.g. <c>dbo.TokenSearchParam</c>).</param>
+        /// <returns>The set of column names, or an empty set when the table does not support filtered stats.</returns>
+        internal static HashSet<string> GetKeyColumns(string table)
+        {
+            var results = new HashSet<string>();
+            if (table == VLatest.StringSearchParam.TableName)
+            {
+                results.Add(VLatest.StringSearchParam.Text.Metadata.Name);
+            }
+            else if (table == VLatest.TokenSearchParam.TableName)
+            {
+                results.Add(VLatest.TokenSearchParam.Code.Metadata.Name);
+            }
+            else if (table == VLatest.DateTimeSearchParam.TableName)
+            {
+                results.Add(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name);
+                results.Add(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name);
+            }
+            else if (table == VLatest.NumberSearchParam.TableName)
+            {
+                results.Add(VLatest.NumberSearchParam.LowValue.Metadata.Name);
+                results.Add(VLatest.NumberSearchParam.HighValue.Metadata.Name);
+            }
+            else if (table == VLatest.QuantitySearchParam.TableName)
+            {
+                results.Add(VLatest.QuantitySearchParam.LowValue.Metadata.Name);
+                results.Add(VLatest.QuantitySearchParam.HighValue.Metadata.Name);
+            }
+            else if (table == VLatest.ReferenceSearchParam.TableName)
+            {
+                results.Add(VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name);
+                results.Add(VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name);
+            }
+            else if (table == VLatest.UriSearchParam.TableName)
+            {
+                results.Add(VLatest.UriSearchParam.Uri.Metadata.Name);
+            }
+
+            return results;
+        }
+
         private async Task LogQueryStoreByTextAsync(
             string queryText,
             bool isStoredProcedure,
@@ -2544,35 +2589,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            private static HashSet<string> GetKeyColumns(string table)
-            {
-                var results = new HashSet<string>();
-                if (table == VLatest.StringSearchParam.TableName)
-                {
-                    results.Add(VLatest.StringSearchParam.Text.Metadata.Name);
-                }
-                else if (table == VLatest.TokenSearchParam.TableName)
-                {
-                    results.Add(VLatest.TokenSearchParam.Code.Metadata.Name);
-                }
-                else if (table == VLatest.DateTimeSearchParam.TableName)
-                {
-                    results.Add(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name);
-                    results.Add(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name);
-                }
-                else if (table == VLatest.NumberSearchParam.TableName)
-                {
-                    results.Add(VLatest.NumberSearchParam.LowValue.Metadata.Name);
-                    results.Add(VLatest.NumberSearchParam.HighValue.Metadata.Name);
-                }
-                else if (table == VLatest.QuantitySearchParam.TableName)
-                {
-                    results.Add(VLatest.QuantitySearchParam.LowValue.Metadata.Name);
-                    results.Add(VLatest.QuantitySearchParam.HighValue.Metadata.Name);
-                }
-
-                return results;
-            }
+            private static HashSet<string> GetKeyColumns(string table) => SqlServerSearchService.GetKeyColumns(table);
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {

@@ -299,5 +299,57 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Equal("Search.ReuseQueryPlans.IsEnabled", SqlServerSearchService.ReuseQueryPlansParameterId);
         }
+
+        public static IEnumerable<object[]> SingleColumnTableData()
+        {
+            yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
+            yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
+            yield return new object[] { VLatest.UriSearchParam.TableName, VLatest.UriSearchParam.Uri.Metadata.Name };
+        }
+
+        [Theory]
+        [MemberData(nameof(SingleColumnTableData))]
+        public void GetKeyColumns_ForSingleColumnTable_ReturnsOnlyExpectedColumn(string tableName, string expectedColumn)
+        {
+            // Act
+            var columns = SqlServerSearchService.GetKeyColumns(tableName);
+
+            // Assert
+            Assert.Contains(expectedColumn, columns);
+            Assert.Single(columns);
+        }
+
+        public static IEnumerable<object[]> TwoColumnTableData()
+        {
+            yield return new object[] { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name, VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name };
+            yield return new object[] { VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.Name };
+            yield return new object[] { VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.LowValue.Metadata.Name, VLatest.QuantitySearchParam.HighValue.Metadata.Name };
+            yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name };
+        }
+
+        [Theory]
+        [MemberData(nameof(TwoColumnTableData))]
+        public void GetKeyColumns_ForTwoColumnTable_ReturnsBothExpectedColumns(string tableName, string column1, string column2)
+        {
+            // Act
+            var columns = SqlServerSearchService.GetKeyColumns(tableName);
+
+            // Assert
+            Assert.Contains(column1, columns);
+            Assert.Contains(column2, columns);
+            Assert.Equal(2, columns.Count);
+        }
+
+        [Theory]
+        [InlineData("dbo.UnknownTable")] // NotExists expressions resolve to no known table — stats must be skipped
+        [InlineData(null)]
+        public void GetKeyColumns_ForUnknownOrNullTable_ReturnsEmptySet(string tableName)
+        {
+            // Act
+            var columns = SqlServerSearchService.GetKeyColumns(tableName);
+
+            // Assert
+            Assert.Empty(columns);
+        }
     }
 }
