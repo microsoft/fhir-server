@@ -73,8 +73,8 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      publishRunAttachments: true
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
