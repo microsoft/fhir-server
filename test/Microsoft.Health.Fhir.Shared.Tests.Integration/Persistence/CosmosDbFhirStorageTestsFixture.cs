@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false, false));
 
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,

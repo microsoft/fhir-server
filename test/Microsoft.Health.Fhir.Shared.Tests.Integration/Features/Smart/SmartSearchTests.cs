@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     return true;
                 });
 
-                _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+                _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false, false));
 
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
 

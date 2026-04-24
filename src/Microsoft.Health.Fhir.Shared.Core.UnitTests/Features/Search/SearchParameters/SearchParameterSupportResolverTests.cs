@@ -116,5 +116,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
         }
+
+        [Fact]
+        public void GivenADateOnlyParameter_WhenResolvingSupport_ThenIsDateOnlyIsTrue()
+        {
+            var sp = new SearchParameterInfo(
+                "Patient-birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.True(result.IsDateOnly);
+        }
+
+        [Fact]
+        public void GivenADateTimeParameter_WhenResolvingSupport_ThenIsDateOnlyIsFalse()
+        {
+            // Observation.effective[x] resolves to dateTime / Period / Timing, never date-only.
+            var sp = new SearchParameterInfo(
+                "Observation-date",
+                "date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
+                expression: "Observation.effective",
+                baseResourceTypes: new[] { "Observation" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+        }
+
+        [Fact]
+        public void GivenACustomAsDateParameter_WhenResolvingSupport_ThenIsDateOnlyIsTrue()
+        {
+            var sp = new SearchParameterInfo(
+                "test-as-date",
+                "test-as-date",
+                SearchParamType.Date,
+                new Uri("http://example.org/SearchParameter/test-as-date"),
+                expression: "Patient.birthDate.as(date)",
+                baseResourceTypes: new[] { "Patient" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.True(result.IsDateOnly);
+        }
+
+        [Fact]
+        public void GivenANonDateParameter_WhenResolvingSupport_ThenIsDateOnlyIsFalse()
+        {
+            var sp = new SearchParameterInfo(
+                "Patient-name",
+                "name",
+                SearchParamType.String,
+                new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"),
+                expression: "Patient.name",
+                baseResourceTypes: new[] { "Patient" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+        }
     }
 }

@@ -70,9 +70,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
-                        (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = CheckSearchParameterSupport(p);
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
+                        p.IsDateOnly = supportedResult.IsDateOnly;
+                    }
+
+                    // Even when status is already known, IsDateOnly is derived metadata that is not persisted
+                    // in the status store. Compute it once at startup so SQL rewriters can rely on it.
+                    if (!p.IsDateOnly)
+                    {
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) dateOnlyResult = CheckSearchParameterSupport(p);
+                        p.IsDateOnly = dateOnlyResult.IsDateOnly;
                     }
 
                     if (p.IsSearchable != tempStatus.IsSearchable ||
@@ -110,9 +119,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
-                    (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
+                    (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = CheckSearchParameterSupport(p);
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
+                    p.IsDateOnly = supportedResult.IsDateOnly;
 
                     updated.Add(p);
                 }
@@ -270,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
+        private (bool Supported, bool IsPartiallySupported, bool IsDateOnly) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
         {
             try
             {
@@ -279,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             catch (Exception ex)
             {
                 _logger.LogWarning("Unable to resolve search parameter {Code}. Exception: {Exception}", parameterInfo?.Code, ex);
-                return (false, false);
+                return (false, false, false);
             }
         }
 

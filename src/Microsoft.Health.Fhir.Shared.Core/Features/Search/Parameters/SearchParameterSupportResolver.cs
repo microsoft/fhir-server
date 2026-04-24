@@ -29,19 +29,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchValueConverterManager = searchValueConverterManager;
         }
 
-        public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
+        public (bool Supported, bool IsPartiallySupported, bool IsDateOnly) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
         {
             EnsureArg.IsNotNull(parameterInfo, nameof(parameterInfo));
 
             if (string.IsNullOrWhiteSpace(parameterInfo.Expression))
             {
-                return (false, false);
+                return (false, false, false);
             }
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
             if (parameterInfo.Component != null && parameterInfo.Component.Any(x => x.ResolvedSearchParameter == null))
             {
-                return (false, false);
+                return (false, false, false);
             }
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
@@ -57,12 +57,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 throw new NotSupportedException("No target resources defined.");
             }
 
+            // IsDateOnly is the AND across all per-resource resolutions. The flag is only true when every
+            // resolved type for every base/target resource is FHIR "date". A single dateTime/instant/Period/Timing
+            // result, or a non-Date SearchParamType, forces false.
+            bool allResolutionsAreDateOnly =
+                parameterInfo.Type == SearchParamType.Date &&
+                (parameterInfo.Component == null || parameterInfo.Component.Count == 0);
+
             foreach (var resource in resourceTypes)
             {
                 SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
                     resource,
                     (parameterInfo.Type, parsed, parameterInfo.Url),
                     componentExpressions).ToArray();
+
+                if (allResolutionsAreDateOnly)
+                {
+                    if (results.Length == 0 ||
+                        !results.All(r => string.Equals(r.FhirNodeType, "date", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        allResolutionsAreDateOnly = false;
+                    }
+                }
 
                 var converters = results
                     .Select(result => (
@@ -76,13 +92,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!converters.Any())
                 {
-                    return (false, false);
+                    return (false, false, false);
                 }
 
                 if (!converters.All(x => x.hasConverter))
                 {
                     bool partialSupport = converters.Any(x => x.hasConverter);
-                    return (partialSupport, partialSupport);
+                    return (partialSupport, partialSupport, false);
                 }
             }
 
@@ -91,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
-            return (true, false);
+            return (true, false, allResolutionsAreDateOnly);
         }
     }
 }
