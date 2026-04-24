@@ -412,6 +412,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
 
+        [Theory]
+        [InlineData(500u, 500u)] // Below server limit → preserved as-is
+        [InlineData(10000u, 10000u)] // Exactly at max → preserved
+        public async Task GivenARequestWithValidMaxCount_WhenCreatingAnExportJob_ThenMaxCountIsPreserved(uint requestedMaxCount, uint expectedMaxCount)
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }),
+                Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, maxCount: requestedMaxCount);
+            await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.NotNull(actualRecord);
+            Assert.Equal(expectedMaxCount, actualRecord.MaximumNumberOfResourcesPerQuery);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithMaxCountExceedingLimit_WhenCreatingAnExportJob_ThenBadRequestIsReturned()
+        {
+            uint requestedMaxCount = ExportJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1;
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, maxCount: requestedMaxCount);
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+        }
+
         [Fact]
         public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
