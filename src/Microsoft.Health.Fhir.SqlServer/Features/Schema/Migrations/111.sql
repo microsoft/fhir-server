@@ -2794,7 +2794,7 @@ CREATE PROCEDURE dbo.GetResourcesByTokens
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourcesByTokens', @Mode AS VARCHAR (100) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' SP=' + CONVERT (VARCHAR, @SearchParamId) + ' Tokens=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                                                                                                                                                          FROM   @Tokens)) + ' T=' + CONVERT (VARCHAR, @Top), @DummyTop AS BIGINT = 9223372036854775807;
+                                                                                                                                                                                                                                          FROM   @Tokens)) + ' T=' + CONVERT (VARCHAR, @Top);
 BEGIN TRY
     IF NOT EXISTS (SELECT *
                    FROM   @Tokens
@@ -2812,10 +2812,9 @@ BEGIN TRY
                  SearchParamHash,
                  RawResource
         FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
-                  FROM     (SELECT TOP (@DummyTop) *
-                            FROM   @Tokens) AS A
+                  FROM     @Tokens AS A
                            INNER JOIN
-                           dbo.TokenSearchParam AS B
+                           dbo.TokenSearchParam AS B WITH (INDEX (IX_SearchParamId_Code_INCLUDE_SystemId))
                            ON B.Code = A.Code
                               AND (B.SystemId = A.SystemId
                                    OR A.SystemId IS NULL)
@@ -2823,11 +2822,11 @@ BEGIN TRY
                            AND SearchParamId = @SearchParamId
                   ORDER BY ResourceSurrogateId) AS A
                  INNER JOIN
-                 dbo.Resource
+                 dbo.Resource WITH (INDEX (1))
                  ON ResourceSurrogateId = Sid1
         WHERE    ResourceTypeId = @ResourceTypeId
         ORDER BY ResourceSurrogateId
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+        OPTION (MAXDOP 1);
     ELSE
         IF NOT EXISTS (SELECT *
                        FROM   @Tokens
@@ -2844,15 +2843,15 @@ BEGIN TRY
                      SearchParamHash,
                      RawResource
             FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
-                      FROM     (SELECT TOP (@DummyTop) Code,
-                                                       CodeOverflow,
-                                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
-                                                                                               FROM   dbo.System
-                                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
-                                                       SystemValue
+                      FROM     (SELECT Code,
+                                       CodeOverflow,
+                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                               FROM   dbo.System
+                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
+                                       SystemValue
                                 FROM   @Tokens) AS A
                                INNER JOIN
-                               dbo.TokenSearchParam AS B
+                               dbo.TokenSearchParam AS B WITH (INDEX (IX_SearchParamId_Code_INCLUDE_SystemId))
                                ON B.Code = A.Code
                                   AND (B.SystemId = A.SystemId
                                        OR A.SystemId IS NULL
@@ -2861,11 +2860,11 @@ BEGIN TRY
                                AND SearchParamId = @SearchParamId
                       ORDER BY ResourceSurrogateId) AS A
                      INNER JOIN
-                     dbo.Resource
+                     dbo.Resource WITH (INDEX (1))
                      ON ResourceSurrogateId = Sid1
             WHERE    ResourceTypeId = @ResourceTypeId
             ORDER BY ResourceSurrogateId
-            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            OPTION (MAXDOP 1);
         ELSE
             SELECT   ResourceTypeId,
                      ResourceId,
@@ -2879,15 +2878,15 @@ BEGIN TRY
                      SearchParamHash,
                      RawResource
             FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
-                      FROM     (SELECT TOP (@DummyTop) Code,
-                                                       CodeOverflow,
-                                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
-                                                                                               FROM   dbo.System
-                                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
-                                                       SystemValue
+                      FROM     (SELECT Code,
+                                       CodeOverflow,
+                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                               FROM   dbo.System
+                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
+                                       SystemValue
                                 FROM   @Tokens) AS A
                                INNER JOIN
-                               dbo.TokenSearchParam AS B
+                               dbo.TokenSearchParam AS B WITH (INDEX (IX_SearchParamId_Code_INCLUDE_SystemId))
                                ON B.Code = A.Code
                                   AND (B.CodeOverflow = A.CodeOverflow
                                        OR B.CodeOverflow IS NULL
@@ -2899,11 +2898,11 @@ BEGIN TRY
                                AND SearchParamId = @SearchParamId
                       ORDER BY ResourceSurrogateId) AS A
                      INNER JOIN
-                     dbo.Resource
+                     dbo.Resource WITH (INDEX (1))
                      ON ResourceSurrogateId = Sid1
             WHERE    ResourceTypeId = @ResourceTypeId
             ORDER BY ResourceSurrogateId
-            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            OPTION (MAXDOP 1);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
 BEGIN CATCH
