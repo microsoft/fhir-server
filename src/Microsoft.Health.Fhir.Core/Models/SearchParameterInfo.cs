@@ -116,6 +116,17 @@ namespace Microsoft.Health.Fhir.Core.Models
         public bool IsPartiallySupported { get; set; }
 
         /// <summary>
+        /// Returns true if every type-resolution result for this parameter's expression is FHIR <c>date</c>
+        /// (not <c>dateTime</c>, <c>instant</c>, <c>Period</c>, or <c>Timing</c>). Set by
+        /// <see cref="Microsoft.Health.Fhir.Core.Features.Search.Parameters.SearchParameterSupportResolver"/>.
+        /// Used by SQL-side rewriters to apply date-only-specific query optimizations.
+        /// Derived metadata: NOT included in <see cref="SearchParameterInfoExtensions.CalculateSearchParameterHash"/>.
+        /// Defaults to <c>false</c>; the rewrite is opt-in per parameter, so a missing flag only forfeits the
+        /// optimization, never produces incorrect results.
+        /// </summary>
+        public bool IsDateOnly { get; set; }
+
+        /// <summary>
         /// The status of the search parameters use for sorting
         /// </summary>
         public SortParameterStatus SortStatus { get; set; }
