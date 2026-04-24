@@ -1178,7 +1178,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 accessControlContext.AllowedResourceActions.Add(scope);
             }
 
-            contextAccessor.RequestContext.AccessControlContext.Returns(accessControlContext);
+            if (contextAccessor?.RequestContext is FhirRequestContext fhirContext)
+            {
+                fhirContext.AccessControlContext = accessControlContext;
+            }
         }
 
         // SMART v2 Granular Scope Tests
