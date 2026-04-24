@@ -449,9 +449,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         }
                     });
 
-                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
+                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens) && tokens != null && tokens.Any())
                     {
-                        _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
+                        _sessionTokenContainer.SessionToken = string.Join(",", tokens);
                     }
 
                     return response;
