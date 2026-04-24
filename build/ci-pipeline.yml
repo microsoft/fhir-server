@@ -175,7 +175,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
-      mainCategoryFilter: 'Category!=ExportLongRunning'
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
       runReindexJob: false
 
 - stage: testStu3Sql
@@ -229,7 +229,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
-      mainCategoryFilter: 'Category!=ExportLongRunning'
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
       runReindexJob: false
 
 - stage: testR4Sql
