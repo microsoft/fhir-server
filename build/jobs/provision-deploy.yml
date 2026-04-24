@@ -42,7 +42,7 @@ parameters:
   default: '1Gi'
 - name: cosmosAutoscaleMaxThroughput
   type: number
-  default: 10000
+  default: 8000
 - name: sqlElasticPoolName
   type: string
   default: ''
