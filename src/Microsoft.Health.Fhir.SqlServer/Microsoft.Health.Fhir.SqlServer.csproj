@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>109</LatestSchemaVersion>
+    <LatestSchemaVersion>110</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
@@ -81,6 +81,9 @@
   <ItemGroup>
     <EmbeddedResource Remove="Features\Operations\Reindex\**" />
     <None Remove="Features\Operations\Reindex\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Features\Schema\Migrations\109.sql" />
   </ItemGroup>
 
   <ItemGroup>
