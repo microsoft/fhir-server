@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.GetResourcesByTokens @ResourceTypeId smallint, @SearchParamId smallint, @Tokens dbo.TokenList READONLY, @Top int
+ALTER PROCEDURE dbo.GetResourcesByTokens @ResourceTypeId smallint, @SearchParamId smallint, @Tokens dbo.TokenList READONLY, @Top int
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
