@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
@@ -11,7 +12,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// SQL expression rewriter that applies the single-point search parameter optimization policy.
-    /// Rewrites allowlisted date equality expressions to single-column predicates on DateTimeEnd.
+    /// Currently handles only single-column range predicates (GT/GTE on DateTimeEnd, LT/LTE on DateTimeStart).
+    /// Two-sided AND patterns are not rewritten because the parser emits identical AST shapes for both
+    /// equality and approximate date searches, making safe distinction impossible at the SQL layer.
     /// </summary>
     internal class SinglePointSearchParameterRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
@@ -88,42 +91,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return pattern != SinglePointRewritePattern.Unsupported;
             }
 
-            // Match two-sided AND: (DateTimeStart >= ...) AND (DateTimeEnd <= ...)
-            // This shape is used for both equality and approximate patterns
-            if (expression is MultiaryExpression multiary &&
-                multiary.MultiaryOperation == MultiaryOperator.And &&
-                multiary.Expressions.Count == 2 &&
-                multiary.Expressions[0] is BinaryExpression first &&
-                multiary.Expressions[1] is BinaryExpression second &&
-                first.ComponentIndex == second.ComponentIndex &&
-                first.FieldName == FieldName.DateTimeStart &&
-                first.BinaryOperator == BinaryOperator.GreaterThanOrEqual &&
-                second.FieldName == FieldName.DateTimeEnd &&
-                second.BinaryOperator == BinaryOperator.LessThanOrEqual)
-            {
-                pattern = SinglePointRewritePattern.Equality;
-                componentIndex = first.ComponentIndex;
-                value = second.Value;
-                return true;
-            }
-
-            // Match reversed two-sided AND: (DateTimeEnd <= ...) AND (DateTimeStart >= ...)
-            if (expression is MultiaryExpression reversed &&
-                reversed.MultiaryOperation == MultiaryOperator.And &&
-                reversed.Expressions.Count == 2 &&
-                reversed.Expressions[0] is BinaryExpression left &&
-                reversed.Expressions[1] is BinaryExpression right &&
-                left.ComponentIndex == right.ComponentIndex &&
-                left.FieldName == FieldName.DateTimeEnd &&
-                left.BinaryOperator == BinaryOperator.LessThanOrEqual &&
-                right.FieldName == FieldName.DateTimeStart &&
-                right.BinaryOperator == BinaryOperator.GreaterThanOrEqual)
-            {
-                pattern = SinglePointRewritePattern.Equality;
-                componentIndex = left.ComponentIndex;
-                value = left.Value;
-                return true;
-            }
+            // Note: Two-sided AND predicates (DateTimeStart >= ... AND DateTimeEnd <= ...) are deliberately NOT matched here.
+            // The parser emits the same shape for both equality and approximate date searches, so we cannot safely distinguish
+            // them at the SQL layer. The equality rewrite is disabled until a higher-level seam (e.g., from the parser or
+            // search service) can provide unambiguous metadata about the search intent (Task 5/6).
+            // For now, all multi-clause expressions pass through unchanged.
 
             return false;
         }
