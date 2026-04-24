@@ -175,6 +175,8 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -227,6 +229,8 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'

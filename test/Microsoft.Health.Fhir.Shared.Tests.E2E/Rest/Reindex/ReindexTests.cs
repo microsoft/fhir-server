@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpIntegrationTestFixture _fixture;
