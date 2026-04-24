@@ -4691,12 +4691,13 @@ DECLARE @SummaryOfChanges TABLE (
 BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
     BEGIN TRANSACTION;
-    SELECT TOP 60 @msg = string_agg(S.Uri, ', ')
-    FROM   @SearchParams AS I
-           INNER JOIN
-           dbo.SearchParam AS S
-           ON S.Uri = I.Uri
-    WHERE  I.LastUpdated != S.LastUpdated;
+    SELECT @msg = string_agg(S.Uri, ', ')
+    FROM   (SELECT TOP 60 S.Uri
+            FROM   @SearchParams AS I
+                   INNER JOIN
+                   dbo.SearchParam AS S
+                   ON S.Uri = I.Uri
+            WHERE  I.LastUpdated != S.LastUpdated) AS S;
     IF @msg IS NOT NULL
         BEGIN
             SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
