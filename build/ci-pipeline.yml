@@ -241,72 +241,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-# *********************** R4B ***********************
-- stage: redeployR4B
-  displayName: 'Redeploy R4B CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4B)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-      resourceGroup: $(ResourceGroupName)
-
-- stage: redeployR4BSql
-  displayName: 'Redeploy R4B SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4BSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-      resourceGroup: $(ResourceGroupName)
-
-- stage: testR4BCosmos
-  displayName: 'Run R4B Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR4B
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4B)
-      containerAppName: $(DeploymentEnvironmentNameR4B)
-
-- stage: testR4BSql
-  displayName: 'Run R4B SQL Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR4BSql
-  jobs:
-  - template: ./jobs/run-sql-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4BSql)
-      containerAppName: $(DeploymentEnvironmentNameR4BSql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
 # *********************** R5 ***********************
-- stage: redeployR5
-  displayName: 'Redeploy R5 CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-      resourceGroup: $(ResourceGroupName)
-
 - stage: redeployR5Sql
   displayName: 'Redeploy R5 SQL Site'
   dependsOn:
@@ -319,18 +254,6 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
-
-- stage: testR5Cosmos
-  displayName: 'Run R5 Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR5
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(KeyVaultNameR5)
-      containerAppName: $(DeploymentEnvironmentNameR5)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -353,9 +276,6 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
   condition: succeeded()
   jobs:
@@ -375,9 +295,6 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
   jobs:
   - template: ./jobs/docker-add-tag.yml

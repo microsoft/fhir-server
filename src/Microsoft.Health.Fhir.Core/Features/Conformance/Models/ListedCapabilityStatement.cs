@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ICollection<ReferenceComponent> Profile { get; }
 
+        public ICollection<string> Instantiates { get; internal set; }
+
         public ListedCapabilityStatement Clone()
         {
             var clone = new ListedCapabilityStatement
@@ -96,6 +98,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             SafeCopyTo(Profile, clone.Profile);
 
             SafeCopyTo(AdditionalData, clone.AdditionalData);
+
+            SafeCopyTo(Instantiates, clone.Instantiates);
 
             return clone;
         }
