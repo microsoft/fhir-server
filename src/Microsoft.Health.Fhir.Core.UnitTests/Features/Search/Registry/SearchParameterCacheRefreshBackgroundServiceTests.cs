@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 {
@@ -39,8 +40,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
         private readonly SearchParameterCacheRefreshBackgroundService _service;
+        private readonly ITestOutputHelper _output;
 
-        public SearchParameterCacheRefreshBackgroundServiceTests()
+        public SearchParameterCacheRefreshBackgroundServiceTests(ITestOutputHelper output)
         {
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _coreFeatureConfiguration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
@@ -54,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterDefinitionManager,
                 _coreFeatureConfiguration,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
+
+            _output = output;
         }
 
         [Fact]
@@ -328,7 +332,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(callInfo =>
                 {
                     run++;
-                    Thread.Sleep(run == 2 ? 1000 : 0);
+                    Thread.Sleep(run == 3 ? 1000 : 0);
                     return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>([]);
                 });
 
@@ -341,16 +345,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
-            // run = 1
+            // run = 1 and 2
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
-            // run = 2
+            // run = 3
             var apiTask = Task.Run(async () => { await definitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None); });
 
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(definitionManager, _coreFeatureConfiguration, mockLogger);
 
-            // run = 3
+            // run = 4
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             await apiTask;
@@ -370,11 +374,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             var statusStore = Substitute.For<ISearchParameterStatusDataStore>();
             var run = 0;
+
             statusStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
                 .Returns(callInfo =>
                 {
-                    run++;
-                    Thread.Sleep(run == 2 ? 2000 : 0);
+                    var currentRun = Interlocked.Increment(ref run);
+
+                    if (currentRun == 3)
+                    {
+                        Thread.Sleep(2000);
+                    }
+
                     return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(Array.Empty<ResourceSearchParameterStatus>());
                 });
 
@@ -387,20 +397,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<ILogger<SearchParameterDefinitionManager>>());
 
-            // run = 1
-            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
+            // run = 1 and 2
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None); // calls GetSearchParameterStatuses 2 times
+            _output.WriteLine($"EnsureInitializedAsync completed. run={run}");
 
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(definitionManager, _coreFeatureConfiguration, mockLogger);
 
-            // run = 2
+            // run = 3 creates background timer instantly and sleeps 2 seconds on first call
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // run = 3
+            // run = 4 blocked
             var sw = Stopwatch.StartNew();
-            var apiTask = Task.Run(async () => { await definitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None); });
-            await apiTask;
-            Assert.True(sw.Elapsed.TotalMilliseconds >= 1500, "API call should have been blocked by background operation.");
+            await definitionManager.GetAndApplySearchParameterUpdates(CancellationToken.None);
+            sw.Stop();
+
+            Assert.True(sw.Elapsed.TotalMilliseconds >= 1500, $"API call should have been blocked. Actual: {sw.Elapsed.TotalMilliseconds}ms, run={run}");
 
             service.Dispose();
         }
