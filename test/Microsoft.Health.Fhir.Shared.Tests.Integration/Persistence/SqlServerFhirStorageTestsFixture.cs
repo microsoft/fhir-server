@@ -175,13 +175,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
             _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
+            var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 _mediator,
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => (ISearchParameterStatusDataStore)SqlServerSearchParameterStatusDataStore),
-                Substitute.For<ISearchParameterSupportResolver>(),
+                searchParameterSupportResolver,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
@@ -316,9 +319,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 NullLogger<SqlServerSearchService>.Instance);
 
-            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 SqlServerSearchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
@@ -361,6 +361,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirStorageTestHelper))
             {
                 return _testHelper;
+            }
+
+            if (serviceType == typeof(ISqlServerFhirStorageTestHelper))
+            {
+                return _testHelper;
+            }
+
+            if (serviceType == typeof(ITransactionHandler))
+            {
+                return SqlTransactionHandler;
             }
 
             if (serviceType == typeof(ISearchParameterStatusDataStore))
