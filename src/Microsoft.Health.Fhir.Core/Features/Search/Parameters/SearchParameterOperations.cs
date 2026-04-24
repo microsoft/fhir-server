@@ -352,6 +352,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     cancellationToken);
 
                 var paramsToAdd = new List<ITypedElement>();
+                var urlsToAdd = new List<string>();
                 var allHaveResources = true;
                 foreach (var searchParam in statusesToFetch)
                 {
@@ -377,12 +378,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
 
                     paramsToAdd.Add(searchParamResource);
+                    urlsToAdd.Add(searchParam.Uri.OriginalString);
 
                     // Add parameters incrementally per chunk to reduce peak memory footprint
                     if (paramsToAdd.Count >= 100)
                     {
                         _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                        ApplyIsDateOnlyToNewParams(urlsToAdd);
                         paramsToAdd.Clear();
+                        urlsToAdd.Clear();
                     }
                 }
 
@@ -390,6 +394,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (paramsToAdd.Any())
                 {
                     _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                    ApplyIsDateOnlyToNewParams(urlsToAdd);
                 }
 
                 // Once added to the definition manager we can update their status
@@ -442,6 +447,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return inCache;
+        }
+
+        private void ApplyIsDateOnlyToNewParams(IEnumerable<string> urls)
+        {
+            foreach (var url in urls)
+            {
+                try
+                {
+                    if (!_searchParameterDefinitionManager.TryGetSearchParameter(url, out var info))
+                    {
+                        continue;
+                    }
+
+                    var result = _searchParameterSupportResolver.IsSearchParameterSupported(info);
+                    info.IsDateOnly = result.IsDateOnly;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to resolve IsDateOnly for search parameter '{Url}' during cache refresh.", url);
+                }
+            }
         }
 
         private void DeleteSearchParameter(string url)
