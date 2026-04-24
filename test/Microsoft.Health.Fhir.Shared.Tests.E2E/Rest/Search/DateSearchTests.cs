@@ -250,13 +250,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientBirthDate(p, "2016-07-06", tag),
                 p => SetPatientBirthDate(p, "2016-07-07", tag));
 
-            // Act + Assert: equality search should return only patients born on exactly 2016-07-06.
-            Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
-            ValidateBundle(equalityBundle, patients[0], patients[1]);
+            try
+            {
+                // Equality: only patients born on 2016-07-06 should be returned.
+                Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
+                ValidateBundle(equalityBundle, patients[0], patients[1]);
 
-            // Act + Assert: range search (gt) should return only the patient born after 2016-07-06.
-            Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
-            ValidateBundle(rangeBundle, patients[2]);
+                // Range: only patients born after 2016-07-06 should be returned.
+                Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
+                ValidateBundle(rangeBundle, patients[2]);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
         }
 
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
