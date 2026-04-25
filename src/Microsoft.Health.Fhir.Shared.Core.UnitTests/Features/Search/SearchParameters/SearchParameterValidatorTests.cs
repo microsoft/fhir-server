@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(InvalidSearchParamData))]
         public async Task GivenInvalidSearchParam_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(ValidSearchParamData))]
         public async Task GivenValidSearchParam_WhenValidatingSearchParam_ThenNoExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
             await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
         }
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.Write);
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
         public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
 
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
             if (searchParameterStatus == SearchParameterStatus.PendingDelete)
             {
                 // Expecting no exception being thrown.
@@ -166,7 +166,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _authorizationService,
                 _searchParameterDefinitionManager,
                 _modelInfoProvider,
-                _searchParameterOperations,
                 _searchParameterComparer,
                 NullLogger<SearchParameterValidator>.Instance);
 
@@ -283,7 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
 
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
 
             // Act & Assert
             await Assert.ThrowsAsync<MethodNotAllowedException>(() => validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None));
@@ -314,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
 
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
 
             // Act - should not throw
             await validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None);

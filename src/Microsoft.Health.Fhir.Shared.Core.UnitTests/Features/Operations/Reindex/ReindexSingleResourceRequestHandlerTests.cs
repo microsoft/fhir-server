@@ -53,16 +53,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
 
-            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
-            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-
             _reindexHandler = new ReindexSingleResourceRequestHandler(
                 _authorizationService,
                 _fhirDataStore,
                 _searchIndexer,
                 _resourceDeserializer,
-                searchParameterOperations,
-                searchParameterDefinitionManager);
+                Substitute.For<ISearchParameterDefinitionManager>());
         }
 
         [Fact]

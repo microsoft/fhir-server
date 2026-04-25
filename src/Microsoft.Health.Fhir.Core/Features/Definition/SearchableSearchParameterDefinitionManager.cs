@@ -6,6 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Core.Features.Context;
@@ -32,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _inner = inner;
             _fhirReqeustContextAccessor = fhirRequestContextAccessor;
         }
+
+        public DateTimeOffset? SearchParamLastUpdated => _inner.SearchParamLastUpdated;
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => GetAllSearchParameters();
 
@@ -129,11 +134,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _inner.AddNewSearchParameters(searchParameters, calculateHash);
         }
 
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
-        {
-            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
-        }
-
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             _inner.DeleteSearchParameter(searchParam);
@@ -182,6 +182,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _fhirReqeustContextAccessor.RequestContext != null &&
                    _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams &&
                    parameter.IsSupported;
+        }
+
+        public async Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool zeroWaitForSemaphore = false)
+        {
+            return await _inner.GetAndApplySearchParameterUpdates(cancellationToken, zeroWaitForSemaphore);
         }
     }
 }

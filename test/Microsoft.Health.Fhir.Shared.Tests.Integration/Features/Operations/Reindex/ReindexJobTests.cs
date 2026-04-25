@@ -82,14 +82,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
-        private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager2;
         private SearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;
         private IScoped<ISearchService> _searchService;
 
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
@@ -149,7 +147,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
@@ -164,7 +161,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                     _scopedDataStore.Value,
                                                     _searchIndexer,
                                                     Deserializers.ResourceDeserializer,
-                                                    _searchParameterOperations,
                                                     _searchParameterDefinitionManager);
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
@@ -244,13 +240,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
-                        Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
-                            fhirDataStoreScope,
+                            () => _scopedDataStore.Value.CreateMockScope(),
                             _resourceWrapperFactory,
-                            _searchParameterOperations,
-                            _searchParameterStatusManager,
+                            _searchParameterDefinitionManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -330,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterDefinitionManager.GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (Exception)
                     {
@@ -846,7 +840,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 bool tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out var searchParamInfo);
                 Assert.False(tryGetSearchParamResult);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await _searchParameterDefinitionManager2.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // now we should have sync'd the search parameter
                 tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
@@ -957,10 +951,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 await WaitForReindexCompletionAsync(response, cancellationTokenSource);
-
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // Now test the actual search functionality
                 // Rerun the same search as above
@@ -1254,13 +1244,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Definition = JsonConvert.SerializeObject(jobDefinition),
             };
 
-            Func<IScoped<IFhirDataStore>> dataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
             var processingJob = new ReindexProcessingJob(
                 () => _searchService,
-                dataStoreScope,
+                () => _scopedDataStore.Value.CreateMockScope(),
                 _resourceWrapperFactory,
-                _searchParameterOperations,
-                _searchParameterStatusManager,
+                _searchParameterDefinitionManager,
                 NullLogger<ReindexProcessingJob>.Instance);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -1475,24 +1463,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private async Task InitializeSecondFHIRService()
         {
-            var collection = new ServiceCollection();
-            ServiceProvider services = collection.BuildServiceProvider();
-
+            var services = new ServiceCollection().BuildServiceProvider();
             var mediator = new Mediator(services);
-            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
-
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 mediator,
                 _searchService.CreateMockScopeProviderFromScoped(),
-                searchParameterComparer,
-                statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
+                _fixture.SearchParameterStatusDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
-            _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 
             _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, _searchParameterSupportResolver, mediator, NullLogger<SearchParameterStatusManager>.Instance);
             await _searchParameterStatusManager2.EnsureInitializedAsync(CancellationToken.None);
@@ -1503,7 +1483,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
