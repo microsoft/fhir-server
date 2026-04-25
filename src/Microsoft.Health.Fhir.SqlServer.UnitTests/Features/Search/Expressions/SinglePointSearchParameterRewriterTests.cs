@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     public class SinglePointSearchParameterRewriterTests
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
-        private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 7, 0, 0, 0, TimeSpan.Zero); // Next day at midnight (exactly 24 hours)
+        private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
         private static SearchParameterInfo BuildBirthDate() =>
             new SearchParameterInfo(
@@ -40,20 +40,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 baseResourceTypes: new[] { "Observation" });
 
         [Fact]
-        public void GivenAllowlistedEqualityPattern_WhenRewritten_ThenPassesThroughUnchanged()
+        public void GivenAllowlistedEqualityPattern_WhenRewritten_ThenCollapsedToSingleEndDateTimeEquality()
         {
-            // Note: Equality rewrite is disabled because parser emits same shape for both equality and approximate.
-            // Two-sided AND patterns now pass through unchanged until higher-layer metadata is available.
             var input = new SearchParameterExpression(
                 BuildBirthDate(),
                 Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay),
-                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay)));
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay)),
+                SearchComparator.Eq);
 
             var result = input.AcceptVisitor(SinglePointSearchParameterRewriter.Instance, null);
 
-            // All two-sided AND patterns now pass through unchanged
-            Assert.Same(input, result);
+            var rewritten = Assert.IsType<SearchParameterExpression>(result);
+            var binary = Assert.IsType<BinaryExpression>(rewritten.Expression);
+            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+            Assert.Equal(EndOfDay, binary.Value);
         }
 
         [Fact]
@@ -63,7 +65,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 BuildObservationDate(),
                 Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay),
-                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay)));
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay)),
+                SearchComparator.Eq);
 
             var result = input.AcceptVisitor(SinglePointSearchParameterRewriter.Instance, null);
 
@@ -88,18 +91,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenApproximateShape_WhenRewritten_ThenPassThrough()
         {
-            // Approximate patterns (±30 days) should NOT be rewritten.
-            // They do not match the equality guard which checks for exact same-day boundaries.
             var approximateEnd = EndOfDay.AddDays(30);
             var input = new SearchParameterExpression(
                 BuildBirthDate(),
                 Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay.AddDays(-30)),
-                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, approximateEnd)));
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, approximateEnd)),
+                SearchComparator.Ap);
 
             var result = input.AcceptVisitor(SinglePointSearchParameterRewriter.Instance, null);
 
-            // Should NOT be rewritten because it does not match the equality shape
             Assert.Same(input, result);
         }
     }

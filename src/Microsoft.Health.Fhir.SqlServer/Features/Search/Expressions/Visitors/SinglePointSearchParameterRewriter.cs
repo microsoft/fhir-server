@@ -12,9 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// SQL expression rewriter that applies the single-point search parameter optimization policy.
-    /// Currently handles only single-column range predicates (GT/GTE on DateTimeEnd, LT/LTE on DateTimeStart).
-    /// Two-sided AND patterns are not rewritten because the parser emits identical AST shapes for both
-    /// equality and approximate date searches, making safe distinction impossible at the SQL layer.
+    /// Rewrites allowlisted date equality expressions to single-column predicates on DateTimeEnd.
     /// </summary>
     internal class SinglePointSearchParameterRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
@@ -43,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // Attempt to normalize the AST into a recognized pattern
-            if (!TryMatchPattern(expression.Expression, out SinglePointRewritePattern pattern, out int? componentIndex, out object value))
+            if (!TryMatchPattern(expression.Expression, expression.Comparator, out SinglePointRewritePattern pattern, out int? componentIndex, out object value))
             {
                 return expression;
             }
@@ -53,7 +51,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 SinglePointRewriteDecision.RewriteToEndDateTimeEquality => new SearchParameterExpression(
                     expression.Parameter,
-                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, componentIndex, value)),
+                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, componentIndex, value),
+                    expression.Comparator),
                 SinglePointRewriteDecision.UseExistingExpression => expression,
                 _ => expression,
             };
@@ -63,11 +62,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// Attempts to normalize the AST expression into a recognized <see cref="SinglePointRewritePattern"/>.
         /// </summary>
         /// <param name="expression">The expression to normalize.</param>
+        /// <param name="comparator">The original comparator for the parsed search value, if known.</param>
         /// <param name="pattern">The normalized pattern, if recognized.</param>
         /// <param name="componentIndex">The component index from the recognized pattern.</param>
         /// <param name="value">The value from the recognized pattern.</param>
         /// <returns>True if the expression matched a recognized pattern; false otherwise.</returns>
-        private static bool TryMatchPattern(Expression expression, out SinglePointRewritePattern pattern, out int? componentIndex, out object value)
+        private static bool TryMatchPattern(Expression expression, SearchComparator? comparator, out SinglePointRewritePattern pattern, out int? componentIndex, out object value)
         {
             pattern = SinglePointRewritePattern.Unsupported;
             componentIndex = null;
@@ -91,11 +91,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return pattern != SinglePointRewritePattern.Unsupported;
             }
 
-            // Note: Two-sided AND predicates (DateTimeStart >= ... AND DateTimeEnd <= ...) are deliberately NOT matched here.
-            // The parser emits the same shape for both equality and approximate date searches, so we cannot safely distinguish
-            // them at the SQL layer. The equality rewrite is disabled until a higher-level seam (e.g., from the parser or
-            // search service) can provide unambiguous metadata about the search intent (Task 5/6).
-            // For now, all multi-clause expressions pass through unchanged.
+            if (comparator != SearchComparator.Eq)
+            {
+                return false;
+            }
+
+            // Only parser-tagged eq predicates are eligible for the equality rewrite.
+            // Approximate queries share the same binary shape, so we rely on comparator intent
+            // being preserved on SearchParameterExpression rather than re-inferring semantics here.
+            if (expression is MultiaryExpression multiary &&
+                multiary.MultiaryOperation == MultiaryOperator.And &&
+                multiary.Expressions.Count == 2 &&
+                multiary.Expressions[0] is BinaryExpression first &&
+                multiary.Expressions[1] is BinaryExpression second &&
+                first.ComponentIndex == second.ComponentIndex &&
+                first.FieldName == FieldName.DateTimeStart &&
+                first.BinaryOperator == BinaryOperator.GreaterThanOrEqual &&
+                second.FieldName == FieldName.DateTimeEnd &&
+                second.BinaryOperator == BinaryOperator.LessThanOrEqual)
+            {
+                pattern = SinglePointRewritePattern.Equality;
+                componentIndex = first.ComponentIndex;
+                value = second.Value;
+                return true;
+            }
+
+            if (expression is MultiaryExpression reversed &&
+                reversed.MultiaryOperation == MultiaryOperator.And &&
+                reversed.Expressions.Count == 2 &&
+                reversed.Expressions[0] is BinaryExpression left &&
+                reversed.Expressions[1] is BinaryExpression right &&
+                left.ComponentIndex == right.ComponentIndex &&
+                left.FieldName == FieldName.DateTimeEnd &&
+                left.BinaryOperator == BinaryOperator.LessThanOrEqual &&
+                right.FieldName == FieldName.DateTimeStart &&
+                right.BinaryOperator == BinaryOperator.GreaterThanOrEqual)
+            {
+                pattern = SinglePointRewritePattern.Equality;
+                componentIndex = left.ComponentIndex;
+                value = left.Value;
+                return true;
+            }
 
             return false;
         }

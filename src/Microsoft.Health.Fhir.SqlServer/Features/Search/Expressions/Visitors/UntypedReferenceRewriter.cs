@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return expression;
                 }
 
-                return Expression.SearchParameter(expression.Parameter, Expression.Or(rewrittenExpressions));
+                return Expression.SearchParameter(expression.Parameter, Expression.Or(rewrittenExpressions), expression.Comparator);
             }
 
             // a single expression (possibly ANDs), not multiple expressions ORed together
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return Expression.SearchParameter(expression.Parameter, rewrittenExpression);
+            return Expression.SearchParameter(expression.Parameter, rewrittenExpression, expression.Comparator);
         }
 
         /// <summary>

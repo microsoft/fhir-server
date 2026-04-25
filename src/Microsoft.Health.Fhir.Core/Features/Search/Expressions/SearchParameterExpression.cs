@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -14,15 +15,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SearchParameterExpression : SearchParameterExpressionBase
     {
-        public SearchParameterExpression(SearchParameterInfo searchParameter, Expression expression)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterExpression"/> class.
+        /// </summary>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
+        /// <param name="expression">The expression over the parameter's values.</param>
+        /// <param name="comparator">The original comparator for the parsed search value, if known.</param>
+        public SearchParameterExpression(SearchParameterInfo searchParameter, Expression expression, SearchComparator? comparator = null)
             : base(searchParameter)
         {
             EnsureArg.IsNotNull(expression, nameof(expression));
 
             Expression = expression;
+            Comparator = comparator;
         }
 
+        /// <summary>
+        /// Gets the expression over the parameter's values.
+        /// </summary>
         public Expression Expression { get; }
+
+        /// <summary>
+        /// Gets the original comparator for the parsed search value, if known.
+        /// </summary>
+        public SearchComparator? Comparator { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -39,12 +55,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             hashCode.Add(typeof(SearchParameterExpression));
             hashCode.Add(Parameter);
+            hashCode.Add(Comparator);
             Expression.AddValueInsensitiveHashCode(ref hashCode);
         }
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            return other is SearchParameterExpression spe && spe.Parameter.Equals(Parameter) && spe.Expression.ValueInsensitiveEquals(Expression);
+            return other is SearchParameterExpression spe &&
+                   spe.Parameter.Equals(Parameter) &&
+                   spe.Comparator == Comparator &&
+                   spe.Expression.ValueInsensitiveEquals(Expression);
         }
     }
 }

@@ -26,6 +26,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
+        [Theory]
+        [InlineData("1980-05-11", 3)]
+        [InlineData("gt1980-05-11", 1, 2, 4)]
+        public async Task GivenAPatientBirthDateSearchWithIdentifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
+        {
+            try
+            {
+                string identifier = Uri.EscapeDataString($"{Fixture.PatientIdentifier.System}|{Fixture.PatientIdentifier.Value}");
+                Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}&identifier={identifier}");
+
+                Patient[] expected = expectedIndices.Select(i => Fixture.Patients[i]).ToArray();
+
+                ValidateBundle(bundle, expected);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
         // http://hl7.org/fhir/search.html#prefix
         // eq: the range of the search value has to fully contains the range of the target value.
         // ne: the range of the search value does not fully contain the range of the target value.

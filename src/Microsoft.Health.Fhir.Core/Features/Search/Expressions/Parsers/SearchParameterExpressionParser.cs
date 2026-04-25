@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
             Expression outputExpression;
+            SearchComparator? comparator = null;
 
             if (modifier?.SearchModifierCode == SearchModifierCode.Missing)
             {
@@ -117,7 +118,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                                 componentSearchParameter,
                                 modifier: null,
                                 componentIndex: componentIndex,
-                                value: componentValue);
+                                value: componentValue,
+                                out _);
                         }
 
                         orExpressions[orIndex] = Expression.And(compositeExpressions);
@@ -131,23 +133,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         searchParameter,
                         modifier,
                         componentIndex: null,
-                        value: value);
+                        value: value,
+                        out SearchComparator parsedComparator);
+
+                    comparator = parsedComparator;
                 }
             }
 
-            return Expression.SearchParameter(searchParameter, outputExpression);
+            return Expression.SearchParameter(searchParameter, outputExpression, comparator);
         }
 
         private Expression Build(
             SearchParameterInfo searchParameter,
             SearchModifier modifier,
             int? componentIndex,
-            string value)
+            string value,
+            out SearchComparator comparator)
         {
             ReadOnlySpan<char> valueSpan = value.AsSpan();
 
             // By default, the comparator is equal.
-            SearchComparator comparator = SearchComparator.Eq;
+            SearchComparator parsedComparator = SearchComparator.Eq;
 
             if (searchParameter.Type == SearchParamType.Date ||
                 searchParameter.Type == SearchParamType.Number ||
@@ -159,10 +165,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 if (matchedComparator != null)
                 {
-                    comparator = matchedComparator.Item2;
+                    parsedComparator = matchedComparator.Item2;
                     valueSpan = valueSpan.Slice(matchedComparator.Item1.Length);
                 }
             }
+
+            comparator = parsedComparator;
 
             // Parse the value.
             Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
@@ -183,13 +191,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 return helper.Build(
                     searchParameter.Code,
                     modifier,
-                    comparator,
+                    parsedComparator,
                     componentIndex,
                     searchValue);
             }
             else
             {
-                if (comparator != SearchComparator.Eq)
+                if (parsedComparator != SearchComparator.Eq)
                 {
                     throw new InvalidSearchOperationException(Core.Resources.SearchComparatorNotSupported);
                 }
@@ -204,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         return helper.Build(
                             searchParameter.Code,
                             null,
-                            comparator,
+                            parsedComparator,
                             componentIndex,
                             searchValue);
                     }).ToArray();
@@ -221,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         return helper.Build(
                             searchParameter.Code,
                             modifier,
-                            comparator,
+                            parsedComparator,
                             componentIndex,
                             searchValue);
                     }).ToArray();
