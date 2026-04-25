@@ -7,5 +7,5 @@ using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
-[assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
-[assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]
+[assembly: TestFramework(typeof(CustomXunitTestFramework))]
+[assembly: Xunit.AssemblyFixtureAttribute(typeof(SetModelInfoProviderAssemblyFixture))]

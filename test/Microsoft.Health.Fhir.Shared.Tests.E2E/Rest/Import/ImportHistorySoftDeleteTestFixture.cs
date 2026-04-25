@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             TestResources.Add("NewImplicitVersionId", GetNewImplicitVersionIdResources());
             TestResources.Add("ImportOverExistingVersionId", GetImportOverExistingVersionIdResources());

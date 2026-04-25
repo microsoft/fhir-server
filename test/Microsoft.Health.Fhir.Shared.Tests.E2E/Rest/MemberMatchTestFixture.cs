@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _tag = new Coding(string.Empty, Guid.NewGuid().ToString());
         }
 
-        protected override async System.Threading.Tasks.Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             // Create various resources.
             Patient[] patients = await TestFhirClient.CreateResourcesAsync<Patient>(
