@@ -23,6 +23,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public IReadOnlyList<Observation> Observations { get; private set; }
 
+        public Identifier PatientIdentifier { get; private set; }
+
+        public IReadOnlyList<Patient> Patients { get; private set; }
+
         protected override async Task OnInitializedAsync()
         {
             // Creates a unique code for searches
@@ -31,6 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Code = Guid.NewGuid().ToString(),
                 System = "http://fhir-server-test/guid",
             };
+
+            PatientIdentifier = new Identifier("http://fhir-server-test/date-search", Guid.NewGuid().ToString());
 
             Observations = await TestFhirClient.CreateResourcesAsync<Observation>(
             p => SetObservation(p, "1979-12-31"),                // 1979-12-31T00:00:00.0000000 <-> 1979-12-31T23:59:59.9999999
@@ -41,6 +47,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             p => SetObservation(p, "1980-05-11T16:32:15.500"),   // 1980-05-11T16:32:15.5000000 <-> 1980-05-11T16:32:15.5000000
             p => SetObservation(p, "1981-01-01"),        // 1981-01-01T00:00:00.0000000 <-> 1981-12-31T23:59:59.9999999
             p => SetObservationWithPeriod(p, "1980-05-16", "1980-05-17")); // 1980-05-16T00:00:00.0000000 <-> 1980-05-17T23:59:59.9999999
+
+            Patients = await TestFhirClient.CreateResourcesAsync<Patient>(
+                p => SetPatient(p, "1979-12-31"),
+                p => SetPatient(p, "1980"),
+                p => SetPatient(p, "1980-05"),
+                p => SetPatient(p, "1980-05-11"),
+                p => SetPatient(p, "1981-01-01"));
+
             void SetObservation(Observation observation, string date)
             {
                 observation.Status = ObservationStatus.Final;
@@ -65,6 +79,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
                 observation.Effective = new Period(new FhirDateTime(startDate), new FhirDateTime(endDate));
+            }
+
+            void SetPatient(Patient patient, string birthDate)
+            {
+                patient.Identifier = new List<Identifier> { new Identifier(PatientIdentifier.System, PatientIdentifier.Value) };
+                patient.BirthDate = birthDate;
             }
         }
     }

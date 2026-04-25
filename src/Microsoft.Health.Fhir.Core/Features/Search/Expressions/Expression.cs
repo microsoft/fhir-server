@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -25,10 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="expression">The expression over the parameter's values.</param>
+        /// <param name="comparator">The original comparator for the parsed search value, if known.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression)
+        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression, SearchComparator? comparator = null)
         {
-            return new SearchParameterExpression(searchParameter, expression);
+            return new SearchParameterExpression(searchParameter, expression, comparator);
         }
 
         /// <summary>

@@ -2062,6 +2062,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter)
+                .AcceptVisitor(SinglePointSearchParameterRewriter.Instance)
                 .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                 .AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)

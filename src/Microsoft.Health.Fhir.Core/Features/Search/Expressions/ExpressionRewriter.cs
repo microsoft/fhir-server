@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 return expression;
             }
 
-            return new SearchParameterExpression(expression.Parameter, visitedExpression);
+            return new SearchParameterExpression(expression.Parameter, visitedExpression, expression.Comparator);
         }
 
         public virtual Expression VisitBinary(BinaryExpression expression, TContext context)

@@ -299,6 +299,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
+        [InlineData("2018", SearchComparator.Eq)]
+        [InlineData("eq2018", SearchComparator.Eq)]
+        [InlineData("ap2018", SearchComparator.Ap)]
+        public void GivenADate_WhenParsed_ThenSearchParameterComparatorIsPreserved(string input, SearchComparator expectedComparator)
+        {
+            var expression = Assert.IsType<SearchParameterExpression>(_parser.Parse(
+                CreateSearchParameter(SearchParamType.Date),
+                null,
+                input));
+
+            Assert.Equal(expectedComparator, expression.Comparator);
+        }
+
+        [Theory]
         [InlineData("2018")]
         [InlineData("2018-02")]
         [InlineData("2018-02-01")]
