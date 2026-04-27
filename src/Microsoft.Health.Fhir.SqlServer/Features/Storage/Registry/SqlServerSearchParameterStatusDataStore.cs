@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            if (_schemaInformation.Current >= 109)
+            if (_schemaInformation.Current >= 111)
             {
                 cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
             }
