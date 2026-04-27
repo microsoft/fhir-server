@@ -403,9 +403,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
+            // Save count of user-supplied parameters before FGAC may add more
+            int userParameterCount = searchParams.Parameters.Count;
+
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
-            searchExpressions.AddRange(searchParams.Parameters.Select(
+            // When resourceType is specified (type-level search), skip user-supplied _type query parameters
+            // during expression parsing. The resource type is already constrained by the URL.
+            // FGAC-added parameters (index >= userParameterCount) are preserved to maintain security restrictions.
+            var parametersToProcess = !string.IsNullOrWhiteSpace(resourceType)
+                ? searchParams.Parameters.Where((q, index) =>
+                    index >= userParameterCount ||
+                    !string.Equals(q.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                : searchParams.Parameters;
+
+            searchExpressions.AddRange(parametersToProcess.Select(
             q =>
             {
                 try

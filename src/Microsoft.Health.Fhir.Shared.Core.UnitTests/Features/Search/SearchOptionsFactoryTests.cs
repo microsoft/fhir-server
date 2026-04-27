@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         Tuple.Create("_type", "Patient,Observation,Practitioner"),
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) _type=Patient,Observation,Practitioner tag=xyz)",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -732,6 +732,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
+        }
+
+        [Fact]
+        public void GivenTypeLevelSearchWithTypeQueryParameter_WhenCreated_TypeParameterIsNotParsedAsExpression()
+        {
+            // _type should be stripped for type-level searches since the URL already constrains the resource type.
+            const string typeParamValue = "Patient,Observation,Condition";
+            var queryParameters = new[]
+            {
+                Tuple.Create("_type", typeParamValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            // The expression parser should NOT have been called for _type on a type-level search
+            _expressionParser.DidNotReceive().Parse(
+                Arg.Any<string[]>(),
+                Arg.Is(KnownQueryParameterNames.Type),
+                Arg.Is(typeParamValue));
+        }
+
+        [Fact]
+        public void GivenSystemLevelSearchWithTypeQueryParameter_WhenCreated_TypeParameterIsParsedAsExpression()
+        {
+            // _type should be preserved for system-level searches.
+            const string typeParamValue = "Patient,Observation";
+
+            _expressionParser.Parse(
+                Arg.Any<string[]>(),
+                Arg.Is(KnownQueryParameterNames.Type),
+                Arg.Is(typeParamValue))
+                .Returns(Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression.SearchParameter(
+                    _resourceTypeSearchParameterInfo,
+                    Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression.StringEquals(FieldName.TokenCode, null, typeParamValue, false)));
+
+            var queryParameters = new[]
+            {
+                Tuple.Create("_type", typeParamValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: null,
+                queryParameters: queryParameters);
+
+            // The expression parser SHOULD have been called for _type on a system-level search
+            _expressionParser.Received().Parse(
+                Arg.Any<string[]>(),
+                Arg.Is(KnownQueryParameterNames.Type),
+                Arg.Is(typeParamValue));
+
+            Assert.NotNull(options.Expression);
         }
 
         [Theory]

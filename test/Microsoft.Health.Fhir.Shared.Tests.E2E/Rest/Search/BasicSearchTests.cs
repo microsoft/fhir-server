@@ -124,6 +124,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTypeLevelSearchWithMissingAndTypeParameter_WhenSearched_ThenRedundantTypeParameterIsIgnored()
+        {
+            // This test verifies the fix for the bug where _type query parameters on type-level searches
+            // produced contradictory ResourceTypeId predicates, causing poor SQL query plans.
+            var tag = Guid.NewGuid().ToString();
+            Patient patientWithGender = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
+            Patient patientWithoutGender = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
+
+            // Type-level search with :missing=true and redundant _type parameter.
+            // The _type=Patient,Observation should be ignored for type-level /Patient search.
+            await ExecuteAndValidateBundle($"Patient?gender:missing=true&_type=Patient,Observation&_tag={tag}", patientWithoutGender);
+
+            // Type-level search with :missing=false and redundant _type parameter.
+            await ExecuteAndValidateBundle($"Patient?gender:missing=false&_type=Patient,Observation&_tag={tag}", patientWithGender);
+
+            // System-level search with :missing=true and _type should work as expected.
+            await ExecuteAndValidateBundle($"?gender:missing=true&_type=Patient&_tag={tag}", patientWithoutGender);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithReference_WhenSearchedWithReferenceAndIdParameter_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             Patient patientWithMatchingReference = (await Client.CreateResourcesAsync<Patient>(p =>
