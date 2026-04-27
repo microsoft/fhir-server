@@ -2706,60 +2706,6 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE dbo.GetPreciseStatisticsProperties
-AS
-SET NOCOUNT ON;
-DECLARE @i AS INT = 0, @count AS INT, @stat_name AS NVARCHAR (128), @table_name AS NVARCHAR (128), @min_rows AS INT, @max_rows AS INT;
-DECLARE @results TABLE (
-    stat_name  NVARCHAR (128),
-    table_name NVARCHAR (128),
-    skew       INT           );
-DECLARE @stat_names TABLE (
-    stat_name  NVARCHAR (128),
-    table_name NVARCHAR (128));
-DECLARE @stats_histogram TABLE (
-    range_hi_key        NVARCHAR (128),
-    range_rows          INT           ,
-    eq_rows             INT           ,
-    distinct_range_rows INT           ,
-    avg_range_rows      FLOAT         );
-INSERT @stat_names
-SELECT DISTINCT s.name AS stat_name,
-                OBJECT_NAME(s.OBJECT_ID) AS table_name
-FROM   sys.stats AS s
-       INNER JOIN
-       sys.stats_columns AS sc
-       ON s.object_id = sc.object_id
-          AND s.stats_id = sc.stats_id
-       INNER JOIN
-       sys.columns AS c
-       ON sc.object_id = c.object_id
-          AND sc.column_id = c.column_id
-WHERE  s.name LIKE 'ST_%';
-SELECT @count = count(*)
-FROM   @stat_names;
-WHILE @i < @count
-    BEGIN
-        SELECT   @stat_name = stat_name,
-                 @table_name = table_name
-        FROM     @stat_names
-        ORDER BY table_name, stat_name
-        OFFSET @i ROWS FETCH NEXT 1 ROWS ONLY;
-        PRINT @stat_name + ' ' + @table_name;
-        INSERT @stats_histogram
-        EXECUTE ('DBCC SHOW_STATISTICS(''' + @table_name + ''',' + @stat_name + ') WITH HISTOGRAM');
-        SELECT @min_rows = MIN(eq_rows),
-               @max_rows = MAX(eq_rows)
-        FROM   @stats_histogram;
-        INSERT  @results
-        VALUES (@stat_name, @table_name, @max_rows / @min_rows);
-        DELETE @stats_histogram;
-        SET @i = @i + 1;
-    END
-SELECT *
-FROM   @results;
-
-GO
 CREATE PROCEDURE dbo.GetQuantityCodeId
 @stringValue NVARCHAR (255)
 AS
@@ -3203,6 +3149,60 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH
+
+GO
+CREATE PROCEDURE dbo.GetResourceSearchParamStatsProperties
+AS
+SET NOCOUNT ON;
+DECLARE @i AS INT = 0, @count AS INT, @stat_name AS NVARCHAR (128), @table_name AS NVARCHAR (128), @min_rows AS INT, @max_rows AS INT;
+DECLARE @results TABLE (
+    stat_name  NVARCHAR (128),
+    table_name NVARCHAR (128),
+    skew       INT           );
+DECLARE @stat_names TABLE (
+    stat_name  NVARCHAR (128),
+    table_name NVARCHAR (128));
+DECLARE @stats_histogram TABLE (
+    range_hi_key        NVARCHAR (128),
+    range_rows          INT           ,
+    eq_rows             INT           ,
+    distinct_range_rows INT           ,
+    avg_range_rows      FLOAT         );
+INSERT @stat_names
+SELECT DISTINCT s.name AS stat_name,
+                OBJECT_NAME(s.OBJECT_ID) AS table_name
+FROM   sys.stats AS s
+       INNER JOIN
+       sys.stats_columns AS sc
+       ON s.object_id = sc.object_id
+          AND s.stats_id = sc.stats_id
+       INNER JOIN
+       sys.columns AS c
+       ON sc.object_id = c.object_id
+          AND sc.column_id = c.column_id
+WHERE  s.name LIKE 'ST_%';
+SELECT @count = count(*)
+FROM   @stat_names;
+WHILE @i < @count
+    BEGIN
+        SELECT   @stat_name = stat_name,
+                 @table_name = table_name
+        FROM     @stat_names
+        ORDER BY table_name, stat_name
+        OFFSET @i ROWS FETCH NEXT 1 ROWS ONLY;
+        PRINT @stat_name + ' ' + @table_name;
+        INSERT @stats_histogram
+        EXECUTE ('DBCC SHOW_STATISTICS(''' + @table_name + ''',' + @stat_name + ') WITH HISTOGRAM');
+        SELECT @min_rows = MIN(eq_rows),
+               @max_rows = MAX(eq_rows)
+        FROM   @stats_histogram;
+        INSERT  @results
+        VALUES (@stat_name, @table_name, @max_rows / @min_rows);
+        DELETE @stats_histogram;
+        SET @i = @i + 1;
+    END
+SELECT *
+FROM   @results;
 
 GO
 CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges

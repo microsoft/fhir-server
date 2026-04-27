@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.GetPreciseStatisticsProperties
+﻿--DROP PROCEDURE dbo.GetResourceSearchParamStatsProperties
 GO
-CREATE PROCEDURE dbo.GetPreciseStatisticsProperties
+CREATE PROCEDURE dbo.GetResourceSearchParamStatsProperties
 AS
 set nocount on
 DECLARE  @i int = 0
