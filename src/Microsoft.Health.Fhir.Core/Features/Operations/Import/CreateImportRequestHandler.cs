@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.JobManagement;
 
@@ -44,10 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
             var definitionObj = new ImportOrchestratorJobDefinition()
             {

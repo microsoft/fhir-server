@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var watchdog = new ExpiredResourceCleanupWatchdog();
 
             // Assert
-            Assert.Equal(8 * 3600, watchdog.PeriodSec);
+            Assert.Equal(4 * 3600, watchdog.PeriodSec);
             Assert.Equal(3600, watchdog.LeasePeriodSec);
             Assert.False(watchdog.AllowRebalance);
         }

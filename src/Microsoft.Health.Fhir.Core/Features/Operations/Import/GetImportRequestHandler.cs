@@ -15,6 +15,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -40,10 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
             var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
             if (coord == null || coord.Status == JobStatus.Archived)

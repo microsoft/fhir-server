@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
         }
 
-        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        public override Task<bool> CheckAccess(CancellationToken cancellationToken)
         {
             return AuthorizationService.CheckConditionalCreateAccess(cancellationToken);
         }

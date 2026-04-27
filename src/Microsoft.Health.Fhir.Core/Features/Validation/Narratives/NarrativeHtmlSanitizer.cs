@@ -14,13 +14,16 @@ using AngleSharp.Html.Dom.Events;
 using AngleSharp.Html.Parser;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
     public class NarrativeHtmlSanitizer : INarrativeHtmlSanitizer
     {
         private readonly ILogger _logger;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         private static readonly HashSet<string> AllowedElements = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -131,12 +134,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "xmlns",
         };
 
-        private static readonly ISet<string> Src = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly ISet<string> AllowedSrcSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "#",
             "data:",
             "http:",
             "https:",
+        };
+
+        private static readonly ISet<string> DangerousHrefSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "javascript:",
+            "vbscript:",
+            "data:",
+            "livescript:",
+            "file:",
+            "blob:",
+            "ftp:",
+            "ms-its:",
+            "mhtml:",
+            "jar:",
         };
 
         // Obvious invalid structural parsing errors to report
@@ -153,11 +170,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
         private const string HtmlTemplate = "<!DOCTYPE html><body>{0}</body>";
 
-        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger)
+        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _logger = logger;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
         }
 
         /// <summary>
@@ -213,10 +232,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 var invalidHtml = new List<string>();
 
+                Action<IElement, IAttr> dangerousHrefHandler;
+                if (_coreFeatureConfiguration.RejectDangerousNarrativeHrefs)
+                {
+                    dangerousHrefHandler = (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName));
+                }
+                else
+                {
+                    dangerousHrefHandler = (el, attr) => _logger.LogWarning("Narrative HTML contains a potentially dangerous href scheme in attribute '{Attribute}' on element '{Element}'. Value: '{Value}'.", attr.Name, el.NodeName, attr.Value);
+                }
+
                 CheckHtmlElements(
                     containerDiv,
                     el => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlElement, el.NodeName)),
-                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)));
+                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)),
+                    dangerousHrefHandler);
 
                 foreach (var htmlError in invalidHtml)
                 {
@@ -249,6 +279,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     CheckHtmlElements(
                         containerDiv,
                         el => el.Replace(el.ChildNodes.ToArray()),
+                        (el, attr) => el.RemoveAttribute(attr.Name),
                         (el, attr) => el.RemoveAttribute(attr.Name));
 
                     dom.Normalize();
@@ -261,13 +292,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         private static void CheckHtmlElements(
             IHtmlDivElement htmlDivElement,
             Action<IElement> onInvalidElement,
-            Action<IElement, IAttr> onInvalidAttr)
+            Action<IElement, IAttr> onInvalidAttr,
+            Action<IElement, IAttr> onDangerousHref)
         {
             EnsureArg.IsNotNull(htmlDivElement, nameof(htmlDivElement));
             EnsureArg.IsNotNull(onInvalidElement, nameof(onInvalidElement));
             EnsureArg.IsNotNull(onInvalidAttr, nameof(onInvalidAttr));
+            EnsureArg.IsNotNull(onDangerousHref, nameof(onDangerousHref));
 
-            ValidateAttributes(htmlDivElement, onInvalidAttr);
+            ValidateAttributes(htmlDivElement, onInvalidAttr, onDangerousHref);
 
             // Ensure only allowed elements and attributes are used
             foreach (IElement element in htmlDivElement.QuerySelectorAll("*"))
@@ -277,11 +310,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     onInvalidElement(element);
                 }
 
-                ValidateAttributes(element, onInvalidAttr);
+                ValidateAttributes(element, onInvalidAttr, onDangerousHref);
             }
         }
 
-        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr)
+        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr, Action<IElement, IAttr> onDangerousHref)
         {
             foreach (IAttr attr in element.Attributes.ToArray())
             {
@@ -292,9 +325,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    if (!AllowedSrcSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onInvalidAttr(element, attr);
+                    }
+                }
+
+                if (string.Equals("href", attr.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (DangerousHrefSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        onDangerousHref(element, attr);
                     }
                 }
             }

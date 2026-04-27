@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
