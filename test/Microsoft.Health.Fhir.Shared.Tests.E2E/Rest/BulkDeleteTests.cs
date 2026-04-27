@@ -394,6 +394,83 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        public async Task GivenBulkDeleteWithMissingAndTypeParameter_WhenCompleted_ThenResourcesAreDeletedWithoutContradictoryPredicates()
+        {
+            // Regression test for the bug where system-level bulk-delete with _tag:missing=true and _type
+            // produced contradictory ResourceTypeId predicates during per-type iteration, causing severe
+            // SQL query performance degradation (avg 31.3s / max 180s on 1.92B-row tables).
+            CheckBulkDeleteEnabled();
+
+            string tag = Guid.NewGuid().ToString();
+
+            // Create patients: one with a specific tag, one without (to match :missing=true on a different param)
+            var patientWithGender = Activator.CreateInstance<Patient>();
+            patientWithGender.Gender = AdministrativeGender.Female;
+            patientWithGender.Meta = new Meta
+            {
+                Tag = new List<Coding> { new Coding("testTag", tag) },
+            };
+            await _fhirClient.CreateAsync(patientWithGender);
+
+            var patientWithoutGender = Activator.CreateInstance<Patient>();
+            patientWithoutGender.Meta = new Meta
+            {
+                Tag = new List<Coding> { new Coding("testTag", tag) },
+            };
+            await _fhirClient.CreateAsync(patientWithoutGender);
+
+            // Create an observation with the same tag but without a value for :missing search
+            var observation = Activator.CreateInstance<Observation>();
+            observation.Meta = new Meta
+            {
+                Tag = new List<Coding> { new Coding("testTag", tag) },
+            };
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept("test", "test");
+            await _fhirClient.CreateAsync(observation);
+
+            await Task.Delay(2000);
+
+            // System-level bulk-delete with _type and :missing=true — the exact scenario from the production bug.
+            // The orchestrator will iterate per-type (Patient, Observation), and for each type-level search
+            // the _type parameter should be stripped to avoid contradictory ResourceTypeId predicates.
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+                RequestUri = new Uri(_httpClient.BaseAddress, QueryHelpers.AddQueryString("$bulk-delete", new Dictionary<string, string>
+                {
+                    { "_tag", tag },
+                    { "_type", "Patient,Observation" },
+                    { "gender:missing", "true" },
+                })),
+            };
+            request.Headers.Add(KnownHeaders.Prefer, "respond-async");
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // The bulk-delete should successfully complete. Before the fix, the contradictory predicates
+            // caused severe performance issues but the delete eventually succeeded. After the fix,
+            // it should complete without the contradictory predicates.
+            var expectedResults = new Dictionary<string, long>
+            {
+                { "Patient", 1 }, // Only patient without gender matches gender:missing=true
+                { "Observation", 1 }, // Observation doesn't have gender, so gender:missing=true matches
+            };
+
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // Verify patient with gender was NOT deleted (gender:missing=true should not match)
+            var patientResults = await _fhirClient.SearchAsync($"Patient?_tag={tag}");
+            Assert.Single(patientResults.Resource.Entry);
+
+            // Verify observation was deleted
+            var observationResults = await _fhirClient.SearchAsync($"Observation?_tag={tag}");
+            Assert.Empty(observationResults.Resource.Entry);
+        }
+
+        [SkippableFact]
         public async Task GivenBulkDeleteRequestWithMultipleExcludedResourceTypes_WhenCompleted_ThenExcludedResourcesAreNotDeleted()
         {
             CheckBulkDeleteEnabled();

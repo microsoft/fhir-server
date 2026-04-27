@@ -753,6 +753,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Arg.Any<string[]>(),
                 Arg.Is(KnownQueryParameterNames.Type),
                 Arg.Is(typeParamValue));
+
+            // A warning should be emitted indicating _type was ignored
+            Assert.Contains(
+                _defaultFhirRequestContext.BundleIssues,
+                issue => issue.Diagnostics.Contains("_type") && issue.Diagnostics.Contains("ignored"));
+        }
+
+        [Fact]
+        public void GivenTypeLevelSearchWithMismatchedTypeParameter_WhenCreated_WarningIsEmittedWithCorrectDetails()
+        {
+            // /Patient?_type=Observation — fully mismatched type should be stripped with a warning
+            // containing both the ignored value and the URL resource type.
+            const string typeParamValue = "Observation";
+            var queryParameters = new[]
+            {
+                Tuple.Create("_type", typeParamValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            _expressionParser.DidNotReceive().Parse(
+                Arg.Any<string[]>(),
+                Arg.Is(KnownQueryParameterNames.Type),
+                Arg.Is(typeParamValue));
+
+            var warning = Assert.Single(
+                _defaultFhirRequestContext.BundleIssues,
+                issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Information
+                    && issue.Code == OperationOutcomeConstants.IssueType.Informational);
+
+            Assert.Contains("Observation", warning.Diagnostics);
+            Assert.Contains("Patient", warning.Diagnostics);
         }
 
         [Fact]
@@ -785,6 +819,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Arg.Is(typeParamValue));
 
             Assert.NotNull(options.Expression);
+
+            // No warning should be emitted for system-level searches
+            Assert.DoesNotContain(
+                _defaultFhirRequestContext.BundleIssues,
+                issue => issue.Diagnostics.Contains("_type") && issue.Diagnostics.Contains("ignored"));
         }
 
         [Theory]

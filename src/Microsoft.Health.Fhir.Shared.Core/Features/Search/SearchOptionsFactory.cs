@@ -417,6 +417,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     !string.Equals(q.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 : searchParams.Parameters;
 
+            // Emit a warning for each user-supplied _type parameter that was ignored on a type-level search.
+            if (!string.IsNullOrWhiteSpace(resourceType))
+            {
+                foreach (var q in searchParams.Parameters.Take(userParameterCount)
+                    .Where(q => string.Equals(q.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.TypeParameterIgnoredForTypeLevelSearch, q.Item2, resourceType)));
+                }
+            }
+
             searchExpressions.AddRange(parametersToProcess.Select(
             q =>
             {

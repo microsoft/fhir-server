@@ -164,6 +164,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTypeLevelSearchWithMismatchedTypeParameter_WhenSearched_ThenBundleContainsInformationIssue()
+        {
+            // /Patient?_type=Observation — the _type is completely mismatched with the URL resource type.
+            // The server should ignore _type, return Patient results, and include an OperationOutcome
+            // with an informational issue in the Bundle.
+            var tag = Guid.NewGuid().ToString();
+            Patient patient = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_type=Observation&_tag={tag}");
+
+            // The OperationOutcome should be the first entry in the Bundle
+            var operationOutcome = bundle.Entry.FirstOrDefault()?.Resource as OperationOutcome;
+            Assert.NotNull(operationOutcome);
+
+            // Verify it contains an informational issue about _type being ignored
+            var issue = Assert.Single(operationOutcome.Issue, i =>
+                i.Severity == OperationOutcome.IssueSeverity.Information
+                && i.Diagnostics.Contains("_type")
+                && i.Diagnostics.Contains("ignored"));
+            Assert.Contains("Observation", issue.Diagnostics);
+            Assert.Contains("Patient", issue.Diagnostics);
+
+            // The Patient resource should still be returned (URL type wins)
+            var patientEntries = bundle.Entry.Where(e => e.Resource is Patient).ToList();
+            Assert.Single(patientEntries);
+            Assert.Equal(patient.Id, patientEntries[0].Resource.Id);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithReference_WhenSearchedWithReferenceAndIdParameter_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             Patient patientWithMatchingReference = (await Client.CreateResourcesAsync<Patient>(p =>

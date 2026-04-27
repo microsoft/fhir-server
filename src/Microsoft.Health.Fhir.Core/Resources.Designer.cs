@@ -918,6 +918,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_type&apos; parameter value &apos;{0}&apos; was ignored because the resource type is already constrained by the URL to &apos;{1}&apos;..
+        /// </summary>
+        internal static string TypeParameterIgnoredForTypeLevelSearch {
+            get {
+                return ResourceManager.GetString("TypeParameterIgnoredForTypeLevelSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided status of &apos;{0}&apos; for url &apos;{1}&apos; is invalid. It can be either &apos;supported or &apos;disabled&apos;.
         /// </summary>
         internal static string InvalidUpdateStatus {
