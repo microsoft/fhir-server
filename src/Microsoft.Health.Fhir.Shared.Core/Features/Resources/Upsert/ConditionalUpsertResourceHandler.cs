@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
         }
 
-        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        public override Task<bool> CheckAccess(CancellationToken cancellationToken)
         {
             return AuthorizationService.CheckConditionalUpdateAccess(cancellationToken);
         }

@@ -1,37 +1,12 @@
-IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PROCEDURE UpsertSearchParamsWithOptimisticConcurrency
-IF object_id('AcquireReindexJobs') IS NOT NULL DROP PROCEDURE AcquireReindexJobs
-IF object_id('UpdateReindexJob') IS NOT NULL DROP PROCEDURE UpdateReindexJob
-IF object_id('GetSearchParamMaxLastUpdated') IS NOT NULL DROP PROCEDURE GetSearchParamMaxLastUpdated
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesAndSearchParams 
-     @SearchParams dbo.SearchParamList READONLY
-    ,@IsResourceChangeCaptureEnabled bit = 0
-    ,@TransactionId bigint = NULL
-    ,@Resources dbo.ResourceList READONLY
-    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
-    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
-    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
-    ,@TokenTexts dbo.TokenTextList READONLY
-    ,@StringSearchParams dbo.StringSearchParamList READONLY
-    ,@UriSearchParams dbo.UriSearchParamList READONLY
-    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
-    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
-    ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
-    ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
-    ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
-    ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
-    ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
-    ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
-    ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
+       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)
        ,@Rows int
-       ,@AffectedRows int = 0
        ,@Uri varchar(4000)
        ,@Status varchar(20)
 
@@ -40,10 +15,12 @@ INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
 WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
 BEGIN
   SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Status='+@Status+' Uri='+@Uri
+  SET @msg = 'Uri='+@Uri+' Status='+@Status
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
   DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
 END
+
+DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
 
 BEGIN TRY
   SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
@@ -52,42 +29,16 @@ BEGIN TRY
   
   -- Check for concurrency conflicts first using LastUpdated
   -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
-  SELECT TOP 60 @msg = string_agg(S.Uri, ', ') 
-    FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-    WHERE I.LastUpdated != S.LastUpdated
+  SELECT @msg = string_agg(S.Uri, ', ') 
+    FROM (
+      SELECT TOP 60 S.Uri
+        FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
+        WHERE I.LastUpdated != S.LastUpdated) S
   IF @msg IS NOT NULL
   BEGIN
     SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
     ROLLBACK TRANSACTION;
     THROW 50001, @msg, 1
-  END
-
-  IF EXISTS (SELECT * FROM @Resources)
-  BEGIN
-    EXECUTE dbo.MergeResources
-             @AffectedRows = @AffectedRows OUTPUT
-            ,@RaiseExceptionOnConflict = 1
-            ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
-            ,@TransactionId = @TransactionId
-            ,@SingleTransaction = 1
-            ,@Resources = @Resources
-            ,@ResourceWriteClaims = @ResourceWriteClaims
-            ,@ReferenceSearchParams = @ReferenceSearchParams
-            ,@TokenSearchParams = @TokenSearchParams
-            ,@TokenTexts = @TokenTexts
-            ,@StringSearchParams = @StringSearchParams
-            ,@UriSearchParams = @UriSearchParams
-            ,@NumberSearchParams = @NumberSearchParams
-            ,@QuantitySearchParams = @QuantitySearchParams
-            ,@DateTimeSearchParms = @DateTimeSearchParms
-            ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
-            ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
-            ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
-            ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
-            ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
-            ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
-
-    SET @Rows = @Rows + @AffectedRows;
   END
 
   MERGE INTO dbo.SearchParam S
@@ -99,9 +50,16 @@ BEGIN TRY
            ,IsPartiallySupported = I.IsPartiallySupported
     WHEN NOT MATCHED BY TARGET THEN 
       INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
-        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
+        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
+    OUTPUT I.Uri, $action INTO @SummaryOfChanges;
+  SET @Rows = @@rowcount
 
-  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' Merged='+convert(varchar,@@rowcount)
+  SELECT S.SearchParamId
+        ,S.Uri
+        ,S.LastUpdated
+    FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
+    WHERE C.Operation = 'INSERT'
+  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
 
   COMMIT TRANSACTION
 
@@ -113,22 +71,16 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeResourcesAndSearchParams','LogEvent'
+INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
 GO
-CREATE OR ALTER PROCEDURE dbo.GetSearchParamCacheUpdateEvents @UpdateProcess varchar(100), @UpdateEventsSince datetime, @ActiveHostsSince datetime
-AS
-set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Process='+@UpdateProcess+' EventsSince='+convert(varchar(23),@UpdateEventsSince,126)+' HostsSince='+convert(varchar(23),@ActiveHostsSince,126)
-       ,@st datetime = getUTCdate()
-
-SELECT EventDate
-      ,EventText = CASE WHEN Process = @UpdateProcess AND EventDate > @UpdateEventsSince THEN EventText ELSE NULL END
-      ,HostName
-  FROM dbo.EventLog
-  WHERE EventDate > @ActiveHostsSince
-
-EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
-GO
-INSERT INTO dbo.Parameters (Id, Char) SELECT 'GetSearchParamCacheUpdateEvents', 'LogEvent'
-GO
+--DECLARE @SearchParams dbo.SearchParamList
+--INSERT INTO @SearchParams
+--  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--INSERT INTO @SearchParams
+--  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--SELECT * FROM @SearchParams
+--EXECUTE dbo.MergeSearchParams @SearchParams
+--SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
+--DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
+--SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC

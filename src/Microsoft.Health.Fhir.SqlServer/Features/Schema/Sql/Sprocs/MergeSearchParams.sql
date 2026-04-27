@@ -29,9 +29,11 @@ BEGIN TRY
   
   -- Check for concurrency conflicts first using LastUpdated
   -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
-  SELECT TOP 60 @msg = string_agg(S.Uri, ', ') 
-    FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-    WHERE I.LastUpdated != S.LastUpdated
+  SELECT @msg = string_agg(S.Uri, ', ') 
+    FROM (
+      SELECT TOP 60 S.Uri
+        FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
+        WHERE I.LastUpdated != S.LastUpdated) S
   IF @msg IS NOT NULL
   BEGIN
     SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
