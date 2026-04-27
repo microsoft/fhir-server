@@ -1,14 +1,21 @@
 # ViewDefinition Resource Relationships
 
 ```mermaid
-graph TD
+graph LR
     subgraph Library["📦 Library Resource"]
         ViewDef["📄 ViewDefinition (contained)"]
     end
 
     Subscription["🔔 Subscription Resource"]
 
+    subgraph Materialized["💾 Materialized Data"]
+        SQL["SQL Table"]
+        Parquet["Parquet File"]
+        Fabric["Fabric"]
+    end
+
     Library -.->|relatedArtifact / link| Subscription
+    ViewDef -->|materializes| Materialized
 ```
 
 ## ViewDefinition Lifecycle
