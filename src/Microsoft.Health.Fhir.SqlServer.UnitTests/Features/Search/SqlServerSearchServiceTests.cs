@@ -299,5 +299,108 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Equal("Search.ReuseQueryPlans.IsEnabled", SqlServerSearchService.ReuseQueryPlansParameterId);
         }
+
+        [Fact]
+        public void CollectNotExistsLeaves_WithResourceSurrogateId_DetectsSurrogateIdAndMissingParam()
+        {
+            // Arrange: NotExists predicate with MissingSearchParameterExpression + ResourceSurrogateId constraint
+            var genderParam = new SearchParameterInfo("gender", "gender");
+            var missingExpr = Expression.MissingSearchParameter(genderParam, false);
+            var surrogateIdExpr = Expression.SearchParameter(
+                SqlSearchParameters.ResourceSurrogateIdParameter,
+                Expression.GreaterThanOrEqual(SqlFieldName.ResourceSurrogateId, null, 100L));
+
+            var predicate = Expression.And(missingExpr, surrogateIdExpr);
+
+            var missingParams = new List<MissingSearchParameterExpression>();
+            var resourceTypeIds = new HashSet<short>();
+            bool foundSurrogateId = false;
+
+            // Act
+            SqlServerSearchService.ResourceSearchParamStats.CollectNotExistsLeaves(
+                predicate, missingParams, resourceTypeIds, null, ref foundSurrogateId);
+
+            // Assert
+            Assert.Single(missingParams);
+            Assert.Equal("gender", missingParams[0].Parameter.Name);
+            Assert.True(foundSurrogateId, "Should detect ResourceSurrogateId constraint");
+        }
+
+        [Fact]
+        public void CollectNotExistsLeaves_WithoutResourceSurrogateId_DoesNotSetSurrogateIdFlag()
+        {
+            // Arrange: NotExists predicate with only MissingSearchParameterExpression
+            var genderParam = new SearchParameterInfo("gender", "gender");
+            var missingExpr = Expression.MissingSearchParameter(genderParam, false);
+
+            var missingParams = new List<MissingSearchParameterExpression>();
+            var resourceTypeIds = new HashSet<short>();
+            bool foundSurrogateId = false;
+
+            // Act
+            SqlServerSearchService.ResourceSearchParamStats.CollectNotExistsLeaves(
+                missingExpr, missingParams, resourceTypeIds, null, ref foundSurrogateId);
+
+            // Assert
+            Assert.Single(missingParams);
+            Assert.Equal("gender", missingParams[0].Parameter.Name);
+            Assert.False(foundSurrogateId, "Should not detect ResourceSurrogateId when absent");
+        }
+
+        [Fact]
+        public void CollectNotExistsLeaves_AmbiguousSameTablePredicates_CollectsMultipleMissingParams()
+        {
+            // Arrange: Two MissingSearchParameterExpression nodes in the same predicate (ambiguous)
+            var genderParam = new SearchParameterInfo("gender", "gender");
+            var codeParam = new SearchParameterInfo("code", "code");
+            var missing1 = Expression.MissingSearchParameter(genderParam, false);
+            var missing2 = Expression.MissingSearchParameter(codeParam, false);
+
+            var predicate = Expression.And(missing1, missing2);
+
+            var missingParams = new List<MissingSearchParameterExpression>();
+            var resourceTypeIds = new HashSet<short>();
+            bool foundSurrogateId = false;
+
+            // Act
+            SqlServerSearchService.ResourceSearchParamStats.CollectNotExistsLeaves(
+                predicate, missingParams, resourceTypeIds, null, ref foundSurrogateId);
+
+            // Assert: Two missing params collected — ProcessNotExistsForStats would skip this (ambiguous)
+            Assert.Equal(2, missingParams.Count);
+            Assert.False(foundSurrogateId);
+        }
+
+        [Fact]
+        public void CollectNotExistsLeaves_MixedPredicates_CollectsAllLeafTypes()
+        {
+            // Arrange: MissingSearchParameterExpression + unrelated param + ResourceSurrogateId
+            var genderParam = new SearchParameterInfo("gender", "gender");
+            var missingExpr = Expression.MissingSearchParameter(genderParam, false);
+
+            var otherParam = new SearchParameterInfo("active", "active");
+            var otherExpr = Expression.SearchParameter(
+                otherParam,
+                Expression.StringEquals(FieldName.TokenCode, null, "true", false));
+
+            var surrogateIdExpr = Expression.SearchParameter(
+                SqlSearchParameters.ResourceSurrogateIdParameter,
+                Expression.GreaterThanOrEqual(SqlFieldName.ResourceSurrogateId, null, 100L));
+
+            var predicate = Expression.And(missingExpr, otherExpr, surrogateIdExpr);
+
+            var missingParams = new List<MissingSearchParameterExpression>();
+            var resourceTypeIds = new HashSet<short>();
+            bool foundSurrogateId = false;
+
+            // Act
+            SqlServerSearchService.ResourceSearchParamStats.CollectNotExistsLeaves(
+                predicate, missingParams, resourceTypeIds, null, ref foundSurrogateId);
+
+            // Assert
+            Assert.Single(missingParams);
+            Assert.Equal("gender", missingParams[0].Parameter.Name);
+            Assert.True(foundSurrogateId);
+        }
     }
 }
