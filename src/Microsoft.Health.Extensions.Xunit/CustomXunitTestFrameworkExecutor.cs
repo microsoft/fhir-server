@@ -142,13 +142,13 @@ namespace Microsoft.Health.Extensions.Xunit
                     var fixtureArguments = fixtureTestClass.GetFixtureArguments();
                     if (fixtureArguments.Count > 0)
                     {
-                        foreach (var argument in fixtureArguments)
+                        var enumValue = fixtureArguments
+                            .Select(argument => argument.EnumValue)
+                            .FirstOrDefault(value => value != null && parameter.ParameterType == value.GetType());
+
+                        if (enumValue != null)
                         {
-                            var enumValue = argument.EnumValue;
-                            if (enumValue != null && parameter.ParameterType == enumValue.GetType())
-                            {
-                                return new ValueTask<object>(enumValue);
-                            }
+                            return new ValueTask<object>(enumValue);
                         }
                     }
                 }
@@ -204,44 +204,38 @@ namespace Microsoft.Health.Extensions.Xunit
                             continue;
                         }
 
-                        foreach (var parameter in constructor.GetParameters())
+                        foreach (var parameterType in constructor.GetParameters()
+                            .Select(parameter => parameter.ParameterType)
+                            .Where(parameterType => parameterType.IsEnum))
                         {
-                            if (parameter.ParameterType.IsEnum)
-                            {
-                                fixtureParameterTypes.Add(parameter.ParameterType);
-                            }
+                            fixtureParameterTypes.Add(parameterType);
                         }
                     }
                 }
 
                 var resolvedArguments = new Dictionary<Type, object>();
 
-                foreach (var enumValue in fixtureArguments)
+                foreach (var argument in fixtureArguments
+                    .Select(enumValue => (EnumValue: enumValue, ArgumentType: enumValue.GetType())))
                 {
-                    var argumentType = enumValue.GetType();
-
-                    foreach (var parameterType in fixtureParameterTypes)
+                    foreach (var parameterType in fixtureParameterTypes
+                        .Where(parameterType => string.Equals(parameterType.FullName, argument.ArgumentType.FullName, StringComparison.Ordinal)
+                            && !resolvedArguments.ContainsKey(parameterType)))
                     {
-                        if (string.Equals(parameterType.FullName, argumentType.FullName, StringComparison.Ordinal)
-                            && !resolvedArguments.ContainsKey(parameterType))
-                        {
-                            resolvedArguments[parameterType] = parameterType == argumentType
-                                ? enumValue
-                                : Enum.ToObject(parameterType, Convert.ToInt64(enumValue));
-                        }
+                        resolvedArguments[parameterType] = parameterType == argument.ArgumentType
+                            ? argument.EnumValue
+                            : Enum.ToObject(parameterType, Convert.ToInt64(argument.EnumValue));
                     }
                 }
 
                 if (resolvedArguments.Count == 0 && fixtureParameterTypes.Count > 0)
                 {
                     var traits = GetTraits(context.TestCases);
-                    foreach (var parameterType in fixtureParameterTypes)
+                    foreach (var parameterType in fixtureParameterTypes
+                        .Where(parameterType => traits.TryGetValue(parameterType.Name, out var values) && values.Count > 0))
                     {
                         var traitKey = parameterType.Name;
-                        if (!traits.TryGetValue(traitKey, out var values) || values.Count == 0)
-                        {
-                            continue;
-                        }
+                        var values = traits[traitKey];
 
                         if (values.Count > 1)
                         {
@@ -263,12 +257,10 @@ namespace Microsoft.Health.Extensions.Xunit
                     }
                 }
 
-                foreach (var resolvedArgument in resolvedArguments)
+                foreach (var resolvedArgument in resolvedArguments
+                    .Where(resolvedArgument => !cache.ContainsKey(resolvedArgument.Key)))
                 {
-                    if (!cache.ContainsKey(resolvedArgument.Key))
-                    {
-                        cache[resolvedArgument.Key] = resolvedArgument.Value;
-                    }
+                    cache[resolvedArgument.Key] = resolvedArgument.Value;
                 }
             }
 
