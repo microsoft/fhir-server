@@ -248,7 +248,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         };
 
         // If no Active jobs, we are safe to queue
-        _logger.LogInformation($"Queueing reindex job with definition: {def}");
+        _logger.LogInformation($"Queueing reindex job with definition: {JsonConvert.SerializeObject(def)}");
         var results = await _queueClient.EnqueueAsync(QueueType.Reindex, cancellationToken, definitions: def);
 
         var jobInfo = results[0];
