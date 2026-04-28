@@ -1,5 +1,7 @@
 ﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
+    ,@InputLastUpdated datetimeoffset(7) = NULL
+    ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
     ,@Resources dbo.ResourceList READONLY
@@ -21,48 +23,20 @@
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
+       ,@Mode varchar(200) = 'R='+convert(varchar,(SELECT count(*) FROM @Resources))+' SP='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
-       ,@msg varchar(4000)
-       ,@Rows int
-       ,@AffectedRows int = 0
-       ,@Uri varchar(4000)
-       ,@Status varchar(20)
-
-DECLARE @SearchParamsCopy dbo.SearchParamList
-INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
-WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
-BEGIN
-  SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Status='+@Status+' Uri='+@Uri
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
-  DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
-END
+       ,@Rows int = 0
 
 BEGIN TRY
   SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
 
   BEGIN TRANSACTION
   
-  -- Check for concurrency conflicts first using LastUpdated
-  -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
-  SELECT @msg = string_agg(S.Uri, ', ') 
-    FROM (
-      SELECT TOP 60 S.Uri
-        FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-        WHERE I.LastUpdated != S.LastUpdated) S
-  IF @msg IS NOT NULL
-  BEGIN
-    SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
-    ROLLBACK TRANSACTION;
-    THROW 50001, @msg, 1
-  END
+  EXECUTE dbo.MergeSearchParams @SearchParams, @InputLastUpdated, @ReindexId
 
   IF EXISTS (SELECT * FROM @Resources)
-  BEGIN
     EXECUTE dbo.MergeResources
-             @AffectedRows = @AffectedRows OUTPUT
+             @AffectedRows = @Rows OUTPUT
             ,@RaiseExceptionOnConflict = 1
             ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
             ,@TransactionId = @TransactionId
@@ -84,25 +58,9 @@ BEGIN TRY
             ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
             ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
 
-    SET @Rows = @Rows + @AffectedRows;
-  END
-
-  MERGE INTO dbo.SearchParam S
-    USING @SearchParams I ON I.Uri = S.Uri
-    WHEN MATCHED THEN 
-      UPDATE 
-        SET Status = I.Status
-           ,LastUpdated = @LastUpdated
-           ,IsPartiallySupported = I.IsPartiallySupported
-    WHEN NOT MATCHED BY TARGET THEN 
-      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
-        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
-
-  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' Merged='+convert(varchar,@@rowcount)
-
   COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows,@Text=@msg
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION;
