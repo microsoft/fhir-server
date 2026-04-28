@@ -143,7 +143,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
-
         // Synchronize the FHIR model dictionary with the data in SQL search parameter status table
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
