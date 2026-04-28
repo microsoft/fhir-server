@@ -150,11 +150,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 job = jobInfos.FirstOrDefault(t =>
                     t.QueueType == queueType &&
                     (t.Status == JobStatus.Created ||
-                    (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec))));
+                    (t.Status == JobStatus.Running && (DateTime.UtcNow - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec))));
                 if (job != null)
                 {
                     job.Status = JobStatus.Running;
-                    job.HeartbeatDateTime = DateTime.Now;
+                    job.StartDate = DateTime.UtcNow;
+                    job.HeartbeatDateTime = DateTime.UtcNow;
                 }
             }
 
@@ -182,14 +183,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         Id = largestId,
                         GroupId = gId,
                         Status = JobStatus.Created,
+                        CreateDate = DateTime.UtcNow,
                         HeartbeatDateTime = DateTime.UtcNow,
                         QueueType = queueType,
                     };
-
-                    if (newJob.Status == JobStatus.Created)
-                    {
-                        newJob.CreateDate = DateTime.UtcNow;
-                    }
 
                     result.Add(newJob);
                     jobInfos.Add(newJob);
@@ -218,14 +215,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     Id = largestId,
                     GroupId = groupId.HasValue ? groupId.Value : largestId,
                     Status = jobStatus,
+                    CreateDate = DateTime.UtcNow,
+                    StartDate = jobStatus == JobStatus.Running ? DateTime.UtcNow : null,
+                    EndDate = jobStatus == JobStatus.Completed || jobStatus == JobStatus.Failed ? DateTime.UtcNow : null,
                     HeartbeatDateTime = DateTime.UtcNow,
                     QueueType = queueType,
                 };
-
-                if (newJob.Status == JobStatus.Created)
-                {
-                    newJob.CreateDate = DateTime.UtcNow;
-                }
 
                 response.Add(newJob);
                 jobInfos.Add(newJob);
@@ -285,7 +280,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     throw new JobNotExistException("not exist");
                 }
 
-                job.HeartbeatDateTime = DateTime.Now;
+                job.HeartbeatDateTime = DateTime.UtcNow;
                 job.Result = jobInfo.Result;
 
                 cancel = job.CancelRequested;
