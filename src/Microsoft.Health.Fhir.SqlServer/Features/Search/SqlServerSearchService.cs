@@ -1679,35 +1679,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (!string.IsNullOrWhiteSpace(searchParamHash))
             {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
                 sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
 
-                sqlCommand.CommandText = @"
+#pragma warning disable CA2100 // Only numeric types (short, long) are interpolated; no SQL injection risk
+                sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
+            WHERE ResourceTypeId = {resourceTypeId} 
+              AND ResourceSurrogateId >= {startId} 
+              AND ResourceSurrogateId <= {endId}
               AND IsHistory = 0 
               AND IsDeleted = 0
               AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
+#pragma warning restore CA2100
             }
             else
             {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
-
-                sqlCommand.CommandText = @"
+#pragma warning disable CA2100 // Only numeric types (short, long) are interpolated; no SQL injection risk
+                sqlCommand.CommandText = @$"
             SELECT COUNT(*) 
             FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
+            WHERE ResourceTypeId = {resourceTypeId} 
+              AND ResourceSurrogateId >= {startId} 
+              AND ResourceSurrogateId <= {endId}
               AND IsHistory = 0 
               AND IsDeleted = 0";
+#pragma warning restore CA2100
             }
 
             LogSqlCommand(sqlCommand);

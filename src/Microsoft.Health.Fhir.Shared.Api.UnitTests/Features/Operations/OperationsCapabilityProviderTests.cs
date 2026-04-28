@@ -38,10 +38,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         private readonly IOptions<FeatureConfiguration> _featureOptions = Substitute.For<IOptions<FeatureConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
         private readonly IOptions<ImplementationGuidesConfiguration> _implementationGuidesOptions = Substitute.For<IOptions<ImplementationGuidesConfiguration>>();
+        private readonly IOptions<WatchdogConfiguration> _watchdogOptions = Substitute.For<IOptions<WatchdogConfiguration>>();
         private readonly OperationsConfiguration _operationsConfiguration = new();
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new();
         private readonly FeatureConfiguration _featureConfiguration = new();
         private readonly ImplementationGuidesConfiguration _implementationGuidesConfiguration = new();
+        private readonly WatchdogConfiguration _watchdogConfiguration = new();
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public OperationsCapabilityProviderTests()
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             _coreFeatureOptions.Value.Returns(_coreFeatureConfiguration);
             _fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
             _implementationGuidesOptions.Value.Returns(_implementationGuidesConfiguration);
+            _watchdogOptions.Value.Returns(_watchdogConfiguration);
         }
 
         [Theory]
@@ -63,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         {
             _coreFeatureConfiguration.SupportsSelectableSearchParameters = added;
 
-            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
+            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _watchdogOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
             await provider.BuildAsync(builder, CancellationToken.None);
 
@@ -81,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             _fhirRuntimeConfiguration.DataStore.Returns(dataStore);
             _coreFeatureConfiguration.SupportsIncludes = support;
 
-            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
+            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _watchdogOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
             await provider.BuildAsync(builder, CancellationToken.None);
 
@@ -102,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -119,6 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -165,6 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -182,6 +188,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -227,6 +234,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -244,6 +252,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -273,6 +282,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -290,6 +300,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -314,6 +325,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -360,6 +372,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -377,6 +390,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -406,6 +420,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -423,6 +438,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -447,6 +463,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -471,6 +488,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -500,6 +518,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -517,6 +536,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
@@ -546,6 +566,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
@@ -563,6 +584,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _featureOptions,
                 _coreFeatureOptions,
                 _implementationGuidesOptions,
+                _watchdogOptions,
                 _urlResolver,
                 _fhirRuntimeConfiguration);
             var restComponent = new ListedRestComponent()
