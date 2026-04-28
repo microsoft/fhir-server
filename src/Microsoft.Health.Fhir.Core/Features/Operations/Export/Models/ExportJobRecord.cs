@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             StorageAccountUri = storageAccountUri;
             if (maximumNumberOfResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maximumNumberOfResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
             {
-                throw new BadRequestException(string.Format(Core.Resources.InvalidExportParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
+                throw new BadRequestException(string.Format(Core.Resources.InvalidExportParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery, MaxMaximumNumberOfResourcesPerQuery));
             }
 
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;

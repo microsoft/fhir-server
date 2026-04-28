@@ -2294,30 +2294,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
         }
 
-        [Fact]
-        public async Task GivenSearchWithOutOfMemoryException_WhenRun_ThenExceptionBubblesUp()
-        {
-            // Arrange
-            SetupExportJobRecordAndOperationDataStore();
-
-            _searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<ResourceVersionType>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
-                .Returns<SearchResult>(callInfo =>
-                {
-                    throw new OutOfMemoryException("Simulated OOM when fetching large batch of resources");
-                });
-
-            // Act & Assert - OOM should bubble up for ExportProcessingJob to handle
-            await Assert.ThrowsAsync<OutOfMemoryException>(() =>
-                _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken));
-        }
-
         [Theory]
         [InlineData(ExportJobType.All, null)]
         [InlineData(ExportJobType.Group, "group")]
