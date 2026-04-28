@@ -187,9 +187,9 @@ stages:
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
-      maxReplicas: 12
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
+      maxReplicas: 24
+      containerCpu: '2.0'
+      containerMemory: '4Gi'
       cosmosAutoscaleMaxThroughput: 8000
 
 - stage: deployStu3Sql
@@ -220,9 +220,9 @@ stages:
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
-      maxReplicas: 12
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
+      maxReplicas: 24
+      containerCpu: '2.0'
+      containerMemory: '4Gi'
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -247,9 +247,9 @@ stages:
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
-      maxReplicas: 12
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
+      maxReplicas: 24
+      containerCpu: '2.0'
+      containerMemory: '4Gi'
       cosmosAutoscaleMaxThroughput: 8000
 
 - stage: deployR4Sql
@@ -280,9 +280,9 @@ stages:
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
-      maxReplicas: 12
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
+      maxReplicas: 24
+      containerCpu: '2.0'
+      containerMemory: '4Gi'
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
@@ -312,6 +312,6 @@ stages:
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
-      maxReplicas: 12
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
+      maxReplicas: 24
+      containerCpu: '2.0'
+      containerMemory: '4Gi'
