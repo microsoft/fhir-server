@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
                 config);
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
                 config);
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(headers);
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
                 config);

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>108</LatestSchemaVersion>
+    <LatestSchemaVersion>111</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
@@ -88,7 +88,7 @@
   </ItemGroup>
 
   <!-- Target contains sql build tasks -->
-  <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
+  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" />
 
   <!--
   <Target Name="PrintEmbeddedResources" BeforeTargets="ComputeGeneratorInputs">
