@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
+        public async Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache = true)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);
             var searchParameterUrl = searchParameterWrapper.Url;
@@ -223,9 +223,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called to get any updates to search param cache
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>

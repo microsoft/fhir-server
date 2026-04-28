@@ -56,8 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
+                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
+
                 // Before committing the SearchParameter resource to the data store, validate the parameter type
-                await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken);
+                await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
 
                 var url = request.Resource.Instance.GetStringScalar("url");
                 await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
@@ -93,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     // Validate any changes to the fhirpath or the datatype
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken);
+                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
 
                     var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
@@ -108,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken);
+                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
 
                     var url = request.Resource.Instance.GetStringScalar("url");
                     await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
