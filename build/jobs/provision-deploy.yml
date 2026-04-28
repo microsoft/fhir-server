@@ -58,6 +58,9 @@ parameters:
 - name: systemConformanceProviderRefreshIntervalSeconds
   type: number
   default: 5
+- name: reindexCacheRefreshWaitMultiplier
+  type: number
+  default: 6
 - name: keyVaultName
   type: string
 
@@ -98,6 +101,7 @@ jobs:
         $additionalProperties["TaskHosting__MaxRunningTaskCount"] = ${{ parameters.taskHostingMaxRunningTaskCount }}
         $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = ${{ parameters.searchParameterCacheRefreshIntervalSeconds }}
         $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = ${{ parameters.systemConformanceProviderRefreshIntervalSeconds }}
+        $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = ${{ parameters.reindexCacheRefreshWaitMultiplier }}
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $dataStore = "${{ parameters.dataStore }}"
@@ -273,7 +277,6 @@ jobs:
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             enableExport = $true
             enableImport = $true
-            enableConvertData = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             minReplicas = ${{ parameters.minReplicas }}
             maxReplicas = ${{ parameters.maxReplicas }}
