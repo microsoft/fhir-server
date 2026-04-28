@@ -49,6 +49,9 @@ parameters:
 - name: taskHostingPollingFrequencyInSeconds
   type: number
   default: 1
+- name: taskHostingMaxRunningTaskCount
+  type: number
+  default: 4
 - name: searchParameterCacheRefreshIntervalSeconds
   type: number
   default: 2
@@ -92,6 +95,7 @@ jobs:
 
         $additionalProperties = $flattenedTestConfig
         $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = ${{ parameters.taskHostingPollingFrequencyInSeconds }}
+        $additionalProperties["TaskHosting__MaxRunningTaskCount"] = ${{ parameters.taskHostingMaxRunningTaskCount }}
         $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = ${{ parameters.searchParameterCacheRefreshIntervalSeconds }}
         $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = ${{ parameters.systemConformanceProviderRefreshIntervalSeconds }}
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
@@ -107,7 +111,6 @@ jobs:
             "FhirServer__Security__Authentication__Audience",
             "DataStore",
             "TaskHosting__Enabled",
-            "TaskHosting__MaxRunningTaskCount",
             "FhirServer__Operations__Export__Enabled",
             "FhirServer__Operations__Export__StorageAccountUri",
             "FhirServer__Operations__Import__Enabled",

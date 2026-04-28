@@ -33,6 +33,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        // Maximum time to wait for a reindex job to reach a terminal state. Set high enough to accommodate
+        // multi-replica search-parameter cache convergence in CI (poll interval up to 30s, conformance refresh
+        // up to 60s, plus reindex worker queue scheduling and retry backoffs).
+        private static readonly TimeSpan ReindexJobCompletionTimeout = TimeSpan.FromMinutes(20);
+
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
 
@@ -323,7 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 var tasks = new[]
                 {
-                    WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
+                    WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout),
                     RandomPersonUpdate(testResources),
                 };
                 await Task.WhenAll(tasks);
@@ -408,7 +413,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete (this will wait for all sub-jobs to complete)
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -503,7 +508,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -575,7 +580,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -646,7 +651,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -718,7 +723,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -806,7 +811,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(reindexRequest1.jobUri);
                 System.Diagnostics.Debug.WriteLine("Started first reindex job to index the new search parameter");
 
-                var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
+                var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus1 == OperationStatus.Completed,
                     $"First reindex job should complete successfully, but got {jobStatus1}");
@@ -832,7 +837,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(reindexRequest2.jobUri);
                 System.Diagnostics.Debug.WriteLine("Started second reindex job to remove the deleted search parameter");
 
-                var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
+                var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, ReindexJobCompletionTimeout);
                 Assert.True(
                     jobStatus2 == OperationStatus.Completed,
                     $"Second reindex job should complete successfully, but got {jobStatus2}");
@@ -1582,7 +1587,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 if (cancelResponse.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
-                    var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(120));
+                    var finalStatus = await WaitForJobCompletionAsync(jobUri, ReindexJobCompletionTimeout);
                     System.Diagnostics.Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
 
                     // Add a small delay to ensure system is ready

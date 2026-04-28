@@ -184,6 +184,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       taskHostingPollingFrequencyInSeconds: 30
+      taskHostingMaxRunningTaskCount: 4
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
@@ -217,6 +218,7 @@ stages:
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       taskHostingPollingFrequencyInSeconds: 30
+      taskHostingMaxRunningTaskCount: 4
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
@@ -244,6 +246,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       taskHostingPollingFrequencyInSeconds: 30
+      taskHostingMaxRunningTaskCount: 4
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
@@ -277,6 +280,7 @@ stages:
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       taskHostingPollingFrequencyInSeconds: 30
+      taskHostingMaxRunningTaskCount: 4
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
@@ -309,6 +313,7 @@ stages:
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       taskHostingPollingFrequencyInSeconds: 30
+      taskHostingMaxRunningTaskCount: 4
       searchParameterCacheRefreshIntervalSeconds: 20
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexEnabled: true
