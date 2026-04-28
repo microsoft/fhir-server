@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
-        private readonly QueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
 
         public SqlServerSearchServiceTests()
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
-            _queryPlanReuseChecker = Substitute.For<QueryPlanReuseChecker>();
+            _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
 
             var config = new SqlServerDataStoreConfiguration
             {

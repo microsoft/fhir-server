@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
-        private readonly QueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
-            QueryPlanReuseChecker queryPlanReuseChecker,
+            IQueryPlanReuseChecker queryPlanReuseChecker,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {

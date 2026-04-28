@@ -25,10 +25,11 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public class QueryPlanReuseChecker : INotificationHandler<SearchParametersInitializedNotification>
+    internal class QueryPlanReuseChecker : IQueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Regex _skewedParameterRegex = new Regex(@"^ST_.*_WHERE_ResourceTypeId_(\d*)_SearchParamId_(\d*)$");
         private readonly double _refreshPeriod = 3600;
+        private readonly double _skewThreshold = 30;
 
         // Holds a list of urls for skewed search parameters. If the search parameters are skewed, the query plan should not be reused.
         private List<IGrouping<string, (string Uri, string ResourceTypeId)>> _skewedParameters = new List<IGrouping<string, (string Uri, string ResourceTypeId)>>();
@@ -108,10 +109,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 (reader) =>
                 {
                     var name = reader.GetString(0);
-                    var table = reader.GetString(1);
                     var skew = reader.GetDouble(2);
 
-                    if (skew > 30)
+                    if (skew > _skewThreshold)
                     {
                         var match = _skewedParameterRegex.Match(name);
                         if (match.Success)
