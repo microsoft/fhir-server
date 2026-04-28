@@ -25,16 +25,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    internal class QueryPlanReuseChecker : INotificationHandler<SearchParametersInitializedNotification>
+    public class QueryPlanReuseChecker : INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Regex _skewedParameterRegex = new Regex(@"^ST_.*_WHERE_ResourceTypeId_(\d*)_SearchParamId_(\d*)$");
         private readonly double _refreshPeriod = 3600;
 
         // Holds a list of urls for skewed search parameters. If the search parameters are skewed, the query plan should not be reused.
         private List<IGrouping<string, (string Uri, string ResourceTypeId)>> _skewedParameters = new List<IGrouping<string, (string Uri, string ResourceTypeId)>>();
-        private ISqlRetryService _sqlRetryService;
-        private FhirTimer _timer;
-        private ILogger<QueryPlanReuseChecker> _logger;
+        private readonly ISqlRetryService _sqlRetryService;
+        private readonly FhirTimer _timer;
+        private readonly ILogger<QueryPlanReuseChecker> _logger;
 
         private bool _isInitialized = false;
         private bool _storageReady = false;
@@ -62,13 +62,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Check the skew of the search parameters. If the search parameters are skewed, the query plan should not be reused.
             var parameters = searchOptions.SearchParameters;
 
-            foreach (var parameter in parameters)
+            foreach (var parameter in parameters.Where(p => _skewedParameters.Any(skew => skew.Key == p.Url.OriginalString)))
             {
-                if (_skewedParameters.Any(skew => skew.Key == parameter.Url.OriginalString))
-                {
-                    _logger.LogInformation("Search parameter {SearchParameter} is skewed. Query plan will not be reused.", parameter.Url.OriginalString);
-                    return false;
-                }
+                _logger.LogInformation("Search parameter {SearchParameter} is skewed. Query plan will not be reused.", parameter.Url.OriginalString);
+                return false;
             }
 
             return true;
