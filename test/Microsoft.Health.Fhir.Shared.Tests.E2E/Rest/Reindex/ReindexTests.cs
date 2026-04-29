@@ -327,18 +327,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 await Task.Delay(5000);
 
+                // Snapshot the actual Person row count just before posting the reindex job. The reindex job for a
+                // brand-new SearchParameter targeting Person re-scans every Person row in the database, not only the
+                // 20 we just created — and the shared CI environment typically has Person resources left over from
+                // other tests. Comparing against a hard-coded count of 20 is wrong in that environment; we need the
+                // real "universe" of rows reindex will see so that "lessThan" is meaningful.
+                var personCountBeforeReindex = (long)((await _fixture.TestFhirClient.SearchAsync("Person?_summary=count")).Resource.Total ?? 0);
+                _output.WriteLine($"Person count snapshot before reindex: {personCountBeforeReindex}");
+
                 value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
                 Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
 
-                var tasks = new[]
-                {
-                    WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout),
-                    RandomPersonUpdate(testResources.Take(6).ToList()),
-                };
-                await Task.WhenAll(tasks);
+                // Drive concurrent updates as a continuous loop instead of a single one-shot batch. With the
+                // orchestrator's SearchParameter cache convergence wait set to several seconds (and longer in CI),
+                // a one-shot batch of 6 PUTs completes well before reindex starts scanning, so the updated rows'
+                // new surrogate IDs are still inside the reindex snapshot's upper-bound and nothing gets skipped.
+                // The loop guarantees at least some updates land while the scan is active.
+                using var updatesCts = new CancellationTokenSource();
+                var updateLoop = RandomPersonUpdateLoop(testResources.Take(6).ToList(), updatesCts.Token);
 
-                // reported in reindex counts should be less than total resources created
-                await CheckReportedCounts(value.jobUri, testResources.Count, true);
+                try
+                {
+                    await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
+                }
+                finally
+                {
+                    updatesCts.Cancel();
+                    try
+                    {
+                        await updateLoop;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // expected on cancellation
+                    }
+                }
+
+                // reported in reindex counts should be less than total resources visible at reindex start
+                await CheckReportedCounts(value.jobUri, personCountBeforeReindex, true);
             }
             finally
             {
@@ -1483,6 +1509,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 .Select(resource => _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString())));
 
             await Task.WhenAll(tasks);
+        }
+
+        /// <summary>
+        /// Continuously updates the supplied Person resources until <paramref name="cancellationToken"/> is signaled.
+        /// Used by reindex concurrency tests to guarantee at least some updates land while the reindex job is
+        /// actively scanning, regardless of how long the orchestrator's pre-scan SearchParameter cache convergence
+        /// wait is. A single one-shot batch of updates can complete before reindex starts, leaving no rows whose
+        /// surrogate IDs sit past the reindex snapshot upper-bound and therefore no skips, which makes
+        /// "ReportedCountsAreLessThanOriginal" trivially false.
+        /// </summary>
+        private async Task RandomPersonUpdateLoop(IList<(string resourceType, string resourceId)> resources, CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await RandomPersonUpdate(resources);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _output.WriteLine($"RandomPersonUpdateLoop iteration failed (continuing): {ex.Message}");
+                }
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
 
         private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)

@@ -189,6 +189,7 @@ stages:
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
+      minReplicas: 3
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
@@ -224,6 +225,7 @@ stages:
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
+      minReplicas: 3
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
@@ -253,6 +255,7 @@ stages:
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
+      minReplicas: 3
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
@@ -288,6 +291,7 @@ stages:
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
+      minReplicas: 3
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
@@ -322,6 +326,7 @@ stages:
       systemConformanceProviderRefreshIntervalSeconds: 60
       reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
+      minReplicas: 3
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
