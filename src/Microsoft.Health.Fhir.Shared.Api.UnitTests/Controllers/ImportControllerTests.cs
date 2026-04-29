@@ -303,6 +303,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("https://client.example.org", "http://client.example.org/patient_file_2.ndjson")]
         [InlineData("https://client.example.org", "https://client.example.org:8443/patient_file_2.ndjson")]
         [InlineData("https://client.example.org/import", "https://client.example.org/other/patient_file_2.ndjson")]
+        [InlineData("https://client.example.org/import", "https://client.example.org/import-evil/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenStorageAccountUriDoesNotMatchSchemePortOrBasePath_ThenRequestNotValidExceptionShouldBeThrown(
             string storageAccountUri,
             string inputUrl)
