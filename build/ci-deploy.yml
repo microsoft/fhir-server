@@ -193,7 +193,7 @@ stages:
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
-      cosmosAutoscaleMaxThroughput: 8000
+      cosmosAutoscaleMaxThroughput: 5000
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -259,7 +259,7 @@ stages:
       maxReplicas: 24
       containerCpu: '2.0'
       containerMemory: '4Gi'
-      cosmosAutoscaleMaxThroughput: 8000
+      cosmosAutoscaleMaxThroughput: 5000
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
