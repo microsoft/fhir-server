@@ -283,8 +283,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return new Uri("http://127.0.0.1:10000/devstoreaccount1");
             }
 
-            // Parse the connection string so import validation can derive the blob endpoint
-            // that the integration data store initializer will use.
+            // Parse only the standard storage account fields. Explicit endpoint overrides are
+            // intentionally ignored so import URLs cannot be allowlisted to arbitrary hosts.
             var connectionStringValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (string segment in integrationDataStoreConfiguration.StorageAccountConnection.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
@@ -295,16 +295,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
             }
 
-            // Prefer an explicit BlobEndpoint when present. This covers custom domains,
-            // Azurite endpoints, and sovereign cloud endpoint overrides.
-            if (connectionStringValues.TryGetValue("BlobEndpoint", out string blobEndpoint)
-                && Uri.TryCreate(blobEndpoint, UriKind.Absolute, out Uri blobEndpointUri))
-            {
-                return blobEndpointUri;
-            }
-
-            // Otherwise derive the standard blob endpoint from the account name,
-            // honoring optional protocol and endpoint suffix values.
+            // Derive the blob endpoint from the account name, honoring optional protocol
+            // and endpoint suffix values for standard Azure environments.
             if (!connectionStringValues.TryGetValue("AccountName", out string accountName))
             {
                 return null;

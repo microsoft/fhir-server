@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;AccountName=client;AccountKey=unused", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionString_ThenConfiguredHostShouldBeAllowed(
             string storageAccountConnection,
             string inputUrl)
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;AccountName=client;AccountKey=unused", "https://custom.example.org/other/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionStringAndInputUrlDoesNotMatch_ThenRequestNotValidExceptionShouldBeThrown(
             string storageAccountConnection,
             string inputUrl)
