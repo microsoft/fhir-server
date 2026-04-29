@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
         private readonly ImportJobConfiguration _importConfig;
+        private readonly Uri _configuredStorageAccountUri;
 
         public ImportController(
             IMediator mediator,
@@ -67,12 +68,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
+            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration?.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -80,6 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _importConfig = operationsConfig.Value.Import;
             _urlResolver = urlResolver;
             _features = features.Value;
+            _configuredStorageAccountUri = GetConfiguredStorageAccountUri(integrationDataStoreConfiguration.Value);
             _mediator = mediator;
             _logger = logger;
         }
@@ -224,12 +228,91 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
+
+                if (!IsConfiguredStorageAccountEndpoint(item.Url))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
+                }
             }
 
             if (input.Any(i => i.Type == "SearchParameter"))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, "SearchParameter"));
             }
+        }
+
+        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri)
+        {
+            if (_configuredStorageAccountUri == null)
+            {
+                return false;
+            }
+
+            return string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase)
+                && inputUri.Port == _configuredStorageAccountUri.Port
+                && HasConfiguredBasePath(inputUri, _configuredStorageAccountUri);
+        }
+
+        private static bool HasConfiguredBasePath(Uri inputUri, Uri configuredStorageAccountUri)
+        {
+            string configuredPath = configuredStorageAccountUri.AbsolutePath.TrimEnd('/');
+            if (string.IsNullOrEmpty(configuredPath))
+            {
+                return true;
+            }
+
+            return inputUri.AbsolutePath.Equals(configuredPath, StringComparison.OrdinalIgnoreCase)
+                || inputUri.AbsolutePath.StartsWith(configuredPath + "/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Uri GetConfiguredStorageAccountUri(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            if (Uri.TryCreate(integrationDataStoreConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
+            {
+                return storageAccountUri;
+            }
+
+            if (string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountConnection))
+            {
+                return null;
+            }
+
+            if (integrationDataStoreConfiguration.StorageAccountConnection.StartsWith("UseDevelopmentStorage", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Uri("http://127.0.0.1:10000/devstoreaccount1");
+            }
+
+            var connectionStringValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string segment in integrationDataStoreConfiguration.StorageAccountConnection.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                int separatorIndex = segment.IndexOf('=', StringComparison.Ordinal);
+                if (separatorIndex > 0)
+                {
+                    connectionStringValues[segment.Substring(0, separatorIndex)] = segment.Substring(separatorIndex + 1);
+                }
+            }
+
+            if (connectionStringValues.TryGetValue("BlobEndpoint", out string blobEndpoint)
+                && Uri.TryCreate(blobEndpoint, UriKind.Absolute, out Uri blobEndpointUri))
+            {
+                return blobEndpointUri;
+            }
+
+            if (!connectionStringValues.TryGetValue("AccountName", out string accountName))
+            {
+                return null;
+            }
+
+            connectionStringValues.TryGetValue("DefaultEndpointsProtocol", out string defaultEndpointsProtocol);
+            connectionStringValues.TryGetValue("EndpointSuffix", out string endpointSuffix);
+
+            defaultEndpointsProtocol = string.IsNullOrWhiteSpace(defaultEndpointsProtocol) ? Uri.UriSchemeHttps : defaultEndpointsProtocol;
+            endpointSuffix = string.IsNullOrWhiteSpace(endpointSuffix) ? "core.windows.net" : endpointSuffix;
+
+            return Uri.TryCreate($"{defaultEndpointsProtocol}://{accountName}.blob.{endpointSuffix}", UriKind.Absolute, out Uri connectionStringStorageAccountUri)
+                ? connectionStringStorageAccountUri
+                : null;
         }
     }
 }

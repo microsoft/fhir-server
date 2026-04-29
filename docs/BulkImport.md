@@ -119,7 +119,7 @@ Content-Type:application/fhir+json
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
-| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. The URL must point to the storage account configured by `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` or `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection`. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**

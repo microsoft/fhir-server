@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetBulkImportRequestConfigurationWithNoInputUrl(),
                 GetBulkImportRequestConfigurationWithSASToken(),
                 GetBulkImportRequestConfigurationWithRelativeInputUrl(),
+                GetBulkImportRequestConfigurationWithHostMismatch(),
             };
 
         [Theory]
@@ -184,6 +185,78 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
         }
 
+        [Theory]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;AccountName=client;AccountKey=unused", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
+        public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionString_ThenConfiguredHostShouldBeAllowed(
+            string storageAccountConnection,
+            string inputUrl)
+        {
+            var baseUri = new Uri("https://test.com/");
+            _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
+            _urlResolver
+                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(baseUri);
+
+            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+                .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
+
+            var importRequest = GetValidBulkImportRequestConfiguration();
+            importRequest.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri(inputUrl),
+                },
+            };
+
+            var controller = GetController(
+                new ImportJobConfiguration()
+                {
+                    Enabled = true,
+                },
+                new IntegrationDataStoreConfiguration()
+                {
+                    StorageAccountConnection = storageAccountConnection,
+                });
+
+            var response = await controller.Import(importRequest.ToParameters());
+
+            var result = Assert.IsType<ImportResult>(response);
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;AccountName=client;AccountKey=unused", "https://custom.example.org/other/patient_file_2.ndjson")]
+        public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionStringAndInputUrlDoesNotMatch_ThenRequestNotValidExceptionShouldBeThrown(
+            string storageAccountConnection,
+            string inputUrl)
+        {
+            var importRequest = GetValidBulkImportRequestConfiguration();
+            importRequest.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri(inputUrl),
+                },
+            };
+
+            var controller = GetController(
+                new ImportJobConfiguration()
+                {
+                    Enabled = true,
+                },
+                new IntegrationDataStoreConfiguration()
+                {
+                    StorageAccountConnection = storageAccountConnection,
+                });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
+        }
+
         [Fact]
         public async Task GivenACancelImportRequest_WhenProcessing_ThenCancelImportRequestShouldBeCreatedCorrectly()
         {
@@ -278,8 +351,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(returnDetails, result.Result != null);
         }
 
-        private ImportController GetController(ImportJobConfiguration bulkImportConfig)
+        private ImportController GetController(ImportJobConfiguration bulkImportConfig, IntegrationDataStoreConfiguration integrationDataStoreConfiguration = null)
         {
+            integrationDataStoreConfiguration ??= new IntegrationDataStoreConfiguration()
+            {
+                StorageAccountUri = "https://client.example.org",
+            };
+
             var operationConfig = new OperationsConfiguration()
             {
                 Import = bulkImportConfig,
@@ -298,6 +376,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _urlResolver,
                 optionsOperationConfiguration,
                 optionsFeatures,
+                Options.Create(integrationDataStoreConfiguration),
                 NullLogger<ImportController>.Instance);
             controller.ControllerContext = new ControllerContext(
                new ActionContext(
@@ -495,6 +574,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 {
                     Type = "Patient",
                     Url = new Uri("/blob/patient_file_2.ndjson", UriKind.RelativeOrAbsolute),
+                },
+            };
+
+            var bulkImportRequestConfiguration = new ImportRequest();
+            bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
+            bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
+            bulkImportRequestConfiguration.Input = input;
+            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail();
+
+            return bulkImportRequestConfiguration;
+        }
+
+        private static ImportRequest GetBulkImportRequestConfigurationWithHostMismatch()
+        {
+            var input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("https://unconfigured.example.org/patient_file_2.ndjson"),
                 },
             };
 
