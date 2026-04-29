@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("PUT", "patient/123")]
         [InlineData("DELETE", "patient/123")]
         [InlineData("POST", "patient")]
+        [InlineData("PATCH", "patient/123")]
         public async Task GivenAMisCasedResourceType_WhenSendingRequest_ThenServerReturnsNotFound(string verb, string path)
         {
             using var request = new HttpRequestMessage(new HttpMethod(verb), path);

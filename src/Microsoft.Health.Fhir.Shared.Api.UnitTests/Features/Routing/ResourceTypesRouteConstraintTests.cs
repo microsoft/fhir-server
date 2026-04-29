@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [InlineData("PUT")]
         [InlineData("DELETE")]
         [InlineData("POST")]
+        [InlineData("PATCH")]
         public async Task GivenAMisCasedResourceTypeForAnyVerb_WhenRouting_ThenConstraintIsNotPassed(string verb)
         {
             var data = await GetRouteData(verb, "/patient/1234");
