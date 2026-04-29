@@ -102,25 +102,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.GetPreciseStatisticsProperties";
+            cmd.CommandText = "dbo.GetResourceSearchParamStatsProperties";
 
             var results = await cmd.ExecuteReaderAsync<(string ResourceTypeId, string SearchParamId)>(
                 _sqlRetryService,
                 (reader) =>
                 {
-                    var name = reader.GetString(0);
-                    var skew = reader.GetDouble(2);
-
-                    if (skew > _skewThreshold)
+                    try
                     {
-                        var match = _skewedParameterRegex.Match(name);
-                        if (match.Success)
-                        {
-                            var resourceTypeId = match.Groups[1].Value;
-                            var searchParamId = match.Groups[2].Value;
+                        var name = reader.GetString(0);
+                        var skew = reader.GetDouble(2);
 
-                            return (resourceTypeId, searchParamId);
+                        if (skew > _skewThreshold)
+                        {
+                            var match = _skewedParameterRegex.Match(name);
+                            if (match.Success)
+                            {
+                                var resourceTypeId = match.Groups[1].Value;
+                                var searchParamId = match.Groups[2].Value;
+
+                                return (resourceTypeId, searchParamId);
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Statistic missing value");
                     }
 
                     return (string.Empty, string.Empty);

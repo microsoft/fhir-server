@@ -62,9 +62,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
+        private IMediator _mediator;
         private SqlServerFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
@@ -134,9 +134,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
+            _mediator = Substitute.For<IMediator>();
+
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
-            var mediator = Substitute.For<IMediator>();
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, _mediator, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
@@ -316,12 +317,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlServerSearchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
-                mediator,
+                _mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
         public async Task DisposeAsync()
