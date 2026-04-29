@@ -39,6 +39,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         // multi-replica search-parameter cache convergence in CI (poll interval up to 30s, conformance refresh
         // up to 60s, plus reindex worker queue scheduling and retry backoffs).
         private static readonly TimeSpan ReindexJobCompletionTimeout = TimeSpan.FromMinutes(20);
+        private static readonly TimeSpan SearchParameterCleanupTimeout = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan SearchParameterCleanupPollDelay = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan SearchParameterCleanupStableWindow = TimeSpan.FromSeconds(30);
+        private const string TestSearchParameterUrlPrefix = "http://my.org/";
 
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
@@ -62,9 +66,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personTypes = new List<ResourceType?>() { ResourceType.Person};
             var resourceTypes = new List<ResourceType?>() { ResourceType.Resource };
 #endif
-            const string urlPrefix = "http://my.org/";
-            var ids = new List<string> { "c-id-1", "c-id-2" };
-            var code = "same-code";
+            var uniqueSuffix = CreateUniqueSearchParameterSuffix();
+            var searchParams = new List<SearchParameter>();
+            var ids = new List<string> { $"c-id-1-{uniqueSuffix}", $"c-id-2-{uniqueSuffix}" };
+            var code = $"same-code-{uniqueSuffix}";
             try
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
@@ -73,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var searchParam = new SearchParameter
                 {
                     Id = id,
-                    Url = $"{urlPrefix}c-1",
+                    Url = BuildTestSearchParameterUrl($"c-1-{uniqueSuffix}"),
                     Name = code,
                     Code = code,
                     Status = PublicationStatus.Active,
@@ -82,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Description = "any",
                     Base = personTypes,
                 };
+                searchParams.Add(searchParam);
 
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
@@ -89,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 searchParam = new SearchParameter
                 {
                     Id = id,
-                    Url = $"{urlPrefix}c-2",
+                    Url = BuildTestSearchParameterUrl($"c-2-{uniqueSuffix}"),
                     Name = code,
                     Code = code,
                     Status = PublicationStatus.Active,
@@ -98,6 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Description = "any",
                     Base = resourceTypes,
                 };
+                searchParams.Add(searchParam);
 
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
@@ -111,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeleteSearchParamsAsync(ids);
+                await DeleteSearchParamsAsync(searchParams);
             }
         }
 
@@ -126,18 +133,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personTypes = new List<ResourceType?>() { ResourceType.Person };
             var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
 #endif
-            const string urlPrefix = "http://my.org/";
-            var ids = new List<string> { "c-id-1", "c-id-2" };
+            var uniqueSuffix = CreateUniqueSearchParameterSuffix();
+            var searchParams = new List<SearchParameter>();
+            var ids = new List<string> { $"c-id-1-{uniqueSuffix}", $"c-id-2-{uniqueSuffix}" };
             try
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
-                var code = "same-code";
+                var code = $"same-code-{uniqueSuffix}";
                 var id = ids[0];
                 var searchParam = new SearchParameter
                 {
                     Id = id,
-                    Url = $"{urlPrefix}c-1",
+                    Url = BuildTestSearchParameterUrl($"c-1-{uniqueSuffix}"),
                     Name = code,
                     Code = code,
                     Status = PublicationStatus.Active,
@@ -146,6 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Description = "any",
                     Base = personTypes,
                 };
+                searchParams.Add(searchParam);
 
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
@@ -153,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 searchParam = new SearchParameter
                 {
                     Id = id,
-                    Url = $"{urlPrefix}c-2",
+                    Url = BuildTestSearchParameterUrl($"c-2-{uniqueSuffix}"),
                     Name = code,
                     Code = code,
                     Status = PublicationStatus.Active,
@@ -162,6 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Description = "any",
                     Base = supplyDeliveryTypes,
                 };
+                searchParams.Add(searchParam);
 
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
@@ -171,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeleteSearchParamsAsync(ids);
+                await DeleteSearchParamsAsync(searchParams);
             }
         }
 
@@ -197,31 +207,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             await CancelAnyRunningReindexJobsAsync();
 
-            const string urlPrefix = "http://my.org/";
+            var uniqueSuffix = CreateUniqueSearchParameterSuffix();
             var codes = new List<string>();
             var urls = new List<string>();
             var ids = new List<string>();
+            var searchParams = new List<SearchParameter>();
             try
             {
-                ids.Add("c-id-x");
-                codes.Add("c-code-x");
-                urls.Add($"{urlPrefix}c-code-x");
+                ids.Add($"c-id-x-{uniqueSuffix}");
+                codes.Add($"c-code-x-{uniqueSuffix}");
+                urls.Add(BuildTestSearchParameterUrl($"c-code-x-{uniqueSuffix}"));
 
-                ids.Add("c-id-y");
+                ids.Add($"c-id-y-{uniqueSuffix}");
                 if (dupCodes && dupUrls)
                 {
-                    codes.Add("c-code-x");
-                    urls.Add($"{urlPrefix}c-code-x");
+                    codes.Add(codes[0]);
+                    urls.Add(urls[0]);
                 }
                 else if (dupCodes)
                 {
-                    codes.Add("c-code-x");
-                    urls.Add($"{urlPrefix}c-code-y");
+                    codes.Add(codes[0]);
+                    urls.Add(BuildTestSearchParameterUrl($"c-code-y-{uniqueSuffix}"));
                 }
                 else if (dupUrls)
                 {
-                    codes.Add("c-code-y");
-                    urls.Add($"{urlPrefix}c-code-x");
+                    codes.Add($"c-code-y-{uniqueSuffix}");
+                    urls.Add(urls[0]);
                 }
 
                 var response = await CreatePersonSearchParamsAsync();
@@ -253,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeleteSearchParamsAsync(ids);
+                await DeleteSearchParamsAsync(searchParams);
             }
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
@@ -280,6 +291,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         Description = "any",
                         Base = resourceTypes,
                     };
+                    searchParams.Add(searchParam);
 
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
                 }
@@ -289,14 +301,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private async Task DeleteSearchParamsAsync(List<string> ids)
+        private async Task DeleteSearchParamsAsync(IEnumerable<SearchParameter> searchParameters)
         {
-            foreach (var id in ids)
-            {
-                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{id}" } });
-                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-            }
+            await CleanupSearchParametersAsync(searchParameters?.ToArray());
         }
 
         [Fact]
@@ -1133,12 +1140,97 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             }
 
-            // Allow time for soft deletes to be processed
-            await Task.Delay(500);
+            await WaitForSearchParameterCleanupAsync(searchParameters);
 
             // Note: Final reindex is handled by ReindexTestFixture.OnDisposedAsync() which runs
             // once at the very end after all tests complete. This eliminates the need to reindex
             // after each individual test cleanup.
+        }
+
+        private static string CreateUniqueSearchParameterSuffix()
+        {
+            return Guid.NewGuid().ToString("N").Substring(0, 8);
+        }
+
+        private static string BuildTestSearchParameterUrl(string suffix)
+        {
+            return $"{TestSearchParameterUrlPrefix}{suffix}";
+        }
+
+        private async Task WaitForSearchParameterCleanupAsync(params SearchParameter[] searchParameters)
+        {
+            SearchParameter[] cleanupTargets = searchParameters
+                .Where(param => param != null && !string.IsNullOrWhiteSpace(param.Id) && !string.IsNullOrWhiteSpace(param.Url))
+                .ToArray();
+
+            if (cleanupTargets.Length == 0)
+            {
+                return;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            TimeSpan? stableSince = null;
+            string[] lastOutstanding = Array.Empty<string>();
+
+            while (stopwatch.Elapsed < SearchParameterCleanupTimeout)
+            {
+                var outstanding = new List<string>();
+
+                foreach (var searchParameter in cleanupTargets)
+                {
+                    bool resourceDeleted = await IsSearchParameterDeletedAsync(searchParameter.Id);
+                    bool metadataCleared = await IsSearchParameterMissingFromMetadataAsync(searchParameter.Url);
+
+                    if (!resourceDeleted || !metadataCleared)
+                    {
+                        outstanding.Add($"{searchParameter.Id} (deleted={resourceDeleted}, metadataCleared={metadataCleared})");
+                    }
+                }
+
+                if (outstanding.Count == 0)
+                {
+                    stableSince ??= stopwatch.Elapsed;
+                    if (stopwatch.Elapsed - stableSince.Value >= SearchParameterCleanupStableWindow)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    stableSince = null;
+                    lastOutstanding = outstanding.ToArray();
+                    _output.WriteLine($"Waiting for SearchParameter cleanup to converge: {string.Join(", ", lastOutstanding)}");
+                }
+
+                await Task.Delay(SearchParameterCleanupPollDelay);
+            }
+
+            Assert.Fail($"Timed out waiting for SearchParameter cleanup to converge. Remaining: {string.Join(", ", lastOutstanding)}");
+        }
+
+        private async Task<bool> IsSearchParameterDeletedAsync(string id)
+        {
+            try
+            {
+                await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{id}");
+                return false;
+            }
+            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.StatusCode == HttpStatusCode.Gone)
+            {
+                return true;
+            }
+        }
+
+        private async Task<bool> IsSearchParameterMissingFromMetadataAsync(string url)
+        {
+            using FhirResponse<CapabilityStatement> response = await _fixture.TestFhirClient.ReadAsync<CapabilityStatement>("metadata");
+
+            return response.Resource.Rest
+                .Where(rest => rest?.Resource != null)
+                .SelectMany(rest => rest.Resource)
+                .Where(resource => resource?.SearchParam != null)
+                .SelectMany(resource => resource.SearchParam)
+                .All(searchParam => !string.Equals(searchParam?.Definition, url, StringComparison.Ordinal));
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
