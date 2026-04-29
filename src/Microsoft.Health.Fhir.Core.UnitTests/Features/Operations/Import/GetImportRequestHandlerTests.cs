@@ -102,6 +102,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Fact]
+        public async Task WhenGettingFailedCoordinatorJob_WithSdkMessage_ThenOperationFailedExceptionDoesNotEchoDiagnostics()
+        {
+            var coordResult = new ImportJobErrorResult()
+            {
+                ErrorMessage = "Service request failed. Status: 404 (The specified blob does not exist.) ErrorCode: BlobNotFound Headers: x-ms-request-id: 12345 attacker.example.org",
+                HttpStatusCode = 0,
+            };
+            var coord = new JobInfo() { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(coordResult) };
+
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
+
+            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
+            Assert.DoesNotContain("Headers:", ofe.Message);
+            Assert.DoesNotContain("BlobNotFound", ofe.Message);
+            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+        }
+
+        [Fact]
         public async Task WhenGettingFailedJob_WithGenericException_ThenExecptionIsTrownWithCorrectResponseCode()
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
