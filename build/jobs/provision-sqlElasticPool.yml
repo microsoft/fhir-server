@@ -25,7 +25,7 @@ parameters:
   default: 8
 
 jobs:
-- job: 'provisionSqlPool_${{ parameters.elasticPoolName }}'
+- job: provisionSqlPool
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
