@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [InlineData("PATCH")]
         public async Task GivenAMisCasedResourceTypeForAnyVerb_WhenRouting_ThenConstraintIsNotPassed(string verb)
         {
-            var data = await GetRouteData(verb, "/patient/1234");
+            var data = await GetRouteData(verb, "/patient");
 
             Assert.Empty(data.Routers);
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
