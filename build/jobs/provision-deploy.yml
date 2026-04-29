@@ -169,7 +169,7 @@ jobs:
             # Ensure Cosmos DB account exists
             $existingAccount = Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName -ErrorAction SilentlyContinue
             if ($null -eq $existingAccount) {
-                Write-Host "Cosmos DB account '$cosmosDbAccountName' does not exist. Creating..."
+                Write-Host "Cosmos DB account '$cosmosDbAccountName' does not exist. Creating with local auth disabled..."
                 Invoke-WithRetry -OperationName "Create Cosmos DB Account" -ScriptBlock {
                     New-AzCosmosDBAccount `
                         -ResourceGroupName $resourceGroupName `
@@ -177,11 +177,23 @@ jobs:
                         -Location (Get-AzResourceGroup -Name $resourceGroupName).Location `
                         -ApiKind "Sql" `
                         -DefaultConsistencyLevel "Strong" `
+                        -DisableLocalAuth $true `
                         -ErrorAction Stop
                 }
                 Write-Host "Cosmos DB account '$cosmosDbAccountName' created successfully."
             } else {
                 Write-Host "Cosmos DB account '$cosmosDbAccountName' already exists."
+                if (-not $existingAccount.DisableLocalAuth) {
+                    Write-Host "Local auth is enabled on existing account. Updating to disable local auth..."
+                    Invoke-WithRetry -OperationName "Update Cosmos DB Account - Disable Local Auth" -ScriptBlock {
+                        Update-AzCosmosDBAccount `
+                            -ResourceGroupName $resourceGroupName `
+                            -Name $cosmosDbAccountName `
+                            -DisableLocalAuth $true `
+                            -ErrorAction Stop
+                    }
+                    Write-Host "Local auth disabled on Cosmos DB account '$cosmosDbAccountName'."
+                }
             }
 
             # Ensure Cosmos DB database exists
