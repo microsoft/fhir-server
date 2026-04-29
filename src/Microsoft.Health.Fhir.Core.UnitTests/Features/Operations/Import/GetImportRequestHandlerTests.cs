@@ -67,13 +67,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             var coord = new JobInfo() { Status = JobStatus.Completed };
             var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = statusCode };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
-            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
-            var resourceLocation = new Uri(definition.ResourceLocation);
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
-            Assert.Equal(statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, ofe.ResponseStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError : "Error", resourceLocation.OriginalString), ofe.Message);
+            var expectedStatusCode = statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode;
+            Assert.Equal(expectedStatusCode, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, expectedStatusCode), ofe.Message);
+        }
+
+        [Fact]
+        public async Task WhenGettingFailedJob_WithSdkMessage_ThenOperationFailedExceptionDoesNotEchoDiagnostics()
+        {
+            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var workerResult = new ImportJobErrorResult()
+            {
+                ErrorMessage = "Service request failed. Status: 404 (The specified blob does not exist.) ErrorCode: BlobNotFound Headers: x-ms-request-id: 12345",
+                HttpStatusCode = HttpStatusCode.BadRequest,
+            };
+            var worker = new JobInfo()
+            {
+                Id = 1,
+                Status = JobStatus.Failed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "https://attacker.example.org/pt.ndjson" }),
+            };
+
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.BadRequest), ofe.Message);
+            Assert.DoesNotContain("Headers:", ofe.Message);
+            Assert.DoesNotContain("BlobNotFound", ofe.Message);
+            Assert.DoesNotContain("attacker.example.org", ofe.Message);
         }
 
         [Fact]
@@ -82,13 +107,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             var coord = new JobInfo() { Status = JobStatus.Completed };
             object workerResult = new { message = "Error", stackTrace = "Trace" };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
-            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
-            var resourceLocation = new Uri(definition.ResourceLocation);
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
             Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, HttpStatusCode.InternalServerError, resourceLocation.OriginalString), ofe.Message);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
         }
 
         [Fact]
