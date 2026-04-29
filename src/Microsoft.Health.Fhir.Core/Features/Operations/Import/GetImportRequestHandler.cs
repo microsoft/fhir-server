@@ -133,6 +133,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private static HttpStatusCode GetResponseStatusCode(string result)
         {
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                return HttpStatusCode.InternalServerError;
+            }
+
             try
             {
                 return NormalizeStatusCode(JsonConvert.DeserializeObject<ImportJobErrorResult>(result)?.HttpStatusCode ?? 0);
