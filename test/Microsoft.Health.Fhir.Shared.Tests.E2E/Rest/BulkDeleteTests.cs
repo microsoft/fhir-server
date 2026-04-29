@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -27,6 +28,7 @@ using Newtonsoft.Json;
 using Polly;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 
@@ -489,6 +491,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Category, Categories.IndexAndReindex)] // this moves tests to reindex group to avoid racing failures
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
+            const int searchParameterStatusTimeoutSeconds = 60;
+
             CheckBulkDeleteEnabled();
 
             var tag = Guid.NewGuid().ToString();
@@ -503,9 +507,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await EnsureCreateAsync();
 
-                await WaitForCacheRefreshAsync();
-
-                await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
+                await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
 
                 var queryParams = new Dictionary<string, string> { { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" } };
                 using var request = GenerateBulkDeleteRequest(tag, $"{ResourceType.SearchParameter}/$bulk-delete", queryParams);
@@ -514,22 +516,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, bundle.Entry.Count);
 
-                await WaitForCacheRefreshAsync();
-
                 await EnsureBulkDeleteAsync();
 
-                await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete);
+                await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
             }
             finally
             {
                 await CleanupAsync();
-            }
-
-            async Task WaitForCacheRefreshAsync()
-            {
-                // Wait for the search parameter cache to be updated
-                // 6 sec = 2 sec refresh interval * 3
-                await Task.Delay(TimeSpan.FromSeconds(6));
             }
 
             async Task CleanupAsync()
@@ -596,29 +589,69 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
             }
 
-            async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus)
+            async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus, TimeSpan timeout)
             {
                 if (_fixture.DataStore == DataStore.CosmosDb)
                 {
                     return;
                 }
 
-                foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
+                var expectedStatusText = expectedStatus.ToString();
+                var pollingInterval = TimeSpan.FromSeconds(2);
+                var stopwatch = Stopwatch.StartNew();
+                string lastObservedState = "No status responses recorded.";
+
+                while (stopwatch.Elapsed < timeout)
                 {
-                    var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
-                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                    var statusesMatched = true;
+                    var observedStates = new List<string>();
 
-                    var part = response.Resource.Parameter
-                        .Where(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)))
-                        .FirstOrDefault();
-                    Assert.NotNull(part);
+                    foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
+                    {
+                        try
+                        {
+                            var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
+                            if (response.StatusCode != HttpStatusCode.OK)
+                            {
+                                statusesMatched = false;
+                                observedStates.Add($"url={url} response={response.StatusCode}");
+                                continue;
+                            }
 
-                    var status = part.Part
-                        .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
-                        .Select(x => x.Value?.ToString())
-                        .FirstOrDefault();
-                    Assert.True(status == expectedStatus.ToString(), $"url={url} expected={expectedStatus} actual={status}");
+                            var part = response.Resource.Parameter
+                                .FirstOrDefault(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)));
+
+                            var status = part?.Part
+                                .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
+                                .Select(x => x.Value?.ToString())
+                                .FirstOrDefault();
+
+                            observedStates.Add($"url={url} actual={status ?? "<missing>"}");
+
+                            if (part == null || !string.Equals(status, expectedStatusText, StringComparison.Ordinal))
+                            {
+                                statusesMatched = false;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            statusesMatched = false;
+                            observedStates.Add($"url={url} error={ex.GetType().Name}: {ex.Message}");
+                        }
+                    }
+
+                    lastObservedState = string.Join("; ", observedStates);
+
+                    if (statusesMatched)
+                    {
+                        return;
+                    }
+
+                    await Task.Delay(pollingInterval);
                 }
+
+                throw new XunitException(
+                    $"Timed out after {timeout.TotalSeconds:F0}s waiting for SearchParameter status '{expectedStatusText}'. Last observed state: {lastObservedState}");
             }
         }
 
