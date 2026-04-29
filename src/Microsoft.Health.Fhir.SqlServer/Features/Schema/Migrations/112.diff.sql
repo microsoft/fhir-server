@@ -1,8 +1,8 @@
-ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @InputLastUpdated datetimeoffset(7) = NULL, @ReindexId bigint = NULL
+ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @InputLastUpdated datetimeoffset(7) = NULL, @ReindexId bigint = -1
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' L='+isnull(convert(varchar(23),@InputLastUpdated,126),'NULL')+' R='+isnull(convert(varchar,@ReindexId),'NULL')
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' L='+isnull(convert(varchar(23),@InputLastUpdated,126),'NULL')+' R='+convert(varchar,@ReindexId)
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@MaxLastUpdated datetimeoffset(7)
@@ -32,7 +32,7 @@ BEGIN TRY
   END
 
   SET @RunningReindexId = (SELECT TOP 1 GroupId FROM dbo.JobQueue WHERE QueueType = 6 AND Status IN (0,1))
-  IF @RunningReindexId IS NOT NULL AND @RunningReindexId <> isnull(@ReindexId,0)
+  IF @ReindexId <> -1 AND @RunningReindexId IS NOT NULL AND @RunningReindexId <> @ReindexId -- @ReindexId = -1 old code
   BEGIN
     SET @msg = 'Reindex job is in progress. ReindexId='+isnull(convert(varchar,@RunningReindexId),'NULL')
     ROLLBACK TRANSACTION;
