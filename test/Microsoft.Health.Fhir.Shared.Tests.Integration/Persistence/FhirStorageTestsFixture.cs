@@ -23,6 +23,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly DataResourceFilter _dataResourceFilter;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private SearchParameterOperations _searchParameterOperations;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -133,6 +135,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public ISearchService SearchService => _fixture.GetRequiredService<ISearchService>();
 
         public SearchParameterDefinitionManager SearchParameterDefinitionManager => _fixture.GetRequiredService<SearchParameterDefinitionManager>();
+
+        public SearchParameterOperations SearchParameterOperations => _searchParameterOperations;
 
         public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
 
@@ -242,6 +246,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
 
             ServiceProvider services = collection.BuildServiceProvider();
+
+            _searchParameterOperations = new SearchParameterOperations(
+                SearchParameterStatusManager,
+                SearchParameterDefinitionManager,
+                ModelInfoProvider.Instance,
+                Substitute.For<ISearchParameterSupportResolver>(),
+                Substitute.For<IDataStoreSearchParameterValidator>(),
+                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
+                () => Substitute.For<IScoped<ISearchService>>(),
+                NullLogger<SearchParameterOperations>.Instance);
 
             Mediator = new Mediator(services);
         }
