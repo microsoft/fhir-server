@@ -1,8 +1,9 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @InputLastUpdated datetimeoffset(7) = NULL, @ReindexId bigint = -1
+﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = -1
+-- @ReindexId = -1 old code, @ReindexId = 0 - new codebut not reindex. @ReindexId > 0 - new code and reindex.
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' L='+isnull(convert(varchar(23),@InputLastUpdated,126),'NULL')+' R='+convert(varchar,@ReindexId)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' R='+convert(varchar,@ReindexId)
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@MaxLastUpdated datetimeoffset(7)
@@ -11,19 +12,24 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Uri varchar(4000)
        ,@Status varchar(20)
        ,@InputTrancount int = @@trancount
-       ,@RunningReindexId bigint
+       ,@ActiveReindexJobs int
+       ,@ExpectedLastUpdated datetimeoffset(7) = (SELECT max(LastUpdated) FROM @SearchParams)
 
-DECLARE @SearchParamsCopy dbo.SearchParamList
-INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
-WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
-BEGIN
-  SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Status='+@Status+' Uri='+@Uri
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
-  DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
-END
+SET @Mode = @Mode +' L='+isnull(convert(varchar(23),@ExpectedLastUpdated,126),'NULL')
 
 BEGIN TRY
+  IF @ReindexId IS NULL RAISERROR('@ReindexId cannot be null', 18, 127)
+
+  DECLARE @SearchParamsCopy dbo.SearchParamList
+  INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
+  WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
+  BEGIN
+    SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
+    SET @msg = 'Status='+@Status+' Uri='+@Uri
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
+    DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
+  END
+
   IF @InputTrancount = 0 -- transaction can start in MergeResourcesAndSearchParams
   BEGIN 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
@@ -31,38 +37,20 @@ BEGIN TRY
     BEGIN TRANSACTION
   END
 
-  SET @RunningReindexId = (SELECT TOP 1 GroupId FROM dbo.JobQueue WHERE QueueType = 6 AND Status IN (0,1))
-  IF @ReindexId <> -1 AND @RunningReindexId IS NOT NULL AND @RunningReindexId <> @ReindexId -- @ReindexId = -1 old code
+  -- check if job id is valid
+  IF @ReindexId > 0
+     AND NOT EXISTS (SELECT 1 FROM dbo.JobQueue WHERE PartitionId = @ReindexId % 16 AND QueueType = 6 AND JobId = @ReindexId AND Status = 1)
+    RAISERROR('Reindex job is not running', 18, 127)
+
+  IF @ReindexId = 0
   BEGIN
-    SET @msg = 'Reindex job is in progress. ReindexId='+isnull(convert(varchar,@RunningReindexId),'NULL')
-    ROLLBACK TRANSACTION;
-    THROW 50002, @msg, 1
-  END
-  
-  IF @InputLastUpdated IS NOT NULL -- check concurrency based on max(LastUpdated)
-  BEGIN
+    EXECUTE dbo.GetActiveJobs @QueueType = 6, @ReturnCountOnly = 1, @ActiveJobs = @ActiveReindexJobs OUT
+    IF @ActiveReindexJobs > 0 THROW 50002, 'Reindex job is in progress.', 1
+    
     SET @MaxLastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
-    IF @MaxLastUpdated <> @InputLastUpdated AND @ReindexId IS NULL
+    IF @MaxLastUpdated <> @ExpectedLastUpdated
     BEGIN
-      SET @msg = 'Optimistic concurrency conflict detected : input last updated = '+convert(varchar(23),@InputLastUpdated,126)+' max last updated = '+convert(varchar(23),@MaxLastUpdated,126)
-      ROLLBACK TRANSACTION;
-      THROW 50001, @msg, 1
-    END
-  END
-  ELSE
-  BEGIN
-    -- remove below block once all callers are updated to pass LastUpdated
-    -- Check for concurrency conflicts first using LastUpdated
-    -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
-    SELECT @msg = string_agg(S.Uri, ', ') 
-      FROM (
-        SELECT TOP 60 S.Uri
-          FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-          WHERE I.LastUpdated != S.LastUpdated) S
-    IF @msg IS NOT NULL
-    BEGIN
-      SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
-      ROLLBACK TRANSACTION;
+      SET @msg = 'Optimistic concurrency conflict detected : expected last updated = '+convert(varchar(23),@ExpectedLastUpdated,126)+' max last updated = '+convert(varchar(23),@MaxLastUpdated,126);
       THROW 50001, @msg, 1
     END
   END

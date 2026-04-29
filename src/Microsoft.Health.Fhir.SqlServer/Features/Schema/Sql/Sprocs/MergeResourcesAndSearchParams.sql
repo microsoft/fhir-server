@@ -1,7 +1,6 @@
 ﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
-    ,@InputLastUpdated datetimeoffset(7) = NULL
-    ,@ReindexId bigint = NULL
+    ,@ReindexId bigint = -1
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
     ,@Resources dbo.ResourceList READONLY
@@ -32,7 +31,7 @@ BEGIN TRY
 
   BEGIN TRANSACTION
   
-  EXECUTE dbo.MergeSearchParams @SearchParams, @InputLastUpdated, @ReindexId
+  EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId
 
   IF EXISTS (SELECT * FROM @Resources)
     EXECUTE dbo.MergeResources

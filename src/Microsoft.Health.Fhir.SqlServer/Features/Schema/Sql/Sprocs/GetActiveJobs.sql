@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetActiveJobs
 GO
-CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL, @ReturnParentOnly BIT = 0
+CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL, @ReturnParentOnly bit = 0, @ReturnCountOnly bit = 0, @ActiveJobs int = NULL OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetActiveJobs'
@@ -8,11 +8,12 @@ DECLARE @SP varchar(100) = 'GetActiveJobs'
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
                            + ' R='+CONVERT(VARCHAR, @ReturnParentOnly)
        ,@st datetime = getUTCdate()
-       ,@JobIds BigintList
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
        ,@Rows int = 0
+
+DECLARE @JobIds TABLE (Id bigint PRIMARY KEY, GroupId bigint)
 
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
@@ -20,9 +21,9 @@ BEGIN TRY
   WHILE @LookedAtPartitions < @MaxPartitions
   BEGIN
     IF @GroupId IS NULL
-      INSERT INTO @JobIds SELECT JobId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1)
+      INSERT INTO @JobIds SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1)
     ELSE
-      INSERT INTO @JobIds SELECT JobId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND GroupId = @GroupId AND Status IN (0,1)
+      INSERT INTO @JobIds SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND GroupId = @GroupId AND Status IN (0,1)
 
     SET @Rows += @@rowcount
 
@@ -30,18 +31,20 @@ BEGIN TRY
     SET @LookedAtPartitions += 1 
   END
 
+  IF @ReturnCountOnly = 1
+  BEGIN
+    SET @ActiveJobs = @Rows
+    RETURN
+  END
+
   IF @Rows > 0
-    BEGIN
-      IF @ReturnParentOnly = 1
-      BEGIN
-        DECLARE @TopGroupId BIGINT;
+  BEGIN
+    IF @ReturnParentOnly = 1
+      DELETE FROM @JobIds WHERE Id <> (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
 
-        SELECT TOP 1 @TopGroupId = GroupId FROM dbo.JobQueue WHERE JobId IN (SELECT Id FROM @JobIds) ORDER BY GroupId DESC;
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+  END
 
-        DELETE FROM @JobIds	WHERE Id NOT IN (SELECT JobId FROM dbo.JobQueue	WHERE JobId = @TopGroupId);
-      END
-      EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
-    END
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
