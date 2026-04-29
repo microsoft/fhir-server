@@ -10,6 +10,16 @@ variables:
 
 stages:
 # *********************** Setup ***********************
+- stage: scaleUpContainerApps
+  displayName: 'Scale Container Apps Up (min=3)'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 3
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
@@ -292,6 +302,25 @@ stages:
     - template: ./jobs/aggregate-coverage.yml
 
 # *********************** Finalize ***********************
+- stage: scaleDownContainerApps
+  displayName: 'Scale Container Apps Down (min=0)'
+  dependsOn:
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR5Sql
+  # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
+  # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
+  # doesn't hit cold-started apps mid-test.
+  condition: succeeded()
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 0
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
