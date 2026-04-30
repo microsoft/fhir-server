@@ -121,6 +121,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Fact]
+        public async Task WhenGettingFailedCoordinatorJob_WithValidBadRequestErrorPayload_ThenOperationFailedExceptionPreservesStatusWithoutEchoingDiagnostics()
+        {
+            var coordResult = new ImportJobErrorResult()
+            {
+                ErrorMessage = "Service request failed. Status: 400 (Bad Request) ErrorCode: InvalidInput Headers: x-ms-request-id: 12345 attacker.example.org",
+                HttpStatusCode = HttpStatusCode.BadRequest,
+            };
+            var coord = new JobInfo() { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(coordResult) };
+
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.BadRequest), ofe.Message);
+            Assert.DoesNotContain("Headers:", ofe.Message);
+            Assert.DoesNotContain("InvalidInput", ofe.Message);
+            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+        }
+
+        [Fact]
         public async Task WhenGettingFailedCoordinatorJob_WithMalformedErrorPayload_ThenOperationFailedExceptionIsSanitized()
         {
             var coord = new JobInfo() { Status = JobStatus.Failed, Result = "Headers: BlobNotFound attacker.example.org" };
