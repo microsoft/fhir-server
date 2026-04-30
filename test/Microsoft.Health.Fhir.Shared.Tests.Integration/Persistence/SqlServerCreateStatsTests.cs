@@ -109,41 +109,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject";
             var query = new[] { Tuple.Create("subject", "Patient/test-patient-1") };
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
+            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+
+            // Capture stats before the search so we can assert on the delta.
+            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
 
             // Act
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
             // Assert — filtered statistics must be created for the ReferenceResourceId and ReferenceResourceTypeId columns
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
-            var statsFromDatabase = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
-            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
-            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s, string columnName) =>
+                s.TableName == VLatest.ReferenceSearchParam.TableName
+                && s.ColumnName == columnName
+                && s.ResourceTypeId == resourceTypeId
+                && s.SearchParamId == searchParamId;
 
             // Cache
-            Assert.Contains(statsFromCache, _ =>
-                _.TableName == VLatest.ReferenceSearchParam.TableName
-                && _.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
+                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceId.");
 
-            Assert.Contains(statsFromCache, _ =>
-                _.TableName == VLatest.ReferenceSearchParam.TableName
-                && _.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
+                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceTypeId.");
 
             // Database
-            Assert.Contains(statsFromDatabase, _ =>
-                _.TableName == VLatest.ReferenceSearchParam.TableName
-                && _.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
+                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceId.");
 
-            Assert.Contains(statsFromDatabase, _ =>
-                _.TableName == VLatest.ReferenceSearchParam.TableName
-                && _.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
+                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceTypeId.");
         }
 
         [Fact]
@@ -160,29 +166,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 #endif
             var query = new[] { Tuple.Create("url", "http://example.com/fhir/ValueSet/test") };
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
+            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s) =>
+                s.TableName == VLatest.UriSearchParam.TableName
+                && s.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
+                && s.ResourceTypeId == resourceTypeId
+                && s.SearchParamId == searchParamId;
+
+            // Capture stats before the search so we can assert on the delta.
+            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
 
             // Act
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
             // Assert — filtered statistics must be created for the Uri column
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
-            var statsFromDatabase = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
-            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
-            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
 
             // Cache
-            Assert.Contains(statsFromCache, _ =>
-                _.TableName == VLatest.UriSearchParam.TableName
-                && _.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                cacheAfter.Count(MatchesStat) > cacheBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the cache for Uri.");
 
             // Database
-            Assert.Contains(statsFromDatabase, _ =>
-                _.TableName == VLatest.UriSearchParam.TableName
-                && _.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
-                && _.ResourceTypeId == resourceTypeId
-                && _.SearchParamId == searchParamId);
+            Assert.True(
+                databaseAfter.Count(MatchesStat) > databaseBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the database for Uri.");
         }
 
         [Fact]
@@ -203,8 +215,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // Assert — a NotExists expression must never produce ReferenceSearchParam stats.
             var newReferenceStats = statsAfter
-                .Except(statsBefore)
-                .Where(s => s.TableName == VLatest.ReferenceSearchParam.TableName)
+                .Where(s => s.TableName == VLatest.ReferenceSearchParam.TableName
+                    && !statsBefore.Any(b =>
+                        b.TableName == s.TableName
+                        && b.ColumnName == s.ColumnName
+                        && b.ResourceTypeId == s.ResourceTypeId
+                        && b.SearchParamId == s.SearchParamId))
                 .ToList();
 
             Assert.Empty(newReferenceStats);
