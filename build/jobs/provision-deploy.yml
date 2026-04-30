@@ -166,10 +166,10 @@ jobs:
             # Cosmos DB account uses the same name as the container app (matching App Service convention)
             $cosmosDbAccountName = $webAppName
 
-            # Ensure Cosmos DB account exists
+            # Ensure Cosmos DB account exists (created with local auth disabled for S360 compliance)
             $existingAccount = Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName -ErrorAction SilentlyContinue
             if ($null -eq $existingAccount) {
-                Write-Host "Cosmos DB account '$cosmosDbAccountName' does not exist. Creating..."
+                Write-Host "Cosmos DB account '$cosmosDbAccountName' does not exist. Creating with local auth disabled..."
                 Invoke-WithRetry -OperationName "Create Cosmos DB Account" -ScriptBlock {
                     New-AzCosmosDBAccount `
                         -ResourceGroupName $resourceGroupName `
@@ -177,14 +177,15 @@ jobs:
                         -Location (Get-AzResourceGroup -Name $resourceGroupName).Location `
                         -ApiKind "Sql" `
                         -DefaultConsistencyLevel "Strong" `
+                        -DisableLocalAuth $true `
                         -ErrorAction Stop
                 }
-                Write-Host "Cosmos DB account '$cosmosDbAccountName' created successfully."
+                Write-Host "Cosmos DB account '$cosmosDbAccountName' created successfully with local auth disabled."
             } else {
                 Write-Host "Cosmos DB account '$cosmosDbAccountName' already exists."
             }
 
-            # Disable local auth on the Cosmos DB account via REST API
+            # Ensure local auth is disabled on the Cosmos DB account (safety net for pre-existing accounts)
             $subscriptionId = (Get-AzContext).Subscription.Id
             $cosmosResourceId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.DocumentDB/databaseAccounts/$cosmosDbAccountName"
             $existingAccount = Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName -ErrorAction Stop

@@ -14,10 +14,10 @@ resources:
         include:
           - '*'
       stages:
-        - testStu3
-        - testR4
-        - testR4B
-        - testR5
+        - testStu3Cosmos
+        - testR4Cosmos
+        - testR4Sql
+        - testR5Sql
 
 variables:
 - template: pr-variables.yml
