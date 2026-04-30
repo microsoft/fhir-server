@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeleteSearchParamsAsync(codes);
+                await DeleteSearchParamsAsync(codes.Select(c => new SearchParameter { Id = c, Url = $"{urlPrefix}{c}" }));
             }
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
