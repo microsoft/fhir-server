@@ -56,7 +56,7 @@ public class QueryPlanReuseCheckerTests
     public void GivenQueryPlanReuseChecker_WhenInitializedWithNoSkewedParameters_ThenCanReuseQueryPlanReturnsTrue()
     {
         // Arrange
-        var checker = CreateInitializedChecker(new List<IGrouping<string, (string Uri, string ResourceTypeId)>>());
+        var checker = CreateInitializedChecker(new HashSet<string>());
         var searchParameter = new SearchParameterInfo("name", "name", SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
         var searchOptions = CreateSearchOptions(new List<SearchParameterInfo> { searchParameter });
 
@@ -72,7 +72,7 @@ public class QueryPlanReuseCheckerTests
     {
         // Arrange
         string skewedUri = "http://hl7.org/fhir/SearchParameter/Patient-name";
-        var skewedParameters = CreateSkewedParameterGroups(skewedUri, "1");
+        var skewedParameters = CreateSkewedParameterGroups(skewedUri);
         var checker = CreateInitializedChecker(skewedParameters);
         var searchParameter = new SearchParameterInfo("name", "name", SearchParamType.String, new Uri(skewedUri));
         var searchOptions = CreateSearchOptions(new List<SearchParameterInfo> { searchParameter });
@@ -90,7 +90,7 @@ public class QueryPlanReuseCheckerTests
         // Arrange
         string skewedUri = "http://hl7.org/fhir/SearchParameter/Patient-name";
         string nonSkewedUri = "http://hl7.org/fhir/SearchParameter/Patient-gender";
-        var skewedParameters = CreateSkewedParameterGroups(skewedUri, "1");
+        var skewedParameters = CreateSkewedParameterGroups(skewedUri);
         var checker = CreateInitializedChecker(skewedParameters);
         var searchParameter = new SearchParameterInfo("gender", "gender", SearchParamType.Token, new Uri(nonSkewedUri));
         var searchOptions = CreateSearchOptions(new List<SearchParameterInfo> { searchParameter });
@@ -108,7 +108,7 @@ public class QueryPlanReuseCheckerTests
         // Arrange
         string skewedUri = "http://hl7.org/fhir/SearchParameter/Patient-name";
         string nonSkewedUri = "http://hl7.org/fhir/SearchParameter/Patient-gender";
-        var skewedParameters = CreateSkewedParameterGroups(skewedUri, "1");
+        var skewedParameters = CreateSkewedParameterGroups(skewedUri);
         var checker = CreateInitializedChecker(skewedParameters);
         var searchParameters = new List<SearchParameterInfo>
         {
@@ -129,7 +129,7 @@ public class QueryPlanReuseCheckerTests
     {
         // Arrange
         string skewedUri = "http://hl7.org/fhir/SearchParameter/Patient-address";
-        var skewedParameters = CreateSkewedParameterGroups(skewedUri, "1");
+        var skewedParameters = CreateSkewedParameterGroups(skewedUri);
         var checker = CreateInitializedChecker(skewedParameters);
         var searchParameters = new List<SearchParameterInfo>
         {
@@ -150,7 +150,7 @@ public class QueryPlanReuseCheckerTests
     {
         // Arrange
         string skewedUri = "http://hl7.org/fhir/SearchParameter/Patient-name";
-        var skewedParameters = CreateSkewedParameterGroups(skewedUri, "1");
+        var skewedParameters = CreateSkewedParameterGroups(skewedUri);
         var checker = CreateInitializedChecker(skewedParameters);
         var searchOptions = CreateSearchOptions(new List<SearchParameterInfo>());
 
@@ -184,13 +184,12 @@ public class QueryPlanReuseCheckerTests
         // Arrange
         string skewedUri1 = "http://hl7.org/fhir/SearchParameter/Patient-name";
         string skewedUri2 = "http://hl7.org/fhir/SearchParameter/Patient-address";
-        var skewedData = new List<(string Uri, string ResourceTypeId)>
+        var skewedData = new HashSet<string>
         {
-            (skewedUri1, "1"),
-            (skewedUri2, "2"),
+            skewedUri1,
+            skewedUri2,
         };
-        var skewedParameters = skewedData.GroupBy(x => x.Uri).ToList();
-        var checker = CreateInitializedChecker(skewedParameters);
+        var checker = CreateInitializedChecker(skewedData);
 
         // Test with first skewed parameter
         var searchOptions1 = CreateSearchOptions(new List<SearchParameterInfo>
@@ -301,7 +300,7 @@ public class QueryPlanReuseCheckerTests
     /// <summary>
     /// Creates an initialized QueryPlanReuseChecker with the specified skewed parameters.
     /// </summary>
-    private QueryPlanReuseChecker CreateInitializedChecker(List<IGrouping<string, (string Uri, string ResourceTypeId)>> skewedParameters)
+    private QueryPlanReuseChecker CreateInitializedChecker(HashSet<string> skewedParameters)
     {
         var checker = new QueryPlanReuseChecker(_sqlRetryService, _logger);
 
@@ -318,12 +317,11 @@ public class QueryPlanReuseCheckerTests
     }
 
     /// <summary>
-    /// Creates a list of skewed parameter groups for testing.
+    /// Creates a set of skewed parameter groups for testing.
     /// </summary>
-    private List<IGrouping<string, (string Uri, string ResourceTypeId)>> CreateSkewedParameterGroups(string uri, string resourceTypeId)
+    private HashSet<string> CreateSkewedParameterGroups(string uri)
     {
-        var data = new List<(string Uri, string ResourceTypeId)> { (uri, resourceTypeId) };
-        return data.GroupBy(x => x.Uri).ToList();
+        return new HashSet<string> { uri };
     }
 
     /// <summary>
