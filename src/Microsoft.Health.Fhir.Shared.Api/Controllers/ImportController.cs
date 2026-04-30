@@ -248,21 +248,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return false;
             }
 
-            return string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase)
-                && inputUri.Port == _configuredStorageAccountUri.Port
-                && HasConfiguredBasePath(inputUri, _configuredStorageAccountUri);
-        }
-
-        private static bool HasConfiguredBasePath(Uri inputUri, Uri configuredStorageAccountUri)
-        {
-            string configuredPath = configuredStorageAccountUri.AbsolutePath.TrimEnd('/');
-            if (string.IsNullOrEmpty(configuredPath))
+            // Match the configured storage authority exactly so import cannot redirect the
+            // server's storage credentials to a caller-controlled host.
+            if (!string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase)
+                || inputUri.Port != _configuredStorageAccountUri.Port)
             {
-                return true;
+                return false;
             }
 
-            return inputUri.AbsolutePath.Equals(configuredPath, StringComparison.OrdinalIgnoreCase)
+            // StorageAccountUri normally points at the account root. If it includes a
+            // container or prefix, keep imports scoped under that configured path.
+            string configuredPath = _configuredStorageAccountUri.AbsolutePath.TrimEnd('/');
+            return string.IsNullOrEmpty(configuredPath)
+                || inputUri.AbsolutePath.Equals(configuredPath, StringComparison.OrdinalIgnoreCase)
                 || inputUri.AbsolutePath.StartsWith(configuredPath + "/", StringComparison.OrdinalIgnoreCase);
         }
 
