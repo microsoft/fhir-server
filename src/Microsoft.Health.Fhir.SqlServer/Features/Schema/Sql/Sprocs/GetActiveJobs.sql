@@ -1,12 +1,13 @@
 ﻿--DROP PROCEDURE dbo.GetActiveJobs
 GO
-CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL, @ReturnParentOnly bit = 0, @ReturnCountOnly bit = 0, @ActiveJobs int = NULL OUT
+CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL OUT, @ReturnParentOnly bit = 0, @IsExistsCheck bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
-                           + ' R='+CONVERT(VARCHAR, @ReturnParentOnly)
+                           + ' R='+convert(varchar, @ReturnParentOnly)
+                           + ' E='+convert(varchar, @IsExistsCheck)
        ,@st datetime = getUTCdate()
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
@@ -18,7 +19,8 @@ DECLARE @JobIds TABLE (Id bigint PRIMARY KEY, GroupId bigint)
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
 
-  WHILE @LookedAtPartitions < @MaxPartitions
+  -- gfor exists check exit immediately when any row found
+  WHILE @LookedAtPartitions < @MaxPartitions AND (@IsExistsCheck = 0 OR @IsExistsCheck = 1 AND @Rows = 0)
   BEGIN
     IF @GroupId IS NULL
       INSERT INTO @JobIds SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1)
@@ -31,9 +33,9 @@ BEGIN TRY
     SET @LookedAtPartitions += 1 
   END
 
-  IF @ReturnCountOnly = 1
+  IF @IsExistsCheck = 1
   BEGIN
-    SET @ActiveJobs = @Rows
+    SET @GroupId = (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
     RETURN
   END
 
@@ -41,6 +43,8 @@ BEGIN TRY
   BEGIN
     IF @ReturnParentOnly = 1
       DELETE FROM @JobIds WHERE Id <> (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
+
+    SET @GroupId = (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
 
     EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
   END

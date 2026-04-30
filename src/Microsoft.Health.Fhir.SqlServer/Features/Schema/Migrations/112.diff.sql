@@ -1,10 +1,11 @@
-ALTER PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL, @ReturnParentOnly bit = 0, @ReturnCountOnly bit = 0, @ActiveJobs int = NULL OUT
+ALTER PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL OUT, @ReturnParentOnly bit = 0, @IsExistsCheck bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
-                           + ' R='+CONVERT(VARCHAR, @ReturnParentOnly)
+                           + ' R='+convert(varchar, @ReturnParentOnly)
+                           + ' E='+convert(varchar, @IsExistsCheck)
        ,@st datetime = getUTCdate()
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
@@ -16,7 +17,8 @@ DECLARE @JobIds TABLE (Id bigint PRIMARY KEY, GroupId bigint)
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
 
-  WHILE @LookedAtPartitions < @MaxPartitions
+  -- gfor exists check exit immediately when any row found
+  WHILE @LookedAtPartitions < @MaxPartitions AND (@IsExistsCheck = 0 OR @IsExistsCheck = 1 AND @Rows = 0)
   BEGIN
     IF @GroupId IS NULL
       INSERT INTO @JobIds SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1)
@@ -29,9 +31,9 @@ BEGIN TRY
     SET @LookedAtPartitions += 1 
   END
 
-  IF @ReturnCountOnly = 1
+  IF @IsExistsCheck = 1
   BEGIN
-    SET @ActiveJobs = @Rows
+    SET @GroupId = (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
     RETURN
   END
 
@@ -39,6 +41,8 @@ BEGIN TRY
   BEGIN
     IF @ReturnParentOnly = 1
       DELETE FROM @JobIds WHERE Id <> (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
+    
+    SET @GroupId = (SELECT TOP 1 GroupId FROM @JobIds ORDER BY GroupId DESC)
 
     EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
   END
@@ -65,7 +69,7 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Uri varchar(4000)
        ,@Status varchar(20)
        ,@InputTrancount int = @@trancount
-       ,@ActiveReindexJobs int
+       ,@ActiveJobId bigint
        ,@ExpectedLastUpdated datetimeoffset(7) = (SELECT max(LastUpdated) FROM @SearchParams)
 
 SET @Mode = @Mode +' L='+isnull(convert(varchar(23),@ExpectedLastUpdated,126),'NULL')
@@ -95,15 +99,37 @@ BEGIN TRY
      AND NOT EXISTS (SELECT 1 FROM dbo.JobQueue WHERE PartitionId = @ReindexId % 16 AND QueueType = 6 AND JobId = @ReindexId AND Status = 1)
     RAISERROR('Reindex job is not running', 18, 127)
 
-  IF @ReindexId = 0
+  IF @ReindexId < 0 -- this can be ivoked for new and old code.
   BEGIN
-    EXECUTE dbo.GetActiveJobs @QueueType = 6, @ReturnCountOnly = 1, @ActiveJobs = @ActiveReindexJobs OUT
-    IF @ActiveReindexJobs > 0 THROW 50002, 'Reindex job is in progress.', 1
-    
+    EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUT
+    SET @msg = 'Reindex job is in progress. Job Id='+convert(varchar,@ActiveJobId)
+    IF @ActiveJobId IS NOT NULL THROW 50002, @msg, 1
+  END
+
+  -- Check for concurrency conflicts using LastUpdated
+  -- Ignore any checks for reindex, as it owns statuses when it runs.
+  IF @ReindexId = 0 -- max(LastUpdated) logic
+  BEGIN
     SET @MaxLastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
     IF @MaxLastUpdated <> @ExpectedLastUpdated
     BEGIN
       SET @msg = 'Optimistic concurrency conflict detected : expected last updated = '+convert(varchar(23),@ExpectedLastUpdated,126)+' max last updated = '+convert(varchar(23),@MaxLastUpdated,126);
+      THROW 50001, @msg, 1
+    END
+  END
+
+  -- Remove this old logic when code starts using max last updated
+  IF @ReindexId = -1
+  BEGIN
+    -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
+    SELECT @msg = string_agg(S.Uri, ', ') 
+      FROM (
+        SELECT TOP 60 S.Uri
+          FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
+          WHERE I.LastUpdated != S.LastUpdated) S
+    IF @msg IS NOT NULL
+    BEGIN
+      SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
       THROW 50001, @msg, 1
     END
   END
@@ -118,8 +144,9 @@ BEGIN TRY
     WHEN NOT MATCHED BY TARGET THEN 
       INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
         VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
-
-  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' Merged='+convert(varchar,@@rowcount)
+  SET @Rows = @@rowcount
+  
+  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)
 
   IF @InputTrancount = 0 COMMIT TRANSACTION
 

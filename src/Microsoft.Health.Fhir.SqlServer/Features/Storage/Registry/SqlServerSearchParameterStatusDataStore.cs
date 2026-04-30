@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return;
             }
 
-            await UpsertStatusesWithRetry(statuses, 3, cancellationToken, reindexId);
+            await UpsertStatusesWithRetry(statuses, 3, cancellationToken); // add reindexId when reindex job tests start using true queue client.
         }
 
         private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken, long? reindexId = null)
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
-            if (_schemaInformation.Current >= 112)
+            if (_schemaInformation.Current >= 112 && reindexId.HasValue) // remove value check to invoke new max(LastUpdated) logic
             {
                 cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
             }
