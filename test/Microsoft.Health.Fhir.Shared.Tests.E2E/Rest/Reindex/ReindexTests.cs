@@ -56,6 +56,91 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
+        public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
+            const string urlPrefix = "http://my.org/";
+            var codes = new List<string>();
+            try
+            {
+                for (var i = 0; i < numberOfSearchParams; i++)
+                {
+                    var code = $"c-id-{i}";
+                    codes.Add(code);
+                }
+
+                var bundle = await CreatePersonSearchParamsAsync();
+                Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+                foreach (var entry in bundle.Entry)
+                {
+                    Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+                }
+
+                // check by urls
+                var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
+                Assert.True(search.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={search.Resource.Total}");
+
+                var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+                Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+                await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+
+                await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+                {
+                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
+                });
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync(codes);
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                #if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
+                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                #else
+                var resourceTypes = new List<ResourceType?>();
+                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                #endif
+
+                foreach (var code in codes)
+                {
+                    var searchParam = new SearchParameter
+                    {
+                        Id = code,
+                        Url = $"{urlPrefix}{code}",
+                        Name = code,
+                        Code = code,
+                        Status = PublicationStatus.Active,
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
+                        Description = "any",
+                        Base = resourceTypes,
+                    };
+
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                return result;
+            }
+
+            async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
+            {
+                var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+                Assert.NotNull(response);
+                var error = HasNotSupportedError(response.Resource);
+                Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+            }
+        }
+
+        [Fact]
         public async Task GivenTwoSearchParamsWithCodeConflictOnDerived_ThenBadRequestIsReturned()
         {
             await CancelAnyRunningReindexJobsAsync();

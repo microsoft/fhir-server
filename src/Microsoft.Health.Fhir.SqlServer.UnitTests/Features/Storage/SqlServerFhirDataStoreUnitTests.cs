@@ -293,6 +293,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public void GivenKnownResourceType_WhenGettingResourceTypeId_ThenResourceTypeIdIsReturned()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var model = GetModel(CreateSqlServerFhirDataStore(sqlRetryService));
+
+            short resourceTypeId = model.GetResourceTypeId("Patient");
+
+            Assert.Equal(1, resourceTypeId);
+        }
+
+        [Fact]
+        public void GivenUnknownResourceType_WhenGettingResourceTypeId_ThenResourceNotFoundExceptionIsThrown()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var model = GetModel(CreateSqlServerFhirDataStore(sqlRetryService));
+
+            ResourceNotFoundException exception = Assert.Throws<ResourceNotFoundException>(() => model.GetResourceTypeId("patient"));
+
+            Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
+        }
+
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
         {
             ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
@@ -369,6 +391,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 storeClient);
 
             return dataStore;
+        }
+
+        private static SqlServerFhirModel GetModel(SqlServerFhirDataStore dataStore)
+        {
+            var modelField = typeof(SqlServerFhirDataStore).GetField("_model", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (modelField == null)
+            {
+                throw new InvalidOperationException("Field '_model' not found");
+            }
+
+            return (SqlServerFhirModel)modelField.GetValue(dataStore);
         }
 
         private static List<ResourceWrapperOperation> CreateResourceWrapperOperations()
