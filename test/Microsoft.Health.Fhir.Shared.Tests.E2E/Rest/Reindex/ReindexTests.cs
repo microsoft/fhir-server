@@ -19,10 +19,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Newtonsoft.Json;
 using Xunit;
-using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 

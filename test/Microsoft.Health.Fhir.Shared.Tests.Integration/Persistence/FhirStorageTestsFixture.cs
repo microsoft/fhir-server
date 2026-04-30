@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (_fixture as IDisposable)?.Dispose();
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
@@ -259,7 +260,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Mediator = new Mediator(services);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
