@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private const int OomReductionFactor = 10;
         private const int MinEffectiveBatchSize = 1;
-        private const int MaxOomReductionsBeforeSoftFail = 3;
+        private const int MaxOomReductionsBeforeSoftFail = 4;
 
         /// <summary>
         /// Current effective batch size for fetching resources. Starts at the configured MaximumNumberOfResourcesPerQuery
