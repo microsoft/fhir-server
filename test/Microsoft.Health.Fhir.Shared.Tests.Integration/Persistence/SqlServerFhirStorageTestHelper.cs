@@ -60,7 +60,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _queueClient = queueClient;
 
             _dbSetupRetryPolicy = Policy
-                .Handle<Exception>()
+                .Handle<SqlException>()
+                .Or<TimeoutException>()
                 .WaitAndRetryAsync(
                     retryCount: 5,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
