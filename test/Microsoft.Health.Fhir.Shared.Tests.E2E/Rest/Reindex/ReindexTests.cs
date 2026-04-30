@@ -357,6 +357,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     await WaitForJobCompletionAsync(value.jobUri, ReindexJobCompletionTimeout);
                 }
+                catch (Exception ex)
+                {
+                    _output.WriteLine($"Unexpected exception while waiting for reindex job completion: {ex}");
+                    throw;
+                }
                 finally
                 {
                     updatesCts.Cancel();

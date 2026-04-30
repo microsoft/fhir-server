@@ -183,17 +183,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
-      taskHostingPollingFrequencyInSeconds: 30
-      taskHostingMaxRunningTaskCount: 4
-      searchParameterCacheRefreshIntervalSeconds: 20
-      systemConformanceProviderRefreshIntervalSeconds: 60
-      reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
-      minReplicas: 3
-      maxReplicas: 24
-      containerCpu: '2.0'
-      containerMemory: '4Gi'
-      cosmosAutoscaleMaxThroughput: 5000
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -219,16 +209,7 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      taskHostingPollingFrequencyInSeconds: 30
-      taskHostingMaxRunningTaskCount: 4
-      searchParameterCacheRefreshIntervalSeconds: 20
-      systemConformanceProviderRefreshIntervalSeconds: 60
-      reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
-      minReplicas: 3
-      maxReplicas: 24
-      containerCpu: '2.0'
-      containerMemory: '4Gi'
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -249,17 +230,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
-      taskHostingPollingFrequencyInSeconds: 30
-      taskHostingMaxRunningTaskCount: 4
-      searchParameterCacheRefreshIntervalSeconds: 20
-      systemConformanceProviderRefreshIntervalSeconds: 60
-      reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
-      minReplicas: 3
-      maxReplicas: 24
-      containerCpu: '2.0'
-      containerMemory: '4Gi'
-      cosmosAutoscaleMaxThroughput: 5000
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -285,16 +256,7 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      taskHostingPollingFrequencyInSeconds: 30
-      taskHostingMaxRunningTaskCount: 4
-      searchParameterCacheRefreshIntervalSeconds: 20
-      systemConformanceProviderRefreshIntervalSeconds: 60
-      reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
-      minReplicas: 3
-      maxReplicas: 24
-      containerCpu: '2.0'
-      containerMemory: '4Gi'
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
@@ -320,13 +282,4 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      taskHostingPollingFrequencyInSeconds: 30
-      taskHostingMaxRunningTaskCount: 4
-      searchParameterCacheRefreshIntervalSeconds: 20
-      systemConformanceProviderRefreshIntervalSeconds: 60
-      reindexCacheRefreshWaitMultiplier: 6
       reindexEnabled: true
-      minReplicas: 3
-      maxReplicas: 24
-      containerCpu: '2.0'
-      containerMemory: '4Gi'

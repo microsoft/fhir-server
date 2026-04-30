@@ -28,39 +28,9 @@ parameters:
 - name: reindexEnabled
   type: boolean
   default: true
-- name: minReplicas
-  type: number
-  default: 0
-- name: maxReplicas
-  type: number
-  default: 8
-- name: containerCpu
-  type: string
-  default: '0.5'
-- name: containerMemory
-  type: string
-  default: '1Gi'
-- name: cosmosAutoscaleMaxThroughput
-  type: number
-  default: 5000
 - name: sqlElasticPoolName
   type: string
   default: ''
-- name: taskHostingPollingFrequencyInSeconds
-  type: number
-  default: 1
-- name: taskHostingMaxRunningTaskCount
-  type: number
-  default: 4
-- name: searchParameterCacheRefreshIntervalSeconds
-  type: number
-  default: 2
-- name: systemConformanceProviderRefreshIntervalSeconds
-  type: number
-  default: 5
-- name: reindexCacheRefreshWaitMultiplier
-  type: number
-  default: 6
 - name: keyVaultName
   type: string
 
@@ -97,11 +67,11 @@ jobs:
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
 
         $additionalProperties = $flattenedTestConfig
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = ${{ parameters.taskHostingPollingFrequencyInSeconds }}
-        $additionalProperties["TaskHosting__MaxRunningTaskCount"] = ${{ parameters.taskHostingMaxRunningTaskCount }}
-        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = ${{ parameters.searchParameterCacheRefreshIntervalSeconds }}
-        $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = ${{ parameters.systemConformanceProviderRefreshIntervalSeconds }}
-        $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = ${{ parameters.reindexCacheRefreshWaitMultiplier }}
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = $(taskHostingPollingFrequencyInSeconds)
+        $additionalProperties["TaskHosting__MaxRunningTaskCount"] = $(taskHostingMaxRunningTaskCount)
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = $(searchParameterCacheRefreshIntervalSeconds)
+        $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = $(systemConformanceProviderRefreshIntervalSeconds)
+        $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = $(reindexCacheRefreshWaitMultiplier)
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $dataStore = "${{ parameters.dataStore }}"
@@ -237,7 +207,7 @@ jobs:
                         -ResourceGroupName $resourceGroupName `
                         -AccountName $cosmosDbAccountName `
                         -Name $cosmosDbDatabaseName `
-                        -AutoscaleMaxThroughput ${{ parameters.cosmosAutoscaleMaxThroughput }} `
+                        -AutoscaleMaxThroughput $(cosmosAutoscaleMaxThroughput) `
                         -ErrorAction Stop
                 }
                 Write-Host "Cosmos DB database '$cosmosDbDatabaseName' created successfully."
@@ -278,10 +248,10 @@ jobs:
             enableExport = $true
             enableImport = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
-            minReplicas = ${{ parameters.minReplicas }}
-            maxReplicas = ${{ parameters.maxReplicas }}
-            containerCpu = '${{ parameters.containerCpu }}'
-            containerMemory = '${{ parameters.containerMemory }}'
+            minReplicas = $(minReplicas)
+            maxReplicas = $(maxReplicas)
+            containerCpu = '$(containerCpu)'
+            containerMemory = '$(containerMemory)'
             acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
             additionalEnvVars = $additionalEnvVars
         }
