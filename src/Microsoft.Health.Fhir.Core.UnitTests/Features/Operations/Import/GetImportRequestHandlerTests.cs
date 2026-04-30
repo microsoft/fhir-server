@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
     [Trait(Traits.Category, Categories.Import)]
     public class GetImportRequestHandlerTests
     {
+        private const string ExternalHostname = "untrusted.example.org";
+
         private readonly IMediator _mediator;
         private IQueueClient _queueClient = Substitute.For<IQueueClient>();
 
@@ -89,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 Id = 1,
                 Status = JobStatus.Failed,
                 Result = JsonConvert.SerializeObject(workerResult),
-                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "https://attacker.example.org/pt.ndjson" }),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = $"https://{ExternalHostname}/pt.ndjson" }),
             };
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
@@ -98,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.BadRequest), ofe.Message);
             Assert.DoesNotContain("Headers:", ofe.Message);
             Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+            Assert.DoesNotContain(ExternalHostname, ofe.Message);
         }
 
         [Fact]
@@ -106,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             var coordResult = new ImportJobErrorResult()
             {
-                ErrorMessage = "Service request failed. Status: 404 (The specified blob does not exist.) ErrorCode: BlobNotFound Headers: x-ms-request-id: 12345 attacker.example.org",
+                ErrorMessage = $"Service request failed. Status: 404 (The specified blob does not exist.) ErrorCode: BlobNotFound Headers: x-ms-request-id: 12345 {ExternalHostname}",
                 HttpStatusCode = 0,
             };
             var coord = new JobInfo() { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(coordResult) };
@@ -117,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
             Assert.DoesNotContain("Headers:", ofe.Message);
             Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+            Assert.DoesNotContain(ExternalHostname, ofe.Message);
         }
 
         [Fact]
@@ -125,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             var coordResult = new ImportJobErrorResult()
             {
-                ErrorMessage = "Service request failed. Status: 400 (Bad Request) ErrorCode: InvalidInput Headers: x-ms-request-id: 12345 attacker.example.org",
+                ErrorMessage = $"Service request failed. Status: 400 (Bad Request) ErrorCode: InvalidInput Headers: x-ms-request-id: 12345 {ExternalHostname}",
                 HttpStatusCode = HttpStatusCode.BadRequest,
             };
             var coord = new JobInfo() { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(coordResult) };
@@ -136,13 +138,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.BadRequest), ofe.Message);
             Assert.DoesNotContain("Headers:", ofe.Message);
             Assert.DoesNotContain("InvalidInput", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+            Assert.DoesNotContain(ExternalHostname, ofe.Message);
         }
 
-        [Fact]
-        public async Task WhenGettingFailedCoordinatorJob_WithMalformedErrorPayload_ThenOperationFailedExceptionIsSanitized()
+        [Theory]
+        [InlineData("Headers: BlobNotFound " + ExternalHostname)]
+        [InlineData(null)]
+        [InlineData("   ")]
+        public async Task WhenGettingFailedCoordinatorJob_WithInvalidOrMalformedErrorPayload_ThenOperationFailedExceptionIsSanitized(string result)
         {
-            var coord = new JobInfo() { Status = JobStatus.Failed, Result = "Headers: BlobNotFound attacker.example.org" };
+            var coord = new JobInfo() { Status = JobStatus.Failed, Result = result };
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
 
@@ -150,42 +155,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
             Assert.DoesNotContain("Headers:", ofe.Message);
             Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+            Assert.DoesNotContain(ExternalHostname, ofe.Message);
         }
 
-        [Fact]
-        public async Task WhenGettingFailedCoordinatorJob_WithNullErrorPayload_ThenOperationFailedExceptionIsSanitized()
-        {
-            var coord = new JobInfo() { Status = JobStatus.Failed, Result = null };
-
-            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
-
-            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
-            Assert.DoesNotContain("Headers:", ofe.Message);
-            Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
-        }
-
-        [Fact]
-        public async Task WhenGettingFailedCoordinatorJob_WithWhitespaceErrorPayload_ThenOperationFailedExceptionIsSanitized()
-        {
-            var coord = new JobInfo() { Status = JobStatus.Failed, Result = "   " };
-
-            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
-
-            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
-            Assert.DoesNotContain("Headers:", ofe.Message);
-            Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
-        }
-
-        [Fact]
-        public async Task WhenGettingFailedWorkerJob_WithMalformedErrorPayload_ThenOperationFailedExceptionIsSanitized()
+        [Theory]
+        [InlineData("Headers: BlobNotFound " + ExternalHostname)]
+        [InlineData(null)]
+        [InlineData("   ")]
+        public async Task WhenGettingFailedWorkerJob_WithInvalidOrMalformedErrorPayload_ThenOperationFailedExceptionIsSanitized(string result)
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = "Headers: BlobNotFound attacker.example.org" };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = result };
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
@@ -193,37 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
             Assert.DoesNotContain("Headers:", ofe.Message);
             Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
-        }
-
-        [Fact]
-        public async Task WhenGettingFailedWorkerJob_WithNullErrorPayload_ThenOperationFailedExceptionIsSanitized()
-        {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = null };
-
-            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
-
-            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
-            Assert.DoesNotContain("Headers:", ofe.Message);
-            Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
-        }
-
-        [Fact]
-        public async Task WhenGettingFailedWorkerJob_WithWhitespaceErrorPayload_ThenOperationFailedExceptionIsSanitized()
-        {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = "   " };
-
-            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
-
-            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
-            Assert.DoesNotContain("Headers:", ofe.Message);
-            Assert.DoesNotContain("BlobNotFound", ofe.Message);
-            Assert.DoesNotContain("attacker.example.org", ofe.Message);
+            Assert.DoesNotContain(ExternalHostname, ofe.Message);
         }
 
         [Fact]
