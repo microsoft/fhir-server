@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -15,16 +17,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset? SearchParamLastUpdated { get; }
 
-        Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
-
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
+        Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache = true);
+
+        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+
+        Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called to get any updates to search param cache
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>

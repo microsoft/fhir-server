@@ -68,7 +68,9 @@ jobs:
 
         $additionalProperties = $flattenedTestConfig
         $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
-        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 2
+        $additionalProperties["TaskHosting__MaxRunningTaskCount"] = "4"
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 1
+        $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = 6
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $dataStore = "${{ parameters.dataStore }}"
@@ -83,7 +85,6 @@ jobs:
             "DataStore",
             "TaskHosting__Enabled",
             "TaskHosting__PollingFrequencyInSeconds",
-            "TaskHosting__MaxRunningTaskCount",
             "FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds",
             "FhirServer__Operations__Export__Enabled",
             "FhirServer__Operations__Export__StorageAccountUri",
@@ -183,6 +184,28 @@ jobs:
                 Write-Host "Cosmos DB account '$cosmosDbAccountName' already exists."
             }
 
+            # Disable local auth on the Cosmos DB account via REST API
+            $subscriptionId = (Get-AzContext).Subscription.Id
+            $cosmosResourceId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.DocumentDB/databaseAccounts/$cosmosDbAccountName"
+            $existingAccount = Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName -ErrorAction Stop
+            if (-not $existingAccount.DisableLocalAuth) {
+                Write-Host "Disabling local auth on Cosmos DB account '$cosmosDbAccountName'..."
+                $patchBody = @{ properties = @{ disableLocalAuth = $true } } | ConvertTo-Json -Depth 5
+                Invoke-WithRetry -OperationName "Disable Local Auth on Cosmos DB" -ScriptBlock {
+                    $response = Invoke-AzRestMethod `
+                        -Path "$cosmosResourceId`?api-version=2024-05-15" `
+                        -Method PATCH `
+                        -Payload $patchBody `
+                        -ErrorAction Stop
+                    if ($response.StatusCode -ge 400) {
+                        throw "Failed to disable local auth. Status: $($response.StatusCode), Body: $($response.Content)"
+                    }
+                }
+                Write-Host "Local auth disabled on Cosmos DB account '$cosmosDbAccountName'."
+            } else {
+                Write-Host "Local auth is already disabled on Cosmos DB account '$cosmosDbAccountName'."
+            }
+
             # Ensure Cosmos DB database exists
             $cosmosDbDatabaseName = "health"
             $existingDb = Get-AzCosmosDBSqlDatabase -ResourceGroupName $resourceGroupName -AccountName $cosmosDbAccountName -Name $cosmosDbDatabaseName -ErrorAction SilentlyContinue
@@ -233,7 +256,6 @@ jobs:
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             enableExport = $true
             enableImport = $true
-            enableConvertData = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             minReplicas = ${{ parameters.minReplicas }}
             maxReplicas = 8

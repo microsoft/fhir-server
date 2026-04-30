@@ -1,9 +1,4 @@
-IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PROCEDURE UpsertSearchParamsWithOptimisticConcurrency
-IF object_id('AcquireReindexJobs') IS NOT NULL DROP PROCEDURE AcquireReindexJobs
-IF object_id('UpdateReindexJob') IS NOT NULL DROP PROCEDURE UpdateReindexJob
-IF object_id('GetSearchParamMaxLastUpdated') IS NOT NULL DROP PROCEDURE GetSearchParamMaxLastUpdated
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesAndSearchParams 
+﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
@@ -117,20 +112,14 @@ END CATCH
 GO
 INSERT INTO Parameters (Id,Char) SELECT 'MergeResourcesAndSearchParams','LogEvent'
 GO
-CREATE OR ALTER PROCEDURE dbo.GetSearchParamCacheUpdateEvents @UpdateProcess varchar(100), @UpdateEventsSince datetime, @ActiveHostsSince datetime
-AS
-set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Process='+@UpdateProcess+' EventsSince='+convert(varchar(23),@UpdateEventsSince,126)+' HostsSince='+convert(varchar(23),@ActiveHostsSince,126)
-       ,@st datetime = getUTCdate()
-
-SELECT EventDate
-      ,EventText = CASE WHEN Process = @UpdateProcess AND EventDate > @UpdateEventsSince THEN EventText ELSE NULL END
-      ,HostName
-  FROM dbo.EventLog
-  WHERE EventDate > @ActiveHostsSince
-
-EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
-GO
-INSERT INTO dbo.Parameters (Id, Char) SELECT 'GetSearchParamCacheUpdateEvents', 'LogEvent'
-GO
+--DECLARE @SearchParams dbo.SearchParamList
+--INSERT INTO @SearchParams
+--  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--INSERT INTO @SearchParams
+--  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--SELECT * FROM @SearchParams
+--EXECUTE dbo.MergeResourcesAndSearchParams @SearchParams
+--SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
+--DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
+--SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC
