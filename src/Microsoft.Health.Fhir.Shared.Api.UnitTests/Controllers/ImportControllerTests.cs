@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -187,8 +187,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=randomaccount;AccountKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=;EndpointSuffix=core.windows.net", "https://randomaccount.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=randomaccount;AccountKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=;EndpointSuffix=core.windows.net", "https://randomaccount.blob.core.windows.net/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionString_ThenConfiguredHostShouldBeAllowed(
             string storageAccountConnection,
             string inputUrl)
@@ -267,9 +267,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
-        [InlineData("AccountName=client", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=randomaccount;AccountKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=randomaccount;AccountKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=;EndpointSuffix=core.windows.net", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
+        [InlineData("AccountName=randomaccount", "https://randomaccount.blob.core.windows.net/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionStringAndInputUrlDoesNotMatch_ThenRequestNotValidExceptionShouldBeThrown(
             string storageAccountConnection,
             string inputUrl)
