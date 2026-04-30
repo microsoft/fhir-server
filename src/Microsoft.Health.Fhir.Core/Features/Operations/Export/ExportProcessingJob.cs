@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -114,6 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (OutOfMemoryException oomEx)
                 {
+                    ForceGarbageCollection();
                     await SplitAndQueueSubRangesAsync(workItem, rangeQueue, jobInfo, record, oomEx, cancellationToken);
                     continue;
                 }
@@ -150,6 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (OutOfMemoryException oomEx)
                 {
+                    ForceGarbageCollection();
                     oomReductionCount++;
 
                     if (oomReductionCount > MaxOomReductionsBeforeSoftFail || !TryReduceEffectiveBatchSize())
@@ -290,6 +293,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 string.Concat(oomEx.Message + "\n\r" + oomEx.StackTrace));
             record.Status = OperationStatus.Failed;
             throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
+        }
+
+        /// <summary>
+        /// Forces a full garbage collection with LOH compaction to reclaim memory after an OutOfMemoryException.
+        /// LOH objects (>= 85KB) are not compacted by default, leading to fragmentation that can cause
+        /// subsequent OOM even when total free memory is sufficient.
+        /// </summary>
+        private static void ForceGarbageCollection()
+        {
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
         }
 
         private bool TryReduceEffectiveBatchSize()

@@ -296,10 +296,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // The failure message should contain the final (reduced) batch size
             Assert.Contains(failedRecord.MaximumNumberOfResourcesPerQuery.ToString(), failedRecord.FailureDetails.FailureReason);
 
-            // For large batch sizes, the reductionCount limit should fire before batch reaches minimum (1)
+            // For large batch sizes, with 4 reductions (10000->1000->100->10->1), batch reaches minimum of 1
             if (maxCount == 10000u)
             {
-                Assert.True(failedRecord.MaximumNumberOfResourcesPerQuery > 1, $"Expected batch size > 1 (reductionCount limit), but was {failedRecord.MaximumNumberOfResourcesPerQuery}");
+                Assert.Equal(1u, failedRecord.MaximumNumberOfResourcesPerQuery);
             }
         }
 
