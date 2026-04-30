@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                 if (!IsConfiguredStorageAccountEndpoint(item.Url))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
+                    throw new RequestNotValidException(Resources.ImportRequestInputUrlStorageEndpointMismatch);
                 }
             }
 

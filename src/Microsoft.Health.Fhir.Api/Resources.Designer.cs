@@ -367,6 +367,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to input.url must match the configured integration storage account endpoint..
+        /// </summary>
+        public static string ImportRequestInputUrlStorageEndpointMismatch {
+            get {
+                return ResourceManager.GetString("ImportRequestInputUrlStorageEndpointMismatch", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
         /// </summary>
         public static string ImportRequestValueNotValid {

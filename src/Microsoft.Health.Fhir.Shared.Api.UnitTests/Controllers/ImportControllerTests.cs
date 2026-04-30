@@ -254,7 +254,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     StorageAccountConnection = storageAccountConnection,
                 });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
+
+            Assert.Equal("input.url must match the configured integration storage account endpoint.", exception.Message);
         }
 
         [Theory]
