@@ -126,11 +126,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private static HttpStatusCode NormalizeStatusCode(HttpStatusCode statusCode)
-        {
-            return statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode;
-        }
-
         private static HttpStatusCode GetResponseStatusCode(string result)
         {
             if (string.IsNullOrWhiteSpace(result))
@@ -140,7 +135,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                return NormalizeStatusCode(JsonConvert.DeserializeObject<ImportJobErrorResult>(result)?.HttpStatusCode ?? 0);
+                var statusCode = JsonConvert.DeserializeObject<ImportJobErrorResult>(result)?.HttpStatusCode ?? 0;
+                return statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode;
             }
             catch (JsonException)
             {
