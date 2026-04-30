@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return;
             }
 
-            await UpsertStatusesWithRetry(statuses, 3, cancellationToken); // add reindexId when reindex job tests start using true queue client.
+            await UpsertStatusesWithRetry(statuses, 3, cancellationToken, reindexId); // add reindexId when reindex job tests start using true queue client.
         }
 
         private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken, long? reindexId = null)

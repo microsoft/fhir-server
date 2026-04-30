@@ -110,8 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _operationsConfig.Value.Returns(new OperationsConfiguration());
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
-            // Initialize critical fields first before cleanup
-            _fhirOperationDataStore = _fixture.OperationDataStore;
+            // initialize operations data store to use true queue clients
+            _fhirOperationDataStore = _fixture.SqlServerOperationDataStore ?? _fixture.CosmosOperationDataStore;
             _fhirStorageTestHelper = _fixture.TestHelper;
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
             _searchService = _fixture.SearchService.CreateMockScope();
@@ -197,20 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private void InitializeJobHosting()
         {
-            // Get the actual queue client from the operation datastore implementation
-            var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
-            if (operationDataStoreBase != null)
-            {
-                // We need to access the _queueClient field using reflection since it's private
-                var field = typeof(FhirOperationDataStoreBase).GetField("_queueClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                _queueClient = field?.GetValue(operationDataStoreBase) as IQueueClient;
-            }
-
-            // If we couldn't get the actual queue client, use the one from the fixture
-            if (_queueClient == null)
-            {
-                _queueClient = _fixture.QueueClient;
-            }
+            _queueClient = _fixture.QueueClient;
 
             if (_jobFactory == null)
             {
@@ -1292,7 +1279,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private async Task<JobInfo> SeedOrchestratorJobAsync(ReindexJobRecord jobRecord)
         {
             var definition = JsonConvert.SerializeObject(jobRecord);
-            return await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, null, definition, JobStatus.Running, null, null, CancellationToken.None);
+            var jobInfo = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, null, definition, JobStatus.Running, null, null, CancellationToken.None);
+            jobInfo.QueueType = (byte)QueueType.Reindex;
+            return jobInfo;
         }
 
         private async Task SeedProcessingJobAsync(long groupId, ReindexProcessingJobDefinition jobDefinition, ReindexProcessingJobResult jobResult, JobStatus status, int? data)
@@ -1311,6 +1300,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 : JsonConvert.SerializeObject(jobResult);
 
             var job = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, groupId, definition, JobStatus.Running, null, null, CancellationToken.None);
+            job.QueueType = (byte)QueueType.Reindex;
             job.Status = status;
             job.Data = data;
             job.Result = result;
