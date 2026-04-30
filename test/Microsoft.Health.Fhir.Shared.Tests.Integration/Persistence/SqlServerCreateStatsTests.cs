@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             // Arrange — DiagnosticReport.subject is a reference search parameter stored in dbo.ReferenceSearchParam
             const string resourceType = "DiagnosticReport";
-            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject";
             var query = new[] { Tuple.Create("subject", "Patient/test-patient-1") };
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
 
@@ -151,7 +151,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             // Arrange — ValueSet.url is a URI search parameter stored in dbo.UriSearchParam
             const string resourceType = "ValueSet";
+#if Stu3
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/ValueSet-url";
+#elif R5
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/CanonicalResource-url";
+#else
             const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/conformance-url";
+#endif
             var query = new[] { Tuple.Create("url", "http://example.com/fhir/ValueSet/test") };
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
 
