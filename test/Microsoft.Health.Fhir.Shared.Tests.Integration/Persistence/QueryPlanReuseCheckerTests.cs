@@ -229,61 +229,61 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        /// <summary>
-        /// Inserts 51 ServiceRequest resources with skewed code distribution.
-        /// 50 resources have the same code, 1 has a different code.
-        /// </summary>
-        private async Task InsertSkewedServiceRequestsAsync()
-        {
-            const int commonCodeCount = 50;
-            const string commonCode = "SKEW-COMMON-CODE";
-            const string uniqueCode = "SKEW-UNIQUE-CODE";
+        // <summary>
+        // Inserts 51 ServiceRequest resources with skewed code distribution.
+        // 50 resources have the same code, 1 has a different code.
+        // </summary>
+        // private async Task InsertSkewedServiceRequestsAsync()
+        // {
+        //    const int commonCodeCount = 50;
+        //    const string commonCode = "SKEW-COMMON-CODE";
+        //    const string uniqueCode = "SKEW-UNIQUE-CODE";
+        //
+        //    _output.WriteLine($"Inserting {commonCodeCount + 1} ServiceRequest resources with skewed code distribution...");
+        //
+        //    // Insert 50 ServiceRequests with the common code
+        //    for (int i = 1; i <= commonCodeCount; i++)
+        //    {
+        //        var serviceRequest = CreateServiceRequest($"skew-test-{i:D2}", commonCode, "Common skewed test code");
+        //        await _fixture.Mediator.UpsertResourceAsync(serviceRequest.ToResourceElement());
+        //    }
+        //
+        //   // Insert 1 ServiceRequest with a unique code to create skew
+        //    var uniqueServiceRequest = CreateServiceRequest("skew-test-unique", uniqueCode, "Unique code to create skew");
+        //    await _fixture.Mediator.UpsertResourceAsync(uniqueServiceRequest.ToResourceElement());
+        //
+        //    _output.WriteLine($"Inserted {commonCodeCount + 1} ServiceRequest resources.");
+        // }
 
-            _output.WriteLine($"Inserting {commonCodeCount + 1} ServiceRequest resources with skewed code distribution...");
-
-            // Insert 50 ServiceRequests with the common code
-            for (int i = 1; i <= commonCodeCount; i++)
-            {
-                var serviceRequest = CreateServiceRequest($"skew-test-{i:D2}", commonCode, "Common skewed test code");
-                await _fixture.Mediator.UpsertResourceAsync(serviceRequest.ToResourceElement());
-            }
-
-            // Insert 1 ServiceRequest with a unique code to create skew
-            var uniqueServiceRequest = CreateServiceRequest("skew-test-unique", uniqueCode, "Unique code to create skew");
-            await _fixture.Mediator.UpsertResourceAsync(uniqueServiceRequest.ToResourceElement());
-
-            _output.WriteLine($"Inserted {commonCodeCount + 1} ServiceRequest resources.");
-        }
-
-        /// <summary>
-        /// Creates a ServiceRequest resource with the specified ID and code.
-        /// </summary>
-        /// <param name="id">The resource ID.</param>
-        /// <param name="code">The code value for the ServiceRequest.</param>
-        /// <param name="display">The display text for the code.</param>
-        /// <returns>A new ServiceRequest resource.</returns>
-        private static ServiceRequest CreateServiceRequest(string id, string code, string display)
-        {
-            return new ServiceRequest
-            {
-                Id = $"{id}-{Guid.NewGuid().ToString("N").Substring(0, 8)}",
-                Status = RequestStatus.Active,
-                Intent = RequestIntent.Order,
-                Code = new CodeableConcept
-                {
-                    Coding = new List<Coding>
-                    {
-                        new Coding
-                        {
-                            System = "http://snomed.info/sct",
-                            Code = code,
-                            Display = display,
-                        },
-                    },
-                },
-                Subject = new ResourceReference("Patient/example"),
-            };
-        }
+        // <summary>
+        // Creates a ServiceRequest resource with the specified ID and code.
+        // </summary>
+        // <param name="id">The resource ID.</param>
+        // <param name="code">The code value for the ServiceRequest.</param>
+        // <param name="display">The display text for the code.</param>
+        // <returns>A new ServiceRequest resource.</returns>
+        // private static ServiceRequest CreateServiceRequest(string id, string code, string display)
+        // {
+        //    return new ServiceRequest
+        //    {
+        //        Id = $"{id}-{Guid.NewGuid().ToString("N").Substring(0, 8)}",
+        //        Status = RequestStatus.Active,
+        //        Intent = RequestIntent.Order,
+        //        Code = new CodeableConcept
+        //        {
+        //            Coding = new List<Coding>
+        //            {
+        //                new Coding
+        //                {
+        //                    System = "http://snomed.info/sct",
+        //                    Code = code,
+        //                    Display = display,
+        //                },
+        //            },
+        //        },
+        //        Subject = new ResourceReference("Patient/example"),
+        //    };
+        // }
 
         /// <summary>
         /// Gets the ResourceTypeId for ServiceRequest and SearchParamId for the code search parameter.
