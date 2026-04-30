@@ -141,6 +141,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public Expression Expression { get; internal set; }
 
+        /// <summary>
+        /// Gets the collection of search parameters used for filtering and querying resources.
+        /// </summary>
         public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
 
         /// <summary>

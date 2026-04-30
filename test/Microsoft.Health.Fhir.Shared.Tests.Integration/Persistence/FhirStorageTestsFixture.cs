@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 case CosmosDbFhirStorageTestsFixture _:
                     _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
                     break;
-                case SqlServerFhirStorageTestsFixture sqlFixture:
+                case SqlServerFhirStorageTestsFixture _:
                     _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
                     break;
                 default:
@@ -259,9 +259,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SearchParameterOperations>.Instance);
 
             Mediator = new Mediator(services);
-
-            await Mediator.Publish(new SearchParameterDefinitionManagerInitialized(), CancellationToken.None);
-            await Mediator.Publish(new SearchParametersInitializedNotification(), CancellationToken.None);
         }
 
         public async Task DisposeAsync()

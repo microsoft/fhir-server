@@ -53,15 +53,13 @@ BEGIN
 	OFFSET @i ROWS
 	FETCH NEXT 1 ROWS ONLY;
 
-	PRINT @stat_name + ' ' + @table_name;
-
 	INSERT @stats_histogram
 	EXEC('DBCC SHOW_STATISTICS(''' + @table_name + ''',' + @stat_name + ') WITH HISTOGRAM');
 
 	SELECT @min_rows = MIN(eq_rows), @max_rows = MAX(eq_rows)
 	FROM @stats_histogram;
 
-	INSERT @results VALUES(@stat_name, @table_name, @max_rows/@min_rows);
+	INSERT @results VALUES(@stat_name, @table_name, CASE WHEN @min_rows = 0 THEN NULL ELSE @max_rows/@min_rows END);
 
 	DELETE FROM @stats_histogram
 

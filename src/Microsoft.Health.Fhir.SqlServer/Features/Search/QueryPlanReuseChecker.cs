@@ -7,14 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Security.Policy;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Build.Framework;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -31,8 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly double _refreshPeriod = 3600;
         private readonly double _skewThreshold = 30;
 
-        // Holds a list of urls for skewed search parameters. If the search parameters are skewed, the query plan should not be reused.
-        private List<IGrouping<string, (string Uri, string ResourceTypeId)>> _skewedParameters = new List<IGrouping<string, (string Uri, string ResourceTypeId)>>();
+        // Holds a set of urls of skewed search parameters.
+        private HashSet<string> _skewedParameters = new HashSet<string>();
         private readonly ISqlRetryService _sqlRetryService;
         private readonly FhirTimer _timer;
         private readonly ILogger<QueryPlanReuseChecker> _logger;
@@ -63,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Check the skew of the search parameters. If the search parameters are skewed, the query plan should not be reused.
             var parameters = searchOptions.SearchParameters;
 
-            foreach (var parameter in parameters.Where(p => _skewedParameters.Any(skew => skew.Key == p.Url.OriginalString)))
+            foreach (var parameter in parameters.Where(p => _skewedParameters.Contains(p.Url.OriginalString)))
             {
                 _logger.LogInformation("Search parameter {SearchParameter} is skewed. Query plan will not be reused.", parameter.Url.OriginalString);
                 return false;
@@ -138,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (results == null || !results.Any(r => !string.IsNullOrEmpty(r.ResourceTypeId) && !string.IsNullOrEmpty(r.SearchParamId)))
             {
                 _logger.LogInformation("No skewed search parameters found. Query plan reuse will not be affected.");
-                _skewedParameters = new List<IGrouping<string, (string Uri, string ResourceTypeId)>>();
+                _skewedParameters = new HashSet<string>();
                 _isInitialized = true;
                 return;
             }
@@ -147,8 +145,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             using var cmd2 = new SqlCommand();
             cmd2.CommandType = CommandType.Text;
-            cmd2.CommandText = "SELECT SearchParamId, Uri FROM SearchParam WHERE SearchParamId IN (@searchParamIds)";
-            cmd2.Parameters.AddWithValue("@searchParamIds", searchParamIds);
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities. The searchParamIds are coming from the database and will be integers.
+            cmd2.CommandText = $"SELECT SearchParamId, Uri FROM SearchParam WHERE SearchParamId IN ({searchParamIds})";
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
             var searchParamUrls = await cmd2.ExecuteReaderAsync<(string SearchParamId, string Uri)>(
                 _sqlRetryService,
@@ -166,9 +165,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 var searchParamId = r.SearchParamId;
                 var uri = searchParamUrls.FirstOrDefault(s => s.SearchParamId == searchParamId).Uri;
                 return (uri, r.ResourceTypeId);
-            }).GroupBy(r => r.uri);
+            }).Select(r => r.uri).Distinct();
 
-            _skewedParameters = skewedParamsByUri.ToList();
+            _skewedParameters = skewedParamsByUri.ToHashSet();
             _isInitialized = true;
         }
     }
