@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -75,7 +76,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
-            EnsureArg.IsNotNull(integrationDataStoreConfiguration?.Value, nameof(integrationDataStoreConfiguration));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration, nameof(integrationDataStoreConfiguration));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -277,39 +279,55 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            if (integrationDataStoreConfiguration.StorageAccountConnection.StartsWith("UseDevelopmentStorage", StringComparison.OrdinalIgnoreCase))
+            BlobServiceClient blobServiceClient;
+            try
             {
-                return new Uri("http://127.0.0.1:10000/devstoreaccount1");
+                blobServiceClient = new BlobServiceClient(integrationDataStoreConfiguration.StorageAccountConnection);
             }
-
-            // Parse only the standard storage account fields. Explicit endpoint overrides are
-            // intentionally ignored so import URLs cannot be allowlisted to arbitrary hosts.
-            var connectionStringValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string segment in integrationDataStoreConfiguration.StorageAccountConnection.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            catch (ArgumentException)
             {
-                int separatorIndex = segment.IndexOf('=', StringComparison.Ordinal);
-                if (separatorIndex > 0)
-                {
-                    connectionStringValues[segment.Substring(0, separatorIndex)] = segment.Substring(separatorIndex + 1);
-                }
+                return null;
             }
-
-            // Derive the blob endpoint from the account name, honoring optional protocol
-            // and endpoint suffix values for standard Azure environments.
-            if (!connectionStringValues.TryGetValue("AccountName", out string accountName))
+            catch (FormatException)
             {
                 return null;
             }
 
-            connectionStringValues.TryGetValue("DefaultEndpointsProtocol", out string defaultEndpointsProtocol);
-            connectionStringValues.TryGetValue("EndpointSuffix", out string endpointSuffix);
+            if (integrationDataStoreConfiguration.StorageAccountConnection.StartsWith("UseDevelopmentStorage", StringComparison.OrdinalIgnoreCase))
+            {
+                return blobServiceClient.Uri;
+            }
 
-            defaultEndpointsProtocol = string.IsNullOrWhiteSpace(defaultEndpointsProtocol) ? Uri.UriSchemeHttps : defaultEndpointsProtocol;
-            endpointSuffix = string.IsNullOrWhiteSpace(endpointSuffix) ? "core.windows.net" : endpointSuffix;
+            // Use the SDK parser for connection-string validation, but derive the
+            // default account endpoint so explicit BlobEndpoint overrides cannot
+            // allow arbitrary hosts.
+            string accountName = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "AccountName");
+            if (accountName == null)
+            {
+                return null;
+            }
+
+            string defaultEndpointsProtocol = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "DefaultEndpointsProtocol") ?? Uri.UriSchemeHttps;
+            string endpointSuffix = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "EndpointSuffix") ?? "core.windows.net";
 
             return Uri.TryCreate($"{defaultEndpointsProtocol}://{accountName}.blob.{endpointSuffix}", UriKind.Absolute, out Uri connectionStringStorageAccountUri)
                 ? connectionStringStorageAccountUri
                 : null;
+        }
+
+        private static string GetConnectionStringValue(string connectionString, string key)
+        {
+            foreach (string segment in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                int separatorIndex = segment.IndexOf('=', StringComparison.Ordinal);
+                if (separatorIndex > 0 && string.Equals(segment.Substring(0, separatorIndex), key, StringComparison.OrdinalIgnoreCase))
+                {
+                    string value = segment.Substring(separatorIndex + 1);
+                    return string.IsNullOrWhiteSpace(value) ? null : value;
+                }
+            }
+
+            return null;
         }
     }
 }

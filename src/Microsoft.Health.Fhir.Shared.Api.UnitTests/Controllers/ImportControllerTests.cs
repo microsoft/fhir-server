@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -186,8 +187,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionString_ThenConfiguredHostShouldBeAllowed(
             string storageAccountConnection,
             string inputUrl)
@@ -227,9 +228,48 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenAnImportRequest_WhenIntegrationStoreUsesDevelopmentStorage_ThenAzuriteEndpointShouldBeAllowed()
+        {
+            var baseUri = new Uri("https://test.com/");
+            _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
+            _urlResolver
+                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(baseUri);
+
+            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+                .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
+
+            var importRequest = GetValidBulkImportRequestConfiguration();
+            importRequest.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("http://127.0.0.1:10000/devstoreaccount1/container/patient_file_2.ndjson"),
+                },
+            };
+
+            var controller = GetController(
+                new ImportJobConfiguration
+                {
+                    Enabled = true,
+                },
+                new IntegrationDataStoreConfiguration
+                {
+                    StorageAccountConnection = "UseDevelopmentStorage=true",
+                });
+
+            var response = await controller.Import(importRequest.ToParameters());
+
+            var result = Assert.IsType<ImportResult>(response);
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+        }
+
         [Theory]
-        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
-        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=unused;EndpointSuffix=core.windows.net", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
+        [InlineData("DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://other.blob.core.windows.net/container/patient_file_2.ndjson")]
+        [InlineData("BlobEndpoint=https://custom.example.org/storage;DefaultEndpointsProtocol=https;AccountName=client;AccountKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=;EndpointSuffix=core.windows.net", "https://custom.example.org/storage/container/patient_file_2.ndjson")]
+        [InlineData("AccountName=client", "https://client.blob.core.windows.net/container/patient_file_2.ndjson")]
         public async Task GivenAnImportRequest_WhenIntegrationStoreUsesConnectionStringAndInputUrlDoesNotMatch_ThenRequestNotValidExceptionShouldBeThrown(
             string storageAccountConnection,
             string inputUrl)
@@ -257,6 +297,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
 
             Assert.Equal("input.url must match the configured integration storage account endpoint.", exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenAnImportRequest_WhenImportEnabledAndIntegrationStoreIsNotConfigured_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var importRequest = GetValidBulkImportRequestConfiguration();
+            var controller = GetController(
+                new ImportJobConfiguration
+                {
+                    Enabled = true,
+                },
+                new IntegrationDataStoreConfiguration());
+
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
+
+            Assert.Equal("input.url must match the configured integration storage account endpoint.", exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenAnImportRequest_WhenImportDisabledAndIntegrationStoreIsNotConfigured_ThenOperationNotEnabledShouldBeThrown()
+        {
+            var importRequest = GetValidBulkImportRequestConfiguration();
+            var controller = GetController(
+                new ImportJobConfiguration
+                {
+                    Enabled = false,
+                },
+                new IntegrationDataStoreConfiguration());
+
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
+
+            Assert.Equal(string.Format(Resources.OperationNotEnabled, OperationsConstants.Import), exception.Message);
         }
 
         [Theory]
