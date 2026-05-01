@@ -6,23 +6,18 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -46,19 +41,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly FhirStorageTestsFixture _fixture;
         private readonly SqlServerFhirStorageTestsFixture _sqlFixture;
         private readonly ITestOutputHelper _output;
+        private readonly FhirSqlServerConfiguration _fhirSqlConfig;
 
         public QueryPlanReuseCheckerTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
             _sqlFixture = (SqlServerFhirStorageTestsFixture)_fixture.Service;
             _output = testOutputHelper;
+
+            _fhirSqlConfig = new FhirSqlServerConfiguration
+            {
+                EnableQueryPlanReuseChecker = true,
+            };
         }
 
         [Fact]
         public async Task GivenQueryPlanReuseChecker_WhenInitializedWithNoSkewedStats_ThenCanReuseQueryPlanReturnsTrue()
         {
             // Arrange
-            var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, NullLogger<QueryPlanReuseChecker>.Instance);
+            var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, _fhirSqlConfig, NullLogger<QueryPlanReuseChecker>.Instance);
 
             // Simulate storage ready notification
             await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenQueryPlanReuseChecker_WhenSearchParametersAreEmpty_ThenCanReuseQueryPlanReturnsTrue()
         {
             // Arrange
-            var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, NullLogger<QueryPlanReuseChecker>.Instance);
+            var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, _fhirSqlConfig, NullLogger<QueryPlanReuseChecker>.Instance);
 
             // Simulate storage ready notification
             await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);

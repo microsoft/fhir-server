@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
@@ -286,7 +287,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
-            var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, NullLogger<QueryPlanReuseChecker>.Instance);
+
+            var fhirSqlConfiguration = new FhirSqlServerConfiguration();
+            var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
@@ -303,6 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParamTableExpressionQueryGeneratorFactory,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
+                fhirSqlConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
