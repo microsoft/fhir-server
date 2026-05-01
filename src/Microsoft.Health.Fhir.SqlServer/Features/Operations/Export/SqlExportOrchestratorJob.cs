@@ -56,7 +56,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
-            var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
+
+            // Reduce per-range size and increase the number of ranges to lower peak memory per processing job.
+            // Each processing job receives multiple smaller ranges and processes them sequentially.
+            const int rangeReductionFactor = 10;
+            var surrogateIdRangeSize = Math.Max(1, (int)record.MaximumNumberOfResourcesPerQuery / rangeReductionFactor);
+            var numberOfRanges = _exportJobConfiguration.NumberOfParallelRecordRanges * rangeReductionFactor;
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
@@ -95,7 +100,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<ExportJobRecord>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, _exportJobConfiguration.NumberOfParallelRecordRanges, true, cancel);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, numberOfRanges, true, cancel);
+
+                        // Group ranges into batches so each processing job handles multiple smaller ranges sequentially.
+                        var rangeBatches = new List<List<(long StartId, long EndId, int Count)>>();
+                        var currentBatch = new List<(long StartId, long EndId, int Count)>();
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
@@ -103,8 +112,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                                 startId = range.EndId;
                             }
 
+                            currentBatch.Add(range);
+                            if (currentBatch.Count >= rangeReductionFactor)
+                            {
+                                rangeBatches.Add(currentBatch);
+                                currentBatch = new List<(long StartId, long EndId, int Count)>();
+                            }
+                        }
+
+                        if (currentBatch.Count > 0)
+                        {
+                            rangeBatches.Add(currentBatch);
+                        }
+
+                        foreach (var batch in rangeBatches)
+                        {
                             _logger.LogJobInformation(jobInfo, "Creating export record (1).");
-                            var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                            var processingRecord = CreateExportRecord(
+                                record,
+                                jobInfo.GroupId,
+                                resourceType: type,
+                                startSurrogateId: batch.First().StartId.ToString(),
+                                endSurrogateId: batch.Last().EndId.ToString(),
+                                globalStartSurrogateId: globalStartId.ToString(),
+                                globalEndSurrogateId: globalEndId.ToString());
+
+                            processingRecord.SurrogateIdRanges = batch
+                                .Select(r => new ExportSurrogateIdRange(r.StartId.ToString(), r.EndId.ToString()))
+                                .ToList();
+
                             definitions.Add(processingRecord);
                         }
 
@@ -149,24 +185,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         startId,
                         globalEndId,
                         surrogateIdRangeSize,
-                        _exportJobConfiguration.NumberOfParallelRecordRanges,
+                        numberOfRanges,
                         true,
                         cancellationToken);
                     if (response?.Any() ?? false)
                     {
+                        // Group ranges into batches for each processing job
+                        var currentBatch = new List<(long StartId, long EndId, int Count)>();
                         foreach (var range in response)
                         {
-                            _logger.LogJobInformation(jobInfo, $"Creating export record for range: [{range.StartId}, {range.EndId}].");
+                            currentBatch.Add(range);
+                            if (currentBatch.Count >= rangeReductionFactor)
+                            {
+                                var processingRecord = CreateExportRecord(
+                                    record,
+                                    jobInfo.GroupId,
+                                    resourceType: null,
+                                    startSurrogateId: currentBatch.First().StartId.ToString(),
+                                    endSurrogateId: currentBatch.Last().EndId.ToString(),
+                                    globalStartSurrogateId: globalStartId.ToString(),
+                                    globalEndSurrogateId: globalEndId.ToString());
+
+                                processingRecord.SurrogateIdRanges = currentBatch
+                                    .Select(r => new ExportSurrogateIdRange(r.StartId.ToString(), r.EndId.ToString()))
+                                    .ToList();
+
+                                _logger.LogJobInformation(jobInfo, $"Enqueuing export job for {currentBatch.Count} ranges: [{currentBatch.First().StartId}, {currentBatch.Last().EndId}].");
+                                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: new[] { processingRecord });
+                                currentBatch = new List<(long StartId, long EndId, int Count)>();
+                            }
+                        }
+
+                        if (currentBatch.Count > 0)
+                        {
                             var processingRecord = CreateExportRecord(
                                 record,
                                 jobInfo.GroupId,
                                 resourceType: null,
-                                startSurrogateId: range.StartId.ToString(),
-                                endSurrogateId: range.EndId.ToString(),
+                                startSurrogateId: currentBatch.First().StartId.ToString(),
+                                endSurrogateId: currentBatch.Last().EndId.ToString(),
                                 globalStartSurrogateId: globalStartId.ToString(),
                                 globalEndSurrogateId: globalEndId.ToString());
 
-                            _logger.LogJobInformation(jobInfo, $"Enqueuing export job for range: [{range.StartId}, {range.EndId}].");
+                            processingRecord.SurrogateIdRanges = currentBatch
+                                .Select(r => new ExportSurrogateIdRange(r.StartId.ToString(), r.EndId.ToString()))
+                                .ToList();
+
+                            _logger.LogJobInformation(jobInfo, $"Enqueuing export job for {currentBatch.Count} ranges: [{currentBatch.First().StartId}, {currentBatch.Last().EndId}].");
                             await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: new[] { processingRecord });
                         }
 

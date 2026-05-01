@@ -205,13 +205,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                 };
 
-                if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
-                }
-
                 if (_exportJobRecord.Since != null)
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
@@ -226,12 +219,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.FeedRange, _exportJobRecord.FeedRange));
                 }
 
-                ExportJobProgress progress = _exportJobRecord.Progress;
-
-                await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                if (_exportJobRecord.SurrogateIdRanges != null && _exportJobRecord.SurrogateIdRanges.Count > 0)
                 {
-                    await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
-                });
+                    // Process multiple sub-ranges sequentially with one file manager to produce a single output file.
+                    for (int i = 0; i < _exportJobRecord.SurrogateIdRanges.Count; i++)
+                    {
+                        var range = _exportJobRecord.SurrogateIdRanges[i];
+
+                        var rangeQueryParams = new List<Tuple<string, string>>(queryParametersList);
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId));
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId));
+
+                        _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                        ExportJobProgress rangeProgress = _exportJobRecord.Progress;
+
+                        await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                        {
+                            await RunExportSearch(exportJobConfiguration, rangeProgress, rangeQueryParams, exportResourceVersionTypes, cancellationToken);
+                        });
+
+                        // Free range reference for GC
+                        _exportJobRecord.SurrogateIdRanges[i] = null;
+                    }
+
+                    _exportJobRecord.SurrogateIdRanges.Clear();
+                }
+                else
+                {
+                    if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
+                    }
+
+                    ExportJobProgress progress = _exportJobRecord.Progress;
+
+                    await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                    {
+                        await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                    });
+                }
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 

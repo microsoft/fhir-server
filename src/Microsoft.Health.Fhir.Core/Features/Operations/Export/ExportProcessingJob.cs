@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
@@ -49,45 +47,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // This method allows the same class to be used in both Cosmos (with the old method) and SQL (with the new method).
             // The etag passed to the ExportJobTask is unused, the actual etag is managed in the JobHosting class.
             exportJobTask.UpdateExportJob = UpdateExportJob;
-            Task exportTask = exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
-            return exportTask.ContinueWith(
-                (Task parent) =>
-                {
-                    switch (record.Status)
-                    {
-                        case OperationStatus.Completed:
-                            record.Id = string.Empty;
-                            record.StartTime = null;
-                            record.EndTime = null;
-                            if (record.Output != null)
-                            {
-                                jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));
-                            }
+            await exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
 
-                            return JsonConvert.SerializeObject(record);
-                        case OperationStatus.Failed:
-                            throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
-                        case OperationStatus.Canceled:
-                            throw new OperationCanceledException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
-                        case OperationStatus.Queued:
-                        case OperationStatus.Running:
-                            // If code works as designed, this exception shouldn't be reached
-                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.", record, false);
-                        default:
-                            // If code works as designed, this exception shouldn't be reached
-                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Job status not set.", false);
-                    }
-                },
-                cancellationToken,
-                TaskContinuationOptions.None,
-                TaskScheduler.Current);
+            return ProcessResult(jobInfo, record);
 
             async Task<ExportJobOutcome> UpdateExportJob(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken innerCancellationToken)
             {
                 record = exportJobRecord;
+                return await HandleUpdateExportJob(jobInfo, record, weakETag, innerCancellationToken);
+            }
+        }
 
-                if (record.Status == OperationStatus.Running)
-                {
+        private static string ProcessResult(JobInfo jobInfo, ExportJobRecord record)
+        {
+            switch (record.Status)
+            {
+                case OperationStatus.Completed:
+                    record.Id = string.Empty;
+                    record.StartTime = null;
+                    record.EndTime = null;
+                    if (record.Output != null)
+                    {
+                        jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));
+                    }
+
+                    return JsonConvert.SerializeObject(record);
+                case OperationStatus.Failed:
+                    throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
+                case OperationStatus.Canceled:
+                    throw new OperationCanceledException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
+                case OperationStatus.Queued:
+                case OperationStatus.Running:
+                    throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.", record, false);
+                default:
+                    throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Job status not set.", false);
+            }
+        }
+
+        private async Task<ExportJobOutcome> HandleUpdateExportJob(JobInfo jobInfo, ExportJobRecord record, WeakETag weakETag, CancellationToken innerCancellationToken)
+        {
+            if (record.Status == OperationStatus.Running)
+            {
                     // Update Export Job is called in three scenarios:
                     // 1. A page of search results is processed and there is a continuation token.
                     // 2. A filter has finished being used by a search
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                                 if (!newerJobs.Any())
                                 {
-                                    definition.Progress = exportJobRecord.Progress;
+                                    definition.Progress = record.Progress;
                                     var newJob = await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
                                     _logger.LogJobInformation(jobInfo, $"ExportProcessingJob segment continuation. New job(s): {string.Join(',', newJob.Select(x => x.Id))}");
                                 }
@@ -152,10 +152,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     // TODO: Ideally we would process predefined pages of data like SQL vs pagination through continuation tokens/this exception.
                     throw new JobSegmentCompletedException();
-                }
-
-                return new ExportJobOutcome(exportJobRecord, weakETag);
             }
+
+            return new ExportJobOutcome(record, weakETag);
         }
     }
 }

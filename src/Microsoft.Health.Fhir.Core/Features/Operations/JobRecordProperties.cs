@@ -155,6 +155,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string GlobalEndSurrogateId = "globalEndSurrogateId";
 
+        public const string SurrogateIdRanges = "surrogateIdRanges";
+
         public const string RestartCount = "restartCount";
 
         public const string TypeId = "typeId";
