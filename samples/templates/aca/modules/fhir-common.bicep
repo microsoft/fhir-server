@@ -263,5 +263,6 @@ output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output keyVaultName string = keyVault.name
+output storageAccountName string = enableIntegrationStore ? storageAccountName : ''
 output exportStorageUri string = enableExport ? storageAccountUri : 'null'
 output integrationStorageUri string = enableImport ? storageAccountUri : 'null'
