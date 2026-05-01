@@ -176,4 +176,7 @@
   <data name="ResourceConcurrentUpdateConflict" xml:space="preserve">
     <value>One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.</value>
   </data>
+  <data name="ResourceConcurrentUpdateConflictWithToParallelBundles" xml:space="preserve">
+    <value>One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates. Switch to parallel bundles to allow safe internal retries.</value>
+  </data>
 </root>
