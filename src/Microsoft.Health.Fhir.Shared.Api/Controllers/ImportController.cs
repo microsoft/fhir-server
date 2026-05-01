@@ -252,19 +252,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // Match the configured storage authority exactly so import cannot redirect the
             // server's storage credentials to a caller-controlled host.
-            if (!string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase)
-                || inputUri.Port != _configuredStorageAccountUri.Port)
-            {
-                return false;
-            }
-
-            // StorageAccountUri normally points at the account root. If it includes a
-            // container or prefix, keep imports scoped under that configured path.
-            string configuredPath = _configuredStorageAccountUri.AbsolutePath.TrimEnd('/');
-            return string.IsNullOrEmpty(configuredPath)
-                || inputUri.AbsolutePath.Equals(configuredPath, StringComparison.OrdinalIgnoreCase)
-                || inputUri.AbsolutePath.StartsWith(configuredPath + "/", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase);
         }
 
         private static Uri GetConfiguredStorageAccountUri(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)

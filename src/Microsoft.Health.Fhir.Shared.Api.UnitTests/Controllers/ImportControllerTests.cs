@@ -332,53 +332,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("https://client.example.org/import", "https://client.example.org/import/patient_file_2.ndjson")]
-        [InlineData("https://client.example.org:8443/import", "https://client.example.org:8443/import/patient_file_2.ndjson")]
-        public async Task GivenAnImportRequest_WhenStorageAccountUriIncludesBasePath_ThenMatchingInputUrlShouldBeAllowed(
-            string storageAccountUri,
-            string inputUrl)
-        {
-            var baseUri = new Uri("https://test.com/");
-            _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
-            _urlResolver
-                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(baseUri);
-
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
-                .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
-
-            var importRequest = GetValidBulkImportRequestConfiguration();
-            importRequest.Input = new List<InputResource>
-            {
-                new InputResource
-                {
-                    Type = "Patient",
-                    Url = new Uri(inputUrl),
-                },
-            };
-
-            var controller = GetController(
-                new ImportJobConfiguration
-                {
-                    Enabled = true,
-                },
-                new IntegrationDataStoreConfiguration
-                {
-                    StorageAccountUri = storageAccountUri,
-                });
-
-            var response = await controller.Import(importRequest.ToParameters());
-
-            var result = Assert.IsType<ImportResult>(response);
-            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
-        }
-
-        [Theory]
         [InlineData("https://client.example.org", "http://client.example.org/patient_file_2.ndjson")]
-        [InlineData("https://client.example.org", "https://client.example.org:8443/patient_file_2.ndjson")]
-        [InlineData("https://client.example.org/import", "https://client.example.org/other/patient_file_2.ndjson")]
-        [InlineData("https://client.example.org/import", "https://client.example.org/import-other/patient_file_2.ndjson")]
-        public async Task GivenAnImportRequest_WhenStorageAccountUriDoesNotMatchSchemePortOrBasePath_ThenRequestNotValidExceptionShouldBeThrown(
+        public async Task GivenAnImportRequest_WhenStorageAccountUriDoesNotMatchScheme_ThenRequestNotValidExceptionShouldBeThrown(
             string storageAccountUri,
             string inputUrl)
         {
