@@ -28,9 +28,9 @@ parameters:
 - name: reindexEnabled
   type: boolean
   default: true
-- name: minReplicas
-  type: number
-  default: 0
+- name: sqlElasticPoolName
+  type: string
+  default: ''
 - name: keyVaultName
   type: string
 
@@ -54,6 +54,34 @@ jobs:
       azureSubscription: ${{ parameters.subscription }}
       azurePowerShellVersion: latestVersion
       pwsh: true
+      ScriptType: FilePath
+      ScriptPath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Provision-AcaDeploy.ps1'
+      ScriptArguments: >-
+        -DataStore "${{ parameters.dataStore }}"
+        -Version "${{ parameters.version }}"
+        -WebAppName "${{ parameters.webAppName }}"
+        -AcaEnvironmentName "${{ parameters.acaEnvironmentName }}"
+        -ResourceGroup "${{ parameters.resourceGroup }}"
+        -KeyVaultName "${{ parameters.keyVaultName }}"
+        -ImageTag "${{ parameters.imageTag }}"
+        -TestEnvironmentUrl "${{ parameters.testEnvironmentUrl }}"
+        -WorkingDirectory "$(System.DefaultWorkingDirectory)"
+        -AzureContainerRegistry "$(azureContainerRegistry)"
+        -TenantIdGuid "$(tenant-id-guid)"
+        -SqlServerName "${{ parameters.sqlServerName }}"
+        -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
+        -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
+        -ReindexEnabled "${{ parameters.reindexEnabled }}"
+        -MinReplicas $(minReplicas)
+        -MaxReplicas $(maxReplicas)
+        -ContainerCpu "$(containerCpu)"
+        -ContainerMemory "$(containerMemory)"
+        -CosmosAutoscaleMaxThroughput $(cosmosAutoscaleMaxThroughput)
+        -TaskHostingPollingFrequencyInSeconds $(taskHostingPollingFrequencyInSeconds)
+        -TaskHostingMaxRunningTaskCount $(taskHostingMaxRunningTaskCount)
+        -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
+        -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
+        -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
