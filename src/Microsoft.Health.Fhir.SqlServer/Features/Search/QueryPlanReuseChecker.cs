@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -25,7 +26,7 @@ using Microsoft.Health.Fhir.SqlServer.Registration;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    internal class QueryPlanReuseChecker : IQueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>
+    internal class QueryPlanReuseChecker : BackgroundService, IQueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Regex _skewedParameterRegex = new Regex(@"^ST_.*_WHERE_ResourceTypeId_(\d*)_SearchParamId_(\d*)$");
         private double _refreshPeriod = 3600;
@@ -51,10 +52,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _refreshPeriod = _fhirSqlServerConfiguration.QueryPlanReuseCheckerRefreshPeriod;
             _skewThreshold = _fhirSqlServerConfiguration.QueryPlanReuseCheckerSkewThreshold;
-
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            StartRefreshTimer();
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
         }
 
         public bool CanReuseQueryPlan(SearchOptions searchOptions)
@@ -82,19 +79,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return Task.CompletedTask;
         }
 
-        private async Task StartRefreshTimer()
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             try
             {
-                while (!_storageReady)
+                while (!_storageReady && !stoppingToken.IsCancellationRequested)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1));
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
                 }
+
+                stoppingToken.ThrowIfCancellationRequested();
 
                 _logger.LogInformation("Starting QueryPlanReuseChecker refresh timer.");
 
-                await RefreshCache(CancellationToken.None);
-                await _timer.ExecuteAsync("QueryPlanReuseChecker.RefreshCache", _refreshPeriod, RefreshCache, CancellationToken.None);
+                await RefreshCache(stoppingToken);
+                await _timer.ExecuteAsync("QueryPlanReuseChecker.RefreshCache", _refreshPeriod, RefreshCache, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Graceful shutdown — expected.
             }
             catch (Exception ex)
             {
@@ -119,6 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         if (skew > _skewThreshold)
                         {
+                            _logger.LogInformation("Statistic {StatisticName} has skew {Skew} which is above the threshold {Threshold}.", name, skew, _skewThreshold);
                             var match = _skewedParameterRegex.Match(name);
                             if (match.Success)
                             {
@@ -137,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return (string.Empty, string.Empty);
                 },
                 _logger,
-                CancellationToken.None);
+                cancellationToken);
 
             if (results == null || !results.Any(r => !string.IsNullOrEmpty(r.ResourceTypeId) && !string.IsNullOrEmpty(r.SearchParamId)))
             {
@@ -164,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return (searchParamId, uri);
                 },
                 _logger,
-                CancellationToken.None);
+                cancellationToken);
 
             var skewedParamsByUri = results.Where(r => !string.IsNullOrEmpty(r.ResourceTypeId) && !string.IsNullOrEmpty(r.SearchParamId)).Select(r =>
             {

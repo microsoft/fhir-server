@@ -86,7 +86,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Add<QueryPlanReuseChecker>()
                 .Singleton()
                 .AsSelf()
-                .AsImplementedInterfaces();
+                .AsService<IHostedService>()
+                .AsService<IQueryPlanReuseChecker>()
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.Add<SqlServerFhirDataStore>()
                 .Scoped()
