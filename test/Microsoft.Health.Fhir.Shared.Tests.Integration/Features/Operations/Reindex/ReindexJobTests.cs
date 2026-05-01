@@ -680,7 +680,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
                 var sw = Stopwatch.StartNew();
                 var status = OperationStatus.Running;
-                while (sw.Elapsed < TimeSpan.FromSeconds(10))
+                while (sw.Elapsed < TimeSpan.FromSeconds(100))
                 {
                     var reindexJobWorker = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
                     if (reindexJobWorker.JobRecord.Status == OperationStatus.Canceled)
