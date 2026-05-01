@@ -31,17 +31,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
-        private readonly HttpIntegrationTestFixture _fixture;
-        private readonly ITestOutputHelper _output;
         private const int MaxAllowedUrlLength = 128;
-        private const int MaxRetryCount = 10;
         private const string UrlLengthValidationMessage = "exceeds the maximum length limit of 128";
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
-            _fixture = fixture;
-            _output = output;
         }
 
         [RetryTheory]
@@ -104,12 +99,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #if R5
             var baseResourceTypes = new List<VersionIndependentResourceTypesAll?>
             {
-                VersionIndependentResourceTypesAll.Patient,
+                VersionIndependentResourceTypesAll.Person,
             };
 #else
             var baseResourceTypes = new List<ResourceType?>
             {
-                ResourceType.Patient,
+                ResourceType.Person,
             };
 #endif
 
@@ -123,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Code = $"customparam{suffix[..8]}",
                 Base = baseResourceTypes,
                 Type = SearchParamType.String,
-                Expression = "Patient.name",
+                Expression = "Person.name",
             };
         }
     }
