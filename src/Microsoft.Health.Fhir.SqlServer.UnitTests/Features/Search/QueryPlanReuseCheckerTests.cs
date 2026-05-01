@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 public class QueryPlanReuseCheckerTests
 {
     private readonly ISqlRetryService _sqlRetryService;
+    private readonly FhirSqlServerConfiguration _fhirSqlServerConfiguration = new FhirSqlServerConfiguration { EnableQueryPlanReuseChecker = true };
     private readonly ILogger<QueryPlanReuseChecker> _logger;
 
     public QueryPlanReuseCheckerTests()
@@ -42,7 +44,22 @@ public class QueryPlanReuseCheckerTests
     public void GivenQueryPlanReuseChecker_WhenNotInitialized_ThenCanReuseQueryPlanReturnsTrue()
     {
         // Arrange
-        var checker = new QueryPlanReuseChecker(_sqlRetryService, _logger);
+        var checker = new QueryPlanReuseChecker(_sqlRetryService, _fhirSqlServerConfiguration, _logger);
+        var searchOptions = CreateSearchOptions(new List<SearchParameterInfo>());
+
+        // Act
+        bool result = checker.CanReuseQueryPlan(searchOptions);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void GivenQueryPlanReuseChecker_WhenNotEnabled_ThenCanReuseQueryPlanReturnsTrue()
+    {
+        // Arrange
+        var fhirSqlServerConfiguration = new FhirSqlServerConfiguration { EnableQueryPlanReuseChecker = false };
+        var checker = new QueryPlanReuseChecker(_sqlRetryService, fhirSqlServerConfiguration, _logger);
         var searchOptions = CreateSearchOptions(new List<SearchParameterInfo>());
 
         // Act
@@ -165,7 +182,7 @@ public class QueryPlanReuseCheckerTests
     public async Task GivenQueryPlanReuseChecker_WhenHandleNotificationCalled_ThenStorageReadyIsSet()
     {
         // Arrange
-        var checker = new QueryPlanReuseChecker(_sqlRetryService, _logger);
+        var checker = new QueryPlanReuseChecker(_sqlRetryService, _fhirSqlServerConfiguration, _logger);
         var notification = new SearchParametersInitializedNotification();
 
         // Act
@@ -262,7 +279,7 @@ public class QueryPlanReuseCheckerTests
                 }
             });
 
-        var checker = new QueryPlanReuseChecker(_sqlRetryService, _logger);
+        var checker = new QueryPlanReuseChecker(_sqlRetryService, _fhirSqlServerConfiguration, _logger);
         var notification = new SearchParametersInitializedNotification();
 
         await checker.Handle(notification, CancellationToken.None);
@@ -297,7 +314,7 @@ public class QueryPlanReuseCheckerTests
     /// </summary>
     private QueryPlanReuseChecker CreateInitializedChecker(HashSet<string> skewedParameters)
     {
-        var checker = new QueryPlanReuseChecker(_sqlRetryService, _logger);
+        var checker = new QueryPlanReuseChecker(_sqlRetryService, _fhirSqlServerConfiguration, _logger);
 
         // Use reflection to set the private fields to simulate initialization
         var isInitializedField = typeof(QueryPlanReuseChecker)

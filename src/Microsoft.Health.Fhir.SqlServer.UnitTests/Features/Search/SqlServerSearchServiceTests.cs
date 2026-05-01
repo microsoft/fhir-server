@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -75,6 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 CommandTimeout = TimeSpan.FromSeconds(30),
             };
 
+            var fhirConfig = new FhirSqlServerConfiguration();
+
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
 
             // Create concrete instances of rewriters with required dependencies
@@ -104,6 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryGeneratorFactory,
                 _sqlRetryService,
                 Options.Create(config),
+                fhirConfig,
                 _schemaInformation,
                 _requestContextAccessor,
                 _compressedRawResourceConverter,
@@ -148,6 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     queryGeneratorFactory,
                     _sqlRetryService,
                     Options.Create(new SqlServerDataStoreConfiguration()),
+                    new FhirSqlServerConfiguration(),
                     schemaInfo,
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
@@ -195,6 +200,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     queryGeneratorFactory,
                     null,
                     Options.Create(new SqlServerDataStoreConfiguration()),
+                    new FhirSqlServerConfiguration(),
                     schemaInfo,
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
@@ -242,6 +248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     queryGeneratorFactory,
                     _sqlRetryService,
                     Options.Create(new SqlServerDataStoreConfiguration()),
+                    new FhirSqlServerConfiguration(),
                     null,
                     _requestContextAccessor,
                     _compressedRawResourceConverter,
@@ -290,20 +297,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.Same(_model, model);
-        }
-
-        [Fact]
-        public void ResetReuseQueryPlans_ExecutesWithoutException()
-        {
-            // Act & Assert - Should execute without throwing
-            SqlServerSearchService.ResetReuseQueryPlans();
-        }
-
-        [Fact]
-        public void ReuseQueryPlansParameterId_HasExpectedValue()
-        {
-            // Assert
-            Assert.Equal("Search.ReuseQueryPlans.IsEnabled", SqlServerSearchService.ReuseQueryPlansParameterId);
         }
     }
 }
