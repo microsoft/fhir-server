@@ -1,5 +1,5 @@
 ﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = -1
--- @ReindexId = -1 old code, @ReindexId = 0 - new codebut not reindex. @ReindexId > 0 - new code and reindex.
+-- @ReindexId = -1 old code, @ReindexId = 0 - new code but not reindex. @ReindexId > 0 - new code and reindex.
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
