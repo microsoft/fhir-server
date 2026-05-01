@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
+        private FhirSqlServerConfiguration _fhirSqlConfiguration;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -288,8 +289,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
-            var fhirSqlConfiguration = new FhirSqlServerConfiguration();
-            var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
+            _fhirSqlConfiguration = new FhirSqlServerConfiguration();
+            var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, _fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
@@ -306,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParamTableExpressionQueryGeneratorFactory,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
-                fhirSqlConfiguration,
+                _fhirSqlConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
@@ -427,6 +428,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(FhirSqlServerConfiguration))
+            {
+                return _fhirSqlConfiguration;
             }
 
             return null;
