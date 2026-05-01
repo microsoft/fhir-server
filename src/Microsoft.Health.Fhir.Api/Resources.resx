@@ -323,6 +323,9 @@
   <data name="ImportRequestInputUrlStorageEndpointMismatch" xml:space="preserve">
     <value>input.url must match the configured integration storage account endpoint.</value>
   </data>
+  <data name="ImportStorageAccountNotConfigured" xml:space="preserve">
+    <value>The import storage account is not configured correctly on the server. Import operations require a valid storage account.</value>
+  </data>
   <data name="ImportRequestNotValid" xml:space="preserve">
     <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
   </data>

@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -312,7 +312,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(importRequest.ToParameters()));
 
-            Assert.Equal("input.url must match the configured integration storage account endpoint.", exception.Message);
+            Assert.Equal(Resources.ImportStorageAccountNotConfigured, exception.Message);
         }
 
         [Fact]

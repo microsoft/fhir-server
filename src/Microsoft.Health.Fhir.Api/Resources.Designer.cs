@@ -376,6 +376,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The integration storage account is not configured on the server. Import operations require a valid StorageAccountUri or StorageAccountConnection..
+        /// </summary>
+        public static string ImportStorageAccountNotConfigured {
+            get {
+                return ResourceManager.GetString("ImportStorageAccountNotConfigured", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
         /// </summary>
         public static string ImportRequestValueNotValid {

@@ -211,6 +211,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            // Ensure that the server has a valid storage account configured for import operations.
+            if (_configuredStorageAccountUri == null)
+            {
+                throw new RequestNotValidException(Resources.ImportStorageAccountNotConfigured);
+            }
+
             var duplicateInputUrls = input.GroupBy(item => item.Url).Where(group => group.Count() > 1).Select(group => group.Key);
 
             if (duplicateInputUrls.Any())
