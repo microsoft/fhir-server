@@ -17,7 +17,7 @@ description: |
 
 The FHIR Server schema was designed for Azure SQL Hyperscale from inception. Key architectural assumptions:
 
-- **Storage is effectively infinite** — Hyperscale removes the 100TB ceiling
+- **Storage scales to 128 TB** — Hyperscale raises the standard 4 TB (GP/BC) ceiling to 128 TB per single database (100 TB for elastic pools); it is not unlimited. **Target ≤ 70% utilization** (~90 TB / ~70 TB respectively) to preserve headroom for online index rebuilds, partition SPLIT/MERGE, and ADR version store spill
 - **Compute scales independently** — vCore adjustments don't require data movement
 - **Read replicas for offload** — configurable replica traffic ratio for read-heavy workloads
 - **Near-instant backups** — snapshot-based, no I/O impact
@@ -276,7 +276,7 @@ public const int Max = N+1; // Current schema version
 4. Check `EventLog` for error clusters from `MergeResources`
 5. Check ADR PVS size — large version store slows writes
 
-### Symptom: Storage growing unexpectedly
+1. **Alert threshold**: Flag when storage exceeds 70% of tier ceiling (~90 TB single DB, ~70 TB elastic pool) — leave headroom for online rebuilds, partition ops, and ADR PVS spill
 1. Check `ResourceChangeData` partition count (should not exceed retention window)
 2. Check `EventLog` row count and retention settings
 3. Check for `InvisibleHistory.IsEnabled` — if disabled, historical versions store full blobs
@@ -302,3 +302,4 @@ Before suggesting any infrastructure change:
 - [ ] Is EventLog growth considered for new logging?
 - [ ] Are partition SWITCH/MERGE/SPLIT operations instant metadata ops only?
 - [ ] Does the recommendation account for Hyperscale page server distribution?
+- [ ] Is database storage below 70% of the tier ceiling (~90 TB for single DB, ~70 TB for elastic pool)?
