@@ -58,11 +58,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coord.Status == JobStatus.Failed)
             {
-                var responseStatusCode = GetResponseStatusCode(coord.Result);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result);
+                if (errorResult.HttpStatusCode == 0)
+                {
+                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                }
 
-                throw new OperationFailedException(
-                    string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, responseStatusCode),
-                    responseStatusCode);
+                // hide error message for InternalServerError
+                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
             }
             else if (coord.Status == JobStatus.Completed)
             {
@@ -81,11 +85,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else if (failedJobsExist)
                 {
                     var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-                    var responseStatusCode = GetResponseStatusCode(failed.Result);
+                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(failed.Definition);
+                    if (errorResult.HttpStatusCode == 0)
+                    {
+                        errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                    }
 
-                    throw new OperationFailedException(
-                        string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, responseStatusCode),
-                        responseStatusCode);
+                    var resourceLocation = new Uri(definition.ResourceLocation);
+
+                    // hide error message for InternalServerError
+                    var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString), errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {
@@ -123,24 +135,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var groupped = completed.GroupBy(o => o.InputUrl).Select(g => new ImportOperationOutcome() { Type = g.First().Type, Count = g.Sum(_ => _.Count), InputUrl = g.Key }).ToList();
 
                 return (groupped, failed);
-            }
-        }
-
-        private static HttpStatusCode GetResponseStatusCode(string result)
-        {
-            if (string.IsNullOrWhiteSpace(result))
-            {
-                return HttpStatusCode.InternalServerError;
-            }
-
-            try
-            {
-                var statusCode = JsonConvert.DeserializeObject<ImportJobErrorResult>(result)?.HttpStatusCode ?? 0;
-                return statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode;
-            }
-            catch (JsonException)
-            {
-                return HttpStatusCode.InternalServerError;
             }
         }
     }
