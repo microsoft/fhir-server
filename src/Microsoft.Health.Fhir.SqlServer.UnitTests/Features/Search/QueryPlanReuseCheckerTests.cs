@@ -245,8 +245,8 @@ public class QueryPlanReuseCheckerTests
                 else
                 {
                     var command = x.ArgAt<SqlCommand>(0);
-                    Assert.Contains(searchParamId1, command.Parameters["@SearchParamIds"].Value.ToString());
-                    Assert.Contains(searchParamId2, command.Parameters["@SearchParamIds"].Value.ToString());
+                    Assert.Contains(searchParamId1, command.CommandText);
+                    Assert.Contains(searchParamId2, command.CommandText);
 
                     // Return the expected results directly - simulating the URI lookup
                     // The second call returns (SearchParamId, Uri) tuples
@@ -285,16 +285,11 @@ public class QueryPlanReuseCheckerTests
 
         var skewedParametersField = typeof(QueryPlanReuseChecker)
             .GetField("_skewedParameters", BindingFlags.NonPublic | BindingFlags.Instance);
-        var actualSkewedParameters = (List<IGrouping<string, (string Uri, string ResourceTypeId)>>)skewedParametersField.GetValue(checker);
+        var actualSkewedParameters = (HashSet<string>)skewedParametersField.GetValue(checker);
         Assert.Equal(2, actualSkewedParameters.Count);
 
-        Assert.Equal(skewedUri1, actualSkewedParameters[0].Key);
-        Assert.Single(actualSkewedParameters[0]);
-        Assert.Equal(resourceTypeId1, actualSkewedParameters[0].First().ResourceTypeId);
-
-        Assert.Equal(skewedUri2, actualSkewedParameters[1].Key);
-        Assert.Single(actualSkewedParameters[1]);
-        Assert.Equal(resourceTypeId2, actualSkewedParameters[1].First().ResourceTypeId);
+        Assert.Contains(skewedUri1, actualSkewedParameters);
+        Assert.Contains(skewedUri2, actualSkewedParameters);
     }
 
     /// <summary>
