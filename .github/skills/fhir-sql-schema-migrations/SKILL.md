@@ -57,11 +57,6 @@ Use this skill whenever you need to:
 
 ```sql
 -- File: {N}.diff.sql
--- Every diff file should start with a version check guard
-IF NOT EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = N-1 AND Status = 'completed')
-  -- Previous version must be applied
-  RAISERROR('Previous schema version not applied', 18, 127)
-
 -- DDL changes with idempotency guards
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Resource') AND name = 'NewColumn')
 BEGIN
@@ -69,36 +64,38 @@ BEGIN
 END
 GO
 
--- Index creation with ONLINE = ON
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Resource_NewColumn')
+-- Index creation with ONLINE = ON, partition-aligned, page-compressed
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Resource_NewColumn' AND object_id = OBJECT_ID('dbo.Resource'))
 BEGIN
-  CREATE NONCLUSTERED INDEX IX_Resource_NewColumn
-  ON dbo.Resource(ResourceTypeId, NewColumn)
+  CREATE INDEX IX_Resource_NewColumn
+  ON dbo.Resource (ResourceTypeId, NewColumn)
   WITH (ONLINE = ON, DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
 GO
 
--- Stored procedure changes (always CREATE OR ALTER)
+-- Stored procedure changes (always CREATE OR ALTER inside diff.sql)
 GO
 CREATE OR ALTER PROCEDURE dbo.ExistingProcedure
   @Param1 int
-  ...
 AS
-SET NOCOUNT ON
--- ... procedure body
+set nocount on
+-- ... procedure body ...
 GO
 ```
 
+Note: Migration files in this repo do **not** add a manual `IF NOT EXISTS (SELECT * FROM dbo.SchemaVersion ...) RAISERROR` preamble — the SchemaUpgradeRunner (in `Microsoft.Health.SqlServer`) sequences and gates diff application. Don't invent that guard; rely on per-statement idempotency instead.
+
 ## Common mistakes to avoid
 
-- **Forgetting idempotency guards**: Every `ALTER TABLE`, `CREATE INDEX` must be wrapped in `IF NOT EXISTS`
-- **Adding NOT NULL columns without defaults**: Breaks existing data; always add as nullable first
-- **Removing old procedure versions prematurely**: Other instances may still be running the old application version
-- **Forgetting ONLINE = ON for index operations**: Blocks production traffic
-- **Forgetting partition alignment**: New indexes on partitioned tables MUST specify `ON PartitionScheme_ResourceTypeId(ResourceTypeId)`
-- **Forgetting DATA_COMPRESSION = PAGE**: All indexes should use page compression
-- **Not updating both .diff.sql AND .sql files**: Fresh installs use the full .sql file
+- **Forgetting idempotency guards**: Every `ALTER TABLE`, `CREATE INDEX` must be wrapped in `IF NOT EXISTS`. Stored procedures use `CREATE OR ALTER` (inherently idempotent).
+- **Inventing a `SchemaVersion` preamble guard**: No diff in this repo ships one — the upgrade runner gates application. Don't add it.
+- **Adding NOT NULL columns without defaults**: Breaks existing data; always add as nullable first (or with a default).
+- **Removing old procedure versions prematurely**: Other instances may still be running the old application version until `Min` advances past it.
+- **Forgetting `ONLINE = ON` for index operations**: Blocks production traffic.
+- **Forgetting partition alignment**: New indexes on partitioned tables MUST specify `ON PartitionScheme_ResourceTypeId(ResourceTypeId)`.
+- **Forgetting `DATA_COMPRESSION = PAGE`**: All indexes should use page compression.
+- **Not updating the full snapshot `.sql` file**: Fresh installs use the cumulative file. (Tooling regenerates this — don't hand-edit if a generator exists.)
 
 ## Checklist before committing
 

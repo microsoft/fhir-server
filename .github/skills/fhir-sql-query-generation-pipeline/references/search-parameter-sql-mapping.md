@@ -2,6 +2,12 @@
 
 This reference documents the exact SQL generated for each FHIR search parameter type. Use this when debugging generated SQL, verifying index usage, or explaining why a particular search query produces the SQL shape it does.
 
+> **Important schema note (read first):** Modern search-param tables in this repo do **not** carry an `IsHistory` column. Rows for historical resource versions are deleted by `MergeResources` rather than flagged. The column-list and "Filtered: `WHERE IsHistory = 0`" notes throughout this document reflect an older schema and are retained only to explain query plans you may see in older deployments. For current shape, consult the SQL files directly:
+> - `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/TokenSearchParam.sql`
+> - `.../StringSearchParam.sql`, `DateTimeSearchParam.sql`, `NumberSearchParam.sql`, `QuantitySearchParam.sql`, `ReferenceSearchParam.sql`, `UriSearchParam.sql`, and the composite tables.
+>
+> The only tables that retain `IsHistory` are `dbo.Resource` itself and `dbo.TokenText`. Filtered indexes on the EAV tables today filter by sparse value columns (e.g., `WHERE TextOverflow IS NOT NULL`, `WHERE SingleValue IS NULL`), not by history.
+
 ## Token Search Parameters
 
 ### Tables

@@ -249,9 +249,21 @@ Temp tables would break the visitor pattern and require procedural SQL.
 - Adding `SearchParamTableExpressionReorderer` selectivity hints if the chain target is more selective than the source
 
 ### Category D: Sort on Low-Selectivity Parameter
-**Symptom**: `_sort=given` on Patient returns slowly.
-**Root cause**: Two-phase sort scans all Patient resources without `given` value, then scans all with value.
-**Fix**: If the sort parameter is also a filter (`name=Smith&_sort=given`), `SortWithFilter` is used (single phase). Encourage users to combine sort with filter. Otherwise, this is a known limitation.
+**Symptom**: `_sort=-issued` or `_sort=given` on a large resource type returns slowly; removing `_sort` makes it fast.
+**Root cause**: Two-phase sort protocol scans all rows for the sort param in `DateTimeSearchParam`/`StringSearchParam`, then sorts before `TOP N`. **Compounding gap**: All NC indexes on `DateTimeSearchParam` store `StartDateTime ASC` only and exclude `ResourceSurrogateId` from `INCLUDE`. This means every sort row needs:
+  1. A forward scan (no DESC index), producing a `Sort` operator on millions of rows, AND
+  2. A clustered index lookup (no `ResourceSurrogateId` in NC index) to resolve the surrogate for the JOIN back to the filter CTE.
+**Fix options**:
+- If the sort parameter is also a filter (`date=2024&_sort=-date`), `SortWithFilter` is used (single phase, much faster). Encourage combining sort with filter.
+- For production sort-heavy workloads: add a DESC index with `ResourceSurrogateId` in `INCLUDE`:
+  ```sql
+  CREATE INDEX IX_SearchParamId_StartDateTime_DESC_INCLUDE_ResourceSurrogateId
+  ON dbo.DateTimeSearchParam (SearchParamId, StartDateTime DESC)
+  INCLUDE (ResourceSurrogateId)
+  WITH (DATA_COMPRESSION = PAGE)
+  ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+  ```
+- Otherwise, two-phase sort without a covering DESC index is a known design gap for large datasets.
 
 ### Category E: Count with Complex Predicates
 **Symptom**: `_total=accurate` on complex query is very slow.
@@ -309,7 +321,7 @@ WHERE qsrs1.last_execution_time > DATEADD(hour, -1, GETUTCDATE())
 - Look for `/* HASH ... */` comments in query text — these are search queries
 - Plans with `PartitionCount > 10` indicate partition elimination failure OR system-wide search (check if SQL has `IN (all types)`)
 - Plans with `Nested Loops` + `Filter` on `ReferenceSearchParam` indicate chain queries
-- High `logical reads` on `DateTimeSearchParam` with `Index Scan` suggests missing `IsLongerThanADay` exploitation
+- High `logical reads` on `DateTimeSearchParam` with `Index Scan` suggests either: (a) missing `IsLongerThanADay` filtered index exploitation for range queries, or (b) a `_sort` query hitting the ascending NC index without a `ResourceSurrogateId` INCLUDE — requiring a clustered index lookup per row (all 4 NC indexes on `DateTimeSearchParam` lack `ResourceSurrogateId` in their INCLUDEs)
 
 ## CustomQueries Override Mechanism
 
@@ -360,7 +372,7 @@ Before recommending ANY change, verify:
 - [ ] Does the plan use nested loops for CTE joins (small outer)?
 - [ ] For includes: is `IncludeLimit` present and effective?
 - [ ] For sorts: is the two-phase protocol actually needed, or can `SortWithFilter` be used?
-- [ ] Are filtered indexes (`IsHistory = 0`) being used?
+- [ ] Are filtered indexes being exploited where present (e.g., `TextOverflow IS NOT NULL` on `StringSearchParam`, `SingleValue IS NULL` vs `IS NOT NULL` on `NumberSearchParam`/`QuantitySearchParam`, `IsHistory = 0` on `Resource` and `TokenText`)?
 - [ ] Is `DATA_COMPRESSION = PAGE` active on relevant indexes?
 - [ ] Does the recommendation respect the expand-contract migration pattern?
 - [ ] Would the recommendation work on both single-type and system-wide searches?

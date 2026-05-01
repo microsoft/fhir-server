@@ -25,7 +25,7 @@ FHIR search queries traverse a multi-stage expression-tree pipeline before becom
 3. **`FlatteningRewriter`** — flattens nested `And` expressions: `(And (And a b) (And c d))` → `(And a b c d)`. Skips SmartV2 union expressions.
 4. **`LastUpdatedToResourceSurrogateIdRewriter`** — converts `_lastUpdated` predicates to `ResourceSurrogateId` range predicates. Uses millisecond truncation with tick adjustment: `gt` becomes `>= (truncated + 1ms)`.
 5. **`DateTimeBoundedRangeRewriter`** — optimizes unbounded DateTime ranges by adding `IsLongerThanADay` filtered index exploitation.
-6. **`ChainFlatteningRewriter`** — flattens chained expressions (`_has`, `subject:Patient.name`) into sequential `SearchParamTableExpression` entries with `ChainLevel` tracking.
+6. **`ChainFlatteningRewriter`** — flattens chained expressions (`_has`, `subject:Patient.name`) into sequential `SearchParamTableExpression` entries with `ChainLevel` tracking. For each chained expression it emits a `Chain` CTE (the reference traversal) followed by a `Normal` CTE (the target-resource filter). **Important**: the `Normal` CTE is only emitted when `queryGenerator != null`. If the chained expression's target predicate resolves to a `null` generator (i.e., it's a resource-table column like `_id`, `_type`, `_lastUpdated`), the predicate is instead embedded directly in `expressionOnTarget` on the Chain link expression — this is intentional and correct for those parameters. If both `queryGenerator == null` AND the expression is not a known resource-table predicate AND not a nested chain, the filter is **silently dropped** — this is the rare edge case to watch for when debugging chain queries that return too many results.
 7. **`NotExpressionRewriter`** — converts `:not` modifiers to `NotExists` table expressions.
 8. **`IncludeRewriter`** — processes `_include` and `_revinclude` into `Include` table expressions.
 9. **`SortRewriter`** — handles non-`_lastUpdated` sorts via two-phase search (resources-with-value first, resources-without-value second).
@@ -158,7 +158,7 @@ For reverse chains (`_has`), T1/T2 and Sid1/Sid2 are swapped.
 
 1. **Recommending `FORCE ORDER` or plan guides** — The `@DummyTop + OPTIMIZE FOR` and hash-comment patterns already address plan stability. Adding `FORCE ORDER` breaks the CTE optimizer's ability to reorder joins.
 
-2. **Suggesting index changes on search param tables without `IsHistory = 0` filter** — All search indexes MUST be filtered. Unfiltered indexes on EAV tables waste massive space and I/O.
+2. **Suggesting `WHERE IsHistory = 0` filtered indexes on search-param tables** — Most modern search-param tables (`TokenSearchParam`, `StringSearchParam`, `DateTimeSearchParam`, `NumberSearchParam`, `QuantitySearchParam`, `ReferenceSearchParam`, `UriSearchParam`, all composites) do **not** have an `IsHistory` column at all; rows for historical versions are deleted by `MergeResources` rather than flagged. Only `dbo.TokenText` and `dbo.Resource` itself still carry `IsHistory`. Filtered indexes on search-param tables today filter by sparse value columns (e.g., `WHERE TextOverflow IS NOT NULL`, `WHERE SingleValue IS NULL`), not by history.
 
 3. **Proposing to merge CTEs into subqueries** — The CTE chain is intentional for incremental filtering and sort propagation. Flattening would break sort handling and include logic.
 
@@ -170,7 +170,10 @@ For reverse chains (`_has`), T1/T2 and Sid1/Sid2 are swapped.
 
 7. **Recommending to remove the `TOP (@DummyTop) ... OPTION (OPTIMIZE FOR (@DummyTop = 1))` pattern** — This is a plan stability mechanism. Removing it causes the optimizer to choose hash joins/scans based on actual (large) cardinality estimates.
 
-## How to Diagnose Specific Rewriter Behavior
+8. **Diagnosing chain searches that return too many results**: If a chained search like `subject:Patient.name=Smith` returns all patients instead of only those with a matching practitioner named Smith, verify:
+   - The `Chain` CTE carries `T1, Sid1, T2, Sid2` (not just `ResourceSurrogateId`)
+   - The `Normal` CTE for the target filter exists at `ChainLevel = 1` (look for a `StringSearchParam` or equivalent join in the CTE after the chain link)
+   - The search parameter for the chained field is registered and its `ColumnLocation()` does NOT have `ResourceTable` flag set — if it does, `queryGenerator` returns null and the filter is embedded in `expressionOnTarget` on the chain link instead of a separate CTE (this is correct for `_id`, `_type`)
 
 When asked about a specific rewriter's behavior, ALWAYS verify against actual source code:
 

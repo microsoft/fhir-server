@@ -381,7 +381,6 @@ cteSort AS (
     FROM StringSearchParam sp
     JOIN ctePrev ON ...
     WHERE sp.SearchParamId = @SortSPID
-      AND sp.IsHistory = 0
 )
 ```
 
