@@ -15,37 +15,43 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class QueryPlanReuseChecker : IQueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Regex _skewedParameterRegex = new Regex(@"^ST_.*_WHERE_ResourceTypeId_(\d*)_SearchParamId_(\d*)$");
-        private readonly double _refreshPeriod = 3600;
-        private readonly double _skewThreshold = 30;
+        private double _refreshPeriod = 3600;
+        private double _skewThreshold = 30;
 
         // Holds a set of urls of skewed search parameters.
         private HashSet<string> _skewedParameters = new HashSet<string>();
         private readonly ISqlRetryService _sqlRetryService;
         private readonly FhirTimer _timer;
+        private readonly FhirSqlServerConfiguration _fhirSqlServerConfiguration;
         private readonly ILogger<QueryPlanReuseChecker> _logger;
 
         private bool _isInitialized = false;
         private bool _storageReady = false;
 
-        public QueryPlanReuseChecker(ISqlRetryService sqlRetryService, ILogger<QueryPlanReuseChecker> logger)
+        public QueryPlanReuseChecker(ISqlRetryService sqlRetryService, FhirSqlServerConfiguration fhirSqlServerConfiguration, ILogger<QueryPlanReuseChecker> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _fhirSqlServerConfiguration = EnsureArg.IsNotNull(fhirSqlServerConfiguration, nameof(fhirSqlServerConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             _timer = new FhirTimer(_logger);
 
-            // this should wait for storage to be ready.
+            _refreshPeriod = _fhirSqlServerConfiguration.QueryPlanReuseCheckerRefreshPeriod;
+            _skewThreshold = _fhirSqlServerConfiguration.QueryPlanReuseCheckerSkewThreshold;
+
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             StartRefreshTimer();
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -53,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public bool CanReuseQueryPlan(SearchOptions searchOptions)
         {
-            if (!_isInitialized)
+            if (!_fhirSqlServerConfiguration.EnableQueryPlanReuseChecker || !_isInitialized)
             {
                 return true;
             }

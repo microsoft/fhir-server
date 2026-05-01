@@ -40,6 +40,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -72,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private readonly FhirSqlServerConfiguration _fhirSqlServerConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -84,7 +86,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
-        private static CachedParameter<SqlServerSearchService> _reuseQueryPlans;
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
@@ -101,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
+            FhirSqlServerConfiguration fhirSqlServerConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
@@ -122,6 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _fhirSqlServerConfiguration = EnsureArg.IsNotNull(fhirSqlServerConfiguration, nameof(fhirSqlServerConfiguration));
             _fhirDataStore = fhirDataStore;
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
@@ -147,20 +150,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         internal ISqlServerFhirModel Model => _model;
 
-        internal static void ResetReuseQueryPlans()
-        {
-            _reuseQueryPlans.Reset();
-        }
-
         private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
         {
             lock (_locker)
             {
-                if (_reuseQueryPlans == null)
-                {
-                    _reuseQueryPlans = new CachedParameter<SqlServerSearchService>(ReuseQueryPlansParameterId, 0, logger);
-                }
-
                 if (_longRunningQueryDetails == null)
                 {
                     _longRunningQueryDetails = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsParameterId, 1, logger);
@@ -418,12 +411,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
                 else // equals default or an invalid value
                 {
-                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                    return await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
                 }
             }
             else
             {
-                return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                return await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
             }
         }
 
@@ -1855,7 +1848,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,
-                                _reuseQueryPlans.IsEnabled(_sqlRetryService) && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
+                                _fhirSqlServerConfiguration.ReuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 

@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -34,6 +35,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
@@ -46,12 +48,12 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureSqlAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerConnection(configureAction);
+            services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
 
@@ -59,6 +61,15 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add(provider =>
+                {
+                    var config = new FhirSqlServerConfiguration();
+                    provider.GetService<IConfiguration>().GetSection("FhirSqlServer").Bind(config);
+                    return config;
+                })
+                .Singleton()
+                .AsSelf();
 
             services.AddSingleton<IParameterStore, SqlServerParameterStore>();
 
