@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     public class AlwaysFailingSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
-            => throw new InvalidOperationException("Simulated definition-stage search parameter initialization failure.");
+            => Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(new InvalidOperationException("Simulated definition-stage search parameter initialization failure."));
 
         public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken) => Task.CompletedTask;
 

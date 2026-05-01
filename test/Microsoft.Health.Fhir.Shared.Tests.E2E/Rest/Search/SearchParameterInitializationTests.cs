@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -31,7 +32,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterInitializationTests
     {
-        private static readonly TimeSpan FailureGracePeriod = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan PollTimeout = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
         [Theory]
         [InlineData(DataStore.SqlServer)]
@@ -42,15 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 dataStore,
                 async httpClient =>
                 {
-                    // Wait for the retry loop to exhaust (3 attempts in the definition manager)
-                    await Task.Delay(FailureGracePeriod);
+                    (HttpStatusCode statusCode, string responseContent) = await WaitForNonHealthyStatusAsync(httpClient, PollTimeout, PollInterval);
 
-                    using HttpResponseMessage response = await httpClient.GetAsync("health/check");
-                    string responseContent = await response.Content.ReadAsStringAsync();
+                    Assert.Equal(HttpStatusCode.OK, statusCode);
 
-                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                    Assert.NotEqual("Healthy", GetOverallStatus(responseContent));
-                    Assert.NotEqual("Healthy", GetDetailStatus(responseContent, "StorageInitializedHealthCheck"));
+                    string detailStatus = GetDetailStatus(responseContent, "StorageInitializedHealthCheck");
+                    Assert.NotNull(detailStatus);
+                    Assert.Equal("Degraded", detailStatus);
                 });
         }
 
@@ -63,16 +63,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 dataStore,
                 async httpClient =>
                 {
-                    // Wait for the retry loop to exhaust
-                    await Task.Delay(FailureGracePeriod);
+                    (HttpStatusCode statusCode, string responseContent) = await WaitForNonHealthyStatusAsync(httpClient, PollTimeout, PollInterval);
 
-                    using HttpResponseMessage response = await httpClient.GetAsync("health/check");
-                    string responseContent = await response.Content.ReadAsStringAsync();
+                    Assert.Equal(HttpStatusCode.OK, statusCode);
 
-                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                    Assert.NotEqual("Healthy", GetOverallStatus(responseContent));
-                    Assert.NotEqual("Healthy", GetDetailStatus(responseContent, "StorageInitializedHealthCheck"));
+                    string detailStatus = GetDetailStatus(responseContent, "StorageInitializedHealthCheck");
+                    Assert.NotNull(detailStatus);
+                    Assert.Equal("Degraded", detailStatus);
                 });
+        }
+
+        private static async Task<(HttpStatusCode StatusCode, string ResponseContent)> WaitForNonHealthyStatusAsync(
+            HttpClient httpClient,
+            TimeSpan timeout,
+            TimeSpan pollInterval)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            while (stopwatch.Elapsed < timeout)
+            {
+                using HttpResponseMessage response = await httpClient.GetAsync("health/check");
+                string content = await response.Content.ReadAsStringAsync();
+                string overallStatus = GetOverallStatus(content);
+
+                if (overallStatus != null && !string.Equals(overallStatus, "Healthy", StringComparison.Ordinal))
+                {
+                    return (response.StatusCode, content);
+                }
+
+                await Task.Delay(pollInterval);
+            }
+
+            // Final attempt after timeout
+            using HttpResponseMessage finalResponse = await httpClient.GetAsync("health/check");
+            string finalContent = await finalResponse.Content.ReadAsStringAsync();
+            return (finalResponse.StatusCode, finalContent);
         }
 
         private static async Task ExecuteAsync<TStartup>(DataStore dataStore, Func<HttpClient, Task> action)

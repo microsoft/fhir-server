@@ -1016,10 +1016,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenStorageInitializedNotification_WhenHandled_ThenFullChainPublishesSearchParametersInitialized()
         {
-            // This tests the full initialization chain triggered by StorageInitializedNotification:
-            // StorageInitialized → DefinitionManager.EnsureInitializedAsync
-            //   → publishes SearchParameterDefinitionManagerInitialized
-            //   → StatusManager.EnsureInitializedAsync → publishes SearchParametersInitializedNotification
+            // Tests that handling StorageInitializedNotification triggers definition-stage
+            // initialization and publishes SearchParameterDefinitionManagerInitialized.
+            // Note: The remainder of the chain (StatusManager → SearchParametersInitializedNotification)
+            // is not testable here because the mediator is mocked.
             var notification = new Messages.Storage.StorageInitializedNotification();
             await _searchParameterDefinitionManager.Handle(notification, CancellationToken.None);
 
