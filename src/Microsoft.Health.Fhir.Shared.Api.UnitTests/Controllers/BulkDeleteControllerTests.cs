@@ -216,23 +216,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
         }
 
-        [Fact]
-        public async Task GivenSystemWideBulkDeleteWithoutResourceType_WhenReindexIsRunning_ThenRequestSucceedsAndReindexCheckIsDeferred()
+        // The controller must not preemptively block system-wide bulk delete requests when a
+        // reindex job is running. The orchestrator/processing job applies the precise check
+        // against the user's actual search filters, so the controller cannot produce false-positive
+        // conflicts. Mocking EnsureNoActiveReindexJobAsync to throw guarantees that any reliance
+        // on it from this layer would fail this test.
+        [Theory]
+        [InlineData("")]
+        [InlineData("?_tag=abc-123")]
+        [InlineData("?_lastUpdated=lt2021-12-12")]
+        [InlineData("?_tag=abc-123&_lastUpdated=lt2021-12-12")]
+        [InlineData("?identifier=urn:test|value")]
+        public async Task GivenSystemWideBulkDelete_WhenReindexIsRunning_ThenRequestSucceedsWithoutControllerLevelReindexCheck(string query)
         {
-            // The controller should not preemptively block system-wide bulk delete requests when a
-            // reindex job is running. The orchestrator/processing job applies the precise check
-            // against the user's search filters, so the controller must not produce false-positive
-            // conflicts (e.g. when the request is filtered by _tag and won't actually touch any
-            // SearchParameter resources).
+            _httpRequest.QueryString.Returns(new QueryString(query));
+
             _searchParameterOperations
                 .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
                 .Do(_ => throw new FhirJobConflictException("reindex running"));
 
-            var response = await _controller.BulkDelete(new HardDeleteModel(), false, false);
+            // System-wide variants: BulkDelete (no Type) and BulkDeleteSoftDeleted (no Type, soft-delete-cleanup).
+            var softDeleteResponse = await _controller.BulkDelete(new HardDeleteModel(), purgeHistory: false, removeReferences: false);
+            var hardDeleteResponse = await _controller.BulkDelete(new HardDeleteModel { HardDelete = true }, purgeHistory: false, removeReferences: false);
 
-            Assert.IsType<JobResult>(response);
-            await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
-            await _mediator.ReceivedWithAnyArgs(1).Send<CreateBulkDeleteResponse>(default, default);
+            Assert.IsType<JobResult>(softDeleteResponse);
+            Assert.IsType<JobResult>(hardDeleteResponse);
+            await _searchParameterOperations.DidNotReceiveWithAnyArgs().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
+            await _mediator.ReceivedWithAnyArgs(2).Send<CreateBulkDeleteResponse>(default, default);
         }
 
         [Theory]
