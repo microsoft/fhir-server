@@ -99,6 +99,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // Graceful shutdown — expected.
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("QueryPlanReuseChecker refresh loop was canceled.");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "QueryPlanReuseChecker refresh loop failed.");
