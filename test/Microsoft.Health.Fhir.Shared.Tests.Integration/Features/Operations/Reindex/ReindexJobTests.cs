@@ -678,9 +678,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
                 await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
-                var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                var sw = Stopwatch.StartNew();
+                var status = OperationStatus.Running;
+                while (sw.Elapsed < TimeSpan.FromSeconds(10))
+                {
+                    var reindexJobWorker = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    if (reindexJobWorker.JobRecord.Status == OperationStatus.Canceled)
+                    {
+                        status = OperationStatus.Canceled;
+                        break;
+                    }
 
-                Assert.Equal(OperationStatus.Canceled, reindexWrapper.JobRecord.Status);
+                    await Task.Delay(500);
+                }
+
+                Assert.Equal(OperationStatus.Canceled, status);
             }
             catch (RequestNotValidException ex)
             {
