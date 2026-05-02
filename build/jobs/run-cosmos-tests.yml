@@ -5,12 +5,6 @@ parameters:
   type: string
 - name: containerAppName
   type: string
-- name: mainCategoryFilter
-  type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
-- name: runReindexJob
-  type: boolean
-  default: true
 jobs:
 
 - job: "CosmosIntegrationTests"
@@ -124,21 +118,20 @@ jobs:
       version: ${{ parameters.version }}
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'CosmosDb'
-      categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
 
-- ${{ if eq(parameters.runReindexJob, true) }}:
-  - job: 'cosmosE2eTests_Reindex'
-    timeoutInMinutes: 75
-    dependsOn: []
-    pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
-      parameters:
-        version: ${{ parameters.version }}
-        containerAppName: '${{ parameters.containerAppName }}'
-        appServiceType: 'CosmosDb'
-        categoryFilter: 'Category=IndexAndReindex'
-        testRunTitleSuffix: ' Reindex'
+- job: 'cosmosE2eTests_Reindex'
+  timeoutInMinutes: 75
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      containerAppName: '${{ parameters.containerAppName }}'
+      appServiceType: 'CosmosDb'
+      categoryFilter: 'Category=IndexAndReindex'
+      testRunTitleSuffix: ' Reindex'

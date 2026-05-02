@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -25,9 +24,9 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Polly;
 using Xunit;
 using Xunit.Abstractions;
-using Xunit.Sdk;
 using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 
@@ -487,42 +486,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // this moves tests to reindex group to avoid racing failures
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
-            const int searchParameterStatusTimeoutSeconds = 60;
-            TimeSpan bulkDeleteRetryTimeout = TimeSpan.FromMinutes(2);
-            TimeSpan bulkDeleteRetryDelay = TimeSpan.FromSeconds(5);
-
             CheckBulkDeleteEnabled();
 
             var tag = Guid.NewGuid().ToString();
             var bundle = (Bundle)TagResources((Bundle)Samples.GetJsonSample("SearchParameter-USCoreIG").ToPoco(), tag);
             var resources = bundle.Entry.Select(x => x.Resource).ToList();
 
-            if (_fixture.DataStore == DataStore.CosmosDb)
+            try
             {
-                var retryStopwatch = Stopwatch.StartNew();
-                var attempt = 1;
+                await CleanupAsync();
 
-                while (true)
-                {
-                    try
-                    {
-                        await ExecuteAttemptAsync();
-                        return;
-                    }
-                    catch (Exception ex) when (ShouldRetryBulkDeleteAttempt(ex, retryStopwatch.Elapsed, bulkDeleteRetryTimeout))
-                    {
-                        _output.WriteLine(
-                            $"Bulk delete SearchParameter attempt {attempt} failed after {retryStopwatch.Elapsed.TotalSeconds:F0}s. " +
-                            $"Retrying in {bulkDeleteRetryDelay.TotalSeconds:F0}s. Error: {ex.Message}");
-                        attempt++;
-                        await Task.Delay(bulkDeleteRetryDelay);
-                    }
-                }
+                await CreateAsync();
+
+                await EnsureCreateAsync();
+
+                await WaitForCacheRefreshAsync();
+
+                await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
+
+                var queryParams = new Dictionary<string, string> { { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" } };
+                using var request = GenerateBulkDeleteRequest(tag, $"{ResourceType.SearchParameter}/$bulk-delete", queryParams);
+                using var response = await _httpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+                await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, bundle.Entry.Count);
+
+                await WaitForCacheRefreshAsync();
+
+                await EnsureBulkDeleteAsync();
+
+                await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete);
+            }
+            finally
+            {
+                await CleanupAsync();
             }
 
-            await ExecuteAttemptAsync();
+            async Task WaitForCacheRefreshAsync()
+            {
+                // Wait for the search parameter cache to be updated
+                // 6 sec = 2 sec refresh interval * 3
+                await Task.Delay(TimeSpan.FromSeconds(6));
+            }
 
             async Task CleanupAsync()
             {
@@ -548,35 +556,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     var status = (await _fhirClient.ReadAsync<SearchParameter>($"{ResourceType.SearchParameter}/{resource.Id}")).StatusCode;
                     Assert.True(status == HttpStatusCode.OK, $"expected={HttpStatusCode.OK} actual={status}");
-                }
-            }
-
-            async Task ExecuteAttemptAsync()
-            {
-                try
-                {
-                    await CleanupAsync();
-
-                    await CreateAsync();
-
-                    await EnsureCreateAsync();
-
-                    await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
-
-                    var queryParams = new Dictionary<string, string> { { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" } };
-                    using var request = GenerateBulkDeleteRequest(tag, $"{ResourceType.SearchParameter}/$bulk-delete", queryParams);
-                    using var response = await _httpClient.SendAsync(request);
-                    Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-                    await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, bundle.Entry.Count);
-
-                    await EnsureBulkDeleteAsync();
-
-                    await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
-                }
-                finally
-                {
-                    await CleanupAsync();
                 }
             }
 
@@ -609,15 +588,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.True(expectedCount == actualCount, $"expected={expectedCount} actual={actualCount}");
             }
 
-            static bool ShouldRetryBulkDeleteAttempt(Exception exception, TimeSpan elapsed, TimeSpan timeout)
-            {
-                return elapsed < timeout &&
-                    (exception is XunitException ||
-                    exception is FhirClientException ||
-                    exception is HttpRequestException ||
-                    exception is OperationCanceledException);
-            }
-
             async Task EnsureBulkDeleteAsync()
             {
                 var response = await _fhirClient.SearchAsync(ResourceType.SearchParameter, $"_tag={tag}");
@@ -626,69 +596,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
             }
 
-            async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus, TimeSpan timeout)
+            async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus)
             {
                 if (_fixture.DataStore == DataStore.CosmosDb)
                 {
                     return;
                 }
 
-                var expectedStatusText = expectedStatus.ToString();
-                var pollingInterval = TimeSpan.FromSeconds(2);
-                var stopwatch = Stopwatch.StartNew();
-                string lastObservedState = "No status responses recorded.";
-
-                while (stopwatch.Elapsed < timeout)
+                foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
                 {
-                    var statusesMatched = true;
-                    var observedStates = new List<string>();
+                    var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
+                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                    foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
-                    {
-                        try
-                        {
-                            var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
-                            if (response.StatusCode != HttpStatusCode.OK)
-                            {
-                                statusesMatched = false;
-                                observedStates.Add($"url={url} response={response.StatusCode}");
-                                continue;
-                            }
+                    var part = response.Resource.Parameter
+                        .Where(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)))
+                        .FirstOrDefault();
+                    Assert.NotNull(part);
 
-                            var part = response.Resource.Parameter
-                                .FirstOrDefault(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)));
-
-                            var status = part?.Part
-                                .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
-                                .Select(x => x.Value?.ToString())
-                                .FirstOrDefault();
-
-                            observedStates.Add($"url={url} actual={status ?? "<missing>"}");
-
-                            if (part == null || !string.Equals(status, expectedStatusText, StringComparison.Ordinal))
-                            {
-                                statusesMatched = false;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            statusesMatched = false;
-                            observedStates.Add($"url={url} error={ex.GetType().Name}: {ex.Message}");
-                        }
-                    }
-
-                    lastObservedState = string.Join("; ", observedStates);
-
-                    if (statusesMatched)
-                    {
-                        return;
-                    }
-
-                    await Task.Delay(pollingInterval);
+                    var status = part.Part
+                        .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
+                        .Select(x => x.Value?.ToString())
+                        .FirstOrDefault();
+                    Assert.True(status == expectedStatus.ToString(), $"url={url} expected={expectedStatus} actual={status}");
                 }
-
-                throw new XunitException(
-                    $"Timed out after {timeout.TotalSeconds:F0}s waiting for SearchParameter status '{expectedStatusText}'. Last observed state: {lastObservedState}");
             }
         }
 

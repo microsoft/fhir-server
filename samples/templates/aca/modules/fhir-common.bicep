@@ -100,7 +100,9 @@ var sharedEnvVars = [
   { name: 'FhirServer__Security__Authentication__Authority', value: securityAuthenticationAuthority }
   { name: 'FhirServer__Security__Authentication__Audience', value: securityAuthenticationAudience }
   { name: 'TaskHosting__Enabled', value: 'true' }
+  { name: 'TaskHosting__PollingFrequencyInSeconds', value: '1' }
   { name: 'TaskHosting__MaxRunningTaskCount', value: '2' }
+  { name: 'FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds', value: '2' }
   { name: 'FhirServer__Operations__Export__Enabled', value: enableExport ? 'true' : 'false' }
   { name: 'FhirServer__Operations__Export__StorageAccountUri', value: enableExport ? storageAccountUri : 'null' }
   { name: 'FhirServer__Operations__Import__Enabled', value: enableImport ? 'true' : 'false' }
