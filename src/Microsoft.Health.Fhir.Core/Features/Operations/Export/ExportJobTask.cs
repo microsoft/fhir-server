@@ -222,13 +222,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (_exportJobRecord.SurrogateIdRanges != null && _exportJobRecord.SurrogateIdRanges.Count > 0)
                 {
                     // Process multiple sub-ranges sequentially with one file manager to produce a single output file.
-                    // Each sub-range has surrogateIdRangeSize resources (set by the orchestrator),
-                    // which is small enough to fit in a single search page (_count >= surrogateIdRangeSize).
+                    // Each sub-range covers a small surrogate ID range set by the orchestrator.
+                    // Override _count per sub-range to match the range size, ensuring SQL returns at most
+                    // that many resources per call. This prevents OOM for large resources by capping
+                    // how many rows are materialized in memory at once.
                     for (int i = 0; i < _exportJobRecord.SurrogateIdRanges.Count; i++)
                     {
                         var range = _exportJobRecord.SurrogateIdRanges[i];
 
+                        // Compute per-range _count from the surrogate ID span. This caps the SQL result set.
+                        var rangeSpan = long.Parse(range.EndId) - long.Parse(range.StartId) + 1;
+                        var rangeCount = Math.Max(1, Math.Min(rangeSpan, _exportJobRecord.MaximumNumberOfResourcesPerQuery));
+
                         var rangeQueryParams = new List<Tuple<string, string>>(queryParametersList);
+
+                        // Replace the _count parameter with the per-range value
+                        for (int p = 0; p < rangeQueryParams.Count; p++)
+                        {
+                            if (rangeQueryParams[p].Item1 == KnownQueryParameterNames.Count)
+                            {
+                                rangeQueryParams[p] = Tuple.Create(KnownQueryParameterNames.Count, rangeCount.ToString(CultureInfo.InvariantCulture));
+                                break;
+                            }
+                        }
+
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId));
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId));

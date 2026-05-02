@@ -59,7 +59,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             // Reduce per-range size and increase the number of ranges to lower peak memory per processing job.
             // Each processing job receives multiple smaller ranges and processes them sequentially.
-            const int rangeReductionFactor = 10;
+            // A factor of 100 means each sub-range covers ~100 surrogate IDs (with default MaximumNumberOfResourcesPerQuery=10000),
+            // limiting the number of resources loaded per search call and preventing OOM with large resources.
+            const int rangeReductionFactor = 100;
             var surrogateIdRangeSize = Math.Max(1, (int)record.MaximumNumberOfResourcesPerQuery / rangeReductionFactor);
             var numberOfRanges = _exportJobConfiguration.NumberOfParallelRecordRanges * rangeReductionFactor;
 
