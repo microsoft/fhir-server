@@ -200,9 +200,6 @@ stages:
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-      mainCategoryFilter: 'Category!=ExportLongRunning'
-      runReindexJob: false
-      runBulkUpdateJob: false
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -257,9 +254,6 @@ stages:
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-      mainCategoryFilter: 'Category!=ExportLongRunning'
-      runReindexJob: false
-      runBulkUpdateJob: false
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
@@ -287,9 +281,6 @@ stages:
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-      mainCategoryFilter: 'Category!=ExportLongRunning'
-      runReindexJob: false
-      runBulkUpdateJob: false
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'

@@ -7,15 +7,6 @@ parameters:
   type: string
 - name: integrationSqlServerName
   type: string
-- name: mainCategoryFilter
-  type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
-- name: runReindexJob
-  type: boolean
-  default: true
-- name: runBulkUpdateJob
-  type: boolean
-  default: true
 jobs:
 
 - job: "SqlIntegrationTests"
@@ -114,38 +105,4 @@ jobs:
       version: ${{ parameters.version }}
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
-      categoryFilter: '${{ parameters.mainCategoryFilter }}'
-
-- ${{ if eq(parameters.runReindexJob, true) }}:
-  - job: 'sqlE2eTests_Reindex'
-    timeoutInMinutes: 120
-    dependsOn: []
-    pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
-      parameters:
-        version: ${{ parameters.version }}
-        containerAppName: '${{ parameters.containerAppName }}'
-        appServiceType: 'SqlServer'
-        categoryFilter: 'Category=IndexAndReindex'
-        testRunTitleSuffix: ' Reindex'
-
-- ${{ if eq(parameters.runBulkUpdateJob, true) }}:
-  - job: 'sqlE2eTests_BulkUpdate'
-    timeoutInMinutes: 120
-    dependsOn: []
-    pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
-      parameters:
-        version: ${{ parameters.version }}
-        containerAppName: '${{ parameters.containerAppName }}'
-        appServiceType: 'SqlServer'
-        categoryFilter: 'Category=BulkUpdate'
-        testRunTitleSuffix: ' BulkUpdate'
+      categoryFilter: 'Category!=ExportLongRunning'
