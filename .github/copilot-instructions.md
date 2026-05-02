@@ -12,14 +12,14 @@ The schema has strict invariants; generic SQL knowledge will produce incorrect c
 
 | Task | Skill |
 |------|-------|
-| Schema migration / new version | `fhir-sql-schema-migrations` |
-| New table or index | `fhir-sql-partitioning-and-indexing` |
-| New or modified stored procedure | `fhir-sql-stored-procedure-conventions` |
-| Background job / export / import / reindex | `fhir-sql-job-queue-and-watchdog` |
-| Resource create/update/delete/history | `fhir-sql-resource-lifecycle` |
-| Slow FHIR search or query plan diagnosis | `fhir-sql-performance-diagnostics` |
+| Schema migration / new version | `fhir-sql-author-schema-migration` |
+| New table or index | `fhir-sql-add-table-or-index` |
+| New or modified stored procedure | `fhir-sql-write-stored-procedure` |
+| Background job / export / import / reindex | `fhir-sql-background-jobs` |
+| Resource create/update/delete/history | `fhir-sql-resource-crud-and-history` |
+| Slow FHIR search or query plan diagnosis | `fhir-sql-diagnose-query-perf` |
 | Search-to-SQL pipeline, CTE debugging | `fhir-sql-query-generation-pipeline` |
-| Hyperscale, read replicas, geo-replication | `fhir-sql-hyperscale-and-operations` |
+| Hyperscale, read replicas, geo-replication | `fhir-sql-production-operations` |
 | Architecture decision (ADR) | `create-adr` + `engineer-mode` |
 | Well-Architected review | `wa-full-review` (or focused variant) |
 

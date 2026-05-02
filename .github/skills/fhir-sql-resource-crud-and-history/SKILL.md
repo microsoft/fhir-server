@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-resource-lifecycle
+name: fhir-sql-resource-crud-and-history
 description: |
   Resource lifecycle management in the Microsoft FHIR Server SQL schema.
   Activate when: modifying MergeResources, working with ResourceSurrogateId, understanding

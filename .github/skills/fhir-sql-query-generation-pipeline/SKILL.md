@@ -2,6 +2,8 @@
 name: fhir-sql-query-generation-pipeline
 description: |
   Expert knowledge of the Microsoft FHIR Server C# search-to-SQL query generation pipeline.
+  Construction-oriented: rewriter order, expression-tree shape, why SQL looks the way it does.
+  For slow-query triage, design-limitation vs bug, index/hint recommendations, and Query Store playbooks, load `fhir-sql-diagnose-query-perf` alongside this skill.
   Activate when: analyzing how FHIR search queries translate to SQL, debugging generated SQL,
   understanding CTE structures from search expressions, working with expression rewriters,
   SqlServerSearchService, SqlQueryGenerator, search parameter query generators, chain searches,
@@ -18,6 +20,10 @@ description: |
 
 FHIR search queries traverse a multi-stage expression-tree pipeline before becoming SQL. Understanding this pipeline is essential for diagnosing incorrect or slow SQL.
 
+## Companion skill: load alongside
+
+When the question is *"this generated SQL is slow / timing out / picking a bad plan / has a missing index"*, load **`fhir-sql-diagnose-query-perf`** as well. It owns slow-query triage (Categories A–F: missing partition elimination, system-wide search, include join explosion, chain depth, sort on low-selectivity param, count complexity, token text), the design-limitation-vs-bug checklist, optimizer-hint guidance (`@DummyTop`, `OPTIMIZE FOR UNKNOWN`, `MAXDOP 1`, `OPTION (RECOMPILE)`), and Query Store playbooks. Use *this* skill to understand *how* the SQL was built; use the diag skill to decide *what to do* about a slow plan.
+
 ### Pipeline Stages (in order)
 
 1. **FHIR search string parsed** → `Expression` tree (Core layer, not SQL-specific)
@@ -25,11 +31,11 @@ FHIR search queries traverse a multi-stage expression-tree pipeline before becom
 3. **`FlatteningRewriter`** — flattens nested `And` expressions: `(And (And a b) (And c d))` → `(And a b c d)`. Skips SmartV2 union expressions.
 4. **`LastUpdatedToResourceSurrogateIdRewriter`** — converts `_lastUpdated` predicates to `ResourceSurrogateId` range predicates. Uses millisecond truncation with tick adjustment: `gt` becomes `>= (truncated + 1ms)`.
 5. **`DateTimeBoundedRangeRewriter`** — optimizes unbounded DateTime ranges by adding `IsLongerThanADay` filtered index exploitation.
-6. **`ChainFlatteningRewriter`** — flattens chained expressions (`_has`, `subject:Patient.name`) into sequential `SearchParamTableExpression` entries with `ChainLevel` tracking. For each chained expression it emits a `Chain` CTE (the reference traversal) followed by a `Normal` CTE (the target-resource filter). **Important**: the `Normal` CTE is only emitted when `queryGenerator != null`. If the chained expression's target predicate resolves to a `null` generator (i.e., it's a resource-table column like `_id`, `_type`, `_lastUpdated`), the predicate is instead embedded directly in `expressionOnTarget` on the Chain link expression — this is intentional and correct for those parameters. If both `queryGenerator == null` AND the expression is not a known resource-table predicate AND not a nested chain, the filter is **silently dropped** — this is the rare edge case to watch for when debugging chain queries that return too many results.
+6. **`ChainFlatteningRewriter`** — flattens chained expressions (`_has`, `subject:Patient.name`) into sequential `SearchParamTableExpression` entries with `ChainLevel` tracking. For each chained expression it emits a `Chain` CTE (the reference traversal) followed by a `Normal` CTE (the target-resource filter). **Important**: the `Normal` CTE is only emitted when `queryGenerator != null`. If the chained expression's target predicate resolves to a `null` generator (i.e., it's a resource-table column like `_id`, `_type`, `_lastUpdated`), the predicate is instead embedded directly in `expressionOnTarget` on the Chain link expression — this is intentional and correct for those parameters. If both `queryGenerator == null` AND the expression is not a known resource-table predicate AND not a nested chain, the filter is **silently dropped** — this is the rare edge case to watch for when debugging chain queries that return too many results. *When this stage produces slow plans (multi-level nested loops on deep chains), see `fhir-sql-diagnose-query-perf` → Category C.*
 7. **`NotExpressionRewriter`** — converts `:not` modifiers to `NotExists` table expressions.
-8. **`IncludeRewriter`** — processes `_include` and `_revinclude` into `Include` table expressions.
-9. **`SortRewriter`** — handles non-`_lastUpdated` sorts via two-phase search (resources-with-value first, resources-without-value second).
-10. **`PartitionEliminationRewriter`** — injects `ResourceTypeId IN (...)` for system-wide searches and expands continuation tokens into `PrimaryKeyRange`.
+8. **`IncludeRewriter`** — processes `_include` and `_revinclude` into `Include` table expressions. *When include-join explosion makes a query slow, see `fhir-sql-diagnose-query-perf` → Category B.*
+9. **`SortRewriter`** — handles non-`_lastUpdated` sorts via two-phase search (resources-with-value first, resources-without-value second). *When sort dominates query cost on large resource types, see `fhir-sql-diagnose-query-perf` → Category D for the `DateTimeSearchParam` index gap and `INCLUDE ResourceSurrogateId` / DESC-index recommendations.*
+10. **`PartitionEliminationRewriter`** — injects `ResourceTypeId IN (...)` for system-wide searches and expands continuation tokens into `PrimaryKeyRange`. *Distinguishing a true partition-elimination bug from the inherent system-wide-search design limitation: see `fhir-sql-diagnose-query-perf` → Category A vs A2.*
 11. **`SearchParamTableExpressionReorderer`** — reorders by selectivity: Reference/Compartment (10) > normal (0) > NotExists (-15) > Missing (-10) > Include (-20).
 12. **`TopRewriter`** — appends a `Top` table expression for pagination.
 13. **`SqlQueryGenerator`** — visitor that emits the actual SQL string with CTEs, JOINs, `@FilteredData` table variable.

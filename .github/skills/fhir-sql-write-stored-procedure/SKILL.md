@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-stored-procedure-conventions
+name: fhir-sql-write-stored-procedure
 description: |
   Stored procedure conventions for the Microsoft FHIR Server SQL schema.
   Activate when: creating a stored procedure, modifying a FHIR sproc, adding LogEvent calls,

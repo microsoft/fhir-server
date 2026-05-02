@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-hyperscale-and-operations
+name: fhir-sql-production-operations
 description: |
   Azure SQL Hyperscale operations for the Microsoft FHIR Server SQL data provider.
   Activate when: Azure SQL Hyperscale, read replica routing, "ReplicaTrafficRatio",

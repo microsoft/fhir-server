@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-partitioning-and-indexing
+name: fhir-sql-add-table-or-index
 description: |
   Partitioning strategy and index conventions for the Microsoft FHIR Server SQL schema.
   Activate when: adding a search parameter table, creating an index on a FHIR table,

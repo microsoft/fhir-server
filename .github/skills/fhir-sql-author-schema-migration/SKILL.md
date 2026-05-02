@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-schema-migrations
+name: fhir-sql-author-schema-migration
 description: |
   How to author a new .diff.sql migration file for the Microsoft FHIR Server SQL schema.
   Activate when: creating a schema migration, bumping SchemaVersion, writing a diff.sql file,

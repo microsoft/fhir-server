@@ -1,5 +1,5 @@
 ---
-name: fhir-sql-job-queue-and-watchdog
+name: fhir-sql-background-jobs
 description: |
   JobQueue and Watchdog patterns in the Microsoft FHIR Server SQL schema.
   Activate when: working with background jobs, the job queue, export/import/reindex operations,

@@ -63,14 +63,14 @@ SQL in this codebase is highly specialized. Before making any SQL change, **acti
 
 | Area | Skill to activate |
 |------|------------------|
-| Schema migrations (new version) | `fhir-sql-schema-migrations` |
-| Adding/modifying tables or indexes | `fhir-sql-partitioning-and-indexing` |
-| Writing or editing stored procedures | `fhir-sql-stored-procedure-conventions` |
-| Background jobs (export/import/reindex) | `fhir-sql-job-queue-and-watchdog` |
-| Resource CRUD lifecycle (MergeResources) | `fhir-sql-resource-lifecycle` |
+| Schema migrations (new version) | `fhir-sql-author-schema-migration` |
+| Adding/modifying tables or indexes | `fhir-sql-add-table-or-index` |
+| Writing or editing stored procedures | `fhir-sql-write-stored-procedure` |
+| Background jobs (export/import/reindex) | `fhir-sql-background-jobs` |
+| Resource CRUD lifecycle (MergeResources) | `fhir-sql-resource-crud-and-history` |
 | Search-to-SQL query pipeline | `fhir-sql-query-generation-pipeline` |
-| Diagnosing slow queries | `fhir-sql-performance-diagnostics` |
-| Hyperscale / read replicas / operations | `fhir-sql-hyperscale-and-operations` |
+| Diagnosing slow queries | `fhir-sql-diagnose-query-perf` |
+| Hyperscale / read replicas / operations | `fhir-sql-production-operations` |
 
 **Never write SQL for this codebase without first reading the relevant skill.** The schema has strict invariants (partitioning, compression, lock escalation) that are easy to violate with generic SQL knowledge.
 
@@ -80,7 +80,7 @@ SQL in this codebase is highly specialized. Before making any SQL change, **acti
 
 Bulk operations use the async job queue. To add a new background job type:
 1. Use the scaffold tool at `tools/AsyncJobGenerator`.
-2. Read the `fhir-sql-job-queue-and-watchdog` skill before touching any SQL.
+2. Read the `fhir-sql-background-jobs` skill before touching any SQL.
 3. Register the new `QueueType` constant in C# and add a Watchdog coordinator.
 
 ---

@@ -1,7 +1,9 @@
 ---
-name: fhir-sql-performance-diagnostics
+name: fhir-sql-diagnose-query-perf
 description: |
   Diagnose and optimize slow queries in the Microsoft FHIR Server SQL data provider.
+  Symptom-to-fix triage: index gaps, optimizer hints, design-limitation vs bug, Query Store analysis.
+  For *how* the SQL is constructed by the rewriter pipeline, load `fhir-sql-query-generation-pipeline` alongside this skill.
   Activate when: slow FHIR search, query plan analysis, "query timeout", "partition elimination",
   "index scan", "parameter sniffing", "cardinality estimate", "table scan", "hash join",
   "nested loop", "deadlock", "blocking", "InvalidSearchOperationException",
@@ -17,6 +19,10 @@ description: |
 ## Diagnostic Philosophy
 
 **Project design decisions override generic SQL best practices.** The FHIR Server schema makes deliberate tradeoffs (partition-per-resource-type, EAV side tables, CTE chains, `varbinary(max)` blobs) that generic SQL advice often contradicts. Always validate recommendations against the schema's invariants.
+
+## Companion skill: load alongside
+
+If diagnosis points at the rewriter pipeline (`SqlRootExpressionRewriter`, `LastUpdatedToResourceSurrogateIdRewriter`, `DateTimeBoundedRangeRewriter`, `ChainFlatteningRewriter`, `NotExpressionRewriter`, `IncludeRewriter`, `SortRewriter`, `PartitionEliminationRewriter`, `SearchParamTableExpressionReorderer`, `TopRewriter`, `RemoveIncludesRewriter`, `HashingSqlQueryParameterManager`, `SqlQueryGenerator`) — load **`fhir-sql-query-generation-pipeline`** as well. That skill owns the canonical *how the SQL is constructed* knowledge: pipeline stage order, CTE shape, `@FilteredData` boundary, two-phase sort rationale, query-hash comment tagging. This skill owns the *is it slow, is it a bug, what hint or index fixes it* triage. The two compose — load both whenever a slow-query investigation touches rewriter behavior.
 
 ## Diagnostic Verification Protocol
 
@@ -53,7 +59,7 @@ For EVERY performance diagnosis, verify against actual evidence:
 
 **Scenario A: TRULY Missing ResourceTypeId — CATASTROPHIC BUG**
 - Symptom: Query scans all 147 partitions, 40x slower than single-type
-- Root cause: NO `ResourceTypeId` predicate exists in the SQL — the `PartitionEliminationRewriter` was bypassed or a custom query omitted it
+- Root cause: NO `ResourceTypeId` predicate exists in the SQL — the `PartitionEliminationRewriter` was bypassed or a custom query omitted it (see `fhir-sql-query-generation-pipeline` → pipeline stage 10)
 - How to check: Query plan shows `Partition Count = 147+` AND the SQL has NO `ResourceTypeId` anywhere in WHERE/JOIN
 - Fix: Fix the C# rewriter pipeline or custom SQL
 
@@ -92,7 +98,7 @@ For each side table access (TokenSearchParam, StringSearchParam, etc.):
 ### Step 5: Verify Sort and Top Placement
 
 - `_lastUpdated` sort: Should use `ResourceSurrogateId ORDER BY` — no sort operator needed (data is clustered in this order)
-- Non-`_lastUpdated` sort: Check for `Sort` operator in the plan. If sorting millions of rows, the `SortRewriter` two-phase protocol may be mispredicting selectivity.
+- Non-`_lastUpdated` sort: Check for `Sort` operator in the plan. If sorting millions of rows, the `SortRewriter` two-phase protocol may be mispredicting selectivity (see `fhir-sql-query-generation-pipeline` → pipeline stage 9).
 - `Top` placement: Should be AFTER all filters and sorts. If `Top` appears early with `Sort` later, pagination will be wrong.
 
 ## Optimizer Hints: When and Why
@@ -250,7 +256,7 @@ Temp tables would break the visitor pattern and require procedural SQL.
 
 ### Category D: Sort on Low-Selectivity Parameter
 **Symptom**: `_sort=-issued` or `_sort=given` on a large resource type returns slowly; removing `_sort` makes it fast.
-**Root cause**: Two-phase sort protocol scans all rows for the sort param in `DateTimeSearchParam`/`StringSearchParam`, then sorts before `TOP N`. **Compounding gap**: All NC indexes on `DateTimeSearchParam` store `StartDateTime ASC` only and exclude `ResourceSurrogateId` from `INCLUDE`. This means every sort row needs:
+**Root cause**: The `SortRewriter` two-phase sort protocol scans all rows for the sort param in `DateTimeSearchParam`/`StringSearchParam`, then sorts before `TOP N`. See `fhir-sql-query-generation-pipeline` → pipeline stage 9 (`SortRewriter`) and the "Why the two-phase sort protocol?" section for the FHIR-semantics rationale (resources may lack the sort field; sentinel continuation token; asc-vs-desc phase ordering). **Compounding schema gap**: All NC indexes on `DateTimeSearchParam` store `StartDateTime ASC` only and exclude `ResourceSurrogateId` from `INCLUDE`. This means every sort row needs:
   1. A forward scan (no DESC index), producing a `Sort` operator on millions of rows, AND
   2. A clustered index lookup (no `ResourceSurrogateId` in NC index) to resolve the surrogate for the JOIN back to the filter CTE.
 **Fix options**:
@@ -268,7 +274,7 @@ Temp tables would break the visitor pattern and require procedural SQL.
 ### Category E: Count with Complex Predicates
 **Symptom**: `_total=accurate` on complex query is very slow.
 **Root cause**: Count executes a second query (`CountOnly = true`) that discards `_include` but still evaluates all predicates.
-**Fix**: The count query removes includes via `RemoveIncludesRewriter`. If still slow, the base predicate CTE chain is the bottleneck — apply Category A/B/C fixes.
+**Fix**: The count query removes includes via `RemoveIncludesRewriter` (see `fhir-sql-query-generation-pipeline`). If still slow, the base predicate CTE chain is the bottleneck — apply Category A/B/C fixes.
 
 ### Category F: Token Text Search (`:text` modifier)
 **Symptom**: `code:text=diabetes` is slow.
