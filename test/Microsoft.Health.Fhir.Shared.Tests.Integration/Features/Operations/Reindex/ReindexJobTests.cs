@@ -1335,7 +1335,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await Task.Delay(1000);
             }
 
-            Assert.Equal(OperationStatus.Completed, orchestrator.JobRecord.Status);
+            Assert.True(orchestrator.JobRecord.Status == OperationStatus.Completed, JsonConvert.SerializeObject(orchestrator.JobRecord));
 
             var serializer = new FhirJsonSerializer();
             _output.WriteLine(serializer.SerializeToString(orchestrator.ToParametersResourceElement().ToPoco<Parameters>()));
