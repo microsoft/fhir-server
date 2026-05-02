@@ -102,7 +102,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _sessionTokenContainer);
 
-            var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
+            // Use a 5-minute timeout (vs the .NET HttpClient default of 100s) because some E2E
+            // operations — notably batch/transaction bundles with ProfileValidation enabled and
+            // parallel processing — can exceed 100s on the first hit while the server cold-loads
+            // the US Core profile pack into the validation engine. The retry policy inside
+            // SessionMessageHandler shares this budget via the linked CT.
+            var httpClient = new HttpClient(sessionMessageHandler)
+            {
+                BaseAddress = BaseAddress,
+                Timeout = TimeSpan.FromMinutes(5),
+            };
 
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
@@ -361,7 +370,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         return false;
                     })
-                    .Or<TaskCanceledException>(ex => !CancellationToken.None.IsCancellationRequested) // Timeout, not user cancellation
+                    .Or<TaskCanceledException>() // Treat as transient; Polly respects the per-call CT (passed to ExecuteAsync) and will short-circuit on real cancellation/timeout.
                     .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
                                                               message.StatusCode == HttpStatusCode.ServiceUnavailable)
                     .WaitAndRetryAsync(
@@ -418,40 +427,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 try
                 {
-                    HttpResponseMessage response = await _polly.ExecuteAsync(async () =>
+                    HttpResponseMessage response = await _polly.ExecuteAsync(
+                        async ct =>
+                        {
+                            attemptNumber++;
+                            var attemptStopwatch = Stopwatch.StartNew();
+
+                            // Clone the request for each attempt (HttpRequestMessage cannot be reused after sending)
+                            using var clonedRequest = CloneHttpRequestMessage(request, contentBytes, contentType);
+
+                            // Re-add session token to cloned request (may have been updated from previous response)
+                            string currentSessionToken = _sessionTokenContainer.SessionToken;
+                            if (!string.IsNullOrEmpty(currentSessionToken))
+                            {
+                                clonedRequest.Headers.Remove("x-ms-session-token");
+                                clonedRequest.Headers.TryAddWithoutValidation("x-ms-session-token", currentSessionToken);
+                            }
+
+                            try
+                            {
+                                var result = await base.SendAsync(clonedRequest, ct);
+                                attemptStopwatch.Stop();
+                                diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
+                                return result;
+                            }
+                            catch (Exception ex)
+                            {
+                                attemptStopwatch.Stop();
+                                diagnostics.AppendLine($"  Attempt {attemptNumber}: Exception ({ex.GetType().Name}: {ex.Message}) in {attemptStopwatch.ElapsedMilliseconds}ms");
+                                throw;
+                            }
+                        },
+                        cancellationToken);
+
+                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens) && tokens != null && tokens.Any())
                     {
-                        attemptNumber++;
-                        var attemptStopwatch = Stopwatch.StartNew();
-
-                        // Clone the request for each attempt (HttpRequestMessage cannot be reused after sending)
-                        using var clonedRequest = CloneHttpRequestMessage(request, contentBytes, contentType);
-
-                        // Re-add session token to cloned request (may have been updated from previous response)
-                        string currentSessionToken = _sessionTokenContainer.SessionToken;
-                        if (!string.IsNullOrEmpty(currentSessionToken))
-                        {
-                            clonedRequest.Headers.Remove("x-ms-session-token");
-                            clonedRequest.Headers.TryAddWithoutValidation("x-ms-session-token", currentSessionToken);
-                        }
-
-                        try
-                        {
-                            var result = await base.SendAsync(clonedRequest, cancellationToken);
-                            attemptStopwatch.Stop();
-                            diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
-                            return result;
-                        }
-                        catch (Exception ex)
-                        {
-                            attemptStopwatch.Stop();
-                            diagnostics.AppendLine($"  Attempt {attemptNumber}: Exception ({ex.GetType().Name}: {ex.Message}) in {attemptStopwatch.ElapsedMilliseconds}ms");
-                            throw;
-                        }
-                    });
-
-                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
-                    {
-                        _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
+                        _sessionTokenContainer.SessionToken = string.Join(",", tokens);
                     }
 
                     return response;

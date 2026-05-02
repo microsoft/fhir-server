@@ -423,6 +423,9 @@
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
   </data>
+  <data name="ExportParameterPathTraversalNotAllowed" xml:space="preserve">
+    <value>The value '{0}' is not valid. Path traversal characters are not allowed.</value>
+  </data>
   <data name="OAuth2ContentTypeMustBeFormUrlEncoded" xml:space="preserve">
     <value>Content-Type must be application/x-www-form-urlencoded.</value>
   </data>
