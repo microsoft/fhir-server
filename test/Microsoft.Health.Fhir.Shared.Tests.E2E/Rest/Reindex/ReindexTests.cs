@@ -1226,11 +1226,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     _output.WriteLine($"Failed to delete SearchParameter/{param?.Id}: {ex.Message}");
                 }
             }
-
-            // Each test creates SearchParameters with GUID-suffixed URLs/codes (see CreateUniqueSearchParameterSuffix),
-            // so leftovers from one test cannot collide with another. We rely on the soft-delete above and skip
-            // the cross-replica metadata convergence wait that previously ran here ΓÇö it added a fixed per-test
-            // tax that dominated suite runtime without providing a guarantee URL uniqueness wasn't already giving us.
         }
 
         private static string CreateUniqueSearchParameterSuffix()
