@@ -284,6 +284,15 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ExpandMissingRequiredParameter", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The value &apos;{0}&apos; is not valid. Path traversal characters are not allowed..
+        /// </summary>
+        public static string ExportParameterPathTraversalNotAllowed {
+            get {
+                return ResourceManager.GetString("ExportParameterPathTraversalNotAllowed", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..

@@ -1413,7 +1413,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 SearchParameterStatus.Supported,
                 CancellationToken.None);
 
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+            // These tests start a background cache refresh loop, so a zero-wait refresh can
+            // skip the one apply that populates the SQL search-parameter URI->ID mapping.
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             return searchParam;
         }
