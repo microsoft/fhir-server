@@ -39,9 +39,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         // multi-replica search-parameter cache convergence in CI (poll interval up to 30s, conformance refresh
         // up to 60s, plus reindex worker queue scheduling and retry backoffs).
         private static readonly TimeSpan ReindexJobCompletionTimeout = TimeSpan.FromMinutes(20);
-        private static readonly TimeSpan SearchParameterCleanupTimeout = TimeSpan.FromMinutes(2);
-        private static readonly TimeSpan SearchParameterCleanupPollDelay = TimeSpan.FromSeconds(5);
-        private static readonly TimeSpan SearchParameterCleanupStableWindow = TimeSpan.FromSeconds(30);
         private const string TestSearchParameterUrlPrefix = "http://my.org/";
 
         private readonly HttpIntegrationTestFixture _fixture;
@@ -1230,11 +1227,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             }
 
-            await WaitForSearchParameterCleanupAsync(searchParameters);
-
-            // Note: Final reindex is handled by ReindexTestFixture.OnDisposedAsync() which runs
-            // once at the very end after all tests complete. This eliminates the need to reindex
-            // after each individual test cleanup.
+            // Each test creates SearchParameters with GUID-suffixed URLs/codes (see CreateUniqueSearchParameterSuffix),
+            // so leftovers from one test cannot collide with another. We rely on the soft-delete above and skip
+            // the cross-replica metadata convergence wait that previously ran here ΓÇö it added a fixed per-test
+            // tax that dominated suite runtime without providing a guarantee URL uniqueness wasn't already giving us.
         }
 
         private static string CreateUniqueSearchParameterSuffix()
@@ -1245,82 +1241,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         private static string BuildTestSearchParameterUrl(string suffix)
         {
             return $"{TestSearchParameterUrlPrefix}{suffix}";
-        }
-
-        private async Task WaitForSearchParameterCleanupAsync(params SearchParameter[] searchParameters)
-        {
-            SearchParameter[] cleanupTargets = searchParameters
-                .Where(param => param != null && !string.IsNullOrWhiteSpace(param.Id) && !string.IsNullOrWhiteSpace(param.Url))
-                .ToArray();
-
-            if (cleanupTargets.Length == 0)
-            {
-                return;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-            TimeSpan? stableSince = null;
-            string[] lastOutstanding = Array.Empty<string>();
-
-            while (stopwatch.Elapsed < SearchParameterCleanupTimeout)
-            {
-                var outstanding = new List<string>();
-
-                foreach (var searchParameter in cleanupTargets)
-                {
-                    bool resourceDeleted = await IsSearchParameterDeletedAsync(searchParameter.Id);
-                    bool metadataCleared = await IsSearchParameterMissingFromMetadataAsync(searchParameter.Url);
-
-                    if (!resourceDeleted || !metadataCleared)
-                    {
-                        outstanding.Add($"{searchParameter.Id} (deleted={resourceDeleted}, metadataCleared={metadataCleared})");
-                    }
-                }
-
-                if (outstanding.Count == 0)
-                {
-                    stableSince ??= stopwatch.Elapsed;
-                    if (stopwatch.Elapsed - stableSince.Value >= SearchParameterCleanupStableWindow)
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    stableSince = null;
-                    lastOutstanding = outstanding.ToArray();
-                    _output.WriteLine($"Waiting for SearchParameter cleanup to converge: {string.Join(", ", lastOutstanding)}");
-                }
-
-                await Task.Delay(SearchParameterCleanupPollDelay);
-            }
-
-            Assert.Fail($"Timed out waiting for SearchParameter cleanup to converge. Remaining: {string.Join(", ", lastOutstanding)}");
-        }
-
-        private async Task<bool> IsSearchParameterDeletedAsync(string id)
-        {
-            try
-            {
-                await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{id}");
-                return false;
-            }
-            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.StatusCode == HttpStatusCode.Gone)
-            {
-                return true;
-            }
-        }
-
-        private async Task<bool> IsSearchParameterMissingFromMetadataAsync(string url)
-        {
-            using FhirResponse<CapabilityStatement> response = await _fixture.TestFhirClient.ReadAsync<CapabilityStatement>("metadata");
-
-            return response.Resource.Rest
-                .Where(rest => rest?.Resource != null)
-                .SelectMany(rest => rest.Resource)
-                .Where(resource => resource?.SearchParam != null)
-                .SelectMany(resource => resource.SearchParam)
-                .All(searchParam => !string.Equals(searchParam?.Definition, url, StringComparison.Ordinal));
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
