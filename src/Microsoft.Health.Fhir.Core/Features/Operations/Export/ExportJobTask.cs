@@ -260,12 +260,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                         // Free range reference for GC
                         _exportJobRecord.SurrogateIdRanges[i] = null;
+
+                        // Diagnostic: log memory state after each sub-range to diagnose retention
+                        var gcMemInfo = GC.GetGCMemoryInfo();
+                        _logger.LogInformation(
+                            "[JobId:{JobId}] Sub-range {RangeIndex}/{TotalRanges} [{StartId}-{EndId}] completed. " +
+                            "ManagedHeap={ManagedHeapMB}MB, WorkingSet={WorkingSetMB}MB, " +
+                            "LOH={LohMB}MB, Gen0={Gen0}|Gen1={Gen1}|Gen2={Gen2}, " +
+                            "FragmentedBytes={FragmentedMB}MB, Compacted={Compacted}",
+                            _exportJobRecord.Id,
+                            i + 1,
+                            _exportJobRecord.SurrogateIdRanges.Count,
+                            range.StartId,
+                            range.EndId,
+                            GC.GetTotalMemory(false) / (1024 * 1024),
+                            Environment.WorkingSet / (1024 * 1024),
+                            gcMemInfo.GenerationInfo.Length > 3 ? gcMemInfo.GenerationInfo[3].SizeAfterBytes / (1024 * 1024) : 0,
+                            GC.CollectionCount(0),
+                            GC.CollectionCount(1),
+                            GC.CollectionCount(2),
+                            gcMemInfo.FragmentedBytes / (1024 * 1024),
+                            gcMemInfo.Compacted);
                     }
 
                     _exportJobRecord.SurrogateIdRanges.Clear();
 
                     // Commit files once after all sub-ranges are processed to produce a single output file per resource type.
                     _fileManager.CommitFiles();
+
+                    var postCommitGcInfo = GC.GetGCMemoryInfo();
+                    _logger.LogInformation(
+                        "[JobId:{JobId}] All sub-ranges committed. " +
+                        "ManagedHeap={ManagedHeapMB}MB, WorkingSet={WorkingSetMB}MB, " +
+                        "LOH={LohMB}MB, Gen2Collections={Gen2}, " +
+                        "FragmentedBytes={FragmentedMB}MB, HighMemoryThreshold={HighMemMB}MB, " +
+                        "TotalAvailableMemory={TotalAvailMB}MB, GCServerMode={IsServer}",
+                        _exportJobRecord.Id,
+                        GC.GetTotalMemory(false) / (1024 * 1024),
+                        Environment.WorkingSet / (1024 * 1024),
+                        postCommitGcInfo.GenerationInfo.Length > 3 ? postCommitGcInfo.GenerationInfo[3].SizeAfterBytes / (1024 * 1024) : 0,
+                        GC.CollectionCount(2),
+                        postCommitGcInfo.FragmentedBytes / (1024 * 1024),
+                        postCommitGcInfo.HighMemoryLoadThresholdBytes / (1024 * 1024),
+                        postCommitGcInfo.TotalAvailableMemoryBytes / (1024 * 1024),
+                        System.Runtime.GCSettings.IsServerGC);
                 }
                 else
                 {
