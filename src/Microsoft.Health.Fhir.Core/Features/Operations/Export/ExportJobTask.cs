@@ -221,12 +221,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.SurrogateIdRanges != null && _exportJobRecord.SurrogateIdRanges.Count > 0)
                 {
+                    // Use a smaller page size for sub-range queries to limit peak memory.
+                    // Each page loads all results into memory (compressed byte arrays + decompression),
+                    // so capping the page size prevents OOM when resources are large.
+                    const int subRangePageSize = 100;
+
+                    // Build base params without the original _count, then add the reduced page size.
+                    var subRangeBaseParams = queryParametersList
+                        .Where(p => !string.Equals(p.Item1, KnownQueryParameterNames.Count, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    subRangeBaseParams.Add(Tuple.Create(KnownQueryParameterNames.Count, subRangePageSize.ToString(CultureInfo.InvariantCulture)));
+
                     // Process multiple sub-ranges sequentially with one file manager to produce a single output file.
                     for (int i = 0; i < _exportJobRecord.SurrogateIdRanges.Count; i++)
                     {
                         var range = _exportJobRecord.SurrogateIdRanges[i];
 
-                        var rangeQueryParams = new List<Tuple<string, string>>(queryParametersList);
+                        var rangeQueryParams = new List<Tuple<string, string>>(subRangeBaseParams);
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId));
                         rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId));
