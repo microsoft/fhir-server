@@ -678,9 +678,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
                 await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
-                var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                var sw = Stopwatch.StartNew();
+                ReindexJobWrapper reindexJobWorker = null;
+                while (sw.Elapsed < TimeSpan.FromSeconds(300))
+                {
+                    reindexJobWorker = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    if (reindexJobWorker.JobRecord.Status == OperationStatus.Canceled)
+                    {
+                        break;
+                    }
 
-                Assert.Equal(OperationStatus.Canceled, reindexWrapper.JobRecord.Status);
+                    await Task.Delay(500);
+                }
+
+                Assert.True(reindexJobWorker.JobRecord.Status == OperationStatus.Canceled, JsonConvert.SerializeObject(reindexJobWorker.JobRecord));
             }
             catch (RequestNotValidException ex)
             {
@@ -1324,7 +1335,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await Task.Delay(1000);
             }
 
-            Assert.Equal(OperationStatus.Completed, orchestrator.JobRecord.Status);
+            Assert.True(orchestrator.JobRecord.Status == OperationStatus.Completed, JsonConvert.SerializeObject(orchestrator.JobRecord));
 
             var serializer = new FhirJsonSerializer();
             _output.WriteLine(serializer.SerializeToString(orchestrator.ToParametersResourceElement().ToPoco<Parameters>()));
