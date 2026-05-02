@@ -2171,6 +2171,143 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
         }
 
+        [Fact]
+        public async Task GivenAJobWithSubRanges_WhenExecuted_ThenAllRangesAreProcessedAndWrittenToSingleFile()
+        {
+            // Create a job record with 3 sub-ranges, each containing resources
+            var exportJobRecord = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
+                ExportFormatTags.ResourceName,
+                resourceType: "Patient",
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 10,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+                startSurrogateId: "100",
+                endSurrogateId: "400",
+                globalStartSurrogateId: "1",
+                globalEndSurrogateId: "1000");
+
+            exportJobRecord.SurrogateIdRanges = new List<ExportSurrogateIdRange>
+            {
+                new ExportSurrogateIdRange("100", "200"),
+                new ExportSurrogateIdRange("201", "300"),
+                new ExportSurrogateIdRange("301", "400"),
+            };
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+            var exportJobTask = CreateExportJobTask();
+
+            int searchCallCount = 0;
+
+            // Each search call returns 2 resources, verifying that all 3 ranges are searched
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                Arg.Any<ResourceVersionType>())
+                .Returns(x =>
+                {
+                    searchCallCount++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry($"patient-{searchCallCount}a", KnownResourceTypes.Patient),
+                            CreateSearchResultEntry($"patient-{searchCallCount}b", KnownResourceTypes.Patient),
+                        });
+                });
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Verify all 3 sub-ranges were searched
+            Assert.Equal(3, searchCallCount);
+
+            // Verify the job completed successfully
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+
+            // Verify all 6 resources were written (2 per range * 3 ranges)
+            Assert.True(_exportJobRecord.Output.ContainsKey(KnownResourceTypes.Patient));
+            var totalCount = _exportJobRecord.Output[KnownResourceTypes.Patient].Sum(f => f.Count);
+            Assert.Equal(6, totalCount);
+
+            // Verify only 1 file was created (single file manager across all ranges)
+            Assert.Single(_exportJobRecord.Output[KnownResourceTypes.Patient]);
+
+            // Verify the sub-ranges list was cleared after processing
+            Assert.Empty(_exportJobRecord.SurrogateIdRanges);
+        }
+
+        [Fact]
+        public async Task GivenAJobWithSubRangesAndEmptyRange_WhenExecuted_ThenEmptyRangeIsSkippedAndOthersProcessed()
+        {
+            var exportJobRecord = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
+                ExportFormatTags.ResourceName,
+                resourceType: "Patient",
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 10,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+                startSurrogateId: "100",
+                endSurrogateId: "400",
+                globalStartSurrogateId: "1",
+                globalEndSurrogateId: "1000");
+
+            exportJobRecord.SurrogateIdRanges = new List<ExportSurrogateIdRange>
+            {
+                new ExportSurrogateIdRange("100", "200"),
+                new ExportSurrogateIdRange("201", "300"), // This range will be empty
+                new ExportSurrogateIdRange("301", "400"),
+            };
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+            var exportJobTask = CreateExportJobTask();
+
+            int searchCallCount = 0;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                Arg.Any<ResourceVersionType>())
+                .Returns(x =>
+                {
+                    searchCallCount++;
+
+                    // Second range returns no results
+                    if (searchCallCount == 2)
+                    {
+                        return CreateSearchResult();
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry($"patient-{searchCallCount}", KnownResourceTypes.Patient),
+                        });
+                });
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // All 3 ranges were searched even though one was empty
+            Assert.Equal(3, searchCallCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+
+            // Only 2 resources exported (range 2 was empty)
+            var totalCount = _exportJobRecord.Output[KnownResourceTypes.Patient].Sum(f => f.Count);
+            Assert.Equal(2, totalCount);
+        }
+
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
