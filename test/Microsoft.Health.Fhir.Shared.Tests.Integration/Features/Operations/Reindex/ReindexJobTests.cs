@@ -624,8 +624,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
-        public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled(bool isCancel)
         {
             var sample1 = await CreatePatientResource("patient1", Guid.NewGuid().ToString());
             var sample2 = await CreatePatientResource("patient2", Guid.NewGuid().ToString());
@@ -641,14 +643,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
+                if (isCancel)
+                {
+                    var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
+                    await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
+                }
+
                 ReindexJobWrapper coord = null;
                 var sw = Stopwatch.StartNew();
                 while (sw.Elapsed.TotalSeconds < 300)
                 {
                     coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, CancellationToken.None);
-                    if (coord.JobRecord.Status == OperationStatus.Canceled)
+                    if (coord.JobRecord.Status == (isCancel ? OperationStatus.Canceled : OperationStatus.Completed))
                     {
                         break;
                     }
@@ -656,7 +662,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     await Task.Delay(500);
                 }
 
-                Assert.True(coord.JobRecord.Status == OperationStatus.Canceled, JsonConvert.SerializeObject(coord.JobRecord));
+                Assert.True(coord.JobRecord.Status == (isCancel ? OperationStatus.Canceled : OperationStatus.Completed), JsonConvert.SerializeObject(coord.JobRecord));
             }
             catch (RequestNotValidException ex)
             {
@@ -667,51 +673,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     throw;
                 }
-            }
-            finally
-            {
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
-            }
-        }
-
-        [Fact]
-        public async Task CheckSetup_GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
-        {
-            // this is identical to the above test
-            var sample1 = await CreatePatientResource("patient1", Guid.NewGuid().ToString());
-            var sample2 = await CreatePatientResource("patient2", Guid.NewGuid().ToString());
-            var sample3 = await CreatePatientResource("patient3", Guid.NewGuid().ToString());
-            var sample4 = await CreatePatientResource("patient4", Guid.NewGuid().ToString());
-
-            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            var searchParamName = randomName;
-            var searchParamCode = randomName + "Code";
-            var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
-
-            var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
-
-            try
-            {
-                ReindexJobWrapper coord = null;
-                var sw = Stopwatch.StartNew();
-                while (sw.Elapsed.TotalSeconds < 300)
-                {
-                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, CancellationToken.None);
-                    if (coord.JobRecord.Status == OperationStatus.Completed)
-                    {
-                        break;
-                    }
-
-                    await Task.Delay(500);
-                }
-
-                Assert.True(coord.JobRecord.Status == OperationStatus.Completed, JsonConvert.SerializeObject(coord.JobRecord));
             }
             finally
             {
