@@ -639,8 +639,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
 
-            using var cancellationTokenSource = new CancellationTokenSource();
-
             try
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
@@ -649,7 +647,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var sw = Stopwatch.StartNew();
                 while (sw.Elapsed.TotalSeconds < 300)
                 {
-                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, CancellationToken.None);
                     if (coord.JobRecord.Status == OperationStatus.Canceled)
                     {
                         break;
@@ -672,8 +670,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
             finally
             {
-                cancellationTokenSource.Cancel();
-
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
@@ -700,15 +696,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
 
-            using var cancellationTokenSource = new CancellationTokenSource();
-
             try
             {
                 ReindexJobWrapper coord = null;
                 var sw = Stopwatch.StartNew();
                 while (sw.Elapsed.TotalSeconds < 300)
                 {
-                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, CancellationToken.None);
                     if (coord.JobRecord.Status == OperationStatus.Completed)
                     {
                         break;
@@ -721,8 +715,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
             finally
             {
-                cancellationTokenSource.Cancel();
-
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
