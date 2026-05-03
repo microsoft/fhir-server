@@ -637,29 +637,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var searchParamCode = randomName + "Code";
             var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 2, 1); // 1 does not work yet
-            var response = await SetUpForReindexing(createReindexRequest);
+            var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
 
             using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
+                var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
+                await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
+                ReindexJobWrapper coord = null;
                 var sw = Stopwatch.StartNew();
-                ReindexJobWrapper reindexJobWorker = null;
-                while (sw.Elapsed < TimeSpan.FromSeconds(300))
+                while (sw.Elapsed.TotalSeconds < 300)
                 {
-                    try
-                    {
-                        var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                        await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
-                    }
-                    catch (Exception)
-                    {
-                        // do nothing.
-                    }
-
-                    reindexJobWorker = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
-                    if (reindexJobWorker.JobRecord.Status == OperationStatus.Canceled)
+                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    if (coord.JobRecord.Status == OperationStatus.Canceled)
                     {
                         break;
                     }
@@ -667,7 +658,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     await Task.Delay(500);
                 }
 
-                Assert.True(reindexJobWorker.JobRecord.Status == OperationStatus.Canceled, JsonConvert.SerializeObject(reindexJobWorker.JobRecord));
+                Assert.True(coord.JobRecord.Status == OperationStatus.Canceled, JsonConvert.SerializeObject(coord.JobRecord));
             }
             catch (RequestNotValidException ex)
             {
