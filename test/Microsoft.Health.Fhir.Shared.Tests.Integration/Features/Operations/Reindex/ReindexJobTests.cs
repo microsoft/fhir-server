@@ -685,6 +685,55 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task CheckSetup_GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
+        {
+            // this is identical to the above test
+            var sample1 = await CreatePatientResource("patient1", Guid.NewGuid().ToString());
+            var sample2 = await CreatePatientResource("patient2", Guid.NewGuid().ToString());
+            var sample3 = await CreatePatientResource("patient3", Guid.NewGuid().ToString());
+            var sample4 = await CreatePatientResource("patient4", Guid.NewGuid().ToString());
+
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParamName = randomName;
+            var searchParamCode = randomName + "Code";
+            var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
+
+            var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            try
+            {
+                ReindexJobWrapper coord = null;
+                var sw = Stopwatch.StartNew();
+                while (sw.Elapsed.TotalSeconds < 300)
+                {
+                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                    if (coord.JobRecord.Status == OperationStatus.Completed)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(500);
+                }
+
+                Assert.True(coord.JobRecord.Status == OperationStatus.Completed, JsonConvert.SerializeObject(coord.JobRecord));
+            }
+            finally
+            {
+                cancellationTokenSource.Cancel();
+
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+            }
+        }
+
+        [Fact]
         public async Task GivenNewSearchParamCreatedAfterResourcesToBeIndexed_WhenReindexJobCompleted_ThenResourcesAreIndexedAndParamIsSearchable()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
