@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(4, searchResults.Results.Count());
 
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 1, 1);
+            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 2, 2);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
             using var cancellationTokenSource = new CancellationTokenSource();
