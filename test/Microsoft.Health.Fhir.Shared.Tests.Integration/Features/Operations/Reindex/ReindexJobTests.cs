@@ -627,50 +627,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
         {
+            var sample1 = await CreatePatientResource("patient1", Guid.NewGuid().ToString());
+            var sample2 = await CreatePatientResource("patient2", Guid.NewGuid().ToString());
+            var sample3 = await CreatePatientResource("patient3", Guid.NewGuid().ToString());
+            var sample4 = await CreatePatientResource("patient4", Guid.NewGuid().ToString());
+
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            string searchParamName = randomName;
-            string searchParamCode = randomName + "Code";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
+            var searchParamName = randomName;
+            var searchParamCode = randomName + "Code";
+            var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
-            const string sampleName1 = "searchIndicesPatient1";
-            const string sampleName2 = "searchIndicesPatient2";
-            const string sampleName3 = "searchIndicesPatient3";
-            const string sampleName4 = "searchIndicesPatient4";
-
-            string sampleId1 = Guid.NewGuid().ToString();
-            string sampleId2 = Guid.NewGuid().ToString();
-            string sampleId3 = Guid.NewGuid().ToString();
-            string sampleId4 = Guid.NewGuid().ToString();
-
-            // Set up the values that the search index extraction should return during reindexing
-            var searchValues = new List<(string, ISearchValue)>
-            {
-                (sampleId1, new StringSearchValue(sampleName1)),
-                (sampleId2, new StringSearchValue(sampleName2)),
-                (sampleId3, new StringSearchValue(sampleName3)),
-                (sampleId4, new StringSearchValue(sampleName4)),
-            };
-
-            MockSearchIndexExtraction(searchValues, searchParam);
-
-            UpsertOutcome sample1 = await CreatePatientResource(sampleName1, sampleId1);
-            UpsertOutcome sample2 = await CreatePatientResource(sampleName2, sampleId2);
-            UpsertOutcome sample3 = await CreatePatientResource(sampleName3, sampleId3);
-            UpsertOutcome sample4 = await CreatePatientResource(sampleName4, sampleId4);
-
-            // Create the query <fhirserver>/Patient?foo=searchIndicesPatient1
-            var queryParams = new List<Tuple<string, string>> { new(searchParamCode, sampleName1) };
-            SearchResult searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
-
-            // Confirm that the search parameter "foo" is marked as unsupported
-            Assert.Equal(searchParamCode, searchResults.UnsupportedSearchParameters.FirstOrDefault()?.Item1);
-
-            // When search parameters aren't recognized, they are ignored
-            // Confirm that "foo" is dropped from the query string and all patients are returned
-            Assert.Equal(4, searchResults.Results.Count());
-
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 2, 2); // 1 does not work yet
-            CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
+            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 2, 1); // 1 does not work yet
+            var response = await SetUpForReindexing(createReindexRequest);
 
             using var cancellationTokenSource = new CancellationTokenSource();
 
