@@ -52,6 +52,8 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -150,6 +152,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
 
         public GetResourceHandler GetResourceHandler { get; set; }
+
+        internal IFhirOperationDataStore CosmosOperationDataStore
+        {
+            get
+            {
+                if (_fixture is CosmosDbFhirStorageTestsFixture cosmosFixture)
+                {
+                    return cosmosFixture.CosmosOperationDataStore;
+                }
+
+                return null;
+            }
+        }
+
+        internal IFhirOperationDataStore SqlServerOperationDataStore
+        {
+            get
+            {
+                if (_fixture is SqlServerFhirStorageTestsFixture sqlFixture)
+                {
+                    return sqlFixture.SqlServerOperationDataStore;
+                }
+
+                return null;
+            }
+        }
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 

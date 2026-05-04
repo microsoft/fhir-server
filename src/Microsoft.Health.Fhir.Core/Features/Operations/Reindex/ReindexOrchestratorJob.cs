@@ -840,7 +840,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Disabled.", string.Join("', '", disabledParamUris));
                 await _searchParameterStatusRetries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(disabledParamUris, SearchParameterStatus.Disabled, cancellationToken));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(disabledParamUris, SearchParameterStatus.Disabled, cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.UnionWith(disabledParamUris);
             }
 
@@ -848,7 +848,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Deleted.", string.Join("', '", deletedParamUris));
                 await _searchParameterStatusRetries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(deletedParamUris, SearchParameterStatus.Deleted, cancellationToken));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(deletedParamUris, SearchParameterStatus.Deleted, cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.UnionWith(deletedParamUris);
             }
 
@@ -856,7 +856,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris} to Enabled.'", string.Join("', '", fullyIndexedParamUris));
                 await _searchParameterStatusRetries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.UnionWith(fullyIndexedParamUris);
             }
         }
