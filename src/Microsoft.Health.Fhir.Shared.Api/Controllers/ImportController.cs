@@ -274,28 +274,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            BlobServiceClient blobServiceClient;
-            try
-            {
-                blobServiceClient = new BlobServiceClient(integrationDataStoreConfiguration.StorageAccountConnection);
-            }
-            catch (ArgumentException)
-            {
-                return null;
-            }
-            catch (FormatException)
-            {
-                return null;
-            }
-
             if (integrationDataStoreConfiguration.StorageAccountConnection.StartsWith("UseDevelopmentStorage", StringComparison.OrdinalIgnoreCase))
             {
-                return blobServiceClient.Uri;
+                try
+                {
+                    return new BlobServiceClient(integrationDataStoreConfiguration.StorageAccountConnection).Uri;
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+                catch (FormatException)
+                {
+                    return null;
+                }
             }
 
-            // Use the SDK parser for connection-string validation, but derive the
-            // default account endpoint so explicit BlobEndpoint overrides cannot
-            // allow arbitrary hosts.
+            // Derive the default account endpoint from AccountName so explicit BlobEndpoint overrides
+            // cannot allow arbitrary hosts. This supports both full and minimal connection strings
+            // (e.g. AccountName-only when using managed identity or other credential providers).
             string accountName = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "AccountName");
             if (accountName == null)
             {
