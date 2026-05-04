@@ -205,13 +205,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                 };
 
-                if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
-                }
-
                 if (_exportJobRecord.Since != null)
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
@@ -226,12 +219,108 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.FeedRange, _exportJobRecord.FeedRange));
                 }
 
-                ExportJobProgress progress = _exportJobRecord.Progress;
-
-                await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                if (_exportJobRecord.SurrogateIdRanges != null && _exportJobRecord.SurrogateIdRanges.Count > 0)
                 {
-                    await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
-                });
+                    // Process multiple sub-ranges sequentially with one file manager to produce a single output file.
+                    // Each sub-range covers a small surrogate ID range set by the orchestrator.
+                    // Override _count per sub-range to match the range size, ensuring SQL returns at most
+                    // that many resources per call. This prevents OOM for large resources by capping
+                    // how many rows are materialized in memory at once.
+                    for (int i = 0; i < _exportJobRecord.SurrogateIdRanges.Count; i++)
+                    {
+                        var range = _exportJobRecord.SurrogateIdRanges[i];
+
+                        // Use the same reduction factor the orchestrator used to create sub-ranges,
+                        // so each search call returns at most ~surrogateIdRangeSize resources.
+                        var rangeCount = Math.Max(1, (int)_exportJobRecord.MaximumNumberOfResourcesPerQuery / ExportJobConfiguration.RangeReductionFactor);
+
+                        var rangeQueryParams = new List<Tuple<string, string>>(queryParametersList);
+
+                        // Replace the _count parameter with the per-range value
+                        for (int p = 0; p < rangeQueryParams.Count; p++)
+                        {
+                            if (rangeQueryParams[p].Item1 == KnownQueryParameterNames.Count)
+                            {
+                                rangeQueryParams[p] = Tuple.Create(KnownQueryParameterNames.Count, rangeCount.ToString(CultureInfo.InvariantCulture));
+                                break;
+                            }
+                        }
+
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId));
+                        rangeQueryParams.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId));
+
+                        _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                        ExportJobProgress rangeProgress = _exportJobRecord.Progress;
+
+                        await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                        {
+                            await RunExportSearch(exportJobConfiguration, rangeProgress, rangeQueryParams, exportResourceVersionTypes, cancellationToken, skipFinalCommit: true);
+                        });
+
+                        // Free range reference for GC
+                        _exportJobRecord.SurrogateIdRanges[i] = null;
+
+                        // Diagnostic: log memory state after each sub-range to diagnose retention
+                        var gcMemInfo = GC.GetGCMemoryInfo();
+                        _logger.LogInformation(
+                            "[JobId:{JobId}] Sub-range {RangeIndex}/{TotalRanges} [{StartId}-{EndId}] completed. " +
+                            "ManagedHeap={ManagedHeapMB}MB, WorkingSet={WorkingSetMB}MB, " +
+                            "LOH={LohMB}MB, Gen0={Gen0}|Gen1={Gen1}|Gen2={Gen2}, " +
+                            "FragmentedBytes={FragmentedMB}MB, Compacted={Compacted}",
+                            _exportJobRecord.Id,
+                            i + 1,
+                            _exportJobRecord.SurrogateIdRanges.Count,
+                            range.StartId,
+                            range.EndId,
+                            GC.GetTotalMemory(false) / (1024 * 1024),
+                            Environment.WorkingSet / (1024 * 1024),
+                            gcMemInfo.GenerationInfo.Length > 3 ? gcMemInfo.GenerationInfo[3].SizeAfterBytes / (1024 * 1024) : 0,
+                            GC.CollectionCount(0),
+                            GC.CollectionCount(1),
+                            GC.CollectionCount(2),
+                            gcMemInfo.FragmentedBytes / (1024 * 1024),
+                            gcMemInfo.Compacted);
+                    }
+
+                    _exportJobRecord.SurrogateIdRanges.Clear();
+
+                    // Commit files once after all sub-ranges are processed to produce a single output file per resource type.
+                    _fileManager.CommitFiles();
+
+                    var postCommitGcInfo = GC.GetGCMemoryInfo();
+                    _logger.LogInformation(
+                        "[JobId:{JobId}] All sub-ranges committed. " +
+                        "ManagedHeap={ManagedHeapMB}MB, WorkingSet={WorkingSetMB}MB, " +
+                        "LOH={LohMB}MB, Gen2Collections={Gen2}, " +
+                        "FragmentedBytes={FragmentedMB}MB, HighMemoryThreshold={HighMemMB}MB, " +
+                        "TotalAvailableMemory={TotalAvailMB}MB, GCServerMode={IsServer}",
+                        _exportJobRecord.Id,
+                        GC.GetTotalMemory(false) / (1024 * 1024),
+                        Environment.WorkingSet / (1024 * 1024),
+                        postCommitGcInfo.GenerationInfo.Length > 3 ? postCommitGcInfo.GenerationInfo[3].SizeAfterBytes / (1024 * 1024) : 0,
+                        GC.CollectionCount(2),
+                        postCommitGcInfo.FragmentedBytes / (1024 * 1024),
+                        postCommitGcInfo.HighMemoryLoadThresholdBytes / (1024 * 1024),
+                        postCommitGcInfo.TotalAvailableMemoryBytes / (1024 * 1024),
+                        System.Runtime.GCSettings.IsServerGC);
+                }
+                else
+                {
+                    if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
+                    }
+
+                    ExportJobProgress progress = _exportJobRecord.Progress;
+
+                    await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                    {
+                        await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                    });
+                }
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -423,7 +512,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
             ResourceVersionType resourceVersionTypes,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipFinalCommit = false)
         {
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(progress, nameof(progress));
@@ -449,7 +539,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
+                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken, skipFinalCommit);
             }
 
             if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
@@ -462,7 +552,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
+                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken, skipFinalCommit);
                     }
                 }
             }
@@ -501,7 +591,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken, skipFinalCommit);
             }
         }
 
@@ -512,7 +602,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> sharedQueryParametersList,
             ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipFinalCommit = false)
         {
             List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
             foreach (var param in exportJobProgress.CurrentFilter.Parameters)
@@ -520,7 +611,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken, skipFinalCommit);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
@@ -534,7 +625,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> sharedQueryParametersList,
             ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipFinalCommit = false)
         {
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
@@ -646,7 +738,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Commit one last time for any pending changes.
-            _fileManager.CommitFiles();
+            if (!skipFinalCommit)
+            {
+                _fileManager.CommitFiles();
+            }
         }
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)

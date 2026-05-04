@@ -11,6 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class ExportJobConfiguration : HostingBackgroundServiceQueueItem
     {
+        /// <summary>
+        /// Factor by which MaximumNumberOfResourcesPerQuery is divided to determine the per-sub-range
+        /// page size during export. Higher values produce smaller pages, reducing peak memory usage.
+        /// </summary>
+        public const int RangeReductionFactor = 500;
+
         public ExportJobConfiguration()
         {
             Queue = QueueType.Export;

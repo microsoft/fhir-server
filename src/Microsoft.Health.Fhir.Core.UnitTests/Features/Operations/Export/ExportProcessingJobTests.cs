@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
@@ -152,6 +154,73 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(queueClient.JobInfos.Count == 1);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
             Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithSubRanges_WhenRun_ThenTaskReceivesRangesAndIsCalledOnce()
+        {
+            int callCount = 0;
+            IList<ExportSurrogateIdRange> capturedRanges = null;
+
+            IExportJobTask MakeMockJobTrackingRanges()
+            {
+                var mockJob = Substitute.For<IExportJobTask>();
+                mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+                {
+                    var record = x.ArgAt<ExportJobRecord>(0);
+                    callCount++;
+                    capturedRanges = record.SurrogateIdRanges?.ToList();
+                    record.Status = OperationStatus.Completed;
+                    return mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                });
+                return mockJob;
+            }
+
+            var ranges = new List<ExportSurrogateIdRange>
+            {
+                new ExportSurrogateIdRange("100", "200"),
+                new ExportSurrogateIdRange("201", "300"),
+                new ExportSurrogateIdRange("301", "400"),
+            };
+
+            var jobRecord = new ExportJobRecord(
+                requestUri: new Uri("https://localhost/ExportJob/"),
+                exportType: ExportJobType.All,
+                exportFormat: ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: 0,
+                startSurrogateId: "100",
+                endSurrogateId: "400");
+            jobRecord.SurrogateIdRanges = ranges;
+            jobRecord.Status = OperationStatus.Completed;
+            jobRecord.Id = string.Empty;
+
+            var jobInfo = GenerateJobInfo(JsonConvert.SerializeObject(jobRecord));
+
+            var processingJob = new ExportProcessingJob(MakeMockJobTrackingRanges, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            Assert.Equal(1, callCount);
+            Assert.NotNull(capturedRanges);
+            Assert.Equal(3, capturedRanges.Count);
+            Assert.Equal("100", capturedRanges[0].StartId);
+            Assert.Equal("200", capturedRanges[0].EndId);
+            Assert.Equal("201", capturedRanges[1].StartId);
+            Assert.Equal("300", capturedRanges[1].EndId);
+            Assert.Equal("301", capturedRanges[2].StartId);
+            Assert.Equal("400", capturedRanges[2].EndId);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithEmptySubRanges_WhenRun_ThenFallsBackToSingleExecution()
+        {
+            var expectedResults = GenerateJobRecord(OperationStatus.Completed);
+
+            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None);
+            Assert.Equal(expectedResults, taskResult);
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)

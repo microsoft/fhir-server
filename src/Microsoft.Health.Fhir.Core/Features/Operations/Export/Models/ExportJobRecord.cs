@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
             GlobalEndSurrogateId = globalEndSurrogateId;
+            SurrogateIdRanges = new List<ExportSurrogateIdRange>();
 
             FeedRange = feedRange;
 
@@ -170,6 +171,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.GlobalStartSurrogateId)]
         public string GlobalStartSurrogateId { get; private set; }
+
+        /// <summary>
+        /// List of surrogate ID sub-ranges assigned to this processing job.
+        /// Each range is processed sequentially, loading only one range at a time to reduce peak memory usage.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.SurrogateIdRanges)]
+        public IList<ExportSurrogateIdRange> SurrogateIdRanges { get; internal set; }
 
         [JsonProperty(JobRecordProperties.FeedRange)]
         public string FeedRange { get; private set; }
