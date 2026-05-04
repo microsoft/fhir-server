@@ -602,6 +602,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             var requestUrl = entry.Request?.Url;
 
+            // Export operations are not supported within bundles (batch or transaction).
+            // Return a clear error instead of the cryptic Accept header error that occurs
+            // when the internal routing fails to set required export headers.
+            // Check the path component only to avoid false positives from query string values.
+            if (requestUrl != null)
+            {
+                string path = requestUrl.Split('?')[0];
+                if (path.Contains("$export", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new RequestNotValidException(
+                        Core.Resources.ExportOperationNotSupportedInBundle,
+                        OperationOutcomeConstants.IssueType.NotSupported);
+                }
+            }
+
             // For resources within a transaction, we need to resolve any intra-bundle references and potentially persist any internally assigned ids
             HTTPVerb requestMethod = entry.Request.Method.Value;
 
