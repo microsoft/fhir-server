@@ -256,8 +256,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return false;
             }
 
-            // Match the configured storage authority exactly so import cannot redirect the
-            // server's storage credentials to a caller-controlled host.
+            // Match scheme and hostname only. The hostname is the security boundary; port is
+            // intentionally not checked because callers may specify a port that differs from the
+            // configured URI (e.g. Azure Storage always uses the default HTTPS port in production).
             return string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase);
         }
