@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
+        public string SearchParamCacheUpdateProcessName => null;
+
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             await Task.CompletedTask; // noop
@@ -85,7 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -112,6 +114,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             // Do nothing. This is only required for SQL.
+        }
+
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException("Cache sync is not supported for Cosmos DB storage.");
         }
 
         public void Dispose()

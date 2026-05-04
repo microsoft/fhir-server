@@ -6,12 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.JsonPatch.Internal;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -43,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly bool _isSurrogateIdRangingSupported;
-        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly int _searchParameterCacheRefreshIntervalSeconds;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -76,6 +78,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Handles both SQL Server timeouts and Cosmos DB 429 errors.
         /// </summary>
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
+
+        /// <summary>
+        /// Retry policy for reindex query execution.
+        /// Handles transient SQL timeouts and Cosmos DB request rate limiting.
+        /// </summary>
+        private static readonly AsyncPolicy _reindexQueryRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private HashSet<long> _processedJobIds = new HashSet<long>();
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
@@ -113,8 +121,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
-            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
+            _searchParameterCacheRefreshIntervalSeconds = coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -183,25 +191,66 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
-        private async Task WaitForRefresh()
-        {
-            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
-        }
-
         private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
-            // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
-            await WaitForRefresh(); // wait for M * cache refresh intervals
 
-            // Update the reindex job record with the latest hash map
+            if (_isSurrogateIdRangingSupported)
+            {
+                // SQL Server: Wait for all instances to update their cache. This prevents the
+                // orchestrator from creating reindex ranges while other instances still have
+                // stale search parameter caches and would write resources with wrong hashes.
+                var updateEventsSince = isReindexStart ? _jobInfo.StartDate.Value : DateTime.UtcNow;
+                var isConsistent = await WaitForAllInstancesCacheSyncAsync(updateEventsSince, _cancellationToken);
+                if (!isConsistent)
+                {
+                    var msg = "Unable to sync search parameter cache. Please resubmit reindex. If issue persists please contact your administrator.";
+                    _logger.LogJobError(_jobInfo, msg);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null, _cancellationToken);
+                    throw new JobExecutionException(msg, false);
+                }
+            }
+            else
+            {
+                // Cosmos DB: There is no EventLog-based convergence tracking, so wait a fixed
+                // delay to allow all instances to refresh their search parameter caches.
+                var delayMs = _operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _searchParameterCacheRefreshIntervalSeconds * 1000;
+                _logger.LogJobInformation(_jobInfo, $"Cosmos DB detected — waiting {delayMs}ms for cache propagation across instances.");
+                await Task.Delay(delayMs, _cancellationToken);
+            }
+
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
+
+            async Task<bool> WaitForAllInstancesCacheSyncAsync(DateTime updateEventsSince, CancellationToken cancellationToken)
+            {
+                var start = Stopwatch.StartNew();
+                var maxWaitTime = TimeSpan.FromSeconds(_operationsConfiguration.Reindex.CacheUpdateMaxWaitMultiplier * _searchParameterCacheRefreshIntervalSeconds);
+                var waitInterval = TimeSpan.FromSeconds(_searchParameterCacheRefreshIntervalSeconds);
+                var activeHostsSince = DateTime.UtcNow.AddSeconds((-1) * _operationsConfiguration.Reindex.ActiveHostsEventsMultiplier * _searchParameterCacheRefreshIntervalSeconds);
+                CacheConsistencyResult result = null;
+                while (start.Elapsed < maxWaitTime)
+                {
+                    result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
+
+                    if (result.IsConsistent)
+                    {
+                        var logDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+                        _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={logDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
+                        break;
+                    }
+
+                    _logger.LogJobInformation(_jobInfo, $"Cache sync check: {result.ConvergedHosts}/{result.ActiveHosts} hosts synced. Waiting...");
+                    await Task.Delay(waitInterval, cancellationToken);
+                }
+
+                return result != null && result.IsConsistent;
+            }
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
@@ -727,7 +776,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true);
+                    return await _reindexQueryRetries.ExecuteAsync(
+                        async () => await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true));
                 }
                 catch (Exception ex)
                 {
@@ -756,6 +806,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Check if all the resource types which are base types of the search parameter
             // were reindexed by this job. If so, then we should mark the search parameters
             // as fully reindexed
+            var disabledParamUris = new List<string>();
+            var deletedParamUris = new List<string>();
             var fullyIndexedParamUris = new List<string>();
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
@@ -772,16 +824,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 switch (spStatus)
                 {
                     case SearchParameterStatus.PendingDisable:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Disabled.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Disabled, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
+                        disabledParamUris.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.PendingDelete:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
+                        deletedParamUris.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.Supported:
                     case SearchParameterStatus.Enabled:
@@ -790,11 +836,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
+            if (disabledParamUris.Count > 0)
+            {
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Disabled.", string.Join("', '", disabledParamUris));
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(disabledParamUris, SearchParameterStatus.Disabled, cancellationToken, reindexId: _jobInfo.Id));
+                _processedSearchParameters.UnionWith(disabledParamUris);
+            }
+
+            if (deletedParamUris.Count > 0)
+            {
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Deleted.", string.Join("', '", deletedParamUris));
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(deletedParamUris, SearchParameterStatus.Deleted, cancellationToken, reindexId: _jobInfo.Id));
+                _processedSearchParameters.UnionWith(deletedParamUris);
+            }
+
             if (fullyIndexedParamUris.Count > 0)
             {
                 _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris} to Enabled.'", string.Join("', '", fullyIndexedParamUris));
                 await _searchParameterStatusRetries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.UnionWith(fullyIndexedParamUris);
             }
         }
