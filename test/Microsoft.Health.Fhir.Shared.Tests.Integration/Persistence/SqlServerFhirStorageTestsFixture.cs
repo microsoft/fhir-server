@@ -107,6 +107,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public string TestConnectionString { get; private set; }
 
+        internal SqlServerFhirOperationDataStore SqlServerOperationDataStore => _sqlServerFhirOperationDataStore;
+
         internal SqlTransactionHandler SqlTransactionHandler { get; private set; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; private set; }

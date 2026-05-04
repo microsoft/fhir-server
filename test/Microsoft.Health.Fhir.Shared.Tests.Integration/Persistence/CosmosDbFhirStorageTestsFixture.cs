@@ -100,6 +100,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
         }
 
+        internal CosmosFhirOperationDataStore CosmosOperationDataStore => _cosmosFhirOperationDataStore;
+
         public Container Container => _container;
 
         public virtual async Task InitializeAsync()

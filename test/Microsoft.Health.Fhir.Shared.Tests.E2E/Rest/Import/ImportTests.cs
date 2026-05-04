@@ -18,6 +18,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
@@ -574,7 +575,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(2, history.Resource.Entry.Count);
             //// same order
             Assert.True(int.Parse(history.Resource.Entry[0].Resource.VersionId) > int.Parse(history.Resource.Entry[1].Resource.VersionId));
-            Assert.True(history.Resource.Entry[0].Resource.Meta.LastUpdated > history.Resource.Entry[1].Resource.Meta.LastUpdated);
+            Assert.True(history.Resource.Entry[0].Resource.Meta.LastUpdated > history.Resource.Entry[1].Resource.Meta.LastUpdated, $"Expected {history.Resource.Entry[0].Resource.Meta.LastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")} > {history.Resource.Entry[1].Resource.Meta.LastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")}");
         }
 
         [Fact]
