@@ -297,7 +297,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
         }
 
-
         private bool TryReduceEffectiveBatchSize()
         {
             if (_effectiveBatchSize <= MinEffectiveBatchSize)

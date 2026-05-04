@@ -794,7 +794,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 for (int i = 0; i < searchResultsList.Count; i++)
                 {
                     ProcessSearchResult(searchResultsList[i], anonymizer);
-                    searchResultsList[i] = null; // Release reference to allow GC to reclaim memory
                 }
 
                 searchResultsList.Clear();
