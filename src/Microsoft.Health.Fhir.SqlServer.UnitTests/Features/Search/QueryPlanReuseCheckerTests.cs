@@ -284,29 +284,38 @@ public class QueryPlanReuseCheckerTests
 
         await checker.Handle(notification, CancellationToken.None);
 
-        var wait = 0;
-        while (!firstCallMade || !secondCallMade)
+        try
         {
-            await Task.Delay(1000); // Wait for the refresh timer to execute
-            wait += 1000;
-            if (wait > 10000) // Timeout after 10 seconds
+            var task = checker.StartAsync(CancellationToken.None);
+
+            var wait = 0;
+            while (!firstCallMade || !secondCallMade)
             {
-                break;
+                await Task.Delay(1000); // Wait for the refresh timer to execute
+                wait += 1000;
+                if (wait > 10000) // Timeout after 10 seconds
+                {
+                    break;
+                }
             }
+
+            // Assert - Verify the private field through reflection
+
+            Assert.True(firstCallMade, "Expected first call to ExecuteReaderAsync was not made.");
+            Assert.True(secondCallMade, "Expected second call to ExecuteReaderAsync was not made.");
+
+            var skewedParametersField = typeof(QueryPlanReuseChecker)
+                .GetField("_skewedParameters", BindingFlags.NonPublic | BindingFlags.Instance);
+            var actualSkewedParameters = (HashSet<string>)skewedParametersField.GetValue(checker);
+            Assert.Equal(2, actualSkewedParameters.Count);
+
+            Assert.Contains(skewedUri1, actualSkewedParameters);
+            Assert.Contains(skewedUri2, actualSkewedParameters);
         }
-
-        // Assert - Verify the private field through reflection
-
-        Assert.True(firstCallMade, "Expected first call to ExecuteReaderAsync was not made.");
-        Assert.True(secondCallMade, "Expected second call to ExecuteReaderAsync was not made.");
-
-        var skewedParametersField = typeof(QueryPlanReuseChecker)
-            .GetField("_skewedParameters", BindingFlags.NonPublic | BindingFlags.Instance);
-        var actualSkewedParameters = (HashSet<string>)skewedParametersField.GetValue(checker);
-        Assert.Equal(2, actualSkewedParameters.Count);
-
-        Assert.Contains(skewedUri1, actualSkewedParameters);
-        Assert.Contains(skewedUri2, actualSkewedParameters);
+        finally
+        {
+            await checker.StopAsync(CancellationToken.None);
+        }
     }
 
     /// <summary>
