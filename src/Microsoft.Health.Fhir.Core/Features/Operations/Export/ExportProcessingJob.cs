@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -107,15 +106,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 record.EndSurrogateId = workItem.EndId.ToString();
                 record.MaximumNumberOfResourcesPerQuery = (uint)_effectiveBatchSize;
 
+                // Declared outside try so we can null it before GC on OOM, ensuring the
+                // failed task's internal state (partial SearchResult, blob streams, etc.) is reclaimable.
+                IExportJobTask exportJobTask = null;
                 try
                 {
-                    IExportJobTask exportJobTask = _exportJobTaskFactory();
+                    exportJobTask = _exportJobTaskFactory();
                     exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo);
                     await exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    ForceGarbageCollection();
+                    exportJobTask = null;
                     await SplitAndQueueSubRangesAsync(workItem, rangeQueue, jobInfo, record, oomEx, cancellationToken);
                     continue;
                 }
@@ -142,17 +144,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             while (true)
             {
-                IExportJobTask exportJobTask = _exportJobTaskFactory();
-                exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo);
-
+                IExportJobTask exportJobTask = null;
                 try
                 {
+                    exportJobTask = _exportJobTaskFactory();
+                    exportJobTask.UpdateExportJob = CreateUpdateExportJobCallback(jobInfo);
                     await exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
                     break;
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    ForceGarbageCollection();
+                    exportJobTask = null;
                     oomReductionCount++;
 
                     if (oomReductionCount > MaxOomReductionsBeforeSoftFail || !TryReduceEffectiveBatchSize())
@@ -295,18 +297,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
         }
 
-        /// <summary>
-        /// Forces a full garbage collection with LOH compaction to reclaim memory after an OutOfMemoryException.
-        /// LOH objects (>= 85KB) are not compacted by default, leading to fragmentation that can cause
-        /// subsequent OOM even when total free memory is sufficient.
-        /// </summary>
-        private static void ForceGarbageCollection()
-        {
-            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-        }
 
         private bool TryReduceEffectiveBatchSize()
         {
