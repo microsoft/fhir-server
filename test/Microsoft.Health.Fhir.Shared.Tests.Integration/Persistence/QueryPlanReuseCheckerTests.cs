@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.SqlServer.Management.Smo;
 using Xunit;
 using Xunit.Abstractions;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SqlServerFhirStorageTestsFixture _sqlFixture;
         private readonly ITestOutputHelper _output;
         private readonly FhirSqlServerConfiguration _fhirSqlConfig;
+        private Task _checkerBackground;
 
         public QueryPlanReuseCheckerTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
@@ -64,19 +66,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Simulate storage ready notification
             await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Wait for initialization to complete
-            await WaitForInitializationAsync(checker);
+            try
+            {
+                // Wait for initialization to complete
+                await WaitForInitializationAsync(checker);
 
-            // Create a search option with a non-skewed parameter
-            var searchParameter = new SearchParameterInfo("name", "name", SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
-            var searchOptions = CreateSearchOptions(new List<SearchParameterInfo> { searchParameter });
+                // Create a search option with a non-skewed parameter
+                var searchParameter = new SearchParameterInfo("name", "name", SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
+                var searchOptions = CreateSearchOptions(new List<SearchParameterInfo> { searchParameter });
 
-            // Act
-            bool result = checker.CanReuseQueryPlan(searchOptions);
+                // Act
+                bool result = checker.CanReuseQueryPlan(searchOptions);
 
-            // Assert
-            Assert.True(result);
-            _output.WriteLine("CanReuseQueryPlan returned true when no skewed stats exist.");
+                // Assert
+                Assert.True(result);
+                _output.WriteLine("CanReuseQueryPlan returned true when no skewed stats exist.");
+            }
+            finally
+            {
+                await StopCheckerBackground(checker);
+            }
         }
 
         [Fact]
@@ -88,17 +97,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Simulate storage ready notification
             await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Wait for initialization to complete
-            await WaitForInitializationAsync(checker);
+            try
+            {
+                // Wait for initialization to complete
+                await WaitForInitializationAsync(checker);
 
-            var searchOptions = CreateSearchOptions(new List<SearchParameterInfo>());
+                var searchOptions = CreateSearchOptions(new List<SearchParameterInfo>());
 
-            // Act
-            bool result = checker.CanReuseQueryPlan(searchOptions);
+                // Act
+                bool result = checker.CanReuseQueryPlan(searchOptions);
 
-            // Assert
-            Assert.True(result);
-            _output.WriteLine("CanReuseQueryPlan returned true for empty search parameters.");
+                // Assert
+                Assert.True(result);
+                _output.WriteLine("CanReuseQueryPlan returned true for empty search parameters.");
+            }
+            finally
+            {
+                await StopCheckerBackground(checker);
+            }
         }
 
         /* These tests are currently not working because the test fixture isn't populating search parameters in the database, which causes the statistics creation to fail.
@@ -210,6 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// </summary>
         private async Task WaitForInitializationAsync(QueryPlanReuseChecker checker, int timeoutMs = 30000)
         {
+            _checkerBackground = checker.StartAsync(CancellationToken.None);
             var isInitializedField = typeof(QueryPlanReuseChecker)
                 .GetField("_isInitialized", BindingFlags.NonPublic | BindingFlags.Instance);
 
@@ -227,6 +244,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             else
             {
                 _output.WriteLine($"QueryPlanReuseChecker initialized after {waited}ms.");
+            }
+        }
+
+        private async Task StopCheckerBackground(QueryPlanReuseChecker checker)
+        {
+            if (_checkerBackground != null)
+            {
+                await checker.StopAsync(CancellationToken.None);
             }
         }
 
