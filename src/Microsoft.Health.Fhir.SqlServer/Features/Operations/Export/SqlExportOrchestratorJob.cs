@@ -59,11 +59,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             // Reduce per-range size and increase the number of ranges to lower peak memory per processing job.
             // Each processing job receives multiple smaller ranges and processes them sequentially.
-            // A factor of 100 means each sub-range covers ~100 surrogate IDs (with default MaximumNumberOfResourcesPerQuery=10000),
-            // limiting the number of resources loaded per search call and preventing OOM with large resources.
-            const int rangeReductionFactor = 100;
-            var surrogateIdRangeSize = Math.Max(1, (int)record.MaximumNumberOfResourcesPerQuery / rangeReductionFactor);
-            var numberOfRanges = _exportJobConfiguration.NumberOfParallelRecordRanges * rangeReductionFactor;
+            // A factor of 500 means each sub-range covers ~20 resources (with default MaximumNumberOfResourcesPerQuery=10000).
+            // This keeps peak memory per search call under ~500MB even with very large resources (~24MB each),
+            // allowing safe operation on 8GB App Service plans with multiple parallel processing jobs.
+            var surrogateIdRangeSize = Math.Max(1, (int)record.MaximumNumberOfResourcesPerQuery / ExportJobConfiguration.RangeReductionFactor);
+            var numberOfRanges = _exportJobConfiguration.NumberOfParallelRecordRanges * ExportJobConfiguration.RangeReductionFactor;
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                             }
 
                             currentBatch.Add(range);
-                            if (currentBatch.Count >= rangeReductionFactor)
+                            if (currentBatch.Count >= ExportJobConfiguration.RangeReductionFactor)
                             {
                                 rangeBatches.Add(currentBatch);
                                 currentBatch = new List<(long StartId, long EndId, int Count)>();
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         foreach (var range in response)
                         {
                             currentBatch.Add(range);
-                            if (currentBatch.Count >= rangeReductionFactor)
+                            if (currentBatch.Count >= ExportJobConfiguration.RangeReductionFactor)
                             {
                                 var processingRecord = CreateExportRecord(
                                     record,

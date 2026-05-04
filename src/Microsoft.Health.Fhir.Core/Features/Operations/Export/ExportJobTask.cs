@@ -230,9 +230,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         var range = _exportJobRecord.SurrogateIdRanges[i];
 
-                        // Compute per-range _count from the surrogate ID span. This caps the SQL result set.
-                        var rangeSpan = long.Parse(range.EndId) - long.Parse(range.StartId) + 1;
-                        var rangeCount = Math.Max(1, Math.Min(rangeSpan, _exportJobRecord.MaximumNumberOfResourcesPerQuery));
+                        // Use the same reduction factor the orchestrator used to create sub-ranges,
+                        // so each search call returns at most ~surrogateIdRangeSize resources.
+                        var rangeCount = Math.Max(1, (int)_exportJobRecord.MaximumNumberOfResourcesPerQuery / ExportJobConfiguration.RangeReductionFactor);
 
                         var rangeQueryParams = new List<Tuple<string, string>>(queryParametersList);
 
