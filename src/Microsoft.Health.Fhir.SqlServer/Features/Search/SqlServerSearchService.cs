@@ -2295,7 +2295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             cmd.Parameters.AddWithValue("@ActiveOnly", activeOnly);
         }
 
-        private class ResourceSearchParamStats
+        internal class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
             private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -2328,15 +2328,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     var tableExpression = expression.SearchParamTableExpressions[tableIndex];
 
-                    // We support Normal and Union. Skip include/sort/etc.
+                    // We support Normal, Union, and NotExists. Skip include/sort/etc.
                     if (tableExpression.Kind != SearchParamTableExpressionKind.Normal &&
-                        tableExpression.Kind != SearchParamTableExpressionKind.Union)
+                        tableExpression.Kind != SearchParamTableExpressionKind.Union &&
+                        tableExpression.Kind != SearchParamTableExpressionKind.NotExists)
                     {
                         continue;
                     }
 
                     // Collected raw triples (table, resourceTypeId, searchParamId)
                     var collected = new List<(string Table, short ResourceTypeId, short SearchParamId)>();
+
+                    // Track whether we also need a ResourceSurrogateId filtered stat
+                    bool hasResourceSurrogateId = false;
 
                     if (tableExpression.Kind == SearchParamTableExpressionKind.Normal)
                     {
@@ -2351,6 +2355,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             ProcessUnionBranch(branch, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, tableIndex, collected, logger);
                         }
                     }
+                    else if (tableExpression.Kind == SearchParamTableExpressionKind.NotExists)
+                    {
+                        ProcessNotExistsForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, collected, out hasResourceSurrogateId, logger);
+                    }
 
                     // Emit stats rows
                     foreach (var (table, resourceTypeId, searchParamId) in collected)
@@ -2364,6 +2372,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         foreach (var column in columns)
                         {
                             await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                        }
+
+                        // For NotExists with ResourceSurrogateId range constraint, create an additional filtered stat
+                        if (hasResourceSurrogateId)
+                        {
+                            await Create(table, "ResourceSurrogateId", resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
                         }
                     }
                 }
@@ -2391,6 +2405,115 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 else
                 {
                     ProcessPredicateForStats(unionInner, defaultGenerator, model, chainLevel, root, tableIndex, collected, logger, parentMultiaryContext: null, isUnionBranch: true);
+                }
+            }
+
+            /// <summary>
+            /// Processes a NotExists predicate (produced by MissingSearchParamVisitor for :missing=true queries)
+            /// to extract the owning search parameter and optionally detect ResourceSurrogateId range constraints.
+            /// </summary>
+            private void ProcessNotExistsForStats(
+                Expression predicate,
+                SearchParamTableExpressionQueryGenerator defaultGenerator,
+                SqlServerFhirModel model,
+                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                out bool hasResourceSurrogateId,
+                ILogger logger)
+            {
+                hasResourceSurrogateId = false;
+
+                var missingParams = new List<MissingSearchParameterExpression>();
+                var resourceTypeIds = new HashSet<short>();
+                bool foundSurrogateId = false;
+
+                CollectNotExistsLeaves(predicate, missingParams, resourceTypeIds, model, ref foundSurrogateId);
+
+                // Conservative: skip if predicate resolves to anything other than exactly one owning search parameter
+                if (missingParams.Count != 1)
+                {
+                    return;
+                }
+
+                var missingParam = missingParams[0];
+
+                // Skip synthetic parameters
+                if (missingParam.Parameter.Name == SqlSearchParameters.PrimaryKeyParameterName ||
+                    missingParam.Parameter.Name == SqlSearchParameters.ResourceSurrogateIdParameterName)
+                {
+                    return;
+                }
+
+                // Resolve the table for this parameter
+                var specificGenerator = missingParam.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext) ?? defaultGenerator;
+                var tableName = specificGenerator.Table.TableName;
+
+                // Resolve search param ID
+                if (!model.TryGetSearchParamId(missingParam.Parameter.Url, out var searchParamId) || searchParamId == 0)
+                {
+                    return;
+                }
+
+                // Fall back to base resource types if none found in predicate
+                if (resourceTypeIds.Count == 0 && missingParam.Parameter.BaseResourceTypes?.Count > 0)
+                {
+                    foreach (var baseType in missingParam.Parameter.BaseResourceTypes)
+                    {
+                        if (model.TryGetResourceTypeId(baseType, out var rtId))
+                        {
+                            resourceTypeIds.Add(rtId);
+                        }
+                    }
+                }
+
+                if (resourceTypeIds.Count == 0)
+                {
+                    return;
+                }
+
+                hasResourceSurrogateId = foundSurrogateId;
+
+                foreach (var rtId in resourceTypeIds)
+                {
+                    collected.Add((tableName, rtId, searchParamId));
+                }
+            }
+
+            /// <summary>
+            /// Recursively collects MissingSearchParameterExpression leaves, resource type constraints,
+            /// and detects ResourceSurrogateId range constraints from a NotExists predicate.
+            /// </summary>
+            internal static void CollectNotExistsLeaves(
+                Expression expression,
+                List<MissingSearchParameterExpression> missingParams,
+                HashSet<short> resourceTypeIds,
+                SqlServerFhirModel model,
+                ref bool foundSurrogateId)
+            {
+                switch (expression)
+                {
+                    case MissingSearchParameterExpression msp:
+                        missingParams.Add(msp);
+                        break;
+
+                    case SearchParameterExpression spe:
+                        if (spe.Parameter.Name == SearchParameterNames.ResourceType)
+                        {
+                            CollectResourceTypesFromExpression(spe.Expression, model, resourceTypeIds);
+                        }
+                        else if (spe.Parameter.Name == SqlSearchParameters.ResourceSurrogateIdParameterName)
+                        {
+                            foundSurrogateId = true;
+                        }
+
+                        break;
+
+                    case MultiaryExpression multi:
+                        foreach (var inner in multi.Expressions)
+                        {
+                            CollectNotExistsLeaves(inner, missingParams, resourceTypeIds, model, ref foundSurrogateId);
+                        }
+
+                        break;
                 }
             }
 
