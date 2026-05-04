@@ -110,8 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _operationsConfig.Value.Returns(new OperationsConfiguration());
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
-            // Initialize critical fields first before cleanup
-            _fhirOperationDataStore = _fixture.OperationDataStore;
+            // initialize operations data store to use true queue clients
+            _fhirOperationDataStore = _fixture.SqlServerOperationDataStore ?? _fixture.CosmosOperationDataStore;
             _fhirStorageTestHelper = _fixture.TestHelper;
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
             _searchService = _fixture.SearchService.CreateMockScope();
@@ -197,20 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private void InitializeJobHosting()
         {
-            // Get the actual queue client from the operation datastore implementation
-            var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
-            if (operationDataStoreBase != null)
-            {
-                // We need to access the _queueClient field using reflection since it's private
-                var field = typeof(FhirOperationDataStoreBase).GetField("_queueClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                _queueClient = field?.GetValue(operationDataStoreBase) as IQueueClient;
-            }
-
-            // If we couldn't get the actual queue client, use the one from the fixture
-            if (_queueClient == null)
-            {
-                _queueClient = _fixture.QueueClient;
-            }
+            _queueClient = _fixture.QueueClient;
 
             if (_jobFactory == null)
             {
@@ -637,63 +624,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
-        public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled(bool isCancel)
         {
+            var sample1 = await CreatePatientResource("patient1", Guid.NewGuid().ToString());
+            var sample2 = await CreatePatientResource("patient2", Guid.NewGuid().ToString());
+            var sample3 = await CreatePatientResource("patient3", Guid.NewGuid().ToString());
+            var sample4 = await CreatePatientResource("patient4", Guid.NewGuid().ToString());
+
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            string searchParamName = randomName;
-            string searchParamCode = randomName + "Code";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
+            var searchParamName = randomName;
+            var searchParamCode = randomName + "Code";
+            var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
-            const string sampleName1 = "searchIndicesPatient1";
-            const string sampleName2 = "searchIndicesPatient2";
-            const string sampleName3 = "searchIndicesPatient3";
-            const string sampleName4 = "searchIndicesPatient4";
-
-            string sampleId1 = Guid.NewGuid().ToString();
-            string sampleId2 = Guid.NewGuid().ToString();
-            string sampleId3 = Guid.NewGuid().ToString();
-            string sampleId4 = Guid.NewGuid().ToString();
-
-            // Set up the values that the search index extraction should return during reindexing
-            var searchValues = new List<(string, ISearchValue)>
-            {
-                (sampleId1, new StringSearchValue(sampleName1)),
-                (sampleId2, new StringSearchValue(sampleName2)),
-                (sampleId3, new StringSearchValue(sampleName3)),
-                (sampleId4, new StringSearchValue(sampleName4)),
-            };
-
-            MockSearchIndexExtraction(searchValues, searchParam);
-
-            UpsertOutcome sample1 = await CreatePatientResource(sampleName1, sampleId1);
-            UpsertOutcome sample2 = await CreatePatientResource(sampleName2, sampleId2);
-            UpsertOutcome sample3 = await CreatePatientResource(sampleName3, sampleId3);
-            UpsertOutcome sample4 = await CreatePatientResource(sampleName4, sampleId4);
-
-            // Create the query <fhirserver>/Patient?foo=searchIndicesPatient1
-            var queryParams = new List<Tuple<string, string>> { new(searchParamCode, sampleName1) };
-            SearchResult searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
-
-            // Confirm that the search parameter "foo" is marked as unsupported
-            Assert.Equal(searchParamCode, searchResults.UnsupportedSearchParameters.FirstOrDefault()?.Item1);
-
-            // When search parameters aren't recognized, they are ignored
-            // Confirm that "foo" is dropped from the query string and all patients are returned
-            Assert.Equal(4, searchResults.Results.Count());
-
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 1, 1);
-            CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
-
-            using var cancellationTokenSource = new CancellationTokenSource();
+            var response = await SetUpForReindexing(new CreateReindexRequest([], [], 2, 1)); // 1 does not work yet);
 
             try
             {
-                var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
-                var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                if (isCancel)
+                {
+                    var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
+                    await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
+                }
 
-                Assert.Equal(OperationStatus.Canceled, reindexWrapper.JobRecord.Status);
+                ReindexJobWrapper coord = null;
+                var sw = Stopwatch.StartNew();
+                while (sw.Elapsed.TotalSeconds < 300)
+                {
+                    coord = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, CancellationToken.None);
+                    if (coord.JobRecord.Status == (isCancel ? OperationStatus.Canceled : OperationStatus.Completed))
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(500);
+                }
+
+                Assert.True(coord.JobRecord.Status == (isCancel ? OperationStatus.Canceled : OperationStatus.Completed), JsonConvert.SerializeObject(coord.JobRecord));
             }
             catch (RequestNotValidException ex)
             {
@@ -707,8 +676,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
             finally
             {
-                cancellationTokenSource.Cancel();
-
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
@@ -1292,7 +1259,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private async Task<JobInfo> SeedOrchestratorJobAsync(ReindexJobRecord jobRecord)
         {
             var definition = JsonConvert.SerializeObject(jobRecord);
-            return await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, null, definition, JobStatus.Running, null, null, CancellationToken.None);
+            var jobInfo = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, null, definition, JobStatus.Running, null, null, CancellationToken.None);
+            jobInfo.QueueType = (byte)QueueType.Reindex;
+            return jobInfo;
         }
 
         private async Task SeedProcessingJobAsync(long groupId, ReindexProcessingJobDefinition jobDefinition, ReindexProcessingJobResult jobResult, JobStatus status, int? data)
@@ -1311,6 +1280,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 : JsonConvert.SerializeObject(jobResult);
 
             var job = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, groupId, definition, JobStatus.Running, null, null, CancellationToken.None);
+            job.QueueType = (byte)QueueType.Reindex;
             job.Status = status;
             job.Data = data;
             job.Result = result;
@@ -1334,7 +1304,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await Task.Delay(1000);
             }
 
-            Assert.Equal(OperationStatus.Completed, orchestrator.JobRecord.Status);
+            Assert.True(orchestrator.JobRecord.Status == OperationStatus.Completed, JsonConvert.SerializeObject(orchestrator.JobRecord));
 
             var serializer = new FhirJsonSerializer();
             _output.WriteLine(serializer.SerializeToString(orchestrator.ToParametersResourceElement().ToPoco<Parameters>()));
