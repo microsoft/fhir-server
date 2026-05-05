@@ -181,6 +181,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
+        public IServiceProvider Service => _fixture;
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();

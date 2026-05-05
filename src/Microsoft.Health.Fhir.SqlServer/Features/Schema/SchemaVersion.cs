@@ -122,5 +122,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V110 = 110,
         V111 = 111,
         V112 = 112,
+        V113 = 113,
     }
 }
