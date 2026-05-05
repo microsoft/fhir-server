@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(Array.Empty<ResourceSearchParameterStatus>());
 
-        public Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false) => Task.CompletedTask;
+        public Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null) => Task.CompletedTask;
 
         public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken) => Task.FromResult(new CacheConsistencyResult());
     }
