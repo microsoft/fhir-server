@@ -629,7 +629,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult?.Results.ToList(), anonymizer);
+                    ProcessSearchResults(searchResult?.Results, anonymizer);
                 }
 
                 if (searchResult?.ContinuationToken == null)

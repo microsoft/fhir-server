@@ -2109,6 +2109,98 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
+        [Fact]
+        public async Task GivenMultipleSearchResults_WhenExecuted_ThenRawResourceIsNulledAfterWrite()
+        {
+            // Arrange
+            var exportJobRecord = CreateExportJobRecord(
+                exportJobType: ExportJobType.All,
+                maximumNumberOfResourcesPerQuery: 10);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+
+            var wrappers = new List<ResourceWrapper>();
+            var entries = new SearchResultEntry[3];
+            for (int i = 0; i < 3; i++)
+            {
+                var wrapper = new ResourceWrapper(
+                    i.ToString(),
+                    "1",
+                    KnownResourceTypes.Patient,
+                    new RawResource($"data-{i}", Core.Models.FhirResourceFormat.Json, isMetaSet: true),
+                    null,
+                    DateTimeOffset.MinValue,
+                    false,
+                    null,
+                    null,
+                    null);
+                wrappers.Add(wrapper);
+                entries[i] = new SearchResultEntry(wrapper);
+            }
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(CreateSearchResult(entries));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Assert - RawResource should be null for all wrappers after processing
+            foreach (var wrapper in wrappers)
+            {
+                Assert.Null(wrapper.RawResource);
+            }
+        }
+
+        [Fact]
+        public async Task GivenSearchResultsAsList_WhenExecuted_ThenListIsClearedAfterProcessing()
+        {
+            // Arrange
+            var exportJobRecord = CreateExportJobRecord(
+                exportJobType: ExportJobType.All,
+                maximumNumberOfResourcesPerQuery: 10);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+
+            var resultList = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry("1", KnownResourceTypes.Patient),
+                CreateSearchResultEntry("2", KnownResourceTypes.Patient),
+            };
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(new SearchResult(resultList, null, null, new Tuple<string, string>[0]));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Assert - the list passed to ProcessSearchResults should be cleared
+            Assert.Empty(resultList);
+        }
+
+        [Theory]
+        [InlineData(1u, false)]
+        [InlineData(10000u, false)]
+        [InlineData(10001u, true)]
+        public void GivenMaxCount_WhenCreatingExportJobRecord_ThenValidatesRange(uint maxCount, bool shouldThrow)
+        {
+            if (shouldThrow)
+            {
+                Assert.Throws<BadRequestException>(() => CreateExportJobRecord(
+                    maximumNumberOfResourcesPerQuery: maxCount));
+            }
+            else
+            {
+                var record = CreateExportJobRecord(maximumNumberOfResourcesPerQuery: maxCount);
+                Assert.Equal(maxCount, record.MaximumNumberOfResourcesPerQuery);
+            }
+        }
+
         private async Task RunTypeFilterTest(IList<ExportJobFilter> filters, string resourceTypes)
         {
             var exportJobRecordWithFormat = CreateExportJobRecord(
