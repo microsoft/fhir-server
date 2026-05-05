@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
             => Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(new InvalidOperationException("Simulated definition-stage search parameter initialization failure."));
 
-        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null) => Task.CompletedTask;
 
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
