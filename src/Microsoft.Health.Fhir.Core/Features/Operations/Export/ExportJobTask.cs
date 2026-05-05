@@ -787,6 +787,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
+            if (searchResults == null)
+            {
+                return;
+            }
+
             if (searchResults is List<SearchResultEntry> searchResultsList)
             {
                 for (int i = 0; i < searchResultsList.Count; i++)
