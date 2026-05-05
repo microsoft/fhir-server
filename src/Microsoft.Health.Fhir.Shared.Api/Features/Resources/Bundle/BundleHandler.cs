@@ -556,6 +556,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (InvalidOperationException ioe) when (ioe.IsCompletedTransactionException())
             {
+                // SqlTransactionScope.Dispose() disposes SqlConnection before SqlTransaction, which zombies the
+                // transaction and causes Rollback() to throw "This SqlTransaction has completed; it is no longer
+                // usable."  When this happens because the client cancelled the request, return 408 (not 500).
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ioe, "SqlTransaction cleanup failed due to request cancellation; the transaction was rolled back by the server.");
+                    throw new FhirTransactionCancelledException(Api.Resources.GeneralTransactionFailedError);
+                }
+
                 _logger.LogError(ioe, "Failed to commit a transaction. This SqlTransaction has completed.");
                 throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.InternalServerError);
             }
@@ -791,22 +800,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
-                if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
+                if (_bundleType.Equals(BundleType.Transaction))
                 {
-                    // Bug 182314: Standardize status code returned when a bundle fails.
-
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
 
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
+                    // Bug 182314: Standardize status code returned when a bundle fails.
+                    // Also abort when the status is an error even if the response body has no OperationOutcome
+                    // (e.g. when the client disconnects before the filter can write an outcome).
+                    if (entryComponent.Response.Outcome != null || (int)httpStatusCode >= (int)HttpStatusCode.BadRequest)
+                    {
+                        var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
+                        var operationOutcome = entryComponent.Response.Outcome as OperationOutcome ?? new OperationOutcome();
 
-                    TransactionExceptionHandler.ThrowTransactionException(
-                        errorMessage,
-                        httpStatusCode,
-                        (OperationOutcome)entryComponent.Response.Outcome,
-                        cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                        TransactionExceptionHandler.ThrowTransactionException(
+                            errorMessage,
+                            httpStatusCode,
+                            operationOutcome,
+                            cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    }
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;

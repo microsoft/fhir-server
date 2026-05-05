@@ -457,6 +457,58 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenATransaction_WithCancellationAndSqlTransactionZombied_ReturnsCancelledException()
+        {
+            // Arrange: two-entry bundle so the sequential (C# SqlTransaction) path is taken.
+            using var tokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = tokenSource.Token;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Observation" },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Observation" },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            // Simulate the production scenario:
+            //   1. The client disconnects (token is cancelled).
+            //   2. SqlTransactionScope.Dispose() disposes SqlConnection before SqlTransaction, which zombies
+            //      the transaction and causes Rollback() to throw "This SqlTransaction has completed".
+            // In the test, SqlTransactionScope.Dispose() is a no-op (the handler is mocked), so we throw
+            // the exception directly from the route handler to exercise the same catch block.
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    var routeContext = callInfo.Arg<RouteContext>();
+                    routeContext.Handler = _ =>
+                    {
+                        tokenSource.Cancel();
+                        throw new InvalidOperationException("This SqlTransaction has completed; it is no longer usable.");
+                    };
+                });
+
+            // Act
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            // Assert: cancellation must produce 408 RequestTimeout, not 500 InternalServerError.
+            FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(
+                async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
+
+            Assert.Equal(System.Net.HttpStatusCode.RequestTimeout, fhirTce.ResponseStatusCode);
+        }
+
+        [Fact]
         public async Task GivenATransaction_WithACancellationHappens_ReturnAProperError()
         {
             using (CancellationTokenSource tokenSource = new CancellationTokenSource())
