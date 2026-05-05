@@ -405,12 +405,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
+            var validSearchParameters = new List<SearchParameterInfo>();
             searchExpressions.AddRange(searchParams.Parameters.Select(
             q =>
             {
                 try
                 {
-                    return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+                    var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+
+                    foreach (var resourceTypeString in resourceTypesString)
+                    {
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(resourceTypeString, q.Item1, out var searchParameter))
+                        {
+                            validSearchParameters.Add(searchParameter);
+                        }
+                    }
+
+                    return parsed;
                 }
                 catch (SearchParameterNotSupportedException)
                 {
@@ -420,6 +431,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             })
             .Where(item => item != null));
+
+            searchOptions.SearchParameters = validSearchParameters;
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter

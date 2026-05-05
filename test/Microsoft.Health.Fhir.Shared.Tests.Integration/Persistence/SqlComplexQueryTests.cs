@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -129,9 +130,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 try
                 {
-                    await DisableResuseQueryPlans();
+                    DisableReuseQueryPlans();
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     //// values are different and plans are NOT reused
@@ -143,9 +143,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     //// values are same and plans are reused
                     await CheckQueryStore(2, 1);
 
-                    await EnableResuseQueryPlans(); //// new behavior
+                    EnableReuseQueryPlans(); //// new behavior
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
@@ -212,22 +211,14 @@ END CATCH
             cmd.ExecuteNonQuery();
         }
 
-        private async Task DisableResuseQueryPlans()
+        private void DisableReuseQueryPlans()
         {
-            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            using var cmd = new SqlCommand("DELETE FROM dbo.Parameters WHERE Id = @Id", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
-            conn.Open();
-            cmd.ExecuteNonQuery();
+            ((FhirSqlServerConfiguration)_fixture.Service.GetService(typeof(FhirSqlServerConfiguration))).ReuseQueryPlans = false;
         }
 
-        private async Task EnableResuseQueryPlans()
+        private void EnableReuseQueryPlans()
         {
-            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id,Number) SELECT @Id, 1", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
-            conn.Open();
-            cmd.ExecuteNonQuery();
+            ((FhirSqlServerConfiguration)_fixture.Service.GetService(typeof(FhirSqlServerConfiguration))).ReuseQueryPlans = true;
         }
 
         private async Task SetGranularQueryStore()

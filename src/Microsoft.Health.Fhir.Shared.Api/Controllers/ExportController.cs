@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
+            ValidatePathTraversalForExportParameter(containerName);
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
             (bool includeHistory, bool includeDeleted) = ValidateAndParseIncludeAssociatedData(includeAssociatedData, typeFilter);
 
@@ -147,6 +148,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
+            ValidatePathTraversalForExportParameter(containerName);
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceType is supported only for Patient resource type.
@@ -189,6 +191,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
+            ValidatePathTraversalForExportParameter(containerName);
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceTypeId is supported only for Group resource type.
@@ -330,6 +333,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (string.IsNullOrWhiteSpace(containerName))
             {
                 throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);
+            }
+
+            ValidatePathTraversalForExportParameter(anonymizationConfigLocation);
+        }
+
+        /// <summary>
+        /// Validates that a parameter value does not contain directory traversal sequences.
+        /// Rejects values where any path segment (split on / or \, after URL-decoding) is exactly "..".
+        /// This prevents callers from escaping the intended blob container boundary.
+        /// </summary>
+        private static void ValidatePathTraversalForExportParameter(string parameterValue)
+        {
+            if (string.IsNullOrWhiteSpace(parameterValue))
+            {
+                return;
+            }
+
+            // Decode percent-encoded separators so that sequences like ..%2f are normalized before checking.
+            string decoded = Uri.UnescapeDataString(parameterValue);
+
+            // Reject the value if any path segment is ".." (directory traversal).
+            string[] segments = decoded.Split('/', '\\');
+            if (Array.Exists(segments, static segment => segment == ".."))
+            {
+                throw new RequestNotValidException(string.Format(Resources.ExportParameterPathTraversalNotAllowed, parameterValue));
             }
         }
 
