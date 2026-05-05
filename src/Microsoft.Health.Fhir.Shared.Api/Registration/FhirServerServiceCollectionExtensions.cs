@@ -109,7 +109,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     // Default value for options.ForwardedHeaders is ForwardedHeaders.None.
-                    options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix | ForwardedHeaders.XForwardedProto;
+                    options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit
