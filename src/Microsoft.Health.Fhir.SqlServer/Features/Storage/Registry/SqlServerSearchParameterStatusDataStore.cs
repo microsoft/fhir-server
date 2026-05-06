@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             return parameterStatuses;
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -139,10 +139,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return;
             }
 
-            await UpsertStatusesWithRetry(statuses, 3, cancellationToken);
+            await UpsertStatusesWithRetry(statuses, 3, cancellationToken, reindexId); // add reindexId when reindex job tests start using true queue client.
         }
 
-        private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken)
+        private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken, long? reindexId = null)
         {
             var currentStatuses = statuses.ToList();
             int retryCount = 0;
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 try
                 {
-                    await UpsertStatusesInternal(currentStatuses, cancellationToken);
+                    await UpsertStatusesInternal(currentStatuses, cancellationToken, reindexId);
                     return; // Success
                 }
                 catch (SqlException sqlEx) when (sqlEx.Number == 50001 && retryCount < maxRetries) // Our custom concurrency error
@@ -184,17 +184,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            if (_schemaInformation.Current >= 111)
+            cmd.CommandText = "dbo.MergeSearchParams";
+            if (_schemaInformation.Current >= 112 && reindexId.HasValue) // remove value check to invoke new max(LastUpdated) logic
             {
-                cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
-            }
-            else
-            {
-                cmd.CommandText = "dbo.MergeSearchParams";
+                cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
             }
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));

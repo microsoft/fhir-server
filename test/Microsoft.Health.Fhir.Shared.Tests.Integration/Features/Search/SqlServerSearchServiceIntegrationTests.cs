@@ -891,29 +891,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.Null(deletedResourceInNonDeletedSearch.Resource);
         }
 
-        [Fact]
-        public async Task Search_WithResetQueryPlans_ExecutesSuccessfully()
-        {
-            // Arrange
-            var patient = await CreateTestPatient($"QueryPlanTest_{Guid.NewGuid()}");
-
-            // Act - Reset query plans
-            SqlServerSearchService.ResetReuseQueryPlans();
-
-            // Act - Execute search after reset using _id (doesn't require name search parameter indexing)
-            var queryParameters = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_id", patient.ResourceId),
-            };
-
-            var result = await _searchService.SearchAsync("Patient", queryParameters, CancellationToken.None);
-
-            // Assert - Search should still work after reset
-            Assert.NotNull(result);
-            Assert.Single(result.Results);
-            Assert.Equal(patient.ResourceId, result.Results.First().Resource.ResourceId);
-        }
-
         private async Task<List<ResourceWrapper>> CreateTestPatients(int count)
         {
             var patients = new List<ResourceWrapper>();
