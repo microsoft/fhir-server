@@ -17,7 +17,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -28,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Polly;
 using Polly.Retry;
@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly IExportMetricHandler _exportMetricHandler;
         private readonly ILogger _logger;
 
         private ExportJobRecord _exportJobRecord;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            IExportMetricHandler exportMetricHandler,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -76,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(exportMetricHandler, nameof(exportMetricHandler));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -88,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _anonymizerFactory = anonymizerFactory;
             _mediator = mediator;
             _contextAccessor = contextAccessor;
+            _exportMetricHandler = exportMetricHandler;
             _logger = logger;
 
             UpdateExportJob = UpdateExportJobAsync;
@@ -234,6 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 });
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                _exportMetricHandler.EmitSuccess();
 
                 _logger.LogTrace("[JobId:{JobId}] Successfully completed the job.", _exportJobRecord.Id);
             }
@@ -320,6 +325,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // The job has encountered an error it cannot recover from.
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
+                _exportMetricHandler.EmitFailure();
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
@@ -334,6 +340,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // The job has encountered an error it cannot recover from.
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "[JobId:{JobId}] Encountered an unhandled exception. The job will be marked as failed.", _exportJobRecord.Id);
+                _exportMetricHandler.EmitFailure();
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);

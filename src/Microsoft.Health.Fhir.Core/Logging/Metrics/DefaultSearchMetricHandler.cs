@@ -10,19 +10,19 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public sealed class DefaultSearchMetricHandler : BaseMeterMetricHandler, ISearchMetricHandler
     {
-        private readonly Counter<long> _searchLatencyCounter;
+        private readonly Histogram<long> _searchLatencyHistogram;
 
         public DefaultSearchMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _searchLatencyCounter = MetricMeter.CreateCounter<long>("Search.Latency");
+            _searchLatencyHistogram = MetricMeter.CreateHistogram<long>("Search.Latency");
         }
 
         public void EmitLatency(SearchMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _searchLatencyCounter.Add(notification.ElapsedMilliseconds);
+            _searchLatencyHistogram.Record(notification.ElapsedMilliseconds);
         }
     }
 }

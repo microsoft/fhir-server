@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -123,6 +124,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _mediator = Substitute.For<IMediator>();
 
+            var metricHandler = Substitute.For<IBundleMetricHandler>();
+
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
                 fhirRequestContextAccessor,
@@ -137,12 +140,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
+                _profilesResolver,
+                Substitute.For<IModelInfoProvider>(),
+                Substitute.For<ISearchParameterOperations>(),
                 _mediator,
                 _router,
-                _profilesResolver,
-                NullLogger<BundleHandler>.Instance,
-                Substitute.For<IModelInfoProvider>(),
-                Substitute.For<ISearchParameterOperations>());
+                metricHandler,
+                NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]

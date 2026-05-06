@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -246,6 +247,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _resourceWrapperFactory,
                             _searchParameterOperations,
                             _searchParameterStatusManager,
+                            Substitute.For<IReindexMetricHandler>(),
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -1237,6 +1239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _resourceWrapperFactory,
                 _searchParameterOperations,
                 _searchParameterStatusManager,
+                Substitute.For<IReindexMetricHandler>(),
                 NullLogger<ReindexProcessingJob>.Instance);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);

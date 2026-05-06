@@ -10,19 +10,19 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public sealed class DefaultCrudMetricHandler : BaseMeterMetricHandler, ICrudMetricHandler
     {
-        private readonly Counter<long> _crudLatencyCounter;
+        private readonly Histogram<long> _crudLatencyHistogram;
 
         public DefaultCrudMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _crudLatencyCounter = MetricMeter.CreateCounter<long>("Crud.Latency");
+            _crudLatencyHistogram = MetricMeter.CreateHistogram<long>("Crud.Latency");
         }
 
         public void EmitLatency(CrudMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _crudLatencyCounter.Add(notification.ElapsedMilliseconds);
+            _crudLatencyHistogram.Record(notification.ElapsedMilliseconds);
         }
     }
 }

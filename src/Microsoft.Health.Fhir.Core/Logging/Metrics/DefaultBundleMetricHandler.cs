@@ -10,19 +10,33 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public sealed class DefaultBundleMetricHandler : BaseMeterMetricHandler, IBundleMetricHandler
     {
-        private readonly Counter<long> _bundleLatencyCounter;
+        private readonly Counter<int> _bundleFailureCounter;
+        private readonly Counter<int> _bundleSuccessCounter;
+        private readonly Histogram<long> _bundleLatencyHistogram;
 
         public DefaultBundleMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _bundleLatencyCounter = MetricMeter.CreateCounter<long>("Bundle.Latency");
+            _bundleLatencyHistogram = MetricMeter.CreateHistogram<long>("Bundle.Latency");
+            _bundleFailureCounter = MetricMeter.CreateCounter<int>("Bundle.Failure");
+            _bundleSuccessCounter = MetricMeter.CreateCounter<int>("Bundle.Success");
+        }
+
+        public void EmitFailure()
+        {
+            _bundleFailureCounter.Add(1);
         }
 
         public void EmitLatency(BundleMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _bundleLatencyCounter.Add(notification.ElapsedMilliseconds);
+            _bundleLatencyHistogram.Record(notification.ElapsedMilliseconds);
+        }
+
+        public void EmitSuccess()
+        {
+            _bundleSuccessCounter.Add(1);
         }
     }
 }
