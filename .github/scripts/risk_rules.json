@@ -1,0 +1,76 @@
+{
+  "risk_levels": {
+    "high": {
+      "description": "Security, authentication, schema migrations, encryption — changes here require mandatory human review.",
+      "patterns": [
+        "**/auth*",
+        "**/Auth*",
+        "**/Authorization*",
+        "**/Authentication*",
+        "**/Security*",
+        "**/Encryption*",
+        "**/Certificate*",
+        "**/Secret*",
+        "**/Token*",
+        "**/Schema/Migrations/**",
+        "**/*.sql",
+        "**/SchemaVersion*",
+        "**/SchemaVersionConstants*",
+        "**/Middleware/**",
+        "**/Filters/**",
+        "**/appsettings*.json",
+        "**/Startup.cs",
+        "**/Program.cs",
+        "**/CredScanSuppressions.json",
+        "**/CODEOWNERS",
+        "**/.github/workflows/**"
+      ]
+    },
+    "medium": {
+      "description": "Core business logic, API controllers, database access — changes here warrant careful review.",
+      "patterns": [
+        "**/Controllers/**",
+        "**/Core/**",
+        "**/Api/**",
+        "**/CosmosDb/**",
+        "**/SqlServer/**",
+        "**/Features/**",
+        "**/Handlers/**",
+        "**/Services/**",
+        "**/Extensions/**",
+        "**/Models/**",
+        "**/Directory.Build.props",
+        "**/Directory.Packages.props",
+        "**/nuget.config",
+        "**/*.csproj"
+      ]
+    },
+    "low": {
+      "description": "Tests, documentation, and configuration with no security impact.",
+      "patterns": [
+        "**/UnitTests/**",
+        "**/Tests.E2E/**",
+        "**/*.Tests/**",
+        "**/*.Test/**",
+        "**/*.md",
+        "docs/**",
+        "samples/**",
+        "**/*.txt",
+        "**/*.yml",
+        "**/*.yaml",
+        "**/*.json"
+      ]
+    }
+  },
+  "auto_approve": {
+    "max_risk_score": 3,
+    "comment": "Auto-approve is enabled when: (1) no high-risk files are changed, (2) AI risk score <= max_risk_score, (3) no failing CI checks."
+  },
+  "ai": {
+    "model": "gpt-4o-mini",
+    "endpoint": "https://models.inference.ai.azure.com/chat/completions",
+    "note": "Uses GitHub Models API — free for GitHub/Microsoft users, authenticated via GITHUB_TOKEN. No extra secrets required.",
+    "max_diff_chars": 24000,
+    "temperature": 0.2
+  }
+}
