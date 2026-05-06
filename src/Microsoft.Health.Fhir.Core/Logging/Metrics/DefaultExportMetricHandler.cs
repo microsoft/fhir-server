@@ -7,26 +7,11 @@ using System.Diagnostics.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class DefaultExportMetricHandler : BaseMeterMetricHandler, IExportMetricHandler
+    public sealed class DefaultExportMetricHandler : BaseSuccessRateMetricHandler, IExportMetricHandler
     {
-        private readonly Counter<int> _exportFailureCounter;
-        private readonly Counter<int> _exportSuccessCounter;
-
         public DefaultExportMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory)
+            : base(meterFactory, successMetricName: "Export.Success", failureMetricName: "Export.Failure")
         {
-            _exportFailureCounter = MetricMeter.CreateCounter<int>("Export.Failure");
-            _exportSuccessCounter = MetricMeter.CreateCounter<int>("Export.Success");
-        }
-
-        public void EmitFailure()
-        {
-            _exportFailureCounter.Add(1);
-        }
-
-        public void EmitSuccess()
-        {
-            _exportSuccessCounter.Add(1);
         }
     }
 }

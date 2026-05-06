@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -53,7 +54,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _updater = Substitute.For<IBulkUpdateService>();
             _supportedProfilesStore = Substitute.For<ISupportedProfilesStore>();
             _mediator = Substitute.For<IMediator>();
-            _processingJob = new BulkUpdateProcessingJob(_queueClient, _updater.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _supportedProfilesStore, _mediator, Substitute.For<ILogger<BulkUpdateProcessingJob>>());
+            _processingJob = new BulkUpdateProcessingJob(
+                _queueClient,
+                _updater.CreateMockScopeFactory(),
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                _supportedProfilesStore,
+                _mediator,
+                Substitute.For<IBulkUpdateMetricHandler>(),
+                Substitute.For<ILogger<BulkUpdateProcessingJob>>());
         }
 
         [Fact]

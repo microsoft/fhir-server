@@ -7,26 +7,11 @@ using System.Diagnostics.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class DefaultImportMetricHandler : BaseMeterMetricHandler, IImportMetricHandler
+    public sealed class DefaultImportMetricHandler : BaseSuccessRateMetricHandler, IImportMetricHandler
     {
-        private readonly Counter<int> _importFailureCounter;
-        private readonly Counter<int> _importSuccessCounter;
-
         public DefaultImportMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory)
+            : base(meterFactory, successMetricName: "Import.Success", failureMetricName: "Import.Failure")
         {
-            _importFailureCounter = MetricMeter.CreateCounter<int>("Import.Failure");
-            _importSuccessCounter = MetricMeter.CreateCounter<int>("Import.Success");
-        }
-
-        public void EmitFailure()
-        {
-            _importFailureCounter.Add(1);
-        }
-
-        public void EmitSuccess()
-        {
-            _importSuccessCounter.Add(1);
         }
     }
 }

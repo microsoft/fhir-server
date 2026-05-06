@@ -186,7 +186,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IImportMetricHandler, DefaultImportMetricHandler>();
             services.TryAddSingleton<IExportMetricHandler, DefaultExportMetricHandler>();
             services.TryAddSingleton<IReindexMetricHandler, DefaultReindexMetricHandler>();
-            services.TryAddSingleton<IReindexMetricHandler, DefaultReindexMetricHandler>();
+            services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();
+            services.TryAddSingleton<IBulkUpdateMetricHandler, DefaultBulkUpdateMetricHandler>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

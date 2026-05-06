@@ -7,10 +7,10 @@ using System.Diagnostics.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class DefaultReindexMetricHandler : BaseSuccessRateMetricHandler, IReindexMetricHandler
+    public sealed class DefaultBulkUpdateMetricHandler : BaseSuccessRateMetricHandler, IBulkUpdateMetricHandler
     {
-        public DefaultReindexMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "Reindex.Success", failureMetricName: "Reindex.Failure")
+        public DefaultBulkUpdateMetricHandler(IMeterFactory meterFactory)
+            : base(meterFactory, successMetricName: "BulkUpdate.Success", failureMetricName: "BulkUpdate.Failure")
         {
         }
     }

@@ -3,15 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics.Metrics;
-
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class DefaultReindexMetricHandler : BaseSuccessRateMetricHandler, IReindexMetricHandler
+    public interface IBulkDeleteMetricHandler : ISuccessRateMetricHandler
     {
-        public DefaultReindexMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "Reindex.Success", failureMetricName: "Reindex.Failure")
-        {
-        }
     }
 }

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -48,7 +49,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
-            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchParameterOperations, _searchService.CreateMockScopeFactory(), _queueClient);
+            _processingJob = new BulkDeleteProcessingJob(
+                _deleter.CreateMockScopeFactory(),
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                Substitute.For<IMediator>(),
+                _searchParameterOperations,
+                _searchService.CreateMockScopeFactory(),
+                Substitute.For<IBulkDeleteMetricHandler>(),
+                _queueClient);
         }
 
         [Fact]
