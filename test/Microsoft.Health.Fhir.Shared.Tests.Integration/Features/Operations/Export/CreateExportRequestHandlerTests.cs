@@ -442,15 +442,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenARequestWithMaxCountExceedingLimit_WhenCreatingAnExportJob_ThenBadRequestIsReturned()
-        {
-            uint requestedMaxCount = ExportJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1;
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, maxCount: requestedMaxCount);
-
-            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
-        }
-
-        [Fact]
         public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
             var formatName = "invalid";

@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -21,9 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord : JobRecord, IJobData
     {
-        public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
-        public const uint MinMaximumNumberOfResourcesPerQuery = 1;
-
         public ExportJobRecord(
             Uri requestUri,
             ExportJobType exportType,
@@ -72,11 +67,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             GroupId = groupId;
             StorageAccountConnectionHash = storageAccountConnectionHash;
             StorageAccountUri = storageAccountUri;
-            if (maximumNumberOfResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maximumNumberOfResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
-            {
-                throw new BadRequestException(string.Format(Core.Resources.InvalidExportParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery, MaxMaximumNumberOfResourcesPerQuery));
-            }
-
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;

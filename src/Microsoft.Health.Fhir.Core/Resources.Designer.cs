@@ -855,15 +855,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Export operation parameter &apos;{0}&apos; was out of the range of valid values. Please specify a different value within the range &apos;{1}&apos; - &apos;{2}&apos;..
-        /// </summary>
-        internal static string InvalidExportParameterValue {
-            get {
-                return ResourceManager.GetString("InvalidExportParameterValue", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Reindex operation parameter &apos;{0}&apos; was out of the range of valid values. Please specify different value within a range &apos;{1}&apos; - &apos;{2}&apos;..
         /// </summary>
         internal static string InvalidReIndexParameterValue {
