@@ -629,7 +629,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult?.Results.ToList(), anonymizer);
+                    ProcessSearchResults(searchResult?.Results, anonymizer);
                 }
 
                 if (searchResult?.ContinuationToken == null)
@@ -787,23 +787,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
-            // Testing to see if the returned enumerable is a list so we can remove items from it. This helps conserve memory by not keeping entries that have already been processed.
-            // Since the search service isn't guaranteed to return a list, we need to handle both cases.
-            if (searchResults is not List<SearchResultEntry>)
+            if (searchResults == null)
+            {
+                return;
+            }
+
+            if (searchResults is List<SearchResultEntry> searchResultsList)
+            {
+                for (int i = 0; i < searchResultsList.Count; i++)
+                {
+                    ProcessSearchResult(searchResultsList[i], anonymizer);
+                }
+
+                searchResultsList.Clear();
+            }
+            else
             {
                 foreach (var result in searchResults)
                 {
                     ProcessSearchResult(result, anonymizer);
-                }
-            }
-            else
-            {
-                var searchResultsList = searchResults as List<SearchResultEntry>;
-                while (searchResultsList.Any())
-                {
-                    var result = searchResultsList.First();
-                    ProcessSearchResult(result, anonymizer);
-                    searchResultsList.Remove(result);
                 }
             }
         }
@@ -841,6 +843,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
+
+            // Release the raw resource data to allow GC to reclaim LOH memory.
+            // The Lazy<string> inside RawResource caches the decompressed JSON string (~MBs per resource)
+            // and its closure retains the compressed byte[]. After writing to blob, neither is needed.
+            resourceWrapper.RawResource = null;
         }
 
         private async Task ProcessProgressChange(
