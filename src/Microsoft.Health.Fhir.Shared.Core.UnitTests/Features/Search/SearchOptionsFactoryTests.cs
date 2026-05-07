@@ -244,6 +244,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.True(options.CountOnly);
         }
 
+        [Fact]
+        public void GivenDuplicateSearchParameterWithSameValue_WhenCreated_ThenSearchParameterIsParsedOnce()
+        {
+            const string parameterName = "_tag";
+            const string parameterValue = "system|code";
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                parameterValue)
+                .Returns(new StubExpression($"{parameterName}={parameterValue}"));
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(parameterName, parameterValue),
+                Tuple.Create(parameterName, parameterValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                parameterValue);
+        }
+
+        [Fact]
+        public void GivenDuplicateSearchParameterNameWithDifferentValues_WhenCreated_ThenBothSearchParametersAreParsed()
+        {
+            const string parameterName = "_tag";
+            const string firstParameterValue = "system|code1";
+            const string secondParameterValue = "system|code2";
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                firstParameterValue)
+                .Returns(new StubExpression($"{parameterName}={firstParameterValue}"));
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                secondParameterValue)
+                .Returns(new StubExpression($"{parameterName}={secondParameterValue}"));
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(parameterName, firstParameterValue),
+                Tuple.Create(parameterName, secondParameterValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                firstParameterValue);
+
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                secondParameterValue);
+        }
+
         [Theory]
         [InlineData("a")]
         [InlineData("1.1")]
