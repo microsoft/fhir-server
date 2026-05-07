@@ -34,6 +34,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Fact]
+        public void GivenANewSearchParameterInfo_WhenConstructed_ThenIsScalarTemporalDefaultsToFalse()
+        {
+            var sp = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            Assert.False(sp.IsScalarTemporal);
+        }
+
+        [Fact]
         public void GivenSearchParameterInfo_WhenIsDateOnlyToggles_ThenCalculateSearchParameterHashIsUnchanged()
         {
             var sp = new SearchParameterInfo(
@@ -50,6 +64,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             string hashBefore = new List<SearchParameterInfo> { sp }.CalculateSearchParameterHash();
 
             sp.IsDateOnly = true;
+
+            string hashAfter = new List<SearchParameterInfo> { sp }.CalculateSearchParameterHash();
+
+            Assert.Equal(hashBefore, hashAfter);
+        }
+
+        [Fact]
+        public void GivenSearchParameterInfo_WhenIsScalarTemporalToggles_ThenCalculateSearchParameterHashIsUnchanged()
+        {
+            var sp = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" })
+            {
+                SearchParameterStatus = SearchParameterStatus.Enabled,
+            };
+
+            string hashBefore = new List<SearchParameterInfo> { sp }.CalculateSearchParameterHash();
+
+            sp.IsScalarTemporal = true;
 
             string hashAfter = new List<SearchParameterInfo> { sp }.CalculateSearchParameterHash();
 

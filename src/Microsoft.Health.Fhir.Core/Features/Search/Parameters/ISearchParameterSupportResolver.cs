@@ -25,7 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// Conservative: a custom parameter whose <c>.as(date)</c> / <c>.ofType(date)</c> intent is not detectable
         /// from the FhirPath expression yields <c>false</c>, forfeiting the optimization but never producing wrong results.
         /// </para>
+        /// <para>
+        /// <c>IsScalarTemporal</c> — every type-resolution result for the parameter's expression has scalar temporal
+        /// FhirNodeType <c>date</c>, <c>dateTime</c>, or <c>instant</c>, with no <c>Period</c>, <c>Timing</c>, or other
+        /// range-capable temporal type. Used for SQL-side diagnostics and allow-listed query optimizations.
+        /// </para>
         /// </returns>
-        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) IsSearchParameterSupported(SearchParameterInfo parameterInfo);
+        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, bool IsScalarTemporal) IsSearchParameterSupported(SearchParameterInfo parameterInfo);
     }
 }
