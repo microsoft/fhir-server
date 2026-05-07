@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     // Even when status is already known, temporal metadata is derived and not persisted
                     // in the status store. Compute it once at startup so SQL rewriters can rely on it.
-                    if (!temporalMetadataResolved && (!p.IsDateOnly || !p.IsScalarTemporal))
+                    if (!temporalMetadataResolved)
                     {
                         var temporalResult = CheckSearchParameterSupport(p);
                         p.IsDateOnly = temporalResult.IsDateOnly;
