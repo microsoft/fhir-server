@@ -315,19 +315,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (OutOfMemoryException ex)
-            {
-                // The job has encountered an error it cannot recover from.
-                // Try to update the job to failed state.
-                _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
-
-                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
                 await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
+            }
+            catch (OutOfMemoryException)
+            {
+                // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
+                throw;
             }
             catch (Exception ex)
             {
@@ -637,11 +633,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
+                // For the SQL parallel path (surrogate IDs set), skip per-page job segmentation.
+                // The surrogate ID range is the resumability unit, so resources accumulate in one
+                // file until the rolling size limit is reached or the range is fully processed.
+                bool hasSurrogateIdRange = !string.IsNullOrEmpty(_exportJobRecord.StartSurrogateId) &&
+                                           !string.IsNullOrEmpty(_exportJobRecord.EndSurrogateId);
+
                 await ProcessProgressChange(
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    false,
+                    hasSurrogateIdRange,
                     cancellationToken);
             }
 

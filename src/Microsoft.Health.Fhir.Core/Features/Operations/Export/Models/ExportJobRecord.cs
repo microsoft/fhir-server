@@ -171,10 +171,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string GroupId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.StartSurrogateId)]
-        public string StartSurrogateId { get; private set; }
+        public string StartSurrogateId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.EndSurrogateId)]
-        public string EndSurrogateId { get; private set; }
+        public string EndSurrogateId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.GlobalEndSurrogateId)]
         public string GlobalEndSurrogateId { get; private set; }
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string StorageAccountUri { get; private set; }
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+        public uint MaximumNumberOfResourcesPerQuery { get; internal set; }
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }
