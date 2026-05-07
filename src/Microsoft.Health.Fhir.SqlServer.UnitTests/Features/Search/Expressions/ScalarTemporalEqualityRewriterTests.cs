@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-#pragma warning disable xUnit2005
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
@@ -51,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfDay, EndOfDay));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             var rewritten = Assert.IsType<SearchParameterExpression>(result);
             var binary = Assert.IsType<BinaryExpression>(rewritten.Expression);
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfMonth, EndOfMonth));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             var rewritten = Assert.IsType<SearchParameterExpression>(result);
             var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
@@ -93,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfYear, EndOfYear));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             var rewritten = Assert.IsType<SearchParameterExpression>(result);
             var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
@@ -123,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 BuildParam(isScalarTemporal: true, new Uri("http://example.org/SearchParameter/test-date")),
                 EqualityPattern(StartOfYear, EndOfYear));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
@@ -133,7 +132,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: false), EqualityPattern(StartOfYear, EndOfYear));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+
+            Assert.Same(expr, result);
+        }
+
+        [Fact]
+        public void GivenDateOnlyButNotScalarTemporalAllowListedParameter_WhenEqualityPatternMatched_ThenPassThrough()
+        {
+            var parameter = BuildParam(isScalarTemporal: false);
+            parameter.IsDateOnly = true;
+            var expr = new SearchParameterExpression(parameter, EqualityPattern(StartOfYear, EndOfYear));
+
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
@@ -144,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var single = Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay);
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), single);
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
@@ -155,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var range = Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay);
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), range);
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
@@ -170,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var approxEnd = EndOfDay.AddDays(30);
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(approxStart, approxEnd));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
@@ -190,10 +201,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             };
             var expr = new SearchParameterExpression(composite, EqualityPattern(StartOfDay, EndOfDay));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = (SearchParameterExpression)expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
             Assert.Same(expr, result);
         }
     }
-    #pragma warning restore xUnit2005
 }
