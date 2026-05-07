@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public interface ISuccessRateMetricHandler
     {
-        void EmitSuccess();
+        void EmitFailure(string errorType);
 
-        void EmitFailure();
+        void EmitSuccess();
     }
 }

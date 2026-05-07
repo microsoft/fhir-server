@@ -474,7 +474,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
                 statistics.MarkBundleAsCancelled();
 
-                _metricHandler.EmitFailure();
+                _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
 
                 throw;
             }
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
                 }
 
-                _metricHandler.EmitFailure();
+                _metricHandler.EmitFailure(ex.GetType().Name);
 
                 throw;
             }

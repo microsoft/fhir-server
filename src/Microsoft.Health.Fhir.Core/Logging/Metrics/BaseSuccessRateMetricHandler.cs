@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using EnsureThat;
 
@@ -23,9 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
             _successCounter = MetricMeter.CreateCounter<int>(successMetricName);
         }
 
-        public void EmitFailure()
+        public void EmitFailure(string errorType)
         {
-            _failureCounter.Add(1);
+            EnsureArg.IsNotNull(errorType, nameof(errorType));
+
+            _failureCounter.Add(1, new KeyValuePair<string, object>("ExceptionType", errorType));
         }
 
         public void EmitSuccess()

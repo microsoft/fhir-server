@@ -7,7 +7,7 @@ namespace Microsoft.Health.JobManagement
 {
     public interface IJobMetric
     {
-        void EmitFailure();
+        void EmitFailure(string errorType);
 
         void EmitSuccess();
     }

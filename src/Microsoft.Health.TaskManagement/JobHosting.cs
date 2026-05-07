@@ -225,7 +225,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                    jobMetric?.EmitFailure();
+                    jobMetric?.EmitFailure(nameof(JobExecutionException));
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -251,7 +251,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                    jobMetric?.EmitFailure();
+                    jobMetric?.EmitFailure(nameof(JobExecutionSoftFailureException));
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -272,7 +272,7 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogJobWarning(ex, jobInfo, "Job canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
-                jobMetric?.EmitFailure();
+                jobMetric?.EmitFailure(nameof(OperationCanceledException));
 
                 try
                 {
@@ -292,7 +292,7 @@ namespace Microsoft.Health.JobManagement
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
-                jobMetric?.EmitFailure();
+                jobMetric?.EmitFailure(ex.GetType().Name);
 
                 try
                 {

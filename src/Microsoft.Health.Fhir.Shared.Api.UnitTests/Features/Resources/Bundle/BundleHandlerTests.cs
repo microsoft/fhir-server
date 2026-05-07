@@ -507,7 +507,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
 
                 // Ensures success sign is emitted.
-                _bundleMetricHandler.Received(1).EmitFailure();
+                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
             }
         }
 
