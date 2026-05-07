@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
                         }
 
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, _) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                         if (!supportedResult.Supported)
                         {
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, _) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                         if (!supportedResult.Supported)
                         {
