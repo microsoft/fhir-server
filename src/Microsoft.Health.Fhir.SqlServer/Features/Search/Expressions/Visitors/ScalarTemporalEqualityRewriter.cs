@@ -15,16 +15,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// For allow-listed scalar temporal FHIR search parameters (parameters where each resource stores a single
     /// date/dateTime instant, e.g. <c>birthdate</c>), every stored row has <c>StartDateTime</c> and
     /// <c>EndDateTime</c> that represent one calendar instant expanded to period boundaries. The two-predicate
-    /// overlap form emitted by Core for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>)
+    /// containment form emitted by Core for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>)
     /// can be collapsed to predicates on <c>DateTimeEnd</c> only for precisions where the rewrite is safe.
     ///
     /// <list type="bullet">
     ///   <item>Exact UTC calendar day: collapses to <c>DateTimeEnd = endOfDay</c>.</item>
     ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
-    ///   <item>Exact UTC calendar month: passes through unchanged. A month-precision query must still match
-    ///     stored rows whose value has only year precision (e.g. <c>birthDate=2016</c> stored with
-    ///     <c>EndDateTime=2016-12-31T23:59:59.9999999Z</c>), so collapsing to a DateTimeEnd range would
-    ///     produce false negatives.</item>
+    ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
+    ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
     ///   <item>Approximate (<c>ap</c>) expressions with non-boundary constants pass through unchanged.</item>
     /// </list>
     ///

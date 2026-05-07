@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             EnsureArg.IsTrue(parameters.Any());
 
             // Set states of known parameters
+            Stopwatch temporalMetadataStopwatch = Stopwatch.StartNew();
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
                 if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
@@ -133,6 +135,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
+            temporalMetadataStopwatch.Stop();
+
             int scalarTemporalCount = 0;
             int scalarTemporalAllowListedCount = 0;
 
@@ -150,10 +154,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             _logger.LogInformation(
-                "SearchParameterStatusManager: Scalar temporal search parameters discovered. Total={ScalarTemporalCount}, AllowListed={ScalarTemporalAllowListedCount}, NotAllowListed={ScalarTemporalNotAllowListedCount}",
+                "SearchParameterStatusManager: Scalar temporal search parameters discovered. Total={ScalarTemporalCount}, AllowListed={ScalarTemporalAllowListedCount}, NotAllowListed={ScalarTemporalNotAllowListedCount}, TemporalMetadataResolutionElapsedMs={TemporalMetadataResolutionElapsedMs}",
                 scalarTemporalCount,
                 scalarTemporalAllowListedCount,
-                scalarTemporalCount - scalarTemporalAllowListedCount);
+                scalarTemporalCount - scalarTemporalAllowListedCount,
+                temporalMetadataStopwatch.ElapsedMilliseconds);
 
             var disableSortIndicesList = _searchParameterDefinitionManager.AllSearchParameters.Where(u => enabledSortIndices.Contains(u.Url.ToString()) && u.SortStatus != SortParameterStatus.Enabled);
             if (disableSortIndicesList.Any())
