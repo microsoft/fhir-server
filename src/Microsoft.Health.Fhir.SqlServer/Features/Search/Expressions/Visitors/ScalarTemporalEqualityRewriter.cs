@@ -42,17 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            if (!IsActivatedScalarTemporalParameter(expression))
-            {
-                return expression;
-            }
-
-            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startGe, out BinaryExpression endLe))
-            {
-                return expression;
-            }
-
-            if (startGe.Value is not DateTimeOffset startValue || endLe.Value is not DateTimeOffset endValue)
+            if (!TryGetRewriteValues(expression, out BinaryExpression endLe, out DateTimeOffset startValue, out DateTimeOffset endValue))
             {
                 return expression;
             }
@@ -124,6 +114,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             return false;
+        }
+
+        internal static bool WouldRewrite(SearchParameterExpression expression)
+        {
+            if (!TryGetRewriteValues(expression, out _, out DateTimeOffset startValue, out DateTimeOffset endValue))
+            {
+                return false;
+            }
+
+            return IsExactDay(startValue, endValue) || IsExactYear(startValue, endValue);
+        }
+
+        private static bool TryGetRewriteValues(
+            SearchParameterExpression expression,
+            out BinaryExpression endLe,
+            out DateTimeOffset startValue,
+            out DateTimeOffset endValue)
+        {
+            endLe = null;
+            startValue = default;
+            endValue = default;
+
+            if (!IsActivatedScalarTemporalParameter(expression))
+            {
+                return false;
+            }
+
+            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startGe, out endLe))
+            {
+                return false;
+            }
+
+            if (startGe.Value is not DateTimeOffset matchedStartValue || endLe.Value is not DateTimeOffset matchedEndValue)
+            {
+                return false;
+            }
+
+            startValue = matchedStartValue;
+            endValue = matchedEndValue;
+            return true;
         }
 
         private static bool IsExactDay(DateTimeOffset start, DateTimeOffset end)

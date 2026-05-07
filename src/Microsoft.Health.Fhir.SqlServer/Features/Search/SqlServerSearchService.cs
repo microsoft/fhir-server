@@ -431,6 +431,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             Expression searchExpression = sqlSearchOptions.Expression;
+            IReadOnlyList<ScalarTemporalSearchParameterDiagnostics.ScalarTemporalSearchParameterDiagnostic> scalarTemporalDiagnostics =
+                ScalarTemporalSearchParameterDiagnostics.Collect(searchExpression);
+
+            foreach (var candidate in scalarTemporalDiagnostics.Where(x => x.HasEqualityShape && !x.IsAllowListed))
+            {
+                _logger.LogDebug(
+                    "Scalar temporal equality search parameter candidate is not allow-listed. Url={SearchParameterUrl}, Code={SearchParameterCode}",
+                    candidate.Url,
+                    candidate.Code);
+            }
 
             // AND in the continuation token
             if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
@@ -498,6 +508,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludeRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+
+            foreach (var candidate in scalarTemporalDiagnostics.Where(x => x.WouldRewrite))
+            {
+                _logger.LogDebug(
+                    "Scalar temporal equality rewrite active. Url={SearchParameterUrl}, Code={SearchParameterCode}",
+                    candidate.Url,
+                    candidate.Code);
+            }
 
             await CreateStats(expression, cancellationToken);
 
@@ -833,6 +851,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                                string scalarTemporalDiagnosticSummary = ScalarTemporalSearchParameterDiagnostics.BuildSummary(scalarTemporalDiagnostics);
 
                                 // Fire-and-forget: Log query details without blocking the response
                                 _ = Task.Run(async () =>
@@ -843,6 +862,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
                                             isStoredProcSnapshot,
+                                            scalarTemporalDiagnosticSummary,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
@@ -851,9 +871,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     catch (Exception ex)
                                     {
                                         _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. ScalarTemporalSearchParameters={ScalarTemporalSearchParameters}. Query Store lookup failed for long-running query.",
                                             executionTimeSnapshot,
-                                            queryTextSnapshot);
+                                            queryTextSnapshot,
+                                            scalarTemporalDiagnosticSummary);
                                         _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
                                     }
                                 });
@@ -1145,6 +1166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private async Task LogQueryStoreByTextAsync(
             string queryText,
             bool isStoredProcedure,
+            string scalarTemporalDiagnosticSummary,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
@@ -1237,17 +1259,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (sb.Length > 0)
                     {
                         logger.LogWarning(
-                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} ScalarTemporalSearchParameters={ScalarTemporalSearchParameters} QueryStoreStats={QueryStoreStats}",
                             executionTime,
                             queryText,
+                            scalarTemporalDiagnosticSummary,
                             sb.ToString());
                     }
                     else
                     {
                         logger.LogWarning(
-                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} ScalarTemporalSearchParameters={ScalarTemporalSearchParameters} QueryStoreStats={QueryStoreStats}",
                             executionTime,
                             queryText,
+                            scalarTemporalDiagnosticSummary,
                             "No Query Store matches found.");
                     }
                 },
@@ -1806,6 +1830,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, gteExpression),
                 Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lteExpression));
             Expression searchExpression = sqlSearchOptions.Expression == null ? tokenExpression : Expression.And(tokenExpression, sqlSearchOptions.Expression);
+            IReadOnlyList<ScalarTemporalSearchParameterDiagnostics.ScalarTemporalSearchParameterDiagnostic> scalarTemporalDiagnostics =
+                ScalarTemporalSearchParameterDiagnostics.Collect(searchExpression);
+
+            foreach (var candidate in scalarTemporalDiagnostics.Where(x => x.HasEqualityShape && !x.IsAllowListed))
+            {
+                _logger.LogDebug(
+                    "Scalar temporal equality search parameter candidate is not allow-listed. Url={SearchParameterUrl}, Code={SearchParameterCode}",
+                    candidate.Url,
+                    candidate.Code);
+            }
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
@@ -1820,6 +1854,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+
+            foreach (var candidate in scalarTemporalDiagnostics.Where(x => x.WouldRewrite))
+            {
+                _logger.LogDebug(
+                    "Scalar temporal equality rewrite active. Url={SearchParameterUrl}, Code={SearchParameterCode}",
+                    candidate.Url,
+                    candidate.Code);
+            }
 
             await CreateStats(expression, cancellationToken);
 
@@ -2021,6 +2063,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                                string scalarTemporalDiagnosticSummary = ScalarTemporalSearchParameterDiagnostics.BuildSummary(scalarTemporalDiagnostics);
 
                                 // Fire-and-forget: Log query details without blocking the response
                                 _ = Task.Run(async () =>
@@ -2031,6 +2074,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
                                             isStoredProcSnapshot,
+                                            scalarTemporalDiagnosticSummary,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
@@ -2039,9 +2083,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     catch (Exception ex)
                                     {
                                         _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. ScalarTemporalSearchParameters={ScalarTemporalSearchParameters}. Query Store lookup failed for long-running query.",
                                             executionTimeSnapshot,
-                                            queryTextSnapshot);
+                                            queryTextSnapshot,
+                                            scalarTemporalDiagnosticSummary);
                                         _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
                                     }
                                 });
