@@ -57,12 +57,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 throw new NotSupportedException("No target resources defined.");
             }
 
-            // IsDateOnly is the AND across all per-resource resolutions. The flag is only true when every
-            // resolved type for every base/target resource is FHIR "date". A single dateTime/instant/Period/Timing
-            // result, or a non-Date SearchParamType, forces false.
-            bool allResolutionsAreDateOnly =
+            bool isSimpleDateParameter =
                 parameterInfo.Type == SearchParamType.Date &&
                 (parameterInfo.Component == null || parameterInfo.Component.Count == 0);
+
+            bool allResolutionsAreDateOnly = isSimpleDateParameter;
+            bool allResolutionsAreScalarTemporal = isSimpleDateParameter;
 
             foreach (var resource in resourceTypes)
             {
@@ -77,6 +77,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         !results.All(r => string.Equals(r.FhirNodeType, "date", StringComparison.OrdinalIgnoreCase)))
                     {
                         allResolutionsAreDateOnly = false;
+                    }
+                }
+
+                if (allResolutionsAreScalarTemporal)
+                {
+                    if (results.Length == 0 ||
+                        !results.All(r => IsScalarTemporalNodeType(r.FhirNodeType)))
+                    {
+                        allResolutionsAreScalarTemporal = false;
                     }
                 }
 
@@ -107,7 +116,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
-            return (true, false, allResolutionsAreDateOnly, false);
+            static bool IsScalarTemporalNodeType(string fhirNodeType)
+            {
+                return string.Equals(fhirNodeType, "date", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(fhirNodeType, "dateTime", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(fhirNodeType, "instant", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return (true, false, allResolutionsAreDateOnly, allResolutionsAreScalarTemporal);
         }
     }
 }

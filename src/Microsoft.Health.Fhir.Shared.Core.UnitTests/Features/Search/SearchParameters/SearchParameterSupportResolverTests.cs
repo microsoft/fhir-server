@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.False(supported.IsDateOnly);
+            Assert.False(supported.IsScalarTemporal);
         }
 
         [Fact]
@@ -61,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.False(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.False(supported.IsDateOnly);
+            Assert.False(supported.IsScalarTemporal);
         }
 
         [Fact]
@@ -84,6 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(supported.Supported);
             Assert.True(supported.IsPartiallySupported);
+            Assert.False(supported.IsDateOnly);
+            Assert.False(supported.IsScalarTemporal);
         }
 
         [Fact]
@@ -101,6 +107,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.False(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.False(supported.IsDateOnly);
+            Assert.False(supported.IsScalarTemporal);
         }
 
         [Fact]
@@ -132,6 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(result.Supported);
             Assert.True(result.IsDateOnly);
+            Assert.True(result.IsScalarTemporal);
         }
 
         [Fact]
@@ -150,6 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(result.Supported);
             Assert.False(result.IsDateOnly);
+            Assert.False(result.IsScalarTemporal);
         }
 
         [Fact]
@@ -167,6 +177,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(result.Supported);
             Assert.True(result.IsDateOnly);
+            Assert.True(result.IsScalarTemporal);
         }
 
         [Fact]
@@ -184,6 +195,114 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(result.Supported);
             Assert.False(result.IsDateOnly);
+            Assert.False(result.IsScalarTemporal);
+        }
+
+        [Fact]
+        public void GivenAScalarDateTimeParameter_WhenResolvingSupport_ThenIsScalarTemporalIsTrue()
+        {
+            var sp = new SearchParameterInfo(
+                "MedicationRequest-authoredon",
+                "authoredon",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/MedicationRequest-authoredon"),
+                expression: "MedicationRequest.authoredOn",
+                baseResourceTypes: new[] { "MedicationRequest" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+            Assert.True(result.IsScalarTemporal);
+        }
+
+        [Fact]
+        public void GivenAnInstantParameter_WhenResolvingSupport_ThenIsScalarTemporalIsTrue()
+        {
+            var sp = new SearchParameterInfo(
+                "Bundle-timestamp",
+                "timestamp",
+                SearchParamType.Date,
+                new Uri("http://example.org/SearchParameter/Bundle-timestamp"),
+                expression: "Bundle.timestamp",
+                baseResourceTypes: new[] { "Bundle" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+            Assert.True(result.IsScalarTemporal);
+        }
+
+        [Fact]
+        public void GivenAPeriodParameter_WhenResolvingSupport_ThenIsScalarTemporalIsFalse()
+        {
+            var sp = new SearchParameterInfo(
+                "Encounter-date",
+                "date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
+                expression: "Encounter.period",
+                baseResourceTypes: new[] { "Encounter" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+            Assert.False(result.IsScalarTemporal);
+        }
+
+        [Fact]
+        public void GivenAMixedTemporalParameter_WhenResolvingSupport_ThenIsScalarTemporalIsFalse()
+        {
+            var sp = new SearchParameterInfo(
+                "Observation-date",
+                "date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
+                expression: "Observation.effective",
+                baseResourceTypes: new[] { "Observation" });
+
+            var result = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+            Assert.False(result.IsScalarTemporal);
+        }
+
+        [Fact]
+        public void GivenACompositeDateParameter_WhenResolvingSupport_ThenIsScalarTemporalIsFalse()
+        {
+            var birthdate = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            var composite = new SearchParameterInfo(
+                "Patient-code-birthdate",
+                "code-birthdate",
+                SearchParamType.Composite,
+                new Uri("http://example.org/SearchParameter/Patient-code-birthdate"),
+                components: new[]
+                {
+                    new SearchParameterComponentInfo(
+                        new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                        "birthDate")
+                    {
+                        ResolvedSearchParameter = birthdate,
+                    },
+                },
+                expression: "Patient",
+                baseResourceTypes: new[] { "Patient" });
+
+            var result = _resolver.IsSearchParameterSupported(composite);
+
+            Assert.True(result.Supported);
+            Assert.False(result.IsDateOnly);
+            Assert.False(result.IsScalarTemporal);
         }
     }
 }
