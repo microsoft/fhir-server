@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 
         public void EmitFailure(string errorType)
         {
-            EnsureArg.IsNotNull(errorType, nameof(errorType));
+            EnsureArg.IsNotNullOrWhiteSpace(errorType, nameof(errorType));
 
             _failureCounter.Add(1, new KeyValuePair<string, object>("ExceptionType", errorType));
         }
