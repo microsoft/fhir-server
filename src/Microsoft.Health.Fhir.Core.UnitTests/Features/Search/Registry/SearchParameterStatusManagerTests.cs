@@ -202,6 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
 
+            _searchParameterSupportResolver.Received(1).IsSearchParameterSupported(Arg.Is(_searchParameterInfos[2]));
             Assert.False(list[2].IsSearchable);
             Assert.False(list[2].IsSupported);
             Assert.False(list[2].IsPartiallySupported);
