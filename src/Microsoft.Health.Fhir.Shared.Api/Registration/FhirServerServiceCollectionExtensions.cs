@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -185,6 +186,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             // Feature specific metric handlers.
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
 
             // Job metric handlers.
             services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();

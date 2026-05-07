@@ -5,7 +5,7 @@
 
 using System.Diagnostics.Metrics;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
     public sealed class DefaultImportMetricHandler : BaseSuccessRateMetricHandler, IImportMetricHandler
     {

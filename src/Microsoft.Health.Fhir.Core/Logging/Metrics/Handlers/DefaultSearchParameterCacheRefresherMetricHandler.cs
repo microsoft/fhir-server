@@ -5,12 +5,12 @@
 
 using System.Diagnostics.Metrics;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
-    public sealed class DefaultBulkDeleteMetricHandler : BaseSuccessRateMetricHandler, IBulkDeleteMetricHandler
+    public sealed class DefaultSearchParameterCacheRefresherMetricHandler : BaseSuccessRateMetricHandler, ISearchParameterCacheRefresherMetricHandler
     {
-        public DefaultBulkDeleteMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "BulkDelete.Success", failureMetricName: "BulkDelete.Failure")
+        public DefaultSearchParameterCacheRefresherMetricHandler(IMeterFactory meterFactory)
+            : base(meterFactory, successMetricName: "SearchParameter.Success", failureMetricName: "SearchParameter.Failure")
         {
         }
     }

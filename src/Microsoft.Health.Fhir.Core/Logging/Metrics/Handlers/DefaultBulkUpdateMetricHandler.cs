@@ -5,12 +5,12 @@
 
 using System.Diagnostics.Metrics;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
-    public sealed class DefaultExportMetricHandler : BaseSuccessRateMetricHandler, IExportMetricHandler
+    public sealed class DefaultBulkUpdateMetricHandler : BaseSuccessRateMetricHandler, IBulkUpdateMetricHandler
     {
-        public DefaultExportMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "Export.Success", failureMetricName: "Export.Failure")
+        public DefaultBulkUpdateMetricHandler(IMeterFactory meterFactory)
+            : base(meterFactory, successMetricName: "BulkUpdate.Success", failureMetricName: "BulkUpdate.Failure")
         {
         }
     }
