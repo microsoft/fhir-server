@@ -1,17 +1,6 @@
 ---
 name: fhir-sql-query-generation-pipeline
-description: |
-  Expert knowledge of the Microsoft FHIR Server C# search-to-SQL query generation pipeline.
-  Construction-oriented: rewriter order, expression-tree shape, why SQL looks the way it does.
-  For slow-query triage, design-limitation vs bug, index/hint recommendations, and Query Store playbooks, load `fhir-sql-diagnose-query-perf` alongside this skill.
-  Activate when: analyzing how FHIR search queries translate to SQL, debugging generated SQL,
-  understanding CTE structures from search expressions, working with expression rewriters,
-  SqlServerSearchService, SqlQueryGenerator, search parameter query generators, chain searches,
-  _include/_revinclude SQL generation, _sort SQL generation, continuation tokens, query plan hashing,
-  "SearchParamTableExpression", "SqlRootExpression", "expression rewriter", "query generator",
-  "CTE", "chain search", "include search", FHIR search SQL, "CustomQueries", "query cache",
-  "HashingSqlQueryParameterManager", "SqlCommandSimplifier", long-running search queries,
-  search query performance, "OPTION (RECOMPILE)", "OPTION (OPTIMIZE FOR UNKNOWN)".
+description: Use when analyzing FHIR search-to-SQL generation, generated SQL/CTEs, expression rewriters, SqlQueryGenerator, SearchParamTableExpression, includes, chains, sorts, continuation tokens, query hashes, CustomQueries, or query cache behavior.
 ---
 
 # FHIR SQL Query Generation Pipeline
