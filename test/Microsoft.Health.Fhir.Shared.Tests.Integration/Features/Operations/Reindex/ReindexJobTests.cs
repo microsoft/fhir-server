@@ -247,7 +247,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _resourceWrapperFactory,
                             _searchParameterOperations,
                             _searchParameterStatusManager,
-                            Substitute.For<IReindexMetricHandler>(),
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -264,9 +263,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 });
             }
 
+            IJobMetricFactory metricFactory = Substitute.For<IJobMetricFactory>();
+
             var logger = NullLogger<JobHosting>.Instance;
 
-            _jobHosting = new JobHosting(_queueClient, _jobFactory, logger);
+            _jobHosting = new JobHosting(_queueClient, _jobFactory, metricFactory, logger);
 
             // Configure for faster polling to make tests run quicker
             _jobHosting.PollingFrequencyInSeconds = 1;
@@ -1239,7 +1240,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _resourceWrapperFactory,
                 _searchParameterOperations,
                 _searchParameterStatusManager,
-                Substitute.For<IReindexMetricHandler>(),
                 NullLogger<ReindexProcessingJob>.Instance);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);

@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      _resourceWrapperFactory,
                      _searchParameterOperations,
                      _searchParameterStatusManager,
-                     Substitute.For<IReindexMetricHandler>(),
                      NullLogger<ReindexProcessingJob>.Instance);
         }
 

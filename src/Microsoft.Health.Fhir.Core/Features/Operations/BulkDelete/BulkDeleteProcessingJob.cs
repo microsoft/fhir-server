@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -36,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly IMediator _mediator;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchService;
-        private readonly IBulkDeleteMetricHandler _bulkDeleteMetricHandler;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
@@ -45,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             IMediator mediator,
             ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchService,
-            IBulkDeleteMetricHandler bulkDeleteMetricHandler,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
@@ -53,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
-            _bulkDeleteMetricHandler = EnsureArg.IsNotNull(bulkDeleteMetricHandler, nameof(bulkDeleteMetricHandler));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
@@ -126,11 +122,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    _bulkDeleteMetricHandler.EmitFailure();
                     throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
                 }
-
-                _bulkDeleteMetricHandler.EmitSuccess();
 
                 if (types.Count > 1)
                 {

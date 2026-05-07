@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IImportMetricHandler _importMetricHandler;
         private readonly ILogger<ImportProcessingJob> _logger;
         private readonly IAuditLogger _auditLogger;
 
@@ -52,7 +51,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IImportMetricHandler importMetricHandler,
             ILoggerFactory loggerFactory,
             IAuditLogger auditLogger)
         {
@@ -62,7 +60,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            _importMetricHandler = EnsureArg.IsNotNull(importMetricHandler, nameof(importMetricHandler));
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
         }
@@ -160,7 +157,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // jobs are small, send on success only
                 await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, result.SucceededResources, result.FailedResources, result.ProcessedBytes, definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                _importMetricHandler.EmitSuccess();
 
                 return JsonConvert.SerializeObject(result);
             }
@@ -172,42 +168,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (SqlException ex) when (ex.Number == FhirSqlErrorCodes.SurrogateIdCollision)
             {
-                _importMetricHandler.EmitFailure();
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on Surrogate Id Collision. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);
             }
             catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
             {
-                _importMetricHandler.EmitFailure();
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Concurrent update attempts.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);
             }
             catch (OverflowException ex)
             {
-                _importMetricHandler.EmitSuccess(); // Input error.
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
             {
-                _importMetricHandler.EmitSuccess(); // Input error.
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "Error container name contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed. The name must begin and end with a letter or a number. The name can't contain two consecutive hyphens.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(error.ErrorMessage, error, ex, false);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name length is not within the permissible limits", StringComparison.OrdinalIgnoreCase))
             {
-                _importMetricHandler.EmitSuccess(); // Input error.
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "The error container name must be between 3 and 63 characters long.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(error.ErrorMessage, error, ex, false);
             }
             catch (Exception ex)
             {
-                _importMetricHandler.EmitFailure();
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);

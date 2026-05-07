@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly IMediator _mediator;
+        private readonly IBundleMetricHandler _bundleMetricHandler;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _mediator = Substitute.For<IMediator>();
 
-            var metricHandler = Substitute.For<IBundleMetricHandler>();
+            _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
 
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Substitute.For<ISearchParameterOperations>(),
                 _mediator,
                 _router,
-                metricHandler,
+                _bundleMetricHandler,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -260,6 +261,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            // Ensures success sign is emitted.
+            _bundleMetricHandler.Received(1).EmitSuccess();
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -403,6 +407,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
 
+            // Ensures success sign is emitted.
+            _bundleMetricHandler.Received(1).EmitSuccess();
+
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
             Assert.Single(bundleResource.Entry);
@@ -498,6 +505,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 // Resulting in a HTTP408 error.
                 FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
+
+                // Ensures success sign is emitted.
+                _bundleMetricHandler.Received(1).EmitFailure();
             }
         }
 

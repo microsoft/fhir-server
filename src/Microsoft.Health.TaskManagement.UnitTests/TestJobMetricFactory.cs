@@ -3,11 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.JobManagement;
+using NSubstitute;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.JobManagement.UnitTests
 {
-    public interface IBulkDeleteMetricHandler : IJobMetric, ISuccessRateMetricHandler
+    public class TestJobMetricFactory : IJobMetricFactory
     {
+        private readonly IJobMetric _jobMetric = Substitute.For<IJobMetric>();
+
+        public IJobMetric Create(JobInfo jobInfo)
+        {
+            return _jobMetric;
+        }
     }
 }

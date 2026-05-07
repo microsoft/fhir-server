@@ -6,13 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Support;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -21,19 +18,11 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
-using Microsoft.Health.Fhir.Core.Messages.Patch;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
-using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 {
@@ -51,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<IBulkUpdateService>> _updateFactory;
         private readonly IMediator _mediator;
-        private readonly IBulkUpdateMetricHandler _bulkUpdateMetricHandler;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
         internal const uint ProcessingBatchSize = 1000;
@@ -62,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISupportedProfilesStore supportedProfiles,
             IMediator mediator,
-            IBulkUpdateMetricHandler bulkUpdateMetricHandler,
             ILogger<BulkUpdateProcessingJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -70,7 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _supportedProfiles = EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
-            _bulkUpdateMetricHandler = EnsureArg.IsNotNull(bulkUpdateMetricHandler, nameof(bulkUpdateMetricHandler));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -155,13 +141,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 if (exception != null)
                 {
-                    _bulkUpdateMetricHandler.EmitFailure();
                     throw new JobExecutionException($"Exception encounted while updating resources: {result.Issues.First()}", result, exception, false);
                 }
                 else
                 {
-                    _bulkUpdateMetricHandler.EmitSuccess();
-
                     if (result.ResourcesPatchFailed.Any())
                     {
                         _logger.LogWarning("Bulk update job {GroupId} and {JobId} completed with {Count} resources updated, but {FailedToPatchCount} resources failed to patch.", jobInfo.GroupId, jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value), result.ResourcesPatchFailed.Sum(resource => resource.Value));

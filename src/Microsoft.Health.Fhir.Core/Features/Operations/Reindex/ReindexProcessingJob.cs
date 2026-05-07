@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.ClientModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -19,12 +18,10 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -65,7 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly IReindexMetricHandler _reindexMetricHandler;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -89,7 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterStatusManager searchParameterStatusManager,
-            IReindexMetricHandler reindexMetricHandler,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -97,7 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
-            EnsureArg.IsNotNull(reindexMetricHandler, nameof(reindexMetricHandler));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
@@ -105,7 +99,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
-            _reindexMetricHandler = reindexMetricHandler;
             _logger = logger;
         }
 
@@ -304,7 +297,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogJobInformation(_jobInfo, "Reindex processing job complete. Total number of resources indexed by this job: {Progress}.", _reindexProcessingJobResult.SucceededResourceCount);
-                    _reindexMetricHandler.EmitSuccess();
                 }
             }
             catch (SqlException sqlEx)
@@ -312,7 +304,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // For non-timeout SQL errors
                 _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
                 SetJobError($"SQL Error: {sqlEx.Message}");
-                _reindexMetricHandler.EmitFailure();
 
                 throw new JobExecutionSoftFailureException($"SQL error occurred during reindex processing: {sqlEx.Message}", _reindexProcessingJobResult, sqlEx, isCustomerCaused: false);
             }
@@ -321,7 +312,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 string errorMsg = $"OutOfMemoryException occurred during reindex processing for resource type {_reindexProcessingJobDefinition.ResourceType}. Final batch size was {_effectiveBatchSize}.";
                 _logger.LogJobError(oomEx, _jobInfo, errorMsg);
                 SetJobError(errorMsg);
-                _reindexMetricHandler.EmitFailure();
 
                 throw new JobExecutionSoftFailureException(errorMsg, _reindexProcessingJobResult, oomEx, isCustomerCaused: false);
             }
@@ -329,7 +319,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
                 SetJobError(ex.Message);
-                _reindexMetricHandler.EmitFailure();
 
                 throw new JobExecutionSoftFailureException(ex.Message, _reindexProcessingJobResult, ex, isCustomerCaused: false);
             }
@@ -337,7 +326,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
                 SetJobError(ex.Message);
-                _reindexMetricHandler.EmitFailure();
 
                 throw new JobExecutionSoftFailureException(ex.Message, _reindexProcessingJobResult, ex, isCustomerCaused: false);
             }
