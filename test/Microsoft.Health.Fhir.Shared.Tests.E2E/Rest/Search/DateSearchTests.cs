@@ -270,6 +270,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenContainmentSemanticsArePreserved()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag));
+
+            try
+            {
+                Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
+                ValidateBundle(yearBundle, patients[0], patients[1], patients[2], patients[4]);
+
+                Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
+                ValidateBundle(monthBundle, patients[1], patients[2]);
+
+                Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
+                ValidateBundle(dayBundle, patients[2]);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
         {
             patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
