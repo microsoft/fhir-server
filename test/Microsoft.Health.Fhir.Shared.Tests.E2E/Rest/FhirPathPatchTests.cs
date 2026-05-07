@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -705,6 +706,78 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var response = await _client.HttpClient.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        /// <summary>
+        /// Tests that a malformed (non-weak) If-Match ETag format is rejected with 400 Bad Request, mirroring the equivalent PUT behavior.
+        /// </summary>
+        [Theory]
+        [InlineData("\"invalidVersion\"")]
+        [InlineData("\"-1\"")]
+        [InlineData("\"0\"")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnInvalidETagFormat_WhenFhirPatchingAnExistingResource_ThenAnErrorShouldBeReturned(string invalidETag)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            var patchRequest = new Parameters().AddReplacePatchParameter("Patient.gender", new Code("female"));
+            string body = new Hl7.Fhir.Serialization.FhirJsonSerializer().SerializeToString(patchRequest);
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"Patient/{response.Resource.Id}");
+            request.Content = new StringContent(body, Encoding.UTF8, "application/fhir+json");
+            request.Headers.TryAddWithoutValidation("If-Match", invalidETag);
+
+            using HttpResponseMessage httpResponse = await _client.HttpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, httpResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Tests that patching a resource with no effective data change does not create a new version, mirroring the equivalent PUT behavior.
+        /// </summary>
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTheResource_WhenFhirPatchingWithNoDataChange_ThenServerShouldNotCreateANewVersionAndReturnOk()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+            Assert.Equal(AdministrativeGender.Male, createResponse.Resource.Gender);
+
+            string originalVersionId = createResponse.Resource.Meta.VersionId;
+            DateTimeOffset? originalLastUpdated = createResponse.Resource.Meta.LastUpdated;
+
+            // Replacing gender with the same value it already has produces no effective data change
+            var patchRequest = new Parameters().AddReplacePatchParameter("Patient.gender", new Code("male"));
+            using FhirResponse<Patient> patchResponse = await _client.FhirPatchAsync(createResponse.Resource, patchRequest);
+
+            Assert.Equal(HttpStatusCode.OK, patchResponse.Response.StatusCode);
+            Assert.Equal(originalVersionId, patchResponse.Resource.Meta.VersionId);
+            Assert.Equal(originalLastUpdated, patchResponse.Resource.Meta.LastUpdated);
+        }
+
+        /// <summary>
+        /// Tests that patching a single field does not inadvertently modify other resource fields, verifying the surgical precision of FHIR path PATCH.
+        /// </summary>
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnExistingPatient_WhenFhirPatchingOneField_ThenOtherFieldsShouldNotBeModified()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+            Assert.Equal(AdministrativeGender.Male, createResponse.Resource.Gender);
+            Assert.NotEmpty(createResponse.Resource.Address);
+
+            int originalAddressCount = createResponse.Resource.Address.Count;
+
+            // Patch only gender; address and all other fields should remain unchanged
+            var patchRequest = new Parameters().AddReplacePatchParameter("Patient.gender", new Code("female"));
+            using FhirResponse<Patient> patchResponse = await _client.FhirPatchAsync(createResponse.Resource, patchRequest);
+
+            Assert.Equal(HttpStatusCode.OK, patchResponse.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, patchResponse.Resource.Gender);
+            Assert.Equal(originalAddressCount, patchResponse.Resource.Address.Count);
+            Assert.Equal(createResponse.Resource.Id, patchResponse.Resource.Id);
         }
     }
 }
