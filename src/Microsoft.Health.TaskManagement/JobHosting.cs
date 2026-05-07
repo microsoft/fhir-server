@@ -26,11 +26,7 @@ namespace Microsoft.Health.JobManagement
         private readonly ILogger<JobHosting> _logger;
         private DateTime _lastHeartbeatLog;
 
-        public JobHosting(
-            IQueueClient queueClient,
-            IJobFactory jobFactory,
-            IJobMetricFactory jobMetricFactory,
-            ILogger<JobHosting> logger)
+        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, IJobMetricFactory jobMetricFactory, ILogger<JobHosting> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(jobFactory, nameof(jobFactory));

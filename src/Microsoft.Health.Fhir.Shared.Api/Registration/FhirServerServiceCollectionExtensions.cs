@@ -183,7 +183,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
             services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
 
-            // Feature metric handlers.
+            // Feature specific metric handlers.
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
 
             // Job metric handlers.

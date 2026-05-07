@@ -47,13 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _updater = Substitute.For<IBulkUpdateService>();
             _supportedProfilesStore = Substitute.For<ISupportedProfilesStore>();
             _mediator = Substitute.For<IMediator>();
-            _processingJob = new BulkUpdateProcessingJob(
-                _queueClient,
-                _updater.CreateMockScopeFactory(),
-                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                _supportedProfilesStore,
-                _mediator,
-                Substitute.For<ILogger<BulkUpdateProcessingJob>>());
+            _processingJob = new BulkUpdateProcessingJob(_queueClient, _updater.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _supportedProfilesStore, _mediator, Substitute.For<ILogger<BulkUpdateProcessingJob>>());
         }
 
         [Fact]

@@ -488,9 +488,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                    _metricHandler.EmitFailure(ex.GetType().Name);
                 }
-
-                _metricHandler.EmitFailure(ex.GetType().Name);
 
                 throw;
             }
