@@ -184,6 +184,9 @@ namespace Microsoft.Health.JobManagement
             using var jobCancellationToken = new CancellationTokenSource();
 
             using IScoped<IJob> job = _jobFactory.Create(jobInfo);
+
+            // jobMetric can be null if the job type is not registered in the JobFactory.
+            // Not all types of jobs emit metrics to avoid duplicates.
             IJobMetric jobMetric = _jobMetricFactory.Create(jobInfo);
 
             if (job?.Value == null)
@@ -222,7 +225,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                    jobMetric.EmitFailure();
+                    jobMetric?.EmitFailure();
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -248,7 +251,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                    jobMetric.EmitFailure();
+                    jobMetric?.EmitFailure();
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -269,7 +272,7 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogJobWarning(ex, jobInfo, "Job canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
-                jobMetric.EmitFailure();
+                jobMetric?.EmitFailure();
 
                 try
                 {
@@ -289,7 +292,7 @@ namespace Microsoft.Health.JobManagement
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
-                jobMetric.EmitFailure();
+                jobMetric?.EmitFailure();
 
                 try
                 {
@@ -308,7 +311,7 @@ namespace Microsoft.Health.JobManagement
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 _logger.LogJobInformation(jobInfo, "Job completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                jobMetric.EmitSuccess();
+                jobMetric?.EmitSuccess();
             }
             catch (Exception completeEx)
             {
