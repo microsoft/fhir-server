@@ -123,8 +123,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return false;
             }
 
-            return IsExactDay(startValue, endValue) || IsExactYear(startValue, endValue);
+            return IsRewritablePrecision(startValue, endValue);
         }
+
+        internal static bool IsRewritablePrecision(DateTimeOffset start, DateTimeOffset end) => IsExactDay(start, end) || IsExactYear(start, end);
 
         private static bool TryGetRewriteValues(
             SearchParameterExpression expression,

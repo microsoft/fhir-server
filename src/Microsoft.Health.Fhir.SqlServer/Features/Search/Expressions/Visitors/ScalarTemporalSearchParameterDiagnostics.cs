@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return string.Join(
                 ";",
                 diagnostics.Select(x =>
-                    $"url={x.Url ?? string.Empty},code={x.Code ?? string.Empty},allowListed={x.IsAllowListed},equality={x.HasEqualityShape},wouldRewrite={x.WouldRewrite}"));
+                    $"url={x.Url ?? string.Empty},code={x.Code ?? string.Empty},scalarTemporal={x.IsScalarTemporal},allowListed={x.IsAllowListed},equality={x.HasEqualityShape},wouldRewrite={x.WouldRewrite}"));
         }
 
         internal readonly struct ScalarTemporalSearchParameterDiagnostic
@@ -64,13 +65,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 if (expression.Parameter?.IsScalarTemporal == true)
                 {
+                    bool isAllowListed = ScalarTemporalEqualityRewriter.IsActivatedScalarTemporalParameter(expression);
+                    bool hasEqualityShape = ScalarTemporalEqualityRewriter.TryMatchEqualityPattern(expression.Expression, out BinaryExpression startGe, out BinaryExpression endLe);
+                    bool wouldRewrite = isAllowListed &&
+                        hasEqualityShape &&
+                        startGe.Value is DateTimeOffset startValue &&
+                        endLe.Value is DateTimeOffset endValue &&
+                        ScalarTemporalEqualityRewriter.IsRewritablePrecision(startValue, endValue);
+
                     context.Add(new ScalarTemporalSearchParameterDiagnostic(
                         expression.Parameter.Url?.OriginalString,
                         expression.Parameter.Code,
                         expression.Parameter.IsScalarTemporal,
-                        ScalarTemporalEqualityRewriter.IsActivatedScalarTemporalParameter(expression),
-                        ScalarTemporalEqualityRewriter.TryMatchEqualityPattern(expression.Expression, out _, out _),
-                        ScalarTemporalEqualityRewriter.WouldRewrite(expression)));
+                        isAllowListed,
+                        hasEqualityShape,
+                        wouldRewrite));
                 }
 
                 return base.VisitSearchParameter(expression, context);

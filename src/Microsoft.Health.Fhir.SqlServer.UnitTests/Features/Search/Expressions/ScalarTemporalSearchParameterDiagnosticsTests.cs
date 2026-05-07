@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             string summary = ScalarTemporalSearchParameterDiagnostics.BuildSummary(ScalarTemporalSearchParameterDiagnostics.Collect(expression));
 
-            Assert.Equal("url=http://hl7.org/fhir/SearchParameter/individual-birthdate,code=birthdate,allowListed=True,equality=True,wouldRewrite=True", summary);
+            Assert.Equal("url=http://hl7.org/fhir/SearchParameter/individual-birthdate,code=birthdate,scalarTemporal=True,allowListed=True,equality=True,wouldRewrite=True", summary);
         }
 
         [Fact]
