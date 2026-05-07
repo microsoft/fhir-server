@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
                         }
 
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, bool IsScalarTemporal) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                         if (!supportedResult.Supported)
                         {
@@ -114,7 +114,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         }
 
                         searchParameterInfo.IsDateOnly = supportedResult.IsDateOnly;
-                        searchParameterInfo.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                         // check data store specific support for SearchParameter
                         if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
@@ -228,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, bool IsScalarTemporal) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                         if (!supportedResult.Supported)
                         {
@@ -236,7 +235,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         }
 
                         searchParameterInfo.IsDateOnly = supportedResult.IsDateOnly;
-                        searchParameterInfo.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                         // check data store specific support for SearchParameter
                         if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
