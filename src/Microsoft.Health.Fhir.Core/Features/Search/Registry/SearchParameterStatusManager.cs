@@ -133,8 +133,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            int scalarTemporalCount = _searchParameterDefinitionManager.AllSearchParameters.Count(p => p.IsScalarTemporal);
-            int scalarTemporalAllowListedCount = _searchParameterDefinitionManager.AllSearchParameters.Count(IsScalarTemporalRewriteAllowListed);
+            int scalarTemporalCount = 0;
+            int scalarTemporalAllowListedCount = 0;
+
+            foreach (SearchParameterInfo parameterInfo in _searchParameterDefinitionManager.AllSearchParameters)
+            {
+                if (parameterInfo.IsScalarTemporal)
+                {
+                    scalarTemporalCount++;
+
+                    if (IsScalarTemporalRewriteAllowListed(parameterInfo))
+                    {
+                        scalarTemporalAllowListedCount++;
+                    }
+                }
+            }
 
             _logger.LogInformation(
                 "SearchParameterStatusManager: Scalar temporal search parameters discovered. Total={ScalarTemporalCount}, AllowListed={ScalarTemporalAllowListedCount}, NotAllowListed={ScalarTemporalNotAllowListedCount}",
