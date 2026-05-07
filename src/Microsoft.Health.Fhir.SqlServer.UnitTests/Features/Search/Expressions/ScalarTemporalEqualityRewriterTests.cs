@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
+#pragma warning disable xUnit2005
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
 
         [Fact]
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
 
         [Fact]
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
 
         [Fact]
@@ -156,19 +157,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
 
         [Fact]
         public void GivenApproximateExpression_WhenRewritten_ThenPassThrough()
         {
+            // Simulate the AST shape that Ap produces: same structure as Eq but with constants
+            // shifted by an approximate delta (Start moved earlier, End moved later).
+            // The rewriter must not collapse this; the resulting End value would not match any stored row.
             var approxStart = StartOfDay.AddDays(-30);
             var approxEnd = EndOfDay.AddDays(30);
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(approxStart, approxEnd));
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
 
         [Fact]
@@ -188,7 +192,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            Assert.True(object.ReferenceEquals(expr, result));
+            Assert.Same(expr, result);
         }
     }
+    #pragma warning restore xUnit2005
 }
