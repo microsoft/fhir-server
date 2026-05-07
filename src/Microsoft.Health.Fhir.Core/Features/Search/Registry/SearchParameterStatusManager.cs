@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, _) supportedResult = CheckSearchParameterSupport(p);
+                        var supportedResult = CheckSearchParameterSupport(p);
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
                         p.IsDateOnly = supportedResult.IsDateOnly;
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     // in the status store. Compute it once at startup so SQL rewriters can rely on it.
                     if (!p.IsDateOnly)
                     {
-                        (bool Supported, bool IsPartiallySupported, bool IsDateOnly, _) dateOnlyResult = CheckSearchParameterSupport(p);
+                        var dateOnlyResult = CheckSearchParameterSupport(p);
                         p.IsDateOnly = dateOnlyResult.IsDateOnly;
                     }
 
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
-                    (bool Supported, bool IsPartiallySupported, bool IsDateOnly, _) supportedResult = CheckSearchParameterSupport(p);
+                    var supportedResult = CheckSearchParameterSupport(p);
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
                     p.IsDateOnly = supportedResult.IsDateOnly;
