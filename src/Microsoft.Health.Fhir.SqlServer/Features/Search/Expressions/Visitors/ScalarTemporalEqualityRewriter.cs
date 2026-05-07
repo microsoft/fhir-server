@@ -16,11 +16,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// date/dateTime instant, e.g. <c>birthdate</c>), every stored row has <c>StartDateTime</c> and
     /// <c>EndDateTime</c> that represent one calendar instant expanded to period boundaries. The two-predicate
     /// overlap form emitted by Core for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>)
-    /// can be collapsed to predicates on <c>DateTimeEnd</c> only, enabling efficient single-column index seeks.
+    /// can be collapsed to predicates on <c>DateTimeEnd</c> only for precisions where the rewrite is safe.
     ///
     /// <list type="bullet">
     ///   <item>Exact UTC calendar day: collapses to <c>DateTimeEnd = endOfDay</c>.</item>
-    ///   <item>Exact UTC calendar month or year: collapses to <c>DateTimeEnd &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>.</item>
+    ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
+    ///   <item>Exact UTC calendar month: passes through unchanged. A month-precision query must still match
+    ///     stored rows whose value has only year precision (e.g. <c>birthDate=2016</c> stored with
+    ///     <c>EndDateTime=2016-12-31T23:59:59.9999999Z</c>), so collapsing to a DateTimeEnd range would
+    ///     produce false negatives.</item>
     ///   <item>Approximate (<c>ap</c>) expressions with non-boundary constants pass through unchanged.</item>
     /// </list>
     ///
@@ -59,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return new SearchParameterExpression(expression.Parameter, collapsed);
             }
 
-            if (IsExactMonth(startValue, endValue) || IsExactYear(startValue, endValue))
+            if (IsExactYear(startValue, endValue))
             {
                 var range = Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, endLe.ComponentIndex, startValue),
@@ -128,15 +132,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 && end.Offset == TimeSpan.Zero
                 && start.TimeOfDay == TimeSpan.Zero
                 && end == start.AddDays(1).AddTicks(-1);
-        }
-
-        private static bool IsExactMonth(DateTimeOffset start, DateTimeOffset end)
-        {
-            return start.Offset == TimeSpan.Zero
-                && end.Offset == TimeSpan.Zero
-                && start.TimeOfDay == TimeSpan.Zero
-                && start.Day == 1
-                && end == start.AddMonths(1).AddTicks(-1);
         }
 
         private static bool IsExactYear(DateTimeOffset start, DateTimeOffset end)

@@ -60,31 +60,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedScalarTemporalMonth_WhenRewritten_ThenCollapsedToEndDateTimeRange()
+        public void GivenAllowListedScalarTemporalMonth_WhenRewritten_ThenPassThrough()
         {
+            // Month-precision queries must not be collapsed: a stored scalar temporal value with only year
+            // precision (e.g. birthDate=2016, EndDateTime=2016-12-31T23:59:59.9999999Z) must still be
+            // returned by a month-precision query like birthdate=2016-07. Collapsing to a DateTimeEnd range
+            // would produce false negatives for such coarser-precision rows.
             var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfMonth, EndOfMonth));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
-            var rewritten = Assert.IsType<SearchParameterExpression>(result);
-            var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
-            Assert.Equal(MultiaryOperator.And, multiary.MultiaryOperation);
-            Assert.Collection(
-                multiary.Expressions,
-                first =>
-                {
-                    var binary = Assert.IsType<BinaryExpression>(first);
-                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                    Assert.Equal(BinaryOperator.GreaterThanOrEqual, binary.BinaryOperator);
-                    Assert.Equal(StartOfMonth, binary.Value);
-                },
-                second =>
-                {
-                    var binary = Assert.IsType<BinaryExpression>(second);
-                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                    Assert.Equal(BinaryOperator.LessThanOrEqual, binary.BinaryOperator);
-                    Assert.Equal(EndOfMonth, binary.Value);
-                });
+            Assert.Same(expr, result);
         }
 
         [Fact]
@@ -125,6 +111,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
             Assert.Same(expr, result);
+        }
+
+        [Fact]
+        public void GivenAllowListedScalarTemporalExactDayReversedOrder_WhenRewritten_ThenCollapsedToSingleEndDateTimeEquality()
+        {
+            // TryMatchEqualityPattern must accept the reversed predicate order:
+            // DateTimeEnd <= endOfDay first, DateTimeStart >= startOfDay second.
+            var reversedPattern = (MultiaryExpression)Expression.And(
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
+                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
+            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), reversedPattern);
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+
+            var rewritten = Assert.IsType<SearchParameterExpression>(result);
+            var binary = Assert.IsType<BinaryExpression>(rewritten.Expression);
+            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+            Assert.Equal(EndOfDay, binary.Value);
         }
 
         [Fact]
