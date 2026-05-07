@@ -152,8 +152,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 "date",
                 SearchParamType.Date,
                 new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
-                expression: "Condition.onset",
-                baseResourceTypes: new[] { "Condition" });
+                expression: "Observation.effective",
+                baseResourceTypes: new[] { "Observation" });
 
             var result = _resolver.IsSearchParameterSupported(sp);
 
@@ -256,12 +256,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAMixedTemporalParameter_WhenResolvingSupport_ThenIsScalarTemporalIsFalse()
         {
             var sp = new SearchParameterInfo(
-                "Observation-date",
+                "Condition-onset-date",
                 "date",
                 SearchParamType.Date,
                 new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
-                expression: "Observation.effective",
-                baseResourceTypes: new[] { "Observation" });
+                expression: "Condition.onset",
+                baseResourceTypes: new[] { "Condition" });
 
             var result = _resolver.IsSearchParameterSupported(sp);
 

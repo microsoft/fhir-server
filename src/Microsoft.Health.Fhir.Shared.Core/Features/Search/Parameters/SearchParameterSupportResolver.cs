@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             bool isSimpleDateParameter =
                 parameterInfo.Type == SearchParamType.Date &&
                 (parameterInfo.Component == null || parameterInfo.Component.Count == 0);
+
             // Both flags start true only when this is a simple Date parameter (no components).
             // Each is AND-reduced across all per-resource type resolutions inside the loop below.
             // A single non-qualifying result, an empty resolution, or any early return forces both to false.
