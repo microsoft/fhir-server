@@ -114,6 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         }
 
                         searchParameterInfo.IsDateOnly = supportedResult.IsDateOnly;
+                        searchParameterInfo.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                         // check data store specific support for SearchParameter
                         if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
@@ -235,6 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         }
 
                         searchParameterInfo.IsDateOnly = supportedResult.IsDateOnly;
+                        searchParameterInfo.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                         // check data store specific support for SearchParameter
                         if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
@@ -384,7 +386,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     if (paramsToAdd.Count >= 100)
                     {
                         _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-                        ApplyIsDateOnlyToNewParams(urlsToAdd);
+                        ApplyDerivedTemporalMetadataToNewParams(urlsToAdd);
                         paramsToAdd.Clear();
                         urlsToAdd.Clear();
                     }
@@ -394,7 +396,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (paramsToAdd.Any())
                 {
                     _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-                    ApplyIsDateOnlyToNewParams(urlsToAdd);
+                    ApplyDerivedTemporalMetadataToNewParams(urlsToAdd);
                 }
 
                 // Once added to the definition manager we can update their status
@@ -449,7 +451,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return inCache;
         }
 
-        private void ApplyIsDateOnlyToNewParams(IEnumerable<string> urls)
+        private void ApplyDerivedTemporalMetadataToNewParams(IEnumerable<string> urls)
         {
             foreach (var url in urls)
             {
@@ -462,10 +464,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     var result = _searchParameterSupportResolver.IsSearchParameterSupported(info);
                     info.IsDateOnly = result.IsDateOnly;
+                    info.IsScalarTemporal = result.IsScalarTemporal;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to resolve IsDateOnly for search parameter '{Url}' during cache refresh.", url);
+                    _logger.LogWarning(ex, "Failed to resolve derived temporal metadata for search parameter '{Url}' during cache refresh.", url);
                 }
             }
         }

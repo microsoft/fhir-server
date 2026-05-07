@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
+                    bool temporalMetadataResolved = false;
 
                     if (result.Status == SearchParameterStatus.Unsupported)
                     {
@@ -74,14 +75,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
                         p.IsDateOnly = supportedResult.IsDateOnly;
+                        p.IsScalarTemporal = supportedResult.IsScalarTemporal;
+                        temporalMetadataResolved = true;
                     }
 
-                    // Even when status is already known, IsDateOnly is derived metadata that is not persisted
+                    // Even when status is already known, temporal metadata is derived and not persisted
                     // in the status store. Compute it once at startup so SQL rewriters can rely on it.
-                    if (!p.IsDateOnly)
+                    if (!temporalMetadataResolved && (!p.IsDateOnly || !p.IsScalarTemporal))
                     {
-                        var dateOnlyResult = CheckSearchParameterSupport(p);
-                        p.IsDateOnly = dateOnlyResult.IsDateOnly;
+                        var temporalResult = CheckSearchParameterSupport(p);
+                        p.IsDateOnly = temporalResult.IsDateOnly;
+                        p.IsScalarTemporal = temporalResult.IsScalarTemporal;
                     }
 
                     if (p.IsSearchable != tempStatus.IsSearchable ||
@@ -123,10 +127,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
                     p.IsDateOnly = supportedResult.IsDateOnly;
+                    p.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                     updated.Add(p);
                 }
             }
+
+            int scalarTemporalCount = _searchParameterDefinitionManager.AllSearchParameters.Count(p => p.IsScalarTemporal);
+            int scalarTemporalAllowListedCount = _searchParameterDefinitionManager.AllSearchParameters.Count(IsScalarTemporalRewriteAllowListed);
+
+            _logger.LogInformation(
+                "SearchParameterStatusManager: Scalar temporal search parameters discovered. Total={ScalarTemporalCount}, AllowListed={ScalarTemporalAllowListedCount}, NotAllowListed={ScalarTemporalNotAllowListedCount}",
+                scalarTemporalCount,
+                scalarTemporalAllowListedCount,
+                scalarTemporalCount - scalarTemporalAllowListedCount);
 
             var disableSortIndicesList = _searchParameterDefinitionManager.AllSearchParameters.Where(u => enabledSortIndices.Contains(u.Url.ToString()) && u.SortStatus != SortParameterStatus.Enabled);
             if (disableSortIndicesList.Any())
@@ -278,6 +292,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+        }
+
+        private static bool IsScalarTemporalRewriteAllowListed(SearchParameterInfo parameterInfo)
+        {
+            return parameterInfo.IsScalarTemporal &&
+                   parameterInfo.Url != null &&
+                   string.Equals(
+                       parameterInfo.Url.OriginalString,
+                       "http://hl7.org/fhir/SearchParameter/individual-birthdate",
+                       StringComparison.Ordinal);
         }
 
         private (bool Supported, bool IsPartiallySupported, bool IsDateOnly, bool IsScalarTemporal) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
