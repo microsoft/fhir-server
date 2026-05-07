@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenCompositeParameter_WhenEqualityPatternMatched_ThenPassThrough()
         {
             // Composite parameters are out of scope for v1. This test exercises pass-through via the
-            // URL gate because Observation-code-value-date is not in the scalar temporal allow-list.
+            // parameter type gate before any scalar temporal URL allow-list decision.
             var composite = new SearchParameterInfo(
                 "Observation-code-value-date",
                 "code-value-date",
