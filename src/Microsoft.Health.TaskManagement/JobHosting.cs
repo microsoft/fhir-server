@@ -181,7 +181,7 @@ namespace Microsoft.Health.JobManagement
 
             using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
-            // jobMetric can be null if the job type is not registered in the JobFactory.
+            // jobMetric can be null if the job type is not registered in the JobMetricFactory.
             // Not all types of jobs emit metrics to avoid duplicates.
             IJobMetric jobMetric = _jobMetricFactory.Create(jobInfo);
 

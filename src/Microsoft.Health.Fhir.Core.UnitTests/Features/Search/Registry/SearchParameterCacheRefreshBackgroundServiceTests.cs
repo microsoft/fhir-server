@@ -25,9 +25,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
-using NSubstitute.Routing.Handlers;
 using Xunit;
-using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 {
@@ -372,13 +370,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
                 .Returns(_ => true);
 
-            // Start service that skipps refresh
+            // Start service that skips refresh
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Start the service and then immediately cancel it
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
 
-            await Task.Delay(4000);
+            await Task.Delay(2000);
 
             await executeTask;
 
@@ -423,7 +421,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(_searchParameterStatusManager, paramOperations, _coreFeatureConfiguration, _searchParameterCacheRefresherMetricHandler, mockLogger);
 
-            // Start service that skipps refresh
+            // Start service that skips refresh
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             await apiTask;
