@@ -339,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             using var cancellationTokenSource = new CancellationTokenSource();
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
-            var service = new SearchParameterCacheRefreshBackgroundService(
+            using var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 _coreFeatureConfiguration,
@@ -353,8 +353,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             // Act - Try to handle the notification after cancellation
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
-            service.Dispose();
         }
 
         [Fact]
@@ -364,7 +362,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             using var cancellationTokenSource = new CancellationTokenSource();
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
-            var service = new SearchParameterCacheRefreshBackgroundService(
+            using var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 _coreFeatureConfiguration,
@@ -385,8 +383,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await executeTask;
 
             cancellationTokenSource.Cancel();
-
-            service.Dispose();
 
             _searchParameterCacheRefresherMetricHandler.Received().EmitSuccess();
 
