@@ -206,9 +206,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             await _fhirClient.CreateAsync(organization);
 
-            // Wait to ensure resources are created before bulk update
-            await Task.Delay(2000);
-
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Resource", "language", new Code("en"));
 
@@ -275,8 +272,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation.Code = new CodeableConcept("test", "test");
 
             await _fhirClient.CreateAsync(observation);
-
-            await Task.Delay(5000); // Ensure resources are created
 
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
@@ -349,8 +344,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -417,8 +410,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -448,8 +439,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "active", new FhirBoolean(true));
@@ -475,8 +464,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -499,8 +486,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -526,8 +511,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on both Patient and Group
             var patchRequest = new Parameters()
@@ -560,8 +543,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -589,8 +570,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -628,7 +607,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create Group with included Patients
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
             var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
@@ -654,7 +632,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -690,7 +667,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -739,8 +715,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), (int)expectedResults.ResourcesUpdated[key], tag);
             }
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk update
 
             HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, path, queryParams);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);

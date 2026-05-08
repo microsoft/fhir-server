@@ -174,6 +174,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     SearchResult searchResult;
 
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
+
+                    var createDate = new PartialDateTime(jobInfo.CreateDate);
+                    searchParams.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{createDate}"));
+
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
                     if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))
                     {
@@ -271,9 +275,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, DateTimeOffset jobCreateDate, string resourceType = null, string continuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
+            var createDate = new PartialDateTime(jobCreateDate);
             var cloneList = new List<Tuple<string, string>>()
                 {
-                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{jobCreateDate}"),
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"le{createDate}"),
                 };
 
             if (baseDefinition.SearchParameters != null)

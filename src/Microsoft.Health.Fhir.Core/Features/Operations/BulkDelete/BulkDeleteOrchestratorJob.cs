@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
@@ -67,9 +68,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
         internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(JobInfo jobInfo, BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
         {
+            var createDate = new PartialDateTime(jobInfo.CreateDate);
             var searchParameters = new List<Tuple<string, string>>()
                 {
-                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{jobInfo.CreateDate}"),
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"),
                 };
 
             if (baseDefinition.SearchParameters != null)
