@@ -45,23 +45,24 @@ SYSTEM_PROMPT = textwrap.dedent("""
     You are a senior engineer reviewing a pull request on the Microsoft FHIR Server (C#/.NET, Azure).
     Write like a colleague doing a real peer review — first-person, direct, no filler.
 
-    Only call out things that actually matter: bugs, security issues, FHIR spec violations,
-    missing error handling, test gaps. Skip style nitpicks unless they'd cause a real problem.
+    Your job in this pass is to identify CANDIDATE issues — things the diff makes you suspicious about,
+    but that need to be verified against the full file before flagging. Be specific about what to check.
 
-    For each issue, write a single sentence as if you're talking to the author:
-    "This will throw if X is null", "Missing test for the 412 case here",
-    "This bypasses the auth check when Y". No category labels, no bullet preamble.
+    For each candidate, give:
+    - exactly which file and what pattern/method/property to look for
+    - a falsifiable claim: "method X does NOT set Y" or "there is no test for case Z"
+    - NOT vague concerns like "make sure X is consistent"
 
     Return ONLY valid JSON:
     {
       "summary": "<1-2 sentences: what this PR does, plain English>",
-      "suggestions": [
+      "candidates": [
         {
-          "file": "<relative file path or 'general'>",
-          "line": <line number or null>,
+          "file": "<relative file path>",
           "severity": "error|warning",
-          "category": "security|performance|bug|fhir|testing",
-          "message": "<one conversational sentence>"
+          "category": "bug|fhir|testing|performance|security",
+          "claim": "<specific falsifiable claim about the code, e.g. 'SyncSearchParametersAsync does not set IsDateOnly'>",
+          "check": "<what to grep/look for in the full file to confirm or deny this>"
         }
       ],
       "risk_score": <integer 1-10>,
@@ -69,7 +70,23 @@ SYSTEM_PROMPT = textwrap.dedent("""
     }
 
     risk_score: 1-3=low (tests/docs only), 4-6=medium (logic/features), 7-10=high (auth/schema/security).
-    Keep suggestions to the ones you'd actually block the PR on or strongly recommend fixing.
+    Only raise candidates you would actually want to block or flag on this PR.
+""").strip()
+
+VERIFY_PROMPT = textwrap.dedent("""
+    You are verifying a specific claim about a source file.
+    Answer only based on the file content provided — do not speculate.
+
+    Claim: {claim}
+    What to look for: {check}
+
+    If the claim is TRUE (the problem exists), respond:
+    {{"confirmed": true, "message": "<one sentence describing the actual problem you found, first-person, specific line or method name>"}}
+
+    If the claim is FALSE (the code handles it correctly), respond:
+    {{"confirmed": false, "message": ""}}
+
+    Return ONLY valid JSON.
 """).strip()
 
 
@@ -130,6 +147,20 @@ def get_pr_head_sha(owner: str, repo: str, pr_number: int, token: str) -> str:
     return resp.json()["head"]["sha"]
 
 
+def get_file_content(owner: str, repo: str, path: str, ref: str, token: str) -> str | None:
+    """Fetch the full content of a file at a specific ref. Returns None if not found."""
+    url = f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path.lstrip('/')}"
+    resp = requests.get(url, headers=github_headers(token), params={"ref": ref}, timeout=30)
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    import base64
+    data = resp.json()
+    if data.get("encoding") == "base64":
+        return base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+    return data.get("content", "")
+
+
 # ---------------------------------------------------------------------------
 # Risk classification
 # ---------------------------------------------------------------------------
@@ -166,50 +197,149 @@ def _matches_any(path: str, patterns: list[str]) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# AI review
+# AI review — two-pass: analysis → verification
 # ---------------------------------------------------------------------------
 
-def call_github_models(diff: str, rules: dict, github_token: str) -> dict[str, Any]:
-    """Send the diff to the GitHub Models API and return the parsed review JSON.
+def _filter_code_diff(diff: str) -> str:
+    """Return only src/ and test/ hunks from a unified diff, dropping docs/yml/md."""
+    CODE_PREFIXES = ("src/", "test/", "a/src/", "b/src/", "a/test/", "b/test/")
+    sections: list[str] = []
+    current: list[str] = []
+    in_code = False
 
-    GitHub Models is free for GitHub/Microsoft users and uses the same
-    OpenAI-compatible chat completions format, authenticated via GITHUB_TOKEN.
-    """
-    max_chars = rules["ai"]["max_diff_chars"]
-    model = rules["ai"]["model"]
-    temperature = rules["ai"]["temperature"]
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git"):
+            if current and in_code:
+                sections.append("".join(current))
+            current = [line]
+            in_code = any(p in line for p in CODE_PREFIXES)
+        else:
+            current.append(line)
 
-    truncated_diff = diff[:max_chars]
-    if len(diff) > max_chars:
-        truncated_diff += f"\n\n[... diff truncated at {max_chars} characters ...]"
+    if current and in_code:
+        sections.append("".join(current))
 
+    return "".join(sections) if sections else diff
+
+
+def _models_call(messages: list[dict], model: str, temperature: float, github_token: str) -> dict:
+    """Single call to GitHub Models API with retry on rate limit."""
+    headers = {"Authorization": f"Bearer {github_token}", "Content-Type": "application/json"}
     payload = {
         "model": model,
         "temperature": temperature,
         "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Please review the following pull request diff:\n\n```diff\n{truncated_diff}\n```"},
-        ],
+        "messages": messages,
     }
-
-    headers = {
-        "Authorization": f"Bearer {github_token}",
-        "Content-Type": "application/json",
-    }
-
     for attempt in range(3):
         resp = requests.post(GITHUB_MODELS_API, headers=headers, json=payload, timeout=120)
         if resp.status_code == 429:
             wait = 20 * (attempt + 1)
-            print(f"Rate limited, waiting {wait}s...")
+            print(f"  Rate limited, waiting {wait}s...")
             time.sleep(wait)
             continue
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        return json.loads(content)
-
+        return json.loads(resp.json()["choices"][0]["message"]["content"])
     raise RuntimeError("GitHub Models API rate limit exceeded after 3 attempts.")
+
+
+def _verify_candidate(
+    candidate: dict,
+    owner: str,
+    repo: str,
+    head_sha: str,
+    model: str,
+    temperature: float,
+    github_token: str,
+) -> dict | None:
+    """Fetch the full file and ask the model to confirm or deny the candidate claim.
+
+    Returns a verified suggestion dict if confirmed, None if the claim is false.
+    """
+    file_path = candidate.get("file", "")
+    content = get_file_content(owner, repo, file_path, head_sha, github_token)
+    if not content:
+        print(f"    Could not fetch {file_path}, skipping verification")
+        return None
+
+    # Truncate large files to stay within token budget
+    file_snippet = content[:12000]
+    if len(content) > 12000:
+        file_snippet += "\n\n[... file truncated ...]"
+
+    prompt = VERIFY_PROMPT.format(claim=candidate["claim"], check=candidate["check"])
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": f"File: {file_path}\n\n```csharp\n{file_snippet}\n```"},
+    ]
+
+    result = _models_call(messages, model, temperature, github_token)
+    if result.get("confirmed"):
+        return {
+            "file": file_path,
+            "line": None,
+            "severity": candidate.get("severity", "warning"),
+            "category": candidate.get("category", "bug"),
+            "message": result.get("message", candidate["claim"]),
+        }
+    return None
+
+
+def call_github_models(
+    diff: str,
+    owner: str,
+    repo: str,
+    head_sha: str,
+    rules: dict,
+    github_token: str,
+) -> dict[str, Any]:
+    """Two-pass review: (1) identify candidates from diff, (2) verify each against the full file."""
+    max_chars = rules["ai"]["max_diff_chars"]
+    model = rules["ai"]["model"]
+    temperature = rules["ai"]["temperature"]
+
+    code_diff = _filter_code_diff(diff)
+    truncated_diff = code_diff[:max_chars]
+    if len(code_diff) > max_chars:
+        truncated_diff += f"\n\n[... diff truncated at {max_chars} characters ...]"
+
+    # Pass 1: analysis — produce candidate issues with falsifiable claims
+    print("  Pass 1: analyzing diff for candidate issues...")
+    analysis = _models_call(
+        [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Review this pull request diff:\n\n```diff\n{truncated_diff}\n```"},
+        ],
+        model,
+        temperature,
+        github_token,
+    )
+
+    candidates = analysis.get("candidates", [])
+    print(f"  Pass 1 complete: {len(candidates)} candidate(s) to verify")
+
+    # Pass 2: verify each candidate against the full file
+    verified_suggestions: list[dict] = []
+    for i, candidate in enumerate(candidates):
+        file_path = candidate.get("file", "")
+        print(f"  Verifying [{i+1}/{len(candidates)}]: {file_path} — {candidate.get('claim', '')[:80]}")
+        result = _verify_candidate(candidate, owner, repo, head_sha, model, temperature, github_token)
+        if result:
+            print(f"    ✓ Confirmed")
+            verified_suggestions.append(result)
+        else:
+            print(f"    ✗ Not confirmed — dropped")
+
+    print(f"  Pass 2 complete: {len(verified_suggestions)}/{len(candidates)} issue(s) confirmed")
+
+    return {
+        "summary": analysis.get("summary", ""),
+        "suggestions": verified_suggestions,
+        "risk_score": analysis.get("risk_score", 5),
+        "risk_reason": analysis.get("risk_reason", ""),
+    }
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -377,9 +507,9 @@ def main() -> None:
     risk_levels = classify_files(changed_files, rules)
     print(f"  Risk: high={len(risk_levels['high'])}, medium={len(risk_levels['medium'])}, low={len(risk_levels['low'])}, unclassified={len(risk_levels['unclassified'])}")
 
-    # AI review via GitHub Models (free, uses GITHUB_TOKEN)
+    # AI review via GitHub Models (free, uses GITHUB_TOKEN) — two-pass with verification
     print("Calling GitHub Models API for code review...")
-    ai_review = call_github_models(diff, rules, github_token)
+    ai_review = call_github_models(diff, owner, repo, head_sha, rules, github_token)
     risk_score = ai_review.get("risk_score", 10)
     print(f"  AI risk score: {risk_score}/10")
     print(f"  Suggestions: {len(ai_review.get('suggestions', []))}")

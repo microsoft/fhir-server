@@ -70,7 +70,7 @@
     "model": "gpt-4o-mini",
     "endpoint": "https://models.inference.ai.azure.com/chat/completions",
     "note": "Uses GitHub Models API — free for GitHub/Microsoft users, authenticated via GITHUB_TOKEN. No extra secrets required.",
-    "max_diff_chars": 6000,
+    "max_diff_chars": 16000,
     "temperature": 0.2
   }
 }
