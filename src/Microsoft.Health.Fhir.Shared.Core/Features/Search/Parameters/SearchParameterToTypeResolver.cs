@@ -318,9 +318,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 case "AGE":
                     return GetMapping(typeof(Age));
                 case "DATETIME":
-                    return GetMapping(typeof(FhirDateTime));
                 case "DATE":
-                    return GetMapping(typeof(Date));
+                    return GetMapping(typeof(FhirDateTime));
                 case "URI":
                     return GetMapping(typeof(FhirUri));
                 case "BOOLEAN":

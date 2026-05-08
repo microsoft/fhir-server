@@ -105,7 +105,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverDateMappingTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
