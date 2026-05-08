@@ -120,15 +120,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
-                .Returns((false, false, false, false));
+                .Returns((false, false));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
-                .Returns((true, false, false, true));
+                .Returns((true, false));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[5]))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
         }
 
         [Fact]
@@ -157,12 +157,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.False(list[4].IsSearchable);
             Assert.True(list[4].IsSupported);
             Assert.False(list[4].IsPartiallySupported);
-            Assert.True(list[4].IsScalarTemporal);
 
             Assert.False(list[5].IsSearchable);
             Assert.False(list[5].IsSupported);  // Disabled Search Params show as unsupported
             Assert.False(list[5].IsPartiallySupported);
-            Assert.False(list[5].IsScalarTemporal);
             Assert.Equal(SearchParameterStatus.Disabled, list[5].SearchParameterStatus);
         }
 

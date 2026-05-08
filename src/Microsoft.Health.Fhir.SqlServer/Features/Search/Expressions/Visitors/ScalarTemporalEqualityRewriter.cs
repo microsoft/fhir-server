@@ -7,19 +7,20 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// For allow-listed scalar temporal FHIR search parameters (parameters where each resource stores a single
-    /// date/dateTime instant, e.g. <c>birthdate</c>), every stored row has <c>StartDateTime</c> and
-    /// <c>EndDateTime</c> that represent one calendar instant expanded to period boundaries. The two-predicate
+    /// For allow-listed FHIR date search parameters (parameters where each resource stores a single
+    /// date element, e.g. <c>birthdate</c>), every stored row has <c>StartDateTime</c> and
+    /// <c>EndDateTime</c> that represent the date value expanded to period boundaries. The two-predicate
     /// containment form emitted by Core for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>)
     /// can be collapsed to predicates on <c>DateTimeEnd</c> only for precisions where the rewrite is safe.
     ///
     /// <list type="bullet">
-    ///   <item>Exact UTC calendar day: collapses to <c>DateTimeEnd = endOfDay</c>.</item>
+    ///   <item>Exact UTC calendar day: collapses to <c>DateTimeEnd = endOfDay AND IsLongerThanADay = false</c>.</item>
     ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
     ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
     ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
@@ -47,7 +48,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (IsExactDay(startValue, endValue))
             {
-                var collapsed = new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endLe.ComponentIndex, endLe.Value);
+                var collapsed = Expression.And(
+                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endLe.ComponentIndex, endLe.Value),
+                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endLe.ComponentIndex, false));
                 return new SearchParameterExpression(expression.Parameter, collapsed);
             }
 
@@ -71,7 +74,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var p = expression.Parameter;
             return p.Type == SearchParamType.Date
-                && p.IsScalarTemporal
                 && (p.Component == null || p.Component.Count == 0)
                 && p.Url != null
                 && _allowList.Contains(p.Url.OriginalString);

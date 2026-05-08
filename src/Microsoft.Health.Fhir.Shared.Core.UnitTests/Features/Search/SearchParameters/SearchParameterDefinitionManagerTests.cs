@@ -139,11 +139,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
-                .Returns((false, false, false, false));
+                .Returns((false, false));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
 
             var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
@@ -397,7 +397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
@@ -450,7 +450,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test" && p.Component.All(c => c.ResolvedSearchParameter != null)))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
@@ -600,7 +600,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
-                .Returns((true, false, false, false));
+                .Returns((true, false));
 
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var fhirDataStore = Substitute.For<IFhirDataStore>();

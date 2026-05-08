@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,13 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             EnsureArg.IsTrue(parameters.Any());
 
             // Set states of known parameters
-            Stopwatch temporalMetadataStopwatch = Stopwatch.StartNew();
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
                 if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
-                    bool temporalMetadataResolved = false;
 
                     if (result.Status == SearchParameterStatus.Unsupported)
                     {
@@ -76,18 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         var supportedResult = CheckSearchParameterSupport(p);
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
-                        p.IsDateOnly = supportedResult.IsDateOnly;
-                        p.IsScalarTemporal = supportedResult.IsScalarTemporal;
-                        temporalMetadataResolved = true;
-                    }
-
-                    // Even when status is already known, temporal metadata is derived and not persisted
-                    // in the status store. Compute it once at startup so SQL rewriters can rely on it.
-                    if (!temporalMetadataResolved)
-                    {
-                        var temporalResult = CheckSearchParameterSupport(p);
-                        p.IsDateOnly = temporalResult.IsDateOnly;
-                        p.IsScalarTemporal = temporalResult.IsScalarTemporal;
                     }
 
                     if (p.IsSearchable != tempStatus.IsSearchable ||
@@ -128,37 +113,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     var supportedResult = CheckSearchParameterSupport(p);
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
-                    p.IsDateOnly = supportedResult.IsDateOnly;
-                    p.IsScalarTemporal = supportedResult.IsScalarTemporal;
 
                     updated.Add(p);
                 }
             }
-
-            temporalMetadataStopwatch.Stop();
-
-            int scalarTemporalCount = 0;
-            int scalarTemporalAllowListedCount = 0;
-
-            foreach (SearchParameterInfo parameterInfo in _searchParameterDefinitionManager.AllSearchParameters)
-            {
-                if (parameterInfo.IsScalarTemporal)
-                {
-                    scalarTemporalCount++;
-
-                    if (IsScalarTemporalRewriteAllowListed(parameterInfo))
-                    {
-                        scalarTemporalAllowListedCount++;
-                    }
-                }
-            }
-
-            _logger.LogInformation(
-                "SearchParameterStatusManager: Scalar temporal search parameters discovered. Total={ScalarTemporalCount}, AllowListed={ScalarTemporalAllowListedCount}, NotAllowListed={ScalarTemporalNotAllowListedCount}, TemporalMetadataResolutionElapsedMs={TemporalMetadataResolutionElapsedMs}",
-                scalarTemporalCount,
-                scalarTemporalAllowListedCount,
-                scalarTemporalCount - scalarTemporalAllowListedCount,
-                temporalMetadataStopwatch.ElapsedMilliseconds);
 
             var disableSortIndicesList = _searchParameterDefinitionManager.AllSearchParameters.Where(u => enabledSortIndices.Contains(u.Url.ToString()) && u.SortStatus != SortParameterStatus.Enabled);
             if (disableSortIndicesList.Any())
@@ -312,17 +270,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        private static bool IsScalarTemporalRewriteAllowListed(SearchParameterInfo parameterInfo)
-        {
-            return parameterInfo.IsScalarTemporal &&
-                   parameterInfo.Url != null &&
-                   string.Equals(
-                       parameterInfo.Url.OriginalString,
-                       "http://hl7.org/fhir/SearchParameter/individual-birthdate",
-                       StringComparison.Ordinal);
-        }
-
-        private (bool Supported, bool IsPartiallySupported, bool IsDateOnly, bool IsScalarTemporal) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
+        private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
         {
             try
             {
@@ -331,7 +279,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             catch (Exception ex)
             {
                 _logger.LogWarning("Unable to resolve search parameter {Code}. Exception: {Exception}", parameterInfo?.Code, ex);
-                return (false, false, false, false);
+                return (false, false);
             }
         }
 

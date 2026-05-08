@@ -280,18 +280,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientBirthDate(p, "2000-03", tag),
                 p => SetPatientBirthDate(p, "2000-03-03", tag),
                 p => SetPatientBirthDate(p, "1999-12-31", tag),
-                p => SetPatientBirthDate(p, "2000-04-01", tag));
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag));
 
             try
             {
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
-                ValidateBundle(yearBundle, patients[0], patients[1], patients[2], patients[4]);
+                ValidateBundle(yearBundle, patients[0], patients[1], patients[2], patients[4], patients[5], patients[6]);
 
                 Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
-                ValidateBundle(monthBundle, patients[1], patients[2]);
+                ValidateBundle(monthBundle, patients[1], patients[2], patients[6]);
 
                 Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
                 ValidateBundle(dayBundle, patients[2]);
+
+                Bundle decemberBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-12&_tag={tag}");
+                ValidateBundle(decemberBundle, patients[5]);
+
+                Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
+                ValidateBundle(lastDayBundle, patients[6]);
             }
             catch (FhirClientException fce)
             {

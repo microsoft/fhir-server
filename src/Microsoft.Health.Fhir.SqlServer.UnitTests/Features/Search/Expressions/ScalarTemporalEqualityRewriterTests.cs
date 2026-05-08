@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -20,24 +21,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfLastDayOfMonth = new DateTimeOffset(2016, 7, 31, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfLastDayOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfYear = new DateTimeOffset(2016, 1, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
-        private static SearchParameterInfo BuildParam(bool isScalarTemporal, Uri url = null)
+        private static SearchParameterInfo BuildBirthdateParam(Uri url = null, SearchParamType searchParamType = SearchParamType.Date)
         {
             return new SearchParameterInfo(
                 "birthdate",
                 "birthdate",
-                SearchParamType.Date,
+                searchParamType,
                 url ?? new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
                 expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" })
-            {
-                IsDateOnly = isScalarTemporal,
-                IsScalarTemporal = isScalarTemporal,
-            };
+                baseResourceTypes: new[] { "Patient" });
         }
 
         private static MultiaryExpression EqualityPattern(DateTimeOffset start, DateTimeOffset end) =>
@@ -46,27 +47,39 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end));
 
         [Fact]
-        public void GivenAllowListedScalarTemporalExactDay_WhenRewritten_ThenCollapsedToSingleEndDateTimeEquality()
+        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
         {
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            var rewritten = Assert.IsType<SearchParameterExpression>(result);
-            var binary = Assert.IsType<BinaryExpression>(rewritten.Expression);
-            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
-            Assert.Equal(EndOfDay, binary.Value);
+            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfDay);
         }
 
         [Fact]
-        public void GivenAllowListedScalarTemporalMonth_WhenRewritten_ThenPassThrough()
+        public void GivenAllowListedBirthdateLastDayOfMonth_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
         {
-            // Month-precision queries must not be collapsed: a stored scalar temporal value with only year
-            // precision (e.g. birthDate=2016, EndDateTime=2016-12-31T23:59:59.9999999Z) must still be
-            // returned by a month-precision query like birthdate=2016-07. Collapsing to a DateTimeEnd range
-            // would produce false negatives for such coarser-precision rows.
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfMonth, EndOfMonth));
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth));
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+
+            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfLastDayOfMonth);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateLastDayOfYear_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
+        {
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfLastDayOfYear, EndOfLastDayOfYear));
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+
+            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfLastDayOfYear);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateMonth_WhenRewritten_ThenPassThrough()
+        {
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth));
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
@@ -74,9 +87,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedScalarTemporalYear_WhenRewritten_ThenCollapsedToEndDateTimeRange()
+        public void GivenAllowListedBirthdateYear_WhenRewritten_ThenUsesEndDateTimeRange()
         {
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(StartOfYear, EndOfYear));
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfYear, EndOfYear));
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
@@ -102,10 +115,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenScalarTemporalParameterNotAllowListed_WhenEqualityPatternMatched_ThenPassThrough()
+        public void GivenDateParameterNotAllowListed_WhenEqualityPatternMatched_ThenPassThrough()
         {
             var expr = new SearchParameterExpression(
-                BuildParam(isScalarTemporal: true, new Uri("http://example.org/SearchParameter/test-date")),
+                BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date")),
                 EqualityPattern(StartOfYear, EndOfYear));
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
@@ -114,51 +127,35 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedScalarTemporalExactDayReversedOrder_WhenRewritten_ThenCollapsedToSingleEndDateTimeEquality()
+        public void GivenAllowListedNonDateParameter_WhenEqualityPatternMatched_ThenPassThrough()
         {
-            // TryMatchEqualityPattern must accept the reversed predicate order:
-            // DateTimeEnd <= endOfDay first, DateTimeStart >= startOfDay second.
+            var expr = new SearchParameterExpression(
+                BuildBirthdateParam(searchParamType: SearchParamType.String),
+                EqualityPattern(StartOfYear, EndOfYear));
+
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
+
+            Assert.Same(expr, result);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayReversedOrder_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
+        {
             var reversedPattern = (MultiaryExpression)Expression.And(
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), reversedPattern);
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), reversedPattern);
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            var rewritten = Assert.IsType<SearchParameterExpression>(result);
-            var binary = Assert.IsType<BinaryExpression>(rewritten.Expression);
-            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
-            Assert.Equal(EndOfDay, binary.Value);
-        }
-
-        [Fact]
-        public void GivenNonScalarTemporalAllowListedParameter_WhenEqualityPatternMatched_ThenPassThrough()
-        {
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: false), EqualityPattern(StartOfYear, EndOfYear));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenDateOnlyButNotScalarTemporalAllowListedParameter_WhenEqualityPatternMatched_ThenPassThrough()
-        {
-            var parameter = BuildParam(isScalarTemporal: false);
-            parameter.IsDateOnly = true;
-            var expr = new SearchParameterExpression(parameter, EqualityPattern(StartOfYear, EndOfYear));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
+            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfDay);
         }
 
         [Fact]
         public void GivenSingleSidedPredicate_WhenRewritten_ThenPassThrough()
         {
             var single = Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay);
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), single);
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), single);
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
@@ -169,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenRangeOperatorPattern_WhenRewritten_ThenPassThrough()
         {
             var range = Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay);
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), range);
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), range);
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
@@ -179,12 +176,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenApproximateExpression_WhenRewritten_ThenPassThrough()
         {
-            // Simulate the AST shape that Ap produces: same structure as Eq but with constants
-            // shifted by an approximate delta (Start moved earlier, End moved later).
-            // The rewriter must not collapse this; the resulting End value would not match any stored row.
             var approxStart = StartOfDay.AddDays(-30);
             var approxEnd = EndOfDay.AddDays(30);
-            var expr = new SearchParameterExpression(BuildParam(isScalarTemporal: true), EqualityPattern(approxStart, approxEnd));
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(approxStart, approxEnd));
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
@@ -194,23 +188,41 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenCompositeParameter_WhenEqualityPatternMatched_ThenPassThrough()
         {
-            // Composite parameters are out of scope for v1. This test exercises pass-through via the
-            // parameter type gate before any scalar temporal URL allow-list decision.
             var composite = new SearchParameterInfo(
-                "Observation-code-value-date",
-                "code-value-date",
+                "Patient-code-birthdate",
+                "code-birthdate",
                 SearchParamType.Composite,
-                new Uri("http://hl7.org/fhir/SearchParameter/Observation-code-value-date"),
-                expression: "Observation",
-                baseResourceTypes: new[] { "Observation" })
-            {
-                IsScalarTemporal = true,
-            };
+                new Uri("http://example.org/SearchParameter/Patient-code-birthdate"),
+                expression: "Patient",
+                baseResourceTypes: new[] { "Patient" });
             var expr = new SearchParameterExpression(composite, EqualityPattern(StartOfDay, EndOfDay));
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
             Assert.Same(expr, result);
+        }
+
+        private static void AssertEndDateEqualsAndNotLongerThanDay(Expression result, DateTimeOffset expectedEnd)
+        {
+            var rewritten = Assert.IsType<SearchParameterExpression>(result);
+            var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
+            Assert.Equal(MultiaryOperator.And, multiary.MultiaryOperation);
+            Assert.Collection(
+                multiary.Expressions,
+                first =>
+                {
+                    var binary = Assert.IsType<BinaryExpression>(first);
+                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+                    Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                    Assert.Equal(expectedEnd, binary.Value);
+                },
+                second =>
+                {
+                    var binary = Assert.IsType<BinaryExpression>(second);
+                    Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
+                    Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                    Assert.False((bool)binary.Value);
+                });
         }
     }
 }
