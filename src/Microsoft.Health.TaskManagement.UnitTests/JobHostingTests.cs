@@ -19,6 +19,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
+    [Trait(Traits.Category, Categories.BackgroundJobs)]
     public class JobHostingTests
     {
         private ILogger<JobHosting> _logger;
@@ -54,7 +55,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -118,7 +121,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 }
             });
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -155,11 +160,13 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
             job1.Status = JobStatus.Running;
             job1.HeartbeatDateTime = DateTime.Now.AddSeconds(-3);
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -191,9 +198,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -229,10 +238,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -266,10 +277,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, ["task1"], null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 15;
 
@@ -301,10 +314,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatIntervalInSeconds = 1;
 
@@ -332,6 +347,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
                             return t.Definition;
                         });
             });
+
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
 
             var queueClient = new TestQueueClient();
             var randomNumber = 0;
@@ -383,7 +400,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(numberOfJobs, jobs.Count);
             Assert.True(jobs.All(t => t.Status == JobStatus.Created));
 
-            var jobHosting = new JobHosting(queueClient, factory, _logger);
+            var jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatIntervalInSeconds = 0.001;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;

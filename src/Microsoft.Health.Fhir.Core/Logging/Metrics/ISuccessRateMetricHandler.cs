@@ -5,7 +5,10 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public interface IBundleMetricHandler : ILatencyMetricHandler<BundleMetricNotification>, ISuccessRateMetricHandler
+    public interface ISuccessRateMetricHandler
     {
+        void EmitFailure(string errorType);
+
+        void EmitSuccess();
     }
 }

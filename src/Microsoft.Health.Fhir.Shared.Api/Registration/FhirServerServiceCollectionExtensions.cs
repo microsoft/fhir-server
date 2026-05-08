@@ -16,11 +16,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
+using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -178,11 +179,24 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private static void AddMetricEmitter(IServiceCollection services)
         {
-            // Register the metric handlers used by the service.
-            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            // Generic metric handlers.
             services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
-            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
             services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
+            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
+
+            // Feature specific metric handlers.
+            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
+
+            // Job metric handlers.
+            services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();
+            services.TryAddSingleton<IBulkUpdateMetricHandler, DefaultBulkUpdateMetricHandler>();
+            services.TryAddSingleton<IExportMetricHandler, DefaultExportMetricHandler>();
+            services.TryAddSingleton<IImportMetricHandler, DefaultImportMetricHandler>();
+            services.TryAddSingleton<IReindexMetricHandler, DefaultReindexMetricHandler>();
+
+            // Factory metric handlers.
+            services.TryAddSingleton<Health.JobManagement.IJobMetricFactory, JobMetricFactory>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

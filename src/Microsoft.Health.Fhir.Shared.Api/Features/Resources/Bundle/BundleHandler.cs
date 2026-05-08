@@ -51,6 +51,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -71,14 +72,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
-        private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly IProvideProfilesForValidation _profilesResolver;
-        private readonly ILogger<BundleHandler> _logger;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
         private readonly ConcurrentDictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
@@ -88,11 +87,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
-        private readonly IMediator _mediator;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IMediator _mediator;
+        private readonly IRouter _router;
+        private readonly ILogger<BundleHandler> _logger;
+        private readonly IBundleMetricHandler _metricHandler;
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -137,12 +139,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
+            IProvideProfilesForValidation profilesResolver,
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterOperations searchParameterOperations,
             IMediator mediator,
             IRouter router,
-            IProvideProfilesForValidation profilesResolver,
-            ILogger<BundleHandler> logger,
-            IModelInfoProvider modelInfoProvider,
-            ISearchParameterOperations searchParameterOperations)
+            IBundleMetricHandler metricHandler,
+            ILogger<BundleHandler> logger)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -164,6 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
@@ -452,17 +456,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     throw new InvalidOperationException(string.Format(Api.Resources.BundleInvalidCombination, _bundleType, processingLogic));
                 }
+
+                _metricHandler.EmitSuccess();
             }
             catch (FhirTransactionFailedException tfe) when (tfe.IsErrorCausedDueClientFailure())
             {
                 _logger.LogWarning(tfe, "Client failure while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
                 statistics.MarkBundleAsFailedDueClientError();
+
+                // Errors caused by customer failures do not count as service failures.
+                _metricHandler.EmitSuccess();
+
                 throw;
             }
             catch (FhirTransactionCancelledException tce)
             {
                 _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
                 statistics.MarkBundleAsCancelled();
+
+                _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
+
                 throw;
             }
             catch (Exception ex)
@@ -475,6 +488,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                    _metricHandler.EmitFailure(ex.GetType().Name);
                 }
 
                 throw;

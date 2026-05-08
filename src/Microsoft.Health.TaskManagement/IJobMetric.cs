@@ -3,9 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.JobManagement
 {
-    public interface IBundleMetricHandler : ILatencyMetricHandler<BundleMetricNotification>, ISuccessRateMetricHandler
+    public interface IJobMetric
     {
+        void EmitFailure(string errorType);
+
+        void EmitSuccess();
     }
 }

@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -262,9 +263,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 });
             }
 
+            IJobMetricFactory metricFactory = Substitute.For<IJobMetricFactory>();
+
             var logger = NullLogger<JobHosting>.Instance;
 
-            _jobHosting = new JobHosting(_queueClient, _jobFactory, logger);
+            _jobHosting = new JobHosting(_queueClient, _jobFactory, metricFactory, logger);
 
             // Configure for faster polling to make tests run quicker
             _jobHosting.PollingFrequencyInSeconds = 1;
