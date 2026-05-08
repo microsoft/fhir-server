@@ -19,6 +19,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
+    [Trait(Traits.Category, Categories.BackgroundJobs)]
     public class JobHostingTests
     {
         private ILogger<JobHosting> _logger;

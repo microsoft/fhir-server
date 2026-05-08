@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.BackgroundJobs)]
     public class SearchParameterCacheRefreshBackgroundServiceTests
     {
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
