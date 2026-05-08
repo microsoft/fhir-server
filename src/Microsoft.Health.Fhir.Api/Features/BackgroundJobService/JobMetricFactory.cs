@@ -42,13 +42,18 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             IJobMetric jobMetric = jobTypeId switch
             {
                 (int)JobType.BulkDeleteOrchestrator => _bulkDeleteMetricHandler,
+                (int)JobType.BulkDeleteProcessing => _bulkDeleteMetricHandler,
 
                 (int)JobType.BulkUpdateOrchestrator => _bulkUpdateMetricHandler,
+                (int)JobType.BulkUpdateProcessing => _bulkUpdateMetricHandler,
 
                 (int)JobType.ExportOrchestrator => _exportMetricHandler,
+                (int)JobType.ExportProcessing => _exportMetricHandler,
 
                 (int)JobType.ImportOrchestrator => _importMetricHandler,
+                (int)JobType.ImportProcessing => _importMetricHandler,
 
+                // Jobs of type "ReindexProcessing" do not emit metrics.
                 (int)JobType.ReindexOrchestrator => _reindexMetricHandler,
 
                 _ => null,

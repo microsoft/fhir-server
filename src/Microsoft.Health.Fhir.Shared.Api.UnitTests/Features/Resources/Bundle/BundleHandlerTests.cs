@@ -506,7 +506,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
 
-                // Ensures success sign is emitted.
+                // Ensures failure sign is emitted.
                 _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
             }
         }

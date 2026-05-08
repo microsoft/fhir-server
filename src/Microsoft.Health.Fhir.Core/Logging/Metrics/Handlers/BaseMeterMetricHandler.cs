@@ -6,7 +6,7 @@
 using System.Diagnostics.Metrics;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
     public abstract class BaseMeterMetricHandler
     {
