@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -42,6 +43,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
+
+            // If Till was not explicitly set by the user, use the job's CreateDate
+            if (!record.IsTillExplicit)
+            {
+                record.Till = new PartialDateTime(jobInfo.CreateDate);
+            }
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);

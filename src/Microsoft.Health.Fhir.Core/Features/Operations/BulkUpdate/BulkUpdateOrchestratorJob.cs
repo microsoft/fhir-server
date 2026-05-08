@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                 }
 
                                 _logger.LogJobInformation(jobInfo, "Creating bulk update definition (1).");
-                                var processingDefinition = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, type, continuationToken: null, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                                var processingDefinition = CreateProcessingDefinition(definition, jobInfo.CreateDate, type, continuationToken: null, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
                                 definitions.Add(processingDefinition);
                             }
 
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                         // Enqueue the job for the current page of results
                         _logger.LogJobInformation(jobInfo, "Creating bulk update definition (3).");
-                        var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, false);
+                        var processingRecord = CreateProcessingDefinition(definition, jobInfo.CreateDate, definition.Type, prevContinuationToken, false);
 
                         _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
                         await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 else if (groupJobs.Count == 1)
                 {
                     _logger.LogJobInformation(jobInfo, "Creating bulk update definition (5).");
-                    var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, null, true);
+                    var processingRecord = CreateProcessingDefinition(definition, jobInfo.CreateDate, definition.Type, null, true);
                     _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (5).");
                     await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
@@ -269,22 +269,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 isIncludesOperation: false);
         }
 
-        internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, ISearchService searchService, CancellationToken cancellationToken, string resourceType = null, string continuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
+        internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, DateTimeOffset jobCreateDate, string resourceType = null, string continuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
-            var searchParameters = new List<Tuple<string, string>>()
+            var cloneList = new List<Tuple<string, string>>()
                 {
-                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{jobCreateDate}"),
                 };
 
             if (baseDefinition.SearchParameters != null)
             {
-                searchParameters.AddRange(baseDefinition.SearchParameters);
-            }
-
-            var cloneList = new List<Tuple<string, string>>();
-            if (baseDefinition.SearchParameters != null)
-            {
-                cloneList = baseDefinition.SearchParameters.ToList();
+                cloneList.AddRange(baseDefinition.SearchParameters);
             }
 
             if (!string.IsNullOrEmpty(continuationToken))

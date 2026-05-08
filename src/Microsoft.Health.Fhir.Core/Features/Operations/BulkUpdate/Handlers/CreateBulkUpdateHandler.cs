@@ -83,14 +83,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 searchParameters.AddRange(request.ConditionalParameters);
             }
 
-            var dateCurrent = new PartialDateTime(Clock.UtcNow);
-            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
-
             // Remove bulk update specific parameters from search parameters
             searchParameters.RemoveAll(t => BulkUpdateQueryParameters.Any(param => param.Equals(t.Item1, StringComparison.OrdinalIgnoreCase)));
 
+            // Add a temporary _lastUpdated for validation - this will be replaced with jobInfo.CreateDate in the orchestrator job
+            var validationSearchParameters = new List<Tuple<string, string>>(searchParameters);
+            var dateCurrent = new PartialDateTime(Clock.UtcNow);
+            validationSearchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
+
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
-            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
+            await _searchService.ConditionalSearchAsync(request.ResourceType, validationSearchParameters, cancellationToken, count: 1, logger: _logger);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
