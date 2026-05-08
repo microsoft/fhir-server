@@ -41,10 +41,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             IJobMetric jobMetric = jobTypeId switch
             {
-                (int)JobType.BulkDeleteOrchestrator => null,
+                (int)JobType.BulkDeleteOrchestrator => _bulkDeleteMetricHandler,
                 (int)JobType.BulkDeleteProcessing => _bulkDeleteMetricHandler,
 
-                (int)JobType.BulkUpdateOrchestrator => null,
+                (int)JobType.BulkUpdateOrchestrator => _bulkUpdateMetricHandler,
                 (int)JobType.BulkUpdateProcessing => _bulkUpdateMetricHandler,
 
                 (int)JobType.ExportOrchestrator => _exportMetricHandler,
