@@ -603,9 +603,6 @@
   <data name="FailedToAnonymizeResource" xml:space="preserve">
     <value>Failed to anonymize resource. The job will be marked as failed. {0}</value>
   </data>
-  <data name="InvalidExportParameterValue" xml:space="preserve">
-    <value>Export operation parameter '{0}' was out of the range of valid values. Please specify a different value within a range '{1}' - '{2}'.</value>
-  </data>
   <data name="InvalidEverythingOperationPhase" xml:space="preserve">
     <value>The phase '{0}' in $everything operation is invalid.</value>
   </data>

@@ -296,10 +296,6 @@ install-aso/
 *.Generated.cs
 *.Generated.*.cs
 
-# Exclude auto-generated SQL schema snapshot files, keep the .diff.sql
-src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/*.sql
-!src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/*.diff.sql
-
 # Azurite temporary files
 __*
 

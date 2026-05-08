@@ -15,7 +15,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -364,7 +363,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
@@ -413,7 +411,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 

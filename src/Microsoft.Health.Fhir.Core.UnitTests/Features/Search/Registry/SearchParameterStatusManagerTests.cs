@@ -205,54 +205,5 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.False(list[2].IsSupported);
             Assert.False(list[2].IsPartiallySupported);
         }
-
-        [Fact]
-        public async Task GivenASPStatusManager_WhenUpdatingStatus_ThenInMemoryCacheIsNotMutatedAndMediatorIsNotPublished()
-        {
-            // Arrange - Initialize so search parameters have known in-memory state
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
-
-            var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
-
-            // Capture initial in-memory state for the Enabled parameter (index 0: ResourceId)
-            bool initialIsSearchable = list[0].IsSearchable;
-            bool initialIsSupported = list[0].IsSupported;
-            bool initialIsPartiallySupported = list[0].IsPartiallySupported;
-            SortParameterStatus initialSortStatus = list[0].SortStatus;
-
-            // Clear any mediator calls from initialization
-            _mediator.ClearReceivedCalls();
-
-            // Act - Call UpdateSearchParameterStatusAsync to change status to Supported
-            await _manager.UpdateSearchParameterStatusAsync(
-                new[] { ResourceId },
-                SearchParameterStatus.Supported,
-                CancellationToken.None);
-
-            // Assert - DB write occurred
-            await _searchParameterStatusDataStore
-                .Received(1)
-                .UpsertStatuses(
-                    Arg.Is<List<ResourceSearchParameterStatus>>(statuses =>
-                        statuses.Count == 1 &&
-                        statuses[0].Uri.OriginalString == ResourceId &&
-                        statuses[0].Status == SearchParameterStatus.Supported),
-                    Arg.Any<CancellationToken>());
-
-            // Assert - In-memory SearchParameterInfo was NOT modified
-            // Re-fetch from the definition manager to make the assertion intent explicit
-            var refreshedList = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
-            Assert.Equal(initialIsSearchable, refreshedList[0].IsSearchable);
-            Assert.Equal(initialIsSupported, refreshedList[0].IsSupported);
-            Assert.Equal(initialIsPartiallySupported, refreshedList[0].IsPartiallySupported);
-            Assert.Equal(initialSortStatus, refreshedList[0].SortStatus);
-
-            // Assert - Mediator was NOT called (no SearchParametersUpdatedNotification)
-            await _mediator
-                .DidNotReceive()
-                .Publish(
-                    Arg.Any<SearchParametersUpdatedNotification>(),
-                    Arg.Any<CancellationToken>());
-        }
     }
 }
