@@ -30,8 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.BackgroundJobService
         public void GivenAJobMetricFactory_WhenProcessingBulkDelete_ReturnSupportedMetrics()
         {
             IJobMetric jobMetric = GetJobMetric(JobType.BulkDeleteOrchestrator);
-            Assert.NotNull(jobMetric);
-            Assert.True(jobMetric is IBulkDeleteMetricHandler);
+            Assert.Null(jobMetric);
 
             jobMetric = GetJobMetric(JobType.BulkDeleteProcessing);
             Assert.NotNull(jobMetric);
@@ -42,8 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.BackgroundJobService
         public void GivenAJobMetricFactory_WhenProcessingBulkUpdate_ReturnSupportedMetrics()
         {
             IJobMetric jobMetric = GetJobMetric(JobType.BulkUpdateOrchestrator);
-            Assert.NotNull(jobMetric);
-            Assert.True(jobMetric is IBulkUpdateMetricHandler);
+            Assert.Null(jobMetric);
 
             jobMetric = GetJobMetric(JobType.BulkUpdateProcessing);
             Assert.NotNull(jobMetric);
