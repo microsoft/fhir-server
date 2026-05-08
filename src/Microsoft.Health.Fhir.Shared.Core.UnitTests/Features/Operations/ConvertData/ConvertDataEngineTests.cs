@@ -370,6 +370,61 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 .Log(Arg.Any<LogLevel>(), Arg.Any<string>(), Arg.Is<FhirConverterException>(e => e != null));
         }
 
+        [Fact]
+        public async Task GivenSameTemplateReference_WhenProcessIsCalledMultipleTimes_TemplateCollectionShouldBeFetchedOnce()
+        {
+            var templateCollection = new List<Dictionary<string, Template>>
+            {
+                new Dictionary<string, Template>
+                {
+                    { "ADT_A01", Template.Parse("{}") },
+                },
+            };
+
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+            var convertEngine = new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>(), new NullLogger<JsonProcessor>());
+
+            var request = GetHl7V2RequestWithDefaultTemplates();
+            await convertEngine.Process(request, CancellationToken.None);
+            await convertEngine.Process(request, CancellationToken.None);
+            await convertEngine.Process(request, CancellationToken.None);
+
+            await templateProvider.Received(1).GetTemplateCollectionAsync(Arg.Any<ConvertDataRequest>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenDifferentTemplateReferences_WhenProcessIsCalled_TemplateCollectionShouldBeFetchedPerReference()
+        {
+            var templateCollection = new List<Dictionary<string, Template>>
+            {
+                new Dictionary<string, Template>
+                {
+                    { "ADT_A01", Template.Parse("{}") },
+                },
+            };
+
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+            var convertEngine = new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>(), new NullLogger<JsonProcessor>());
+
+            var firstRequest = new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, "microsofthealth/fhirconverter:reference-a", "ADT_A01");
+            var secondRequest = new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, "microsofthealth/fhirconverter:reference-b", "ADT_A01");
+
+            await convertEngine.Process(firstRequest, CancellationToken.None);
+            await convertEngine.Process(secondRequest, CancellationToken.None);
+
+            await templateProvider.Received(2).GetTemplateCollectionAsync(Arg.Any<ConvertDataRequest>(), Arg.Any<CancellationToken>());
+        }
+
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
         {
             return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Hl7v2), "ADT_A01");

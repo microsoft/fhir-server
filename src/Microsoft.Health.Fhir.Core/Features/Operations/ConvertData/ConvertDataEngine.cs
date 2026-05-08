@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -23,8 +24,12 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public class ConvertDataEngine : IConvertDataEngine
+    public class ConvertDataEngine : IConvertDataEngine, IDisposable
     {
+        // ACR-backed template collections are cached by ContainerRegistryTemplateProvider for 5 minutes;
+        // mirror that TTL here so the derived TemplateProvider does not outlive its underlying templates.
+        private static readonly TimeSpan ContainerRegistryTemplateProviderTtl = TimeSpan.FromMinutes(5);
+
         private readonly ITemplateProviderFactory _templateProviderFactory;
         private readonly IConvertProcessorFactory _convertProcessorFactory;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
@@ -35,6 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         // Local cache of IFhirConverter instance.
         private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
+
+        // Cache of TemplateProvider keyed by template collection reference. Building a TemplateProvider copies
+        // every template into a MemoryFileSystem, so rebuilding it per request is wasteful for hot references.
+        private readonly MemoryCache _templateProviderCache = new MemoryCache(new MemoryCacheOptions());
+        private readonly SemaphoreSlim _templateProviderCacheLock = new SemaphoreSlim(1, 1);
+        private bool _disposed;
 
         public ConvertDataEngine(
             ITemplateProviderFactory templateProviderFactory,
@@ -61,30 +72,75 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
         {
-            IConvertDataTemplateProvider convertDataTemplateProvider;
+            EnsureArg.IsNotNull(convertRequest, nameof(convertRequest));
 
-            if (convertRequest.IsDefaultTemplateReference)
-            {
-                convertDataTemplateProvider = _templateProviderFactory.GetDefaultTemplateProvider();
-            }
-            else
-            {
-                convertDataTemplateProvider = _templateProviderFactory.GetContainerRegistryTemplateProvider();
-            }
-
-            List<Dictionary<string, DotLiquid.Template>> templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
-
-            ITemplateProvider templateProvider = new TemplateProvider(templateCollection);
-            if (templateProvider == null)
-            {
-                // This case should never happen.
-                _logger.LogInformation("Invalid input data type for conversion.");
-                throw new RequestNotValidException("Invalid input data type for conversion.");
-            }
+            ITemplateProvider templateProvider = await GetOrCreateTemplateProviderAsync(convertRequest, cancellationToken);
 
             var result = GetConvertDataResult(convertRequest, templateProvider, cancellationToken);
 
             return new ConvertDataResponse(result);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                _templateProviderCache.Dispose();
+                _templateProviderCacheLock.Dispose();
+            }
+
+            _disposed = true;
+        }
+
+        private async Task<ITemplateProvider> GetOrCreateTemplateProviderAsync(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
+        {
+            string cacheKey = convertRequest.TemplateCollectionReference;
+
+            if (_templateProviderCache.TryGetValue(cacheKey, out ITemplateProvider cachedProvider))
+            {
+                return cachedProvider;
+            }
+
+            await _templateProviderCacheLock.WaitAsync(cancellationToken);
+            try
+            {
+                if (_templateProviderCache.TryGetValue(cacheKey, out cachedProvider))
+                {
+                    return cachedProvider;
+                }
+
+                IConvertDataTemplateProvider convertDataTemplateProvider = convertRequest.IsDefaultTemplateReference
+                    ? _templateProviderFactory.GetDefaultTemplateProvider()
+                    : _templateProviderFactory.GetContainerRegistryTemplateProvider();
+
+                List<Dictionary<string, DotLiquid.Template>> templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
+
+                ITemplateProvider templateProvider = new TemplateProvider(templateCollection);
+
+                var entryOptions = new MemoryCacheEntryOptions();
+                if (!convertRequest.IsDefaultTemplateReference)
+                {
+                    entryOptions.AbsoluteExpirationRelativeToNow = ContainerRegistryTemplateProviderTtl;
+                }
+
+                _templateProviderCache.Set(cacheKey, templateProvider, entryOptions);
+                return templateProvider;
+            }
+            finally
+            {
+                _templateProviderCacheLock.Release();
+            }
         }
 
         private string GetConvertDataResult(ConvertDataRequest convertRequest, ITemplateProvider templateProvider, CancellationToken cancellationToken)

@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);
-            ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
+            ConvertDataResponse response = await _mediator.Send(convertDataRequest, HttpContext.RequestAborted);
 
             return new ContentResult
             {
