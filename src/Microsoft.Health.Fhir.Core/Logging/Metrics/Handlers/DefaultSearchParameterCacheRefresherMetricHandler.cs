@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
     public sealed class DefaultSearchParameterCacheRefresherMetricHandler : BaseSuccessRateMetricHandler, ISearchParameterCacheRefresherMetricHandler
     {
         public DefaultSearchParameterCacheRefresherMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "SearchParameter.Success", failureMetricName: "SearchParameter.Failure")
+            : base(meterFactory, successMetricName: "SearchParameter.CacheRefresher.Success", failureMetricName: "SearchParameter.CacheRefresher.Failure")
         {
         }
     }

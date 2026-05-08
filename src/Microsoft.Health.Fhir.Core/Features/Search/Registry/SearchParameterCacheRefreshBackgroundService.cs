@@ -136,8 +136,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                 string exceptionAsString = ex.ToString();
 
-                if (exceptionAsString.Contains("is not accessible due to Azure Key Vault critical error.", StringComparison.OrdinalIgnoreCase) ||
-                    exceptionAsString.Contains("The request rate has exceeded the maximum API request rate and is being throttled.", StringComparison.OrdinalIgnoreCase))
+                if ((exceptionAsString.Contains("SqlException", StringComparison.OrdinalIgnoreCase) && exceptionAsString.Contains("is not accessible due to Azure Key Vault critical error.", StringComparison.OrdinalIgnoreCase)) ||
+                    (exceptionAsString.Contains("RequestRateExceededException", StringComparison.OrdinalIgnoreCase) && exceptionAsString.Contains("The request rate has exceeded the maximum API request rate and is being throttled.", StringComparison.OrdinalIgnoreCase)))
                 {
                     _logger.LogWarning(ex, message);
                 }

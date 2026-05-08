@@ -268,7 +268,6 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogJobWarning(ex, jobInfo, "Job canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
-                jobMetric?.EmitFailure(nameof(OperationCanceledException));
 
                 try
                 {
