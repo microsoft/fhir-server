@@ -42,42 +42,34 @@ GITHUB_API = "https://api.github.com"
 GITHUB_MODELS_API = "https://models.inference.ai.azure.com/chat/completions"
 
 SYSTEM_PROMPT = textwrap.dedent("""
-    You are an expert code reviewer for the Microsoft FHIR Server — a production
-    healthcare interoperability platform built with C# and .NET, deployed on Azure.
+    You are a senior engineer reviewing a pull request on the Microsoft FHIR Server (C#/.NET, Azure).
+    Write like a colleague doing a real peer review — first-person, direct, no filler.
 
-    When reviewing a pull request diff, focus on:
-    1. **FHIR Compliance** — Ensure changes respect HL7 FHIR R4/R5/STU3 standards.
-    2. **Security & Privacy** — Flag any PHI/PII exposure, insecure token handling,
-       missing input validation, or OWASP Top-10 issues.
-    3. **Code Quality** — Point out naming violations (PascalCase for public members,
-       camelCase with _ prefix for private fields), missing XML docs on public members,
-       and deviation from project conventions.
-    4. **Performance** — Identify N+1 queries, missing async/await, blocking calls,
-       or inefficient LINQ.
-    5. **Patterns** — Flag deviation from Mediatr Request/Handler pattern, missing
-       dependency injection, or hardcoded values that should be configuration.
-    6. **Testing** — Note if new functionality lacks unit tests (xUnit + NSubstitute).
+    Only call out things that actually matter: bugs, security issues, FHIR spec violations,
+    missing error handling, test gaps. Skip style nitpicks unless they'd cause a real problem.
 
-    Return ONLY valid JSON in exactly this schema:
+    For each issue, write a single sentence as if you're talking to the author:
+    "This will throw if X is null", "Missing test for the 412 case here",
+    "This bypasses the auth check when Y". No category labels, no bullet preamble.
+
+    Return ONLY valid JSON:
     {
-      "summary": "<one-paragraph overview of the changes>",
+      "summary": "<1-2 sentences: what this PR does, plain English>",
       "suggestions": [
         {
           "file": "<relative file path or 'general'>",
           "line": <line number or null>,
-          "severity": "error|warning|info",
-          "category": "security|performance|style|fhir|pattern|testing",
-          "message": "<concise actionable feedback>"
+          "severity": "error|warning",
+          "category": "security|performance|bug|fhir|testing",
+          "message": "<one conversational sentence>"
         }
       ],
       "risk_score": <integer 1-10>,
-      "risk_reason": "<one sentence explaining the risk score>"
+      "risk_reason": "<one sentence>"
     }
 
-    risk_score guide:
-      1-3  = low  (docs, tests, minor style)
-      4-6  = medium (logic changes, new features)
-      7-10 = high (auth, schema, security, breaking changes)
+    risk_score: 1-3=low (tests/docs only), 4-6=medium (logic/features), 7-10=high (auth/schema/security).
+    Keep suggestions to the ones you'd actually block the PR on or strongly recommend fixing.
 """).strip()
 
 
@@ -275,82 +267,38 @@ def _build_review_body(
     summary = ai_review.get("summary", "")
     suggestions = ai_review.get("suggestions", [])
 
-    # Risk badge
     if isinstance(risk_score, int):
-        if risk_score <= 3:
-            badge = "🟢 Low"
-        elif risk_score <= 6:
-            badge = "🟡 Medium"
-        else:
-            badge = "🔴 High"
+        badge = "🟢" if risk_score <= 3 else ("🟡" if risk_score <= 6 else "🔴")
     else:
-        badge = "⚪ Unknown"
+        badge = "⚪"
 
-    lines = [
-        "## 🤖 PR Review Assistant",
-        "",
-        f"### Summary",
-        summary,
-        "",
-        f"### Risk Assessment: {badge} ({risk_score}/10)",
-        f"> {risk_reason}",
-        "",
-    ]
+    lines = [f"## Review {badge} {risk_score}/10", "", summary, ""]
 
-    # File risk breakdown
+    if risk_reason:
+        lines += [f"> {risk_reason}", ""]
+
     if risk_levels["high"]:
-        lines += ["**⚠️ High-Risk Files Changed:**"]
-        for f in risk_levels["high"]:
-            lines.append(f"  - `{f}`")
+        lines.append("**High-risk files:** " + ", ".join(f"`{f}`" for f in risk_levels["high"]))
         lines.append("")
 
-    if risk_levels["medium"]:
-        lines += ["**📋 Medium-Risk Files Changed:**"]
-        for f in risk_levels["medium"]:
-            lines.append(f"  - `{f}`")
-        lines.append("")
-
-    # Suggestions grouped by severity
     errors = [s for s in suggestions if s.get("severity") == "error"]
     warnings = [s for s in suggestions if s.get("severity") == "warning"]
-    infos = [s for s in suggestions if s.get("severity") == "info"]
 
-    if errors:
-        lines += ["### ❌ Errors (must fix)"]
-        for s in errors:
-            loc = f"`{s['file']}`" + (f" line {s['line']}" if s.get("line") else "")
-            lines.append(f"- **[{s['category']}]** {loc}: {s['message']}")
+    if errors or warnings:
+        for s in errors + warnings:
+            prefix = "❌" if s.get("severity") == "error" else "⚠️"
+            loc = f"`{s['file']}`" if s.get("file") and s["file"] != "general" else ""
+            loc += f" (line {s['line']})" if s.get("line") else ""
+            loc_str = f" — {loc}" if loc else ""
+            lines.append(f"{prefix}{loc_str} {s['message']}")
         lines.append("")
-
-    if warnings:
-        lines += ["### ⚠️ Warnings"]
-        for s in warnings:
-            loc = f"`{s['file']}`" + (f" line {s['line']}" if s.get("line") else "")
-            lines.append(f"- **[{s['category']}]** {loc}: {s['message']}")
-        lines.append("")
-
-    if infos:
-        lines += ["### 💡 Suggestions"]
-        for s in infos:
-            loc = f"`{s['file']}`" + (f" line {s['line']}" if s.get("line") else "")
-            lines.append(f"- **[{s['category']}]** {loc}: {s['message']}")
-        lines.append("")
-
-    if not suggestions:
-        lines += ["### ✅ No issues found", ""]
-
-    # Auto-approve status
-    if auto_approve:
-        lines += [
-            "---",
-            "### ✅ Auto-Approved",
-            f"This PR has been automatically approved because: {auto_approve_reason}",
-        ]
     else:
-        lines += [
-            "---",
-            f"*Auto-approve not triggered. Reason: {auto_approve_reason}*",
-        ]
+        lines += ["Looks good — no issues found.", ""]
+
+    if auto_approve:
+        lines.append("✅ Auto-approved — low risk, all checks passed.")
+    else:
+        lines.append(f"*Not auto-approved: {auto_approve_reason}*")
 
     return "\n".join(lines)
 
