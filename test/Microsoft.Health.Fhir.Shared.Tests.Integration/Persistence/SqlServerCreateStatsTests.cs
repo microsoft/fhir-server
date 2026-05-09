@@ -100,5 +100,130 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                       && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status")));
             }
         }
+
+        [Fact]
+        public async Task GivenSearchByReferenceParam_NormalPath_StatsAreCreated()
+        {
+            // Arrange — DiagnosticReport.subject is a reference search parameter stored in dbo.ReferenceSearchParam
+            const string resourceType = "DiagnosticReport";
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject";
+            var query = new[] { Tuple.Create("subject", "Patient/test-patient-1") };
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
+            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+
+            // Capture stats before the search so we can assert on the delta.
+            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            // Act
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            // Assert — filtered statistics must be created for the ReferenceResourceId and ReferenceResourceTypeId columns
+            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s, string columnName) =>
+                s.TableName == VLatest.ReferenceSearchParam.TableName
+                && s.ColumnName == columnName
+                && s.ResourceTypeId == resourceTypeId
+                && s.SearchParamId == searchParamId;
+
+            // Cache
+            Assert.True(
+                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
+                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceId.");
+
+            Assert.True(
+                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
+                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceTypeId.");
+
+            // Database
+            Assert.True(
+                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
+                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceId.");
+
+            Assert.True(
+                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
+                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
+                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceTypeId.");
+        }
+
+        [Fact]
+        public async Task GivenSearchByUriParam_NormalPath_StatsAreCreated()
+        {
+            // Arrange — ValueSet.url is a URI search parameter stored in dbo.UriSearchParam
+            const string resourceType = "ValueSet";
+#if Stu3
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/ValueSet-url";
+#elif R5
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/CanonicalResource-url";
+#else
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/conformance-url";
+#endif
+            var query = new[] { Tuple.Create("url", "http://example.com/fhir/ValueSet/test") };
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
+            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s) =>
+                s.TableName == VLatest.UriSearchParam.TableName
+                && s.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
+                && s.ResourceTypeId == resourceTypeId
+                && s.SearchParamId == searchParamId;
+
+            // Capture stats before the search so we can assert on the delta.
+            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            // Act
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            // Assert — filtered statistics must be created for the Uri column
+            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            // Cache
+            Assert.True(
+                cacheAfter.Count(MatchesStat) > cacheBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the cache for Uri.");
+
+            // Database
+            Assert.True(
+                databaseAfter.Count(MatchesStat) > databaseBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the database for Uri.");
+        }
+
+        [Fact]
+        public async Task GivenSearchByReferenceParam_NotExistsPath_NoReferenceStatsAreCreated()
+        {
+            // Arrange — searching with :missing=true produces a NotExists table expression;
+            // the stats pipeline must NOT emit entries for that expression kind.
+            const string resourceType = "DiagnosticReport";
+            var query = new[] { Tuple.Create("subject:missing", "true") };
+
+            // Record the cache before the search so we can detect any new entries added only by this query.
+            var statsBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+
+            // Act
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            var statsAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+
+            // Assert — a NotExists expression must never produce ReferenceSearchParam stats.
+            var newReferenceStats = statsAfter
+                .Where(s => s.TableName == VLatest.ReferenceSearchParam.TableName
+                    && !statsBefore.Any(b =>
+                        b.TableName == s.TableName
+                        && b.ColumnName == s.ColumnName
+                        && b.ResourceTypeId == s.ResourceTypeId
+                        && b.SearchParamId == s.SearchParamId))
+                .ToList();
+
+            Assert.Empty(newReferenceStats);
+        }
     }
 }
