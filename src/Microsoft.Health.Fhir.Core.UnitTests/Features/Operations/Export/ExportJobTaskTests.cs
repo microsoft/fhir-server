@@ -2291,6 +2291,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 hash,
                 _exportJobConfiguration.RollingFileSizeInMB,
                 since: since,
+                till: new PartialDateTime(Clock.UtcNow),
                 groupId: groupId,
                 storageAccountConnectionHash: storageAccountConnectionHash,
                 storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
