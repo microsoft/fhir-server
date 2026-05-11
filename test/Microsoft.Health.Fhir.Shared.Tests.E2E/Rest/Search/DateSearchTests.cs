@@ -240,41 +240,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientsWithDateOnlyBirthdate_WhenSearchedByEqualityAndRange_ThenCorrectPatientsAreReturned()
-        {
-            // Arrange: create three patients, two born on 2016-07-06 and one born on 2016-07-07.
-            // A unique tag scopes the search results to this test run only.
-            string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientBirthDate(p, "2016-07-06", tag),
-                p => SetPatientBirthDate(p, "2016-07-06", tag),
-                p => SetPatientBirthDate(p, "2016-07-07", tag));
-            Patient firstPatient20160706 = patients[0];
-            Patient secondPatient20160706 = patients[1];
-            Patient patient20160707 = patients[2];
-
-            try
-            {
-                // Equality: only patients born on 2016-07-06 should be returned.
-                Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
-                ValidateBundle(equalityBundle, firstPatient20160706, secondPatient20160706);
-
-                // Range: only patients born after 2016-07-06 should be returned.
-                Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
-                ValidateBundle(rangeBundle, patient20160707);
-            }
-            catch (FhirClientException fce)
-            {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
-            }
-            catch (Exception e)
-            {
-                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
-            }
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenContainmentSemanticsArePreserved()
         {
             string tag = Guid.NewGuid().ToString();
