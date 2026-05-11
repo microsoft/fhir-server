@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             // If Till was not explicitly set by the user, use the job's CreateDate
             if (!record.IsTillExplicit)
             {
-                record.Till = new PartialDateTime(jobInfo.CreateDate);
+                record.Till = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
             }
 
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;

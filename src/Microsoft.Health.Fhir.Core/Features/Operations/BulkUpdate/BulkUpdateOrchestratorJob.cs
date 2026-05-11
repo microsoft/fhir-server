@@ -273,9 +273,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 isIncludesOperation: false);
         }
 
-        internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, DateTimeOffset jobCreateDate, string resourceType = null, string continuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
+        internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, DateTime jobCreateDate, string resourceType = null, string continuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
-            var createDate = new PartialDateTime(jobCreateDate);
+            var createDate = new PartialDateTime(new DateTimeOffset(jobCreateDate, TimeSpan.Zero));
             var cloneList = new List<Tuple<string, string>>()
                 {
                     new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"le{createDate}"),
