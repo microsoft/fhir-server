@@ -6,6 +6,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
     branches:
       - main
   workflow_dispatch:
@@ -24,8 +25,11 @@ jobs:
   review:
     name: AI Code Review
     runs-on: ubuntu-latest
-    # Skip bot-created PRs (Dependabot, etc.) to avoid feedback loops
-    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
+    # Skip bot-created PRs and draft PRs
+    if: >
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.draft == false
 
     steps:
       - name: Checkout repository
