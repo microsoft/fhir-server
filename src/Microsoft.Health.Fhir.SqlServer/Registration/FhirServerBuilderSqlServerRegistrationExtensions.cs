@@ -18,8 +18,8 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
+using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -201,7 +201,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     .AsSelf()
                     .AsService<INotificationHandler<StaleJobMetricsNotification>>();
 
-            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()// Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()
                     .Singleton()
                     .AsSelf() // this is needed to create the instance the delegates resolve
