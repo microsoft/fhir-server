@@ -23,6 +23,8 @@ jobs:
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - checkout: self
     fetchDepth: 1
@@ -82,8 +84,7 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
@@ -107,6 +108,8 @@ jobs:
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
@@ -123,6 +126,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml
@@ -140,6 +145,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml
