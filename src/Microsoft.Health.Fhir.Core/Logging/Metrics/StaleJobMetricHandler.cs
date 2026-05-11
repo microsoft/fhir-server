@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
             var snapshot = Volatile.Read(ref _queueAges);
             return snapshot.Select(kv => new Measurement<double>(
                 kv.Value,
-                new KeyValuePair<string, object?>("queue_type", kv.Key.ToString())));
+                new KeyValuePair<string, object>("queue_type", kv.Key.ToString())));
         }
     }
 }
