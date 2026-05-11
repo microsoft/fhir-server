@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -235,6 +236,85 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithDateOnlyBirthdate_WhenSearchedByEqualityAndRange_ThenCorrectPatientsAreReturned()
+        {
+            // Arrange: create three patients, two born on 2016-07-06 and one born on 2016-07-07.
+            // A unique tag scopes the search results to this test run only.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2016-07-06", tag),
+                p => SetPatientBirthDate(p, "2016-07-06", tag),
+                p => SetPatientBirthDate(p, "2016-07-07", tag));
+
+            try
+            {
+                // Equality: only patients born on 2016-07-06 should be returned.
+                Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
+                ValidateBundle(equalityBundle, patients[0], patients[1]);
+
+                // Range: only patients born after 2016-07-06 should be returned.
+                Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
+                ValidateBundle(rangeBundle, patients[2]);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenContainmentSemanticsArePreserved()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag));
+
+            try
+            {
+                Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
+                ValidateBundle(yearBundle, patients[0], patients[1], patients[2], patients[4], patients[5], patients[6]);
+
+                Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
+                ValidateBundle(monthBundle, patients[1], patients[2], patients[6]);
+
+                Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
+                ValidateBundle(dayBundle, patients[2]);
+
+                Bundle decemberBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-12&_tag={tag}");
+                ValidateBundle(decemberBundle, patients[5]);
+
+                Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
+                ValidateBundle(lastDayBundle, patients[6]);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
+        {
+            patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
+            patient.BirthDate = birthDate;
         }
     }
 }
