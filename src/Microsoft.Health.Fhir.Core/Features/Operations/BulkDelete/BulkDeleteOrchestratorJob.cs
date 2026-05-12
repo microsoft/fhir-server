@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -46,8 +47,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
+                var typeList = new List<string>(resourceTypes);
 
-                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
+                // If _type was specified in search parameters, restrict the type list to only those types.
+                // This is important because SearchOptionsFactory strips _type for type-level searches,
+                // so the orchestrator must enforce the _type constraint here.
+                var requestedTypes = definition.SearchParameters?
+                    .Where(p => string.Equals(p.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(p => p.Item2.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    .Select(t => t.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                if (requestedTypes != null && requestedTypes.Count > 0)
+                {
+                    typeList.RemoveAll(t => !requestedTypes.Contains(t));
+                }
+
+                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, typeList, cancellationToken);
             }
             else
             {

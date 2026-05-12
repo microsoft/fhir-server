@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(operationOutcome);
 
             // Verify it contains an informational issue about _type being ignored
-            var issue = Assert.Single(operationOutcome.Issue, i =>
+            var issue = Assert.Single(operationOutcome!.Issue, i =>
                 i.Severity == OperationOutcome.IssueSeverity.Information
                 && i.Diagnostics.Contains("_type")
                 && i.Diagnostics.Contains("ignored"));

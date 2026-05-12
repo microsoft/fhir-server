@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // System-level bulk-delete with _type and :missing=true — the exact scenario from the production bug.
             // The orchestrator will iterate per-type (Patient, Observation), and for each type-level search
             // the _type parameter should be stripped to avoid contradictory ResourceTypeId predicates.
-            var request = new HttpRequestMessage
+            using var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Delete,
                 RequestUri = new Uri(_httpClient.BaseAddress, QueryHelpers.AddQueryString("$bulk-delete", new Dictionary<string, string>

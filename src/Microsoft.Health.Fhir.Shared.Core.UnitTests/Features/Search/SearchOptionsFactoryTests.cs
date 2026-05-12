@@ -744,7 +744,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create("_type", typeParamValue),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 
@@ -771,7 +771,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create("_type", typeParamValue),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 

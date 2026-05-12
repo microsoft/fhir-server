@@ -131,5 +131,71 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task GivenBulkDeleteJob_WhenTypeParameterIsInSearchParams_ThenOnlyRequestedTypesAreProcessed()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string>()
+            {
+                "Patient",
+                "Observation",
+                "Encounter",
+                "Condition",
+            });
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var result = new SearchResult(2, new List<Tuple<string, string>>());
+                return Task.FromResult(result);
+            });
+
+            // System-level bulk delete with _type restricting to Patient and Observation only
+            var searchParameters = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_tag", "testTag"),
+                Tuple.Create("_type", "Patient,Observation"),
+            };
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, searchParameters, null, "test", "test", "test");
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // Verify that SearchAsync was only called for Patient (the first matching type),
+            // not for Encounter or Condition which are not in the _type list.
+            await _searchService.DidNotReceive().SearchAsync(
+                Arg.Is("Encounter"),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+            await _searchService.DidNotReceive().SearchAsync(
+                Arg.Is("Condition"),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+
+            // Verify the processing definition includes only Patient and Observation
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = (string[])calls.First().GetArguments()[1];
+            Assert.Single(definitions);
+            var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
+            var types = actualDefinition.Type.SplitByOrSeparator().ToList();
+            Assert.Equal(2, types.Count);
+            Assert.Contains("Patient", types);
+            Assert.Contains("Observation", types);
+            Assert.DoesNotContain("Encounter", types);
+            Assert.DoesNotContain("Condition", types);
+        }
     }
 }
