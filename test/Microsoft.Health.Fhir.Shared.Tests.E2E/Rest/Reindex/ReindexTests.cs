@@ -383,6 +383,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
         {
             await CancelAnyRunningReindexJobsAsync();
+            await DeleteResourcesAsync("Person");
 
             var searchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
@@ -1083,6 +1084,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(supplyDelivery);
         }
 
+        private async Task DeleteResourcesAsync(string resourceType)
+        {
+            try
+            {
+                do
+                {
+                    var searchResponse = await _fixture.TestFhirClient.SearchAsync(resourceType);
+                    if (searchResponse?.Resource?.Entry == null || searchResponse.Resource.Entry.Count == 0)
+                    {
+                        break;
+                    }
+
+                    _output.WriteLine($"Found {searchResponse.Resource.Entry.Count} {resourceType} resources.");
+                    foreach (var entry in searchResponse.Resource.Entry)
+                    {
+                        await DeleteResourceAsync(resourceType, entry.Resource.Id);
+                    }
+                }
+                while (true);
+            }
+            catch (Exception ex)
+            {
+                _output.WriteLine($"Failed to delete Person resources: {ex.Message}");
+            }
+        }
+
         /// <summary>
         /// Cleanup method that handles both test data resources (Person, Observation, etc.) and search parameters.
         /// Ensures all created resources are properly deleted using parallel batch processing for improved performance.
@@ -1147,7 +1174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             try
             {
-                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}");
+                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}?hardDelete=true", false);
                 _output.WriteLine($"Deleted {resourceType}/{resourceId}");
             }
             catch (Exception ex)
