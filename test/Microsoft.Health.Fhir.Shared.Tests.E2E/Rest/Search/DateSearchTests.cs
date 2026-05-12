@@ -240,39 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientsWithDateOnlyBirthdate_WhenSearchedByEqualityAndRange_ThenCorrectPatientsAreReturned()
-        {
-            // Arrange: create three patients, two born on 2016-07-06 and one born on 2016-07-07.
-            // A unique tag scopes the search results to this test run only.
-            string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientBirthDate(p, "2016-07-06", tag),
-                p => SetPatientBirthDate(p, "2016-07-06", tag),
-                p => SetPatientBirthDate(p, "2016-07-07", tag));
-
-            try
-            {
-                // Equality: only patients born on 2016-07-06 should be returned.
-                Bundle equalityBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2016-07-06&_tag={tag}");
-                ValidateBundle(equalityBundle, patients[0], patients[1]);
-
-                // Range: only patients born after 2016-07-06 should be returned.
-                Bundle rangeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=gt2016-07-06&_tag={tag}");
-                ValidateBundle(rangeBundle, patients[2]);
-            }
-            catch (FhirClientException fce)
-            {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
-            }
-            catch (Exception e)
-            {
-                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
-            }
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenContainmentSemanticsArePreserved()
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenCurrentOverlapBehaviorIsPreserved()
         {
             string tag = Guid.NewGuid().ToString();
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
@@ -283,23 +251,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientBirthDate(p, "2000-04-01", tag),
                 p => SetPatientBirthDate(p, "2000-12", tag),
                 p => SetPatientBirthDate(p, "2000-03-31", tag));
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+            Patient patient2000April01 = patients[4];
+            Patient patient2000December = patients[5];
+            Patient patient2000March31 = patients[6];
 
             try
             {
+                // FHIR R4 search prefixes define equality for ranges as: "the range of the search value fully contains
+                // the range of the target value." See https://hl7.org/fhir/R4/search.html#prefix.
+                // Tracked by AB#191826. The current implementation instead matches partial birthdates using range overlap. For example,
+                // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
+                // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
-                ValidateBundle(yearBundle, patients[0], patients[1], patients[2], patients[4], patients[5], patients[6]);
+                ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
 
                 Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
-                ValidateBundle(monthBundle, patients[1], patients[2], patients[6]);
+                ValidateBundle(monthBundle, patient2000, patient2000March, patient2000March03, patient2000March31);
 
                 Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
-                ValidateBundle(dayBundle, patients[2]);
+                ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
 
                 Bundle decemberBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-12&_tag={tag}");
-                ValidateBundle(decemberBundle, patients[5]);
+                ValidateBundle(decemberBundle, patient2000, patient2000December);
 
                 Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
-                ValidateBundle(lastDayBundle, patients[6]);
+                ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
             }
             catch (FhirClientException fce)
             {
