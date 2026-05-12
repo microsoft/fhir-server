@@ -250,13 +250,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientBirthDate(p, "1999-12-31", tag),
                 p => SetPatientBirthDate(p, "2000-04-01", tag),
                 p => SetPatientBirthDate(p, "2000-12", tag),
-                p => SetPatientBirthDate(p, "2000-03-31", tag));
+                p => SetPatientBirthDate(p, "2000-03-31", tag),
+                p => SetPatientBirthDate(p, "2001", tag),
+                p => SetPatientBirthDate(p, "2001-11-30", tag),
+                p => SetPatientBirthDate(p, "2001-12", tag),
+                p => SetPatientBirthDate(p, "2001-12-31", tag),
+                p => SetPatientBirthDate(p, "2002-01-01", tag));
             Patient patient2000 = patients[0];
             Patient patient2000March = patients[1];
             Patient patient2000March03 = patients[2];
             Patient patient2000April01 = patients[4];
             Patient patient2000December = patients[5];
             Patient patient2000March31 = patients[6];
+            Patient patient2001 = patients[7];
+            Patient patient2001December = patients[9];
+            Patient patient2001December31 = patients[10];
 
             try
             {
@@ -274,8 +282,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
                 ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
 
-                Bundle decemberBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-12&_tag={tag}");
-                ValidateBundle(decemberBundle, patient2000, patient2000December);
+                Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}");
+                ValidateBundle(decemberEdgeBundle, patient2001, patient2001December, patient2001December31);
 
                 Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
                 ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
