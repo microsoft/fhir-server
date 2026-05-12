@@ -1174,7 +1174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             try
             {
-                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}?hardDelete=true", false);
+                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}?hardDelete=true", true);
                 _output.WriteLine($"Deleted {resourceType}/{resourceId}");
             }
             catch (Exception ex)
