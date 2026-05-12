@@ -1585,7 +1585,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
             {
-                await Task.Delay(30); // spread updates over more time
+                await Task.Delay(100); // spread updates over more time
                 try
                 {
                     await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
