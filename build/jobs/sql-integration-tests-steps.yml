@@ -1,0 +1,85 @@
+parameters:
+- name: version
+  type: string
+- name: keyVaultName
+  type: string
+- name: integrationSqlServerName
+  type: string
+
+steps:
+- checkout: self
+  fetchDepth: 1
+  fetchTags: false
+  path: source
+
+- template: integration-setup.yml
+
+- template: integration-tests-extract.yml
+  parameters:
+    version: ${{ parameters.version }}
+
+- task: AzureKeyVault@1
+  displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    KeyVaultName: '${{ parameters.keyVaultName }}'
+
+- task: AzurePowerShell@5
+  displayName: 'Set Workload Identity Variables'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    pwsh: true
+    ScriptType: inlineScript
+    Inline: |
+      Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+      Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+      Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build Integration Test Projects'
+  inputs:
+    command: build
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run SQL Integration Tests with coverage'
+  inputs:
+    command: test
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+    testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+  env:
+    'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+    platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+    'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+    'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+    'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+    'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
+- task: PublishTestResults@2
+  displayName: 'Publish integration test results'
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+    mergeTestResults: true
+    testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+    # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+    failTaskOnFailedTests: false
+  condition: succeededOrFailed()
+
+- task: reportgenerator@5
+  displayName: 'Aggregate SQL integration test coverage'
+  condition: succeededOrFailed()
+  inputs:
+    reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
+    reporttypes: 'Cobertura'
+    targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish SQL integration test coverage'
+  inputs:
+    pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
+    artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
+    artifactType: 'container'

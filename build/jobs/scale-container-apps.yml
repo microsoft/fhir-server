@@ -5,48 +5,39 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
+# When set, emits a deployment job targeting this ADO Environment so the
+# Exclusive Lock check on the env serializes concurrent CI runs.
+- name: lockEnvironment
+  type: string
+  default: ''
 
 jobs:
-- job: scaleContainerApps
-  displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - task: AzureCLI@2
-    displayName: 'Set minReplicas=${{ parameters.minReplicas }} on all CI container apps'
-    inputs:
-      azureSubscription: ${{ parameters.subscription }}
-      scriptType: pscore
-      scriptLocation: inlineScript
-      inlineScript: |
-        $ErrorActionPreference = 'Continue'
-        $resourceGroup = '${{ parameters.resourceGroup }}'
-        $minReplicas = ${{ parameters.minReplicas }}
+- ${{ if eq(parameters.lockEnvironment, '') }}:
+  - job: scaleContainerApps
+    displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: scale-container-apps-steps.yml
+      parameters:
+        minReplicas: ${{ parameters.minReplicas }}
+        subscription: ${{ parameters.subscription }}
+        resourceGroup: ${{ parameters.resourceGroup }}
 
-        Write-Host "Enumerating container apps in resource group '$resourceGroup'..."
-        $apps = (az containerapp list -g $resourceGroup --query "[].name" -o tsv) -split "`n" |
-                ForEach-Object { $_.Trim() } |
-                Where-Object { $_ }
-
-        if (-not $apps -or $apps.Count -eq 0) {
-          Write-Host "##[warning]No container apps found in '$resourceGroup'. Nothing to scale."
-          exit 0
-        }
-
-        Write-Host "Found $($apps.Count) container app(s): $($apps -join ', ')"
-
-        $failures = @()
-        foreach ($app in $apps) {
-          Write-Host "Setting minReplicas=$minReplicas on $app"
-          az containerapp update -g $resourceGroup -n $app --min-replicas $minReplicas -o none
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "##[warning]Failed to scale $app (exit=$LASTEXITCODE)"
-            $failures += $app
-          }
-        }
-
-        if ($failures.Count -gt 0) {
-          Write-Host "##[error]Failed to scale: $($failures -join ', ')"
-          exit 1
-        }
+- ${{ if ne(parameters.lockEnvironment, '') }}:
+  - deployment: scaleContainerApps
+    displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
+    environment: ${{ parameters.lockEnvironment }}
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: scale-container-apps-steps.yml
+            parameters:
+              minReplicas: ${{ parameters.minReplicas }}
+              subscription: ${{ parameters.subscription }}
+              resourceGroup: ${{ parameters.resourceGroup }}

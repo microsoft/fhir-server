@@ -9,41 +9,41 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
+# When set, emits a deployment job targeting this ADO Environment so the
+# Exclusive Lock check on the env serializes concurrent CI runs.
+- name: lockEnvironment
+  type: string
+  default: ''
 
 jobs:
-- job: provisionEnvironment
-  pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - task: AzureCLI@2
-    displayName: 'Update Container App Image'
-    inputs:
-      azureSubscription: '${{ parameters.subscription }}'
-      scriptType: pscore
-      scriptLocation: inlineScript
-      inlineScript: |
-        $containerAppName = "${{ parameters.webAppName }}".ToLower()
-        $rgName = "${{ parameters.resourceGroup }}"
-        $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
+- ${{ if eq(parameters.lockEnvironment, '') }}:
+  - job: provisionEnvironment
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: redeploy-webapp-steps.yml
+      parameters:
+        version: ${{ parameters.version }}
+        webAppName: ${{ parameters.webAppName }}
+        subscription: ${{ parameters.subscription }}
+        imageTag: ${{ parameters.imageTag }}
+        resourceGroup: ${{ parameters.resourceGroup }}
 
-        $currentImage = az containerapp show `
-          --name $containerAppName `
-          --resource-group $rgName `
-          --query "properties.template.containers[0].image" -o tsv
-        Write-Host "Current image: $currentImage"
-        Write-Host "New image: $newImage"
-
-        az containerapp update `
-          --name $containerAppName `
-          --resource-group $rgName `
-          --image $newImage
-
-        if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
-        Write-Host "Container app image updated successfully."
-
-  - template: ../tasks/container-app-health-check.yml
-    parameters:
-      containerAppName: ${{ parameters.webAppName }}
-      resourceGroup: ${{ parameters.resourceGroup }}
-      subscription: ${{ parameters.subscription }}
+- ${{ if ne(parameters.lockEnvironment, '') }}:
+  - deployment: provisionEnvironment
+    environment: ${{ parameters.lockEnvironment }}
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: redeploy-webapp-steps.yml
+            parameters:
+              version: ${{ parameters.version }}
+              webAppName: ${{ parameters.webAppName }}
+              subscription: ${{ parameters.subscription }}
+              imageTag: ${{ parameters.imageTag }}
+              resourceGroup: ${{ parameters.resourceGroup }}

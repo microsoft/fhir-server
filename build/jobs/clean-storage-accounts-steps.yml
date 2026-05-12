@@ -1,0 +1,30 @@
+parameters:
+- name: environmentName
+  type: string
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Clean Storage Accounts'
+  continueOnError: true
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    pwsh: true
+    ScriptType: inlineScript
+    Inline: |
+      $currentUtcTime = [DateTime]::UtcNow
+
+      $storageAccounts = Get-AzStorageAccount -ResourceGroupName ${{ parameters.environmentName }}
+      foreach ($storageAccount in $storageAccounts) {
+          # Create a storage context using Azure AD authentication
+          $ctx = New-AzStorageContext -StorageAccountName $storageAccount.StorageAccountName -UseConnectedAccount
+          
+          $storageContainers = Get-AzStorageContainer -Name * -Context $ctx
+          foreach ($container in $storageContainers) {
+              $ageDiff = $currentUtcTime - $container.CloudBlobContainer.Properties.LastModified.UtcDateTime
+              if($ageDiff.TotalDays -ge 3) {
+                  Write-Host "Deleting container $($container.Name)"
+                  $container.CloudBlobContainer.Delete()
+              }
+          }
+      }

@@ -1,34 +1,31 @@
 parameters:
 - name: environmentName
   type: string
+# When set, emits a deployment job targeting this ADO Environment so the
+# Exclusive Lock check on the env serializes concurrent CI runs.
+- name: lockEnvironment
+  type: string
+  default: ''
 
 jobs:
-- job: "cleanStorageAccounts"
-  pool:
-    vmImage: $(WindowsVmImage)
-  steps:
-  - task: AzurePowerShell@5
-    displayName: 'Clean Storage Accounts'
-    continueOnError: true
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      pwsh: true
-      ScriptType: inlineScript
-      Inline: |
-        $currentUtcTime = [DateTime]::UtcNow
+- ${{ if eq(parameters.lockEnvironment, '') }}:
+  - job: "cleanStorageAccounts"
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - template: clean-storage-accounts-steps.yml
+      parameters:
+        environmentName: ${{ parameters.environmentName }}
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName ${{ parameters.environmentName }}
-        foreach ($storageAccount in $storageAccounts) {
-            # Create a storage context using Azure AD authentication
-            $ctx = New-AzStorageContext -StorageAccountName $storageAccount.StorageAccountName -UseConnectedAccount
-            
-            $storageContainers = Get-AzStorageContainer -Name * -Context $ctx
-            foreach ($container in $storageContainers) {
-                $ageDiff = $currentUtcTime - $container.CloudBlobContainer.Properties.LastModified.UtcDateTime
-                if($ageDiff.TotalDays -ge 3) {
-                    Write-Host "Deleting container $($container.Name)"
-                    $container.CloudBlobContainer.Delete()
-                }
-            }
-        }
+- ${{ if ne(parameters.lockEnvironment, '') }}:
+  - deployment: "cleanStorageAccounts"
+    environment: ${{ parameters.lockEnvironment }}
+    pool:
+      vmImage: $(WindowsVmImage)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: clean-storage-accounts-steps.yml
+            parameters:
+              environmentName: ${{ parameters.environmentName }}

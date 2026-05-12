@@ -4,9 +4,20 @@
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
+# Concurrent-run serialization for shared Azure resources.
+#
+# Every stage that mutates or relies on shared Azure CI resources runs as a
+# deployment job targeting the ADO Environment named below. The Environment
+# must have the "Exclusive lock" check enabled in the ADO UI
+# (Pipelines -> Environments -> fhir-server-ci -> Approvals and checks ->
+# Exclusive lock). With the check enabled, only one pipeline run at a time
+# is allowed inside any locked stage; concurrent runs queue at the start of
+# each Azure-touching stage.
 variables:
 - template: ci-variables.yml
 - template: build-variables.yml
+- name: AzureLockEnvironment
+  value: fhir-server-ci
 
 stages:
 # *********************** Setup ***********************
@@ -19,6 +30,7 @@ stages:
       minReplicas: 3
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: UpdateVersion
   displayName: 'Determine Semver'
@@ -38,32 +50,37 @@ stages:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: cleanupIntegrationTestDatabases
   displayName: 'Cleanup Integration Test DBs'
   dependsOn: []
   jobs:
-  - job: cleanup
+  - deployment: cleanup
+    environment: $(AzureLockEnvironment)
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
-    steps:
-    - task: AzurePowerShell@5
-      displayName: 'Azure PowerShell script: InlineScript'
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        pwsh: true
-        ScriptType: inlineScript
-        Inline: |
-          $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")
-          foreach ($pattern in $testNamePatterns) {
-            $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
-            foreach ($resource in $resources) {
-              Write-Host "Cleaning up $($resource.ResourceName)"
-              Remove-AzResource -ResourceId $resource.ResourceId -Force
-            }
-          }
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzurePowerShell@5
+            displayName: 'Azure PowerShell script: InlineScript'
+            inputs:
+              azureSubscription: $(ConnectedServiceName)
+              azurePowerShellVersion: latestVersion
+              pwsh: true
+              ScriptType: inlineScript
+              Inline: |
+                $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")
+                foreach ($pattern in $testNamePatterns) {
+                  $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
+                  foreach ($resource in $resources) {
+                    Write-Host "Cleaning up $($resource.ResourceName)"
+                    Remove-AzResource -ResourceId $resource.ResourceId -Force
+                  }
+                }
           
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -160,6 +177,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: redeployStu3Sql
   displayName: 'Redeploy STU3 SQL Site'
@@ -173,6 +191,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -187,6 +206,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentName)
       mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
       runReindexJob: false
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -203,6 +223,7 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+      lockEnvironment: $(AzureLockEnvironment)
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -217,6 +238,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
@@ -230,6 +252,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -244,6 +267,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4)
       mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
       runReindexJob: false
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -260,6 +284,7 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+      lockEnvironment: $(AzureLockEnvironment)
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
@@ -274,6 +299,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -290,6 +316,7 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -329,6 +356,7 @@ stages:
       minReplicas: 0
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
+      lockEnvironment: $(AzureLockEnvironment)
 
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
