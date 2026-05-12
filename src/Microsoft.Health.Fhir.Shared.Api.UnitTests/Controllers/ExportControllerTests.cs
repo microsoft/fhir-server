@@ -235,6 +235,104 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
+        [Theory]
+        [InlineData("../secret")]
+        [InlineData("..\\secret")]
+        [InlineData("..%2fsecret")]
+        public async Task GivenAnExportRequest_WhenContainerHasPathTraversal_ThenRequestNotValidExceptionShouldBeThrown(string containerName)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig);
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: containerName,
+                formatName: null,
+                isParallel: false,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null));
+        }
+
+        [Theory]
+        [InlineData("../secret/config.json")]
+        [InlineData("..\\secret\\config.json")]
+        [InlineData("..%2fsecret%2fconfig.json")]
+        [InlineData("secret/..")]
+        [InlineData("a/../b")]
+        public async Task GivenAnAnonymizedExportRequest_WhenAnonymizationConfigHasPathTraversal_ThenRequestNotValidExceptionShouldBeThrown(string anonymizationConfigLocation)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: _testContainer,
+                formatName: null,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Theory]
+        [InlineData("mycontainer")]
+        [InlineData("config.json")]
+        [InlineData("folder/config.json")]
+        [InlineData("my..config.json")]
+        [InlineData("configv2..0.json")]
+        public async Task GivenAnAnonymizedExportRequest_WhenExportParametersAreValid_ThenValidationAllowsRequest(string anonymizationConfigLocation)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
+            ConfigureControllerForSuccessfulExport(exportController);
+
+            var exception = await Record.ExceptionAsync(() => exportController.ExportResourceType(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: "mycontainer",
+                formatName: null,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString()));
+
+            Assert.Null(exception);
+        }
+
+        [Theory]
+        [InlineData("mycontainer")]
+        [InlineData("my-container-2")]
+        [InlineData("export2026")]
+        public async Task GivenAnExportRequest_WhenContainerIsValid_ThenValidationAllowsRequest(string containerName)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig);
+            ConfigureControllerForSuccessfulExport(exportController);
+
+            var exception = await Record.ExceptionAsync(() => exportController.Export(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: containerName,
+                formatName: null,
+                isParallel: false,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null));
+
+            Assert.Null(exception);
+        }
+
         [Fact]
         public async Task GivenAnExportRequestWithHistoryOrDeletedIncluded_WhenHasTypeFilter_ThenRequestNotValidExceptionShouldBeThrown()
         {
@@ -526,6 +624,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsArtifactStoreConfiguration,
                 optionsFeatures,
                 fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
+        }
+
+        // Configures mocks so the controller can dispatch through MediatR without throwing.
+        // Required for positive-path tests that verify validation allows the request through.
+        private void ConfigureControllerForSuccessfulExport(ExportController exportController)
+        {
+            exportController.ControllerContext.HttpContext = new DefaultHttpContext();
+
+            var baseUri = new Uri("https://test.com/");
+            _fhirRequestContextAccessor.RequestContext = new FhirRequestContext(
+               method: "export",
+               uriString: baseUri.OriginalString,
+               baseUriString: baseUri.OriginalString,
+               correlationId: "export",
+               requestHeaders: new Dictionary<string, StringValues>(),
+               responseHeaders: new Dictionary<string, StringValues>());
+
+            _urlResolver
+                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(baseUri);
+
+            _mediator
+                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .Returns(new CreateExportResponse("ExportTestJobId"));
         }
 
         private async Task RunCreateExportRequestTest(

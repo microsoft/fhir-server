@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -107,7 +108,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public short GetResourceTypeId(string resourceTypeName)
         {
             ThrowIfNotInitialized();
-            return _resourceTypeToId[resourceTypeName];
+
+            if (_resourceTypeToId.TryGetValue(resourceTypeName, out short resourceTypeId))
+            {
+                return resourceTypeId;
+            }
+
+            throw new ResourceNotFoundException($"Resource type '{resourceTypeName}' is not a known resource type.");
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
@@ -235,6 +242,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
             string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
+            _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
+            _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
+            bool systemWarningLogged = false;
+            bool quantityCodeWarningLogged = false;
+
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.InitializeBase";
@@ -266,11 +278,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     },
                     (reader) =>
                     {
-                        return reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+                        // This data is processed in a streaming fashion to avoid loading the entire set of systems into memory at once, as there could be a large number of them.
+                        if (systemWarningLogged)
+                        {
+                            // If we've already logged a warning about the cache size, we can skip trying to add to the cache to save some CPU and memory.
+                            return null;
+                        }
+
+                        var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+
+                        if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
+                            systemWarningLogged = true;
+                        }
+
+                        return null;
                     },
                     (reader) =>
                     {
-                        return reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+                        // This data is processed in a streaming fashion to avoid loading the entire set of quantity codes into memory at once, as there could be a large number of them.
+                        if (quantityCodeWarningLogged)
+                        {
+                            // If we've already logged a warning about the cache size, we can skip trying to add to the cache to save some CPU and memory.
+                            return null;
+                        }
+
+                        var (value, quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+
+                        if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
+                            quantityCodeWarningLogged = true;
+                        }
+
+                        return null;
                     },
                 },
                 _logger,
@@ -315,6 +357,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 searchParamUriToId.Add(new Uri(uri), searchParamId);
             }
 
+            _logger.LogInformation("Initialized {Count} search parameters.", searchParamUriToId.Count);
+
             // result set 3
             foreach (var result in resultsList[2])
             {
@@ -327,33 +371,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 (byte id, string compartmentName) = ((byte, string))result;
                 compartmentTypeToId.Add(compartmentName, id);
-            }
-
-            // result set 5
-            _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
-            bool systemWarningLogged = false;
-            foreach (var result in resultsList[4])
-            {
-                var (value, systemId) = ((string, int))result;
-
-                if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
-                {
-                    _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
-                    systemWarningLogged = true;
-                }
-            }
-
-            // result set 6
-            _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
-            bool quantityCodeWarningLogged = false;
-            foreach (var result in resultsList[5])
-            {
-                (string value, int quantityCodeId) = ((string, int))result;
-                if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
-                {
-                    _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
-                    quantityCodeWarningLogged = true;
-                }
             }
 
             _resourceTypeToId = resourceTypeToId;

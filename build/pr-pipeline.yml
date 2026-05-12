@@ -284,7 +284,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      minReplicas: 3
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -307,7 +306,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      minReplicas: 3
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -328,7 +326,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      minReplicas: 3
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -351,72 +348,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      minReplicas: 3
-
-- stage: deployR4B
-  displayName: 'Deploy R4B CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      dataStore: cosmos
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4B)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameR4B)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      reindexEnabled: true
-      minReplicas: 3
-
-- stage: deployR4BSql
-  displayName: 'Deploy R4B SQL Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - deploySqlServer
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      dataStore: sql
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4BSql)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameR4BSql)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      reindexEnabled: true
-      minReplicas: 3
-
-- stage: deployR5
-  displayName: 'Deploy R5 CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      dataStore: cosmos
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameR5)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      reindexEnabled: true
-      minReplicas: 3
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
@@ -439,7 +370,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      minReplicas: 3
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -507,55 +437,6 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4BCosmos
-  displayName: 'Run R4B Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR4B
-  variables:
-    TestEnvironmentUrl_R4B: $[stageDependencies.deployR4B.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4B']]
-    TestEnvironmentUrl: $[stageDependencies.deployR4B.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4B)
-      containerAppName: $(DeploymentEnvironmentNameR4B)
-
-- stage: testR4BSql
-  displayName: 'Run R4B SQL Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR4BSql
-  variables:
-    TestEnvironmentUrl_R4B_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4B_Sql']]
-    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
-  jobs:
-  - template: ./jobs/run-sql-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4BSql)
-      containerAppName: $(DeploymentEnvironmentNameR4BSql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
-- stage: testR5Cosmos
-  displayName: 'Run R5 Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR5
-  variables:
-    TestEnvironmentUrl_R5: $[stageDependencies.deployR5.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5']]
-    TestEnvironmentUrl: $[stageDependencies.deployR5.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(KeyVaultNameR5)
-      containerAppName: $(DeploymentEnvironmentNameR5)
-
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
   dependsOn:
@@ -581,9 +462,6 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
   jobs:
   - job: AggregateCoverage

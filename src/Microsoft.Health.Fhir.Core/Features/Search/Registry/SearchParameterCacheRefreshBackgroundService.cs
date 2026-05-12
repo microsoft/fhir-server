@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
+        private readonly ISearchParameterCacheRefresherMetricHandler _searchParameterCacheRefresherMetricHandler;
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
         private readonly Timer _refreshTimer;
@@ -37,11 +39,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            ISearchParameterCacheRefresherMetricHandler searchParameterCacheRefresherMetricHandler,
             ILogger<SearchParameterCacheRefreshBackgroundService> logger)
         {
             _searchParameterStatusManager = EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
+            _searchParameterCacheRefresherMetricHandler = EnsureArg.IsNotNull(searchParameterCacheRefresherMetricHandler, nameof(searchParameterCacheRefresherMetricHandler));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             // Get refresh interval from configuration (default 20 seconds, minimum 1 second)
@@ -111,6 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 if (complete)
                 {
                     _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
+                    _searchParameterCacheRefresherMetricHandler.EmitSuccess();
                 }
                 else
                 {
@@ -127,7 +132,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred during SearchParameter cache refresh. Will retry on next scheduled interval.");
+                const string message = "Error occurred during SearchParameter cache refresh. Will retry on next scheduled interval.";
+
+                string exceptionAsString = ex.ToString();
+
+                if ((exceptionAsString.Contains("SqlException", StringComparison.OrdinalIgnoreCase) && exceptionAsString.Contains("is not accessible due to Azure Key Vault critical error.", StringComparison.OrdinalIgnoreCase)) ||
+                    (exceptionAsString.Contains("RequestRateExceededException", StringComparison.OrdinalIgnoreCase) && exceptionAsString.Contains("The request rate has exceeded the maximum API request rate and is being throttled.", StringComparison.OrdinalIgnoreCase)))
+                {
+                    _logger.LogWarning(ex, message);
+                }
+                else
+                {
+                    _logger.LogError(ex, message);
+                    _searchParameterCacheRefresherMetricHandler.EmitFailure(ex.GetType().Name);
+                }
 
                 // Don't rethrow from timer callback to avoid crashing the timer
             }

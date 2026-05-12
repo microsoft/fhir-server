@@ -22,6 +22,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -51,6 +52,8 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -69,6 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly DataResourceFilter _dataResourceFilter;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private SearchParameterOperations _searchParameterOperations;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -133,6 +137,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SearchParameterDefinitionManager SearchParameterDefinitionManager => _fixture.GetRequiredService<SearchParameterDefinitionManager>();
 
+        public SearchParameterOperations SearchParameterOperations => _searchParameterOperations;
+
         public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
 
         public SchemaInitializer SchemaInitializer => _fixture.GetRequiredService<SchemaInitializer>();
@@ -147,7 +153,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public GetResourceHandler GetResourceHandler { get; set; }
 
+        internal IFhirOperationDataStore CosmosOperationDataStore
+        {
+            get
+            {
+                if (_fixture is CosmosDbFhirStorageTestsFixture cosmosFixture)
+                {
+                    return cosmosFixture.CosmosOperationDataStore;
+                }
+
+                return null;
+            }
+        }
+
+        internal IFhirOperationDataStore SqlServerOperationDataStore
+        {
+            get
+            {
+                if (_fixture is SqlServerFhirStorageTestsFixture sqlFixture)
+                {
+                    return sqlFixture.SqlServerOperationDataStore;
+                }
+
+                return null;
+            }
+        }
+
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
+
+        public IServiceProvider Service => _fixture;
 
         public void Dispose()
         {
@@ -241,6 +275,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
 
             ServiceProvider services = collection.BuildServiceProvider();
+
+            _searchParameterOperations = new SearchParameterOperations(
+                SearchParameterStatusManager,
+                SearchParameterDefinitionManager,
+                ModelInfoProvider.Instance,
+                Substitute.For<ISearchParameterSupportResolver>(),
+                Substitute.For<IDataStoreSearchParameterValidator>(),
+                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
+                () => Substitute.For<IScoped<ISearchService>>(),
+                NullLogger<SearchParameterOperations>.Instance);
 
             Mediator = new Mediator(services);
         }
