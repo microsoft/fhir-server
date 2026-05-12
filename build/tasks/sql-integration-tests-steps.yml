@@ -12,9 +12,9 @@ steps:
   fetchTags: false
   path: source
 
-- template: integration-setup.yml
+- template: ../jobs/integration-setup.yml
 
-- template: integration-tests-extract.yml
+- template: ../jobs/integration-tests-extract.yml
   parameters:
     version: ${{ parameters.version }}
 
