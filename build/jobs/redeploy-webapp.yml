@@ -22,7 +22,7 @@ jobs:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: redeploy-webapp-steps.yml
+    - template: ../tasks/redeploy-webapp-steps.yml
       parameters:
         version: ${{ parameters.version }}
         webAppName: ${{ parameters.webAppName }}
@@ -40,7 +40,7 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - template: redeploy-webapp-steps.yml
+          - template: ../tasks/redeploy-webapp-steps.yml
             parameters:
               version: ${{ parameters.version }}
               webAppName: ${{ parameters.webAppName }}

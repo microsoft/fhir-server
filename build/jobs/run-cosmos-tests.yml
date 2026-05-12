@@ -26,7 +26,7 @@ jobs:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: cosmos-integration-tests-steps.yml
+    - template: ../tasks/cosmos-integration-tests-steps.yml
       parameters:
         version: ${{ parameters.version }}
         keyVaultName: ${{ parameters.keyVaultName }}
@@ -43,7 +43,7 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - template: cosmos-integration-tests-steps.yml
+          - template: ../tasks/cosmos-integration-tests-steps.yml
             parameters:
               version: ${{ parameters.version }}
               keyVaultName: ${{ parameters.keyVaultName }}

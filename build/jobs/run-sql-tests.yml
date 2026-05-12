@@ -31,7 +31,7 @@ jobs:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: sql-integration-tests-steps.yml
+    - template: ../tasks/sql-integration-tests-steps.yml
       parameters:
         version: ${{ parameters.version }}
         keyVaultName: ${{ parameters.keyVaultName }}
@@ -48,7 +48,7 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - template: sql-integration-tests-steps.yml
+          - template: ../tasks/sql-integration-tests-steps.yml
             parameters:
               version: ${{ parameters.version }}
               keyVaultName: ${{ parameters.keyVaultName }}

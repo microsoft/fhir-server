@@ -19,7 +19,7 @@ jobs:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: scale-container-apps-steps.yml
+    - template: ../tasks/scale-container-apps-steps.yml
       parameters:
         minReplicas: ${{ parameters.minReplicas }}
         subscription: ${{ parameters.subscription }}
@@ -36,7 +36,7 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - template: scale-container-apps-steps.yml
+          - template: ../tasks/scale-container-apps-steps.yml
             parameters:
               minReplicas: ${{ parameters.minReplicas }}
               subscription: ${{ parameters.subscription }}
