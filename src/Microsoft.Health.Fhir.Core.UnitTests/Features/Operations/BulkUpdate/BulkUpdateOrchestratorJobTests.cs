@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -417,7 +417,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -654,7 +654,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -704,7 +704,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -736,7 +736,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -769,7 +769,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -797,7 +797,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -817,7 +817,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -836,7 +836,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = "not a valid json",
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));

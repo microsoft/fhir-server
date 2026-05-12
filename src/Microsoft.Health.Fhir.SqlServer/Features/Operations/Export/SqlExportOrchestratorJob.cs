@@ -56,6 +56,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
+
+            // If Till was not explicitly set by the user, use the job's CreateDate
+            if (!record.IsTillExplicit)
+            {
+                record.Till = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
+            }
+
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
