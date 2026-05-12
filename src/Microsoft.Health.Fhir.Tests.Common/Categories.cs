@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Authorization = nameof(Authorization);
 
+        public const string BackgroundJobs = nameof(BackgroundJobs);
+
         public const string BulkDelete = nameof(BulkDelete);
 
         public const string BulkUpdate = nameof(BulkUpdate);
@@ -70,6 +72,13 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Import = nameof(Import);
 
         public const string IndexAndReindex = nameof(IndexAndReindex);
+
+        /// <summary>
+        /// Marks tests that exercise the full reindex operation. Allows CI cosmos pipeline to skip them
+        /// (kept SQL-only) without affecting other IndexAndReindex-tagged tests like BulkDelete or
+        /// CustomSearchParam, which still validate reindex-adjacent behavior on cosmos.
+        /// </summary>
+        public const string ReindexOperation = nameof(ReindexOperation);
 
         public const string MemberMatch = nameof(MemberMatch);
 

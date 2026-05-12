@@ -408,6 +408,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
+            var validSearchParameters = new List<SearchParameterInfo>();
+
             // When resourceType is specified (type-level search), skip user-supplied _type query parameters
             // during expression parsing. The resource type is already constrained by the URL.
             // FGAC-added parameters (index >= userParameterCount) are preserved to maintain security restrictions.
@@ -436,7 +438,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 try
                 {
-                    return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+                    var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+
+                    foreach (var resourceTypeString in resourceTypesString)
+                    {
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(resourceTypeString, q.Item1, out var searchParameter))
+                        {
+                            validSearchParameters.Add(searchParameter);
+                        }
+                    }
+
+                    return parsed;
                 }
                 catch (SearchParameterNotSupportedException)
                 {
@@ -446,6 +458,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             })
             .Where(item => item != null));
+
+            searchOptions.SearchParameters = validSearchParameters;
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter

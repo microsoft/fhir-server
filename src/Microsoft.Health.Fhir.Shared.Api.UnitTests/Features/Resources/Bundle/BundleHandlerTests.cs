@@ -35,8 +35,10 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -59,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly IMediator _mediator;
+        private readonly IBundleMetricHandler _bundleMetricHandler;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -122,6 +125,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _mediator = Substitute.For<IMediator>();
 
+            _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
+
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
                 fhirRequestContextAccessor,
@@ -136,11 +141,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
+                _profilesResolver,
+                Substitute.For<IModelInfoProvider>(),
+                Substitute.For<ISearchParameterOperations>(),
                 _mediator,
                 _router,
-                _profilesResolver,
-                NullLogger<BundleHandler>.Instance,
-                Substitute.For<IModelInfoProvider>());
+                _bundleMetricHandler,
+                NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
@@ -254,6 +261,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            // Ensures success sign is emitted.
+            _bundleMetricHandler.Received(1).EmitSuccess();
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -397,6 +407,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
 
+            // Ensures success sign is emitted.
+            _bundleMetricHandler.Received(1).EmitSuccess();
+
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
             Assert.Single(bundleResource.Entry);
@@ -492,6 +505,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 // Resulting in a HTTP408 error.
                 FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
+
+                // Ensures failure sign is emitted.
+                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
             }
         }
 
