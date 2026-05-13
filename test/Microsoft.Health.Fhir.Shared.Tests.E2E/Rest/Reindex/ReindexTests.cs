@@ -1219,10 +1219,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Allow time for soft deletes to be processed
             await Task.Delay(500);
-
-            // Note: Final reindex is handled by ReindexTestFixture.OnDisposedAsync() which runs
-            // once at the very end after all tests complete. This eliminates the need to reindex
-            // after each individual test cleanup.
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
