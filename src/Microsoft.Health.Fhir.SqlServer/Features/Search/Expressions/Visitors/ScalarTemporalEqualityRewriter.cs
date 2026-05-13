@@ -39,46 +39,66 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             "http://hl7.org/fhir/SearchParameter/individual-birthdate",
         };
 
+        private enum Precision
+        {
+            NotRewritable,
+            ExactDay,
+            ExactYear,
+        }
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            if (!TryGetRewriteValues(expression, out BinaryExpression endLe, out DateTimeOffset startValue, out DateTimeOffset endValue))
+            // 1. Only allow-listed scalar date parameters are eligible.
+            if (!IsActivatedScalarTemporalParameter(expression))
             {
                 return expression;
             }
 
-            if (IsExactDay(startValue, endValue))
+            // 2. The inner expression must be the two-predicate equality pattern Core emits.
+            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startPredicate, out BinaryExpression endPredicate))
             {
-                var collapsed = Expression.And(
-                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endLe.ComponentIndex, endLe.Value),
-                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endLe.ComponentIndex, false));
-                return new SearchParameterExpression(expression.Parameter, collapsed);
+                return expression;
             }
 
-            if (IsExactYear(startValue, endValue))
+            // 3. Both predicate constants must be DateTimeOffset to reason about precision.
+            if (startPredicate.Value is not DateTimeOffset startValue ||
+                endPredicate.Value is not DateTimeOffset endValue)
             {
-                var range = Expression.And(
-                    Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, endLe.ComponentIndex, startValue),
-                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, endLe.ComponentIndex, endValue));
-                return new SearchParameterExpression(expression.Parameter, range);
+                return expression;
             }
 
-            return expression;
+            // 4. Classify precision and build the matching rewrite, or pass through.
+            Expression rewritten = ClassifyPrecision(startValue, endValue) switch
+            {
+                Precision.ExactDay => BuildExactDayRewrite(endPredicate),
+                Precision.ExactYear => BuildExactYearRewrite(endPredicate, startValue, endValue),
+                _ => null,
+            };
+
+            return rewritten is null
+                ? expression
+                : new SearchParameterExpression(expression.Parameter, rewritten);
         }
 
         internal static bool IsActivatedScalarTemporalParameter(SearchParameterExpression expression)
         {
-            if (expression?.Parameter == null)
+            var p = expression?.Parameter;
+            if (p == null)
             {
                 return false;
             }
 
-            var p = expression.Parameter;
-            return p.Type == SearchParamType.Date
-                && (p.Component == null || p.Component.Count == 0)
-                && p.Url != null
-                && _allowList.Contains(p.Url.OriginalString);
+            bool isScalarDate = p.Type == SearchParamType.Date && (p.Component == null || p.Component.Count == 0);
+            bool isAllowListed = p.Url != null && _allowList.Contains(p.Url.OriginalString);
+
+            return isScalarDate && isAllowListed;
         }
 
+        /// <summary>
+        /// Matches the shape <c>DateTimeStart &gt;= X AND DateTimeEnd &lt;= Y</c> (either operand order).
+        /// On success, returns the two predicates normalized so <paramref name="startGe"/> is always the
+        /// <c>DateTimeStart &gt;=</c> side and <paramref name="endLe"/> is always the <c>DateTimeEnd &lt;=</c> side.
+        /// </summary>
         internal static bool TryMatchEqualityPattern(
             Expression expr,
             out BinaryExpression startGe,
@@ -90,26 +110,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             if (expr is not MultiaryExpression multiary ||
                 multiary.MultiaryOperation != MultiaryOperator.And ||
                 multiary.Expressions.Count != 2 ||
-                multiary.Expressions[0] is not BinaryExpression first ||
-                multiary.Expressions[1] is not BinaryExpression second ||
-                first.ComponentIndex != second.ComponentIndex)
+                multiary.Expressions[0] is not BinaryExpression a ||
+                multiary.Expressions[1] is not BinaryExpression b ||
+                a.ComponentIndex != b.ComponentIndex)
             {
                 return false;
             }
 
-            if (first.FieldName == FieldName.DateTimeStart && first.BinaryOperator == BinaryOperator.GreaterThanOrEqual &&
-                second.FieldName == FieldName.DateTimeEnd && second.BinaryOperator == BinaryOperator.LessThanOrEqual)
+            // Operands may appear in either order; pick the one that is the start-ge predicate.
+            if (IsStartGe(a) && IsEndLe(b))
             {
-                startGe = first;
-                endLe = second;
+                startGe = a;
+                endLe = b;
                 return true;
             }
 
-            if (second.FieldName == FieldName.DateTimeStart && second.BinaryOperator == BinaryOperator.GreaterThanOrEqual &&
-                first.FieldName == FieldName.DateTimeEnd && first.BinaryOperator == BinaryOperator.LessThanOrEqual)
+            if (IsStartGe(b) && IsEndLe(a))
             {
-                startGe = second;
-                endLe = first;
+                startGe = b;
+                endLe = a;
                 return true;
             }
 
@@ -118,7 +137,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         internal static bool WouldRewrite(SearchParameterExpression expression)
         {
-            if (!TryGetRewriteValues(expression, out _, out DateTimeOffset startValue, out DateTimeOffset endValue))
+            if (!IsActivatedScalarTemporalParameter(expression))
+            {
+                return false;
+            }
+
+            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startPredicate, out BinaryExpression endPredicate))
+            {
+                return false;
+            }
+
+            if (startPredicate.Value is not DateTimeOffset startValue ||
+                endPredicate.Value is not DateTimeOffset endValue)
             {
                 return false;
             }
@@ -126,54 +156,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return IsRewritablePrecision(startValue, endValue);
         }
 
-        internal static bool IsRewritablePrecision(DateTimeOffset start, DateTimeOffset end) => IsExactDay(start, end) || IsExactYear(start, end);
+        internal static bool IsRewritablePrecision(DateTimeOffset start, DateTimeOffset end) =>
+            ClassifyPrecision(start, end) != Precision.NotRewritable;
 
-        private static bool TryGetRewriteValues(
-            SearchParameterExpression expression,
-            out BinaryExpression endLe,
-            out DateTimeOffset startValue,
-            out DateTimeOffset endValue)
+        private static Precision ClassifyPrecision(DateTimeOffset start, DateTimeOffset end)
         {
-            endLe = null;
-            startValue = default;
-            endValue = default;
-
-            if (!IsActivatedScalarTemporalParameter(expression))
+            // Both endpoints must be UTC, and start must sit on a UTC midnight, before any precision applies.
+            if (!IsUtcMidnight(start) || !IsUtc(end))
             {
-                return false;
+                return Precision.NotRewritable;
             }
 
-            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startGe, out endLe))
+            if (end == start.AddDays(1).AddTicks(-1))
             {
-                return false;
+                return Precision.ExactDay;
             }
 
-            if (startGe.Value is not DateTimeOffset matchedStartValue || endLe.Value is not DateTimeOffset matchedEndValue)
+            if (start.Month == 1 && start.Day == 1 && end == start.AddYears(1).AddTicks(-1))
             {
-                return false;
+                return Precision.ExactYear;
             }
 
-            startValue = matchedStartValue;
-            endValue = matchedEndValue;
-            return true;
+            return Precision.NotRewritable;
         }
 
-        private static bool IsExactDay(DateTimeOffset start, DateTimeOffset end)
-        {
-            return start.Offset == TimeSpan.Zero
-                && end.Offset == TimeSpan.Zero
-                && start.TimeOfDay == TimeSpan.Zero
-                && end == start.AddDays(1).AddTicks(-1);
-        }
+        private static MultiaryExpression BuildExactDayRewrite(BinaryExpression endPredicate) =>
+            (MultiaryExpression)Expression.And(
+                new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value),
+                Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false));
 
-        private static bool IsExactYear(DateTimeOffset start, DateTimeOffset end)
-        {
-            return start.Offset == TimeSpan.Zero
-                && end.Offset == TimeSpan.Zero
-                && start.TimeOfDay == TimeSpan.Zero
-                && start.Month == 1
-                && start.Day == 1
-                && end == start.AddYears(1).AddTicks(-1);
-        }
+        private static MultiaryExpression BuildExactYearRewrite(BinaryExpression endPredicate, DateTimeOffset yearStart, DateTimeOffset yearEnd) =>
+            (MultiaryExpression)Expression.And(
+                Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearStart),
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearEnd));
+
+        private static bool IsStartGe(BinaryExpression be) =>
+            be.FieldName == FieldName.DateTimeStart && be.BinaryOperator == BinaryOperator.GreaterThanOrEqual;
+
+        private static bool IsEndLe(BinaryExpression be) =>
+            be.FieldName == FieldName.DateTimeEnd && be.BinaryOperator == BinaryOperator.LessThanOrEqual;
+
+        private static bool IsUtc(DateTimeOffset value) => value.Offset == TimeSpan.Zero;
+
+        private static bool IsUtcMidnight(DateTimeOffset value) => IsUtc(value) && value.TimeOfDay == TimeSpan.Zero;
     }
 }
