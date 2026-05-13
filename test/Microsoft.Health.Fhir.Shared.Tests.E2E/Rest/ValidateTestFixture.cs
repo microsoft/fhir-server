@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected override async System.Threading.Tasks.Task OnInitializedAsync()
         {
-            // Use conditional update (PUT) to upsert profile resources by canonical URL.
+            // Use PUT (UpdateAsync) with stable IDs to upsert profile resources.
             // This prevents duplicate StructureDefinitions from accumulating in persistent test environments.
             var sd = new List<string>()
             {
@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in sd)
             {
-                var resource = Samples.GetJsonSample<StructureDefinition>(name);
-                await TestFhirClient.ConditionalUpdateAsync(resource, $"url={resource.Url}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<StructureDefinition>(name));
             }
 
             var valueSets = new List<string>()
@@ -40,15 +39,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in valueSets)
             {
-                var resource = Samples.GetJsonSample<ValueSet>(name);
-                await TestFhirClient.ConditionalUpdateAsync(resource, $"url={resource.Url}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<ValueSet>(name));
             }
 
             var codeSystem = new List<string>() { "CodeSystem-careplan-category" };
             foreach (var name in codeSystem)
             {
-                var resource = Samples.GetJsonSample<CodeSystem>(name);
-                await TestFhirClient.ConditionalUpdateAsync(resource, $"url={resource.Url}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<CodeSystem>(name));
             }
         }
     }
