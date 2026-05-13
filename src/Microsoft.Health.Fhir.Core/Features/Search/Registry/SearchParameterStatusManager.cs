@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
-                        var supportedResult = CheckSearchParameterSupport(p);
+                        (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
                     }
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
-                    var supportedResult = CheckSearchParameterSupport(p);
+                    (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
 

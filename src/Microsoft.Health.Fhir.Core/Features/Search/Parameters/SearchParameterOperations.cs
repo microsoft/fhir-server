@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
                         }
 
-                        var supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                         if (!supportedResult.Supported)
                         {
@@ -282,7 +282,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     cancellationToken);
 
                 var paramsToAdd = new List<ITypedElement>();
-                var urlsToAdd = new List<string>();
                 var allHaveResources = true;
                 foreach (var searchParam in statusesToFetch)
                 {
@@ -308,14 +307,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
 
                     paramsToAdd.Add(searchParamResource);
-                    urlsToAdd.Add(searchParam.Uri.OriginalString);
 
                     // Add parameters incrementally per chunk to reduce peak memory footprint
                     if (paramsToAdd.Count >= 100)
                     {
                         _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
                         paramsToAdd.Clear();
-                        urlsToAdd.Clear();
                     }
                 }
 
