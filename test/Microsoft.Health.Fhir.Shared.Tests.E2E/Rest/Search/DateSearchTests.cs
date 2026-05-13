@@ -270,9 +270,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 // FHIR R4 search prefixes define equality for ranges as: "the range of the search value fully contains
                 // the range of the target value." See https://hl7.org/fhir/R4/search.html#prefix.
-                // Tracked by AB#191826. The current implementation instead matches partial birthdates using range overlap. For example,
-                // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
-                // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
+                // Tracked by AB#191826. Month- and year-precision searches still use range overlap (e.g.
+                // birthdate=2000-03 returns the "2000" Patient because the whole-year range overlaps March 2000),
+                // but day-precision searches are containment-correct via ScalarTemporalEqualityRewriter and only
+                // match Patients whose stored range is exactly that single day.
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
                 ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
 
@@ -280,13 +281,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ValidateBundle(monthBundle, patient2000, patient2000March, patient2000March03, patient2000March31);
 
                 Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
-                ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
+                ValidateBundle(dayBundle, patient2000March03);
 
                 Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}");
                 ValidateBundle(decemberEdgeBundle, patient2001, patient2001December, patient2001December31);
 
                 Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
-                ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
+                ValidateBundle(lastDayBundle, patient2000March31);
             }
             catch (FhirClientException fce)
             {
