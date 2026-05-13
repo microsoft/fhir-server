@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-                var resources = await SetupTestDataAsync("Person", 40, randomSuffix, CreatePersonResourceAsync);
+                var resources = await SetupTestDataAsync("Person", 100, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(resources);
                 searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
                 Assert.NotNull(searchParam);
