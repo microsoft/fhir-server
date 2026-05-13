@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfDay);
+            AssertDaySplitRewrite(result, StartOfDay, EndOfDay);
         }
 
         [Fact]
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfLastDayOfMonth);
+            AssertDaySplitRewrite(result, StartOfLastDayOfMonth, EndOfLastDayOfMonth);
         }
 
         [Fact]
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfLastDayOfYear);
+            AssertDaySplitRewrite(result, StartOfLastDayOfYear, EndOfLastDayOfYear);
         }
 
         [Fact]
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            AssertEndDateEqualsAndNotLongerThanDay(result, EndOfDay);
+            AssertDaySplitRewrite(result, StartOfDay, EndOfDay);
         }
 
         [Fact]
@@ -202,26 +202,61 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(expr, result);
         }
 
-        private static void AssertEndDateEqualsAndNotLongerThanDay(Expression result, DateTimeOffset expectedEnd)
+        private static void AssertDaySplitRewrite(Expression result, DateTimeOffset expectedStart, DateTimeOffset expectedEnd)
         {
             var rewritten = Assert.IsType<SearchParameterExpression>(result);
-            var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
-            Assert.Equal(MultiaryOperator.And, multiary.MultiaryOperation);
+            var or = Assert.IsType<MultiaryExpression>(rewritten.Expression);
+            Assert.Equal(MultiaryOperator.Or, or.MultiaryOperation);
             Assert.Collection(
-                multiary.Expressions,
-                first =>
+                or.Expressions,
+                shortBranch =>
                 {
-                    var binary = Assert.IsType<BinaryExpression>(first);
-                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                    Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
-                    Assert.Equal(expectedEnd, binary.Value);
+                    var and = Assert.IsType<MultiaryExpression>(shortBranch);
+                    Assert.Equal(MultiaryOperator.And, and.MultiaryOperation);
+                    Assert.Collection(
+                        and.Expressions,
+                        longerFlag =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(longerFlag);
+                            Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
+                            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                            Assert.False((bool)binary.Value);
+                        },
+                        endEq =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(endEq);
+                            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+                            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                            Assert.Equal(expectedEnd, binary.Value);
+                        });
                 },
-                second =>
+                longerBranch =>
                 {
-                    var binary = Assert.IsType<BinaryExpression>(second);
-                    Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
-                    Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
-                    Assert.False((bool)binary.Value);
+                    var and = Assert.IsType<MultiaryExpression>(longerBranch);
+                    Assert.Equal(MultiaryOperator.And, and.MultiaryOperation);
+                    Assert.Collection(
+                        and.Expressions,
+                        longerFlag =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(longerFlag);
+                            Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
+                            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                            Assert.True((bool)binary.Value);
+                        },
+                        startGe =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(startGe);
+                            Assert.Equal(FieldName.DateTimeStart, binary.FieldName);
+                            Assert.Equal(BinaryOperator.GreaterThanOrEqual, binary.BinaryOperator);
+                            Assert.Equal(expectedStart, binary.Value);
+                        },
+                        endLe =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(endLe);
+                            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+                            Assert.Equal(BinaryOperator.LessThanOrEqual, binary.BinaryOperator);
+                            Assert.Equal(expectedEnd, binary.Value);
+                        });
                 });
         }
     }

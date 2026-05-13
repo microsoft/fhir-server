@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // 4. Classify precision and build the matching rewrite, or pass through.
             Expression rewritten = ClassifyPrecision(startValue, endValue) switch
             {
-                Precision.ExactDay => BuildExactDayRewrite(endPredicate),
+                Precision.ExactDay => BuildExactDayRewrite(startPredicate, endPredicate),
                 Precision.ExactYear => BuildExactYearRewrite(endPredicate, startValue, endValue),
                 _ => null,
             };
@@ -180,10 +180,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return Precision.NotRewritable;
         }
 
-        private static MultiaryExpression BuildExactDayRewrite(BinaryExpression endPredicate) =>
-            (MultiaryExpression)Expression.And(
-                new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value),
-                Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false));
+        // Split along IsLongerThanADay so we only optimize the day-stored subset (longer=false).
+        // Stored month/year rows (longer=true) keep the original two predicates, which
+        // DateTimeEqualityRewriter then transforms into the overlap form that preserves
+        // today's behavior. Once the FHIR-containment fix (AB#191826) lands, the longer=true
+        // branch becomes dead and this can collapse back to the longer=false predicate alone.
+        private static MultiaryExpression BuildExactDayRewrite(BinaryExpression startPredicate, BinaryExpression endPredicate) =>
+            (MultiaryExpression)Expression.Or(
+                Expression.And(
+                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false),
+                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value)),
+                Expression.And(
+                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, true),
+                    startPredicate,
+                    endPredicate));
 
         private static MultiaryExpression BuildExactYearRewrite(BinaryExpression endPredicate, DateTimeOffset yearStart, DateTimeOffset yearEnd) =>
             (MultiaryExpression)Expression.And(
