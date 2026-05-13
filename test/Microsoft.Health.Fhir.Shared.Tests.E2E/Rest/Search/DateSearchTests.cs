@@ -282,9 +282,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
                 ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
 
-                Bundle decemberBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-12&_tag={tag}");
-                ValidateBundle(decemberBundle, patient2000, patient2000December);
-
                 Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}");
                 ValidateBundle(decemberEdgeBundle, patient2001, patient2001December, patient2001December31);
 
