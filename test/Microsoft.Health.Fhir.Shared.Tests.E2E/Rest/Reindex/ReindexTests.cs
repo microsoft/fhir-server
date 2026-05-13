@@ -383,11 +383,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
         {
             await CancelAnyRunningReindexJobsAsync();
-            await DeleteResourcesAsync("Person");
 
             var searchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
+            var parameters = new Parameters
+            {
+                Parameter =
+                [
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(2) },
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                ],
+            };
+
+            await DeleteResourcesAsync("Person");
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
 
             try
             {
@@ -396,15 +407,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 testResources.AddRange(resources);
                 searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
                 Assert.NotNull(searchParam);
-
-                var parameters = new Parameters
-                {
-                    Parameter =
-                    [
-                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(2) },
-                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
-                    ],
-                };
 
                 value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
                 Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
