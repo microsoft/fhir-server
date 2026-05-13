@@ -396,6 +396,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 ],
             };
 
+            // This test is count sensitive.
+            // It will work only if there is expected number of persons and there are no other resource types to reindex.
+            // Hence - delete and reindex.
             await DeleteResourcesAsync("Person");
             value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
             await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
