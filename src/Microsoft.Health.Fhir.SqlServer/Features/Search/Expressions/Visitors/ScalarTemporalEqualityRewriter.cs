@@ -20,7 +20,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// can be collapsed to predicates on <c>DateTimeEnd</c> only for precisions where the rewrite is safe.
     ///
     /// <list type="bullet">
-    ///   <item>Exact UTC calendar day: collapses to <c>DateTimeEnd = endOfDay AND IsLongerThanADay = false</c>.</item>
+    ///   <item>Exact UTC calendar day: emits a <see cref="UnionExpression"/> (lowered to SQL <c>UNION ALL</c>)
+    ///     with two branches split on <c>IsLongerThanADay</c>. The <c>false</c> branch becomes
+    ///     <c>DateTimeEnd = endOfDay</c>; the <c>true</c> branch keeps the original two predicates so
+    ///     <see cref="DateTimeEqualityRewriter"/> expands them into the overlap form. This lets the planner
+    ///     pick the appropriate filtered index per branch (AB#191826 sunsets the <c>true</c> branch).</item>
     ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
     ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
     ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
@@ -68,16 +72,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // 4. Classify precision and build the matching rewrite, or pass through.
-            Expression rewritten = ClassifyPrecision(startValue, endValue) switch
+            //    Day-precision returns a UnionExpression directly (lowered to SQL UNION ALL).
+            //    Year-precision returns a predicate body that we wrap back into a SearchParameterExpression.
+            return ClassifyPrecision(startValue, endValue) switch
             {
-                Precision.ExactDay => BuildExactDayRewrite(startPredicate, endPredicate),
-                Precision.ExactYear => BuildExactYearRewrite(endPredicate, startValue, endValue),
-                _ => null,
+                Precision.ExactDay => BuildDaySplitUnion(expression.Parameter, startPredicate, endPredicate),
+                Precision.ExactYear => new SearchParameterExpression(
+                    expression.Parameter,
+                    BuildExactYearRewrite(endPredicate, startValue, endValue)),
+                _ => expression,
             };
-
-            return rewritten is null
-                ? expression
-                : new SearchParameterExpression(expression.Parameter, rewritten);
         }
 
         internal static bool IsActivatedScalarTemporalParameter(SearchParameterExpression expression)
@@ -183,17 +187,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         // Split along IsLongerThanADay so we only optimize the day-stored subset (longer=false).
         // Stored month/year rows (longer=true) keep the original two predicates, which
         // DateTimeEqualityRewriter then transforms into the overlap form that preserves
-        // today's behavior. Once the FHIR-containment fix (AB#191826) lands, the longer=true
-        // branch becomes dead and this can collapse back to the longer=false predicate alone.
-        private static MultiaryExpression BuildExactDayRewrite(BinaryExpression startPredicate, BinaryExpression endPredicate) =>
-            (MultiaryExpression)Expression.Or(
+        // today's behavior. Emitting as a UnionExpression rather than an OR lets the
+        // SQL generator lower this to two sub-SELECTs combined by UNION ALL, so the planner
+        // picks the appropriate filtered index per branch instead of relying on OR-expansion.
+        // Once the FHIR-containment fix (AB#191826) lands, the longer=true branch becomes
+        // dead and this can collapse back to a single SearchParameterExpression on the
+        // longer=false predicate.
+        private static UnionExpression BuildDaySplitUnion(
+            SearchParameterInfo parameter,
+            BinaryExpression startPredicate,
+            BinaryExpression endPredicate)
+        {
+            var shortBranch = new SearchParameterExpression(
+                parameter,
                 Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false),
-                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value)),
+                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value)));
+
+            var longBranch = new SearchParameterExpression(
+                parameter,
                 Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, true),
                     startPredicate,
                     endPredicate));
+
+            return Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+        }
 
         private static MultiaryExpression BuildExactYearRewrite(BinaryExpression endPredicate, DateTimeOffset yearStart, DateTimeOffset yearEnd) =>
             (MultiaryExpression)Expression.And(
