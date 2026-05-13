@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 return true;
             });
 
-            _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false, false, false));
+            _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
 
             _jobConfiguration = new ReindexJobConfiguration();
             _optionsReindexConfig.Value.Returns(_jobConfiguration);
