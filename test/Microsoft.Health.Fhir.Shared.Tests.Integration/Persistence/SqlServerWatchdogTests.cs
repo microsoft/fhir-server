@@ -757,8 +757,12 @@ RAISERROR('Test',18,127)
             Assert.NotNull(captured);
             foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
             {
-                Assert.True(captured.QueueAges.ContainsKey(queueType), $"Missing queue type {queueType}");
+                Assert.True(captured.QueueAges.ContainsKey(queueType), $"Missing queue type in QueueAges: {queueType}");
                 Assert.True(captured.QueueAges[queueType] >= 0, $"Negative age for {queueType}");
+
+                Assert.True(captured.QueueDepths.ContainsKey(queueType), $"Missing queue type in QueueDepths: {queueType}");
+                Assert.Equal(0, captured.QueueDepths[queueType].Pending);
+                Assert.Equal(0, captured.QueueDepths[queueType].Running);
             }
         }
     }

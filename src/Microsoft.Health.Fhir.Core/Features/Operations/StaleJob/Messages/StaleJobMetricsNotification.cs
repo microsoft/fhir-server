@@ -11,11 +11,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages
 {
     public class StaleJobMetricsNotification : INotification
     {
-        public StaleJobMetricsNotification(IReadOnlyDictionary<QueueType, double> queueAges)
+        public StaleJobMetricsNotification(
+            IReadOnlyDictionary<QueueType, double> queueAges,
+            IReadOnlyDictionary<QueueType, QueueDepth> queueDepths)
         {
             QueueAges = EnsureArg.IsNotNull(queueAges, nameof(queueAges));
+            QueueDepths = EnsureArg.IsNotNull(queueDepths, nameof(queueDepths));
         }
 
         public IReadOnlyDictionary<QueueType, double> QueueAges { get; }
+
+        public IReadOnlyDictionary<QueueType, QueueDepth> QueueDepths { get; }
     }
 }

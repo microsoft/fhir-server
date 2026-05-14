@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             var ages = ComputeQueueAges(jobsByQueue, DateTime.UtcNow);
+            var depths = ComputeQueueDepths(jobsByQueue);
 
             foreach (var (queueType, age) in ages.Where(kv => kv.Value > 0))
             {
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     age);
             }
 
-            await _mediator.Publish(new StaleJobMetricsNotification(ages), cancellationToken);
+            await _mediator.Publish(new StaleJobMetricsNotification(ages, depths), cancellationToken);
         }
 
         internal static Dictionary<QueueType, double> ComputeQueueAges(
@@ -88,6 +89,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 result[queueType] = createdJobs.Count > 0
                     ? (utcNow - createdJobs.Min(j => j.CreateDate)).TotalSeconds
                     : 0;
+            }
+
+            return result;
+        }
+
+        internal static Dictionary<QueueType, QueueDepth> ComputeQueueDepths(
+            Dictionary<QueueType, IReadOnlyList<JobInfo>> jobsByQueue)
+        {
+            var result = new Dictionary<QueueType, QueueDepth>();
+
+            foreach (var (queueType, jobs) in jobsByQueue)
+            {
+                int pending = jobs.Count(j => j.Status == JobStatus.Created);
+                int running = jobs.Count(j => j.Status == JobStatus.Running);
+                result[queueType] = new QueueDepth(pending, running);
             }
 
             return result;
