@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [Trait(Traits.Category, Categories.ReindexOperation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>
+    public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
@@ -44,6 +44,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
             _output = output;
+        }
+
+        public async Task InitializeAsync()
+        {
+            // Delete leftover resources from previous test runs
+            _output.WriteLine("Initializing ReindexTests - cleaning up leftover resources...");
+
+            await DeleteResourcesAsync("SearchParameter", false); // hard delete does not work right
+            await DeleteResourcesAsync("Person", true);
+            await DeleteResourcesAsync("Specimen", true);
+            await DeleteResourcesAsync("SupplyDelivery", true);
+            await DeleteResourcesAsync("Immunization", true);
+
+            _output.WriteLine("ReindexTests initialization completed.");
+        }
+
+        public Task DisposeAsync()
+        {
+            return Task.CompletedTask;
         }
 
         [Fact]
@@ -399,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // This test is count sensitive.
             // It will work only if there is expected number of persons and there are no other resource types to reindex.
             // Hence - delete and reindex.
-            await DeleteResourcesAsync("Person");
+            await DeleteResourcesAsync("Person", true);
             value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
             await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
 
@@ -1089,7 +1108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(supplyDelivery);
         }
 
-        private async Task DeleteResourcesAsync(string resourceType)
+        private async Task DeleteResourcesAsync(string resourceType, bool hardDelete)
         {
             try
             {
@@ -1104,7 +1123,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     _output.WriteLine($"Found {searchResponse.Resource.Entry.Count} {resourceType} resources.");
                     foreach (var entry in searchResponse.Resource.Entry)
                     {
-                        await DeleteResourceAsync(resourceType, entry.Resource.Id);
+                        await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
                     }
                 }
                 while (true);
@@ -1175,11 +1194,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <summary>
         /// Helper method to delete a single resource with error handling
         /// </summary>
-        private async Task DeleteResourceAsync(string resourceType, string resourceId)
+        private async Task DeleteResourceAsync(string resourceType, string resourceId, bool hardDelete = false)
         {
             try
             {
-                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}?hardDelete=true", true);
+                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}?hardDelete={hardDelete}", true);
                 _output.WriteLine($"Deleted {resourceType}/{resourceId}");
             }
             catch (Exception ex)
