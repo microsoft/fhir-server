@@ -77,6 +77,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = "5"; // Lower interval for testing purposes.
             configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = "5"; // Lower interval for testing purposes.
 
+            // Exercise the scalar-temporal birthdate rewrite (UNION ALL optimization) in E2E runs.
+            configuration["FhirSqlServer:EnableScalarTemporalEqualityRewriter"] = "true";
+
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
