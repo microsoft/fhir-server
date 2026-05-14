@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         }
 
         private static MultiaryExpression BuildExactYearRewrite(BinaryExpression endPredicate, DateTimeOffset yearStart, DateTimeOffset yearEnd) =>
-            (MultiaryExpression)Expression.And(
+            Expression.And(
                 Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearStart),
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearEnd));
 

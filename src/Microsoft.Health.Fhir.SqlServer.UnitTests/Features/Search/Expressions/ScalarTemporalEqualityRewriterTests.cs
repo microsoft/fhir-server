@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         private static MultiaryExpression EqualityPattern(DateTimeOffset start, DateTimeOffset end) =>
-            (MultiaryExpression)Expression.And(
+            Expression.And(
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end));
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenAllowListedBirthdateExactDayReversedOrder_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
         {
-            var reversedPattern = (MultiaryExpression)Expression.And(
+            var reversedPattern = Expression.And(
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
             var expr = new SearchParameterExpression(BuildBirthdateParam(), reversedPattern);
