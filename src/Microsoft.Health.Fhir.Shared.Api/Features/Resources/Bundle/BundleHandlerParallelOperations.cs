@@ -395,30 +395,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
-            if (bundleType.Equals(BundleType.Transaction))
+            if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
             {
+                // Bug 182314: Standardize status code returned when a bundle fails.
+
                 if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                 {
                     httpStatusCode = HttpStatusCode.BadRequest;
                 }
 
-                // Bug 182314: Standardize status code returned when a bundle fails.
-                // Also abort when the status is an error even if the response body has no OperationOutcome
-                // (e.g. when the client disconnects before the filter can write an outcome).
-                if (entryComponent.Response.Outcome != null || (int)httpStatusCode >= (int)HttpStatusCode.BadRequest)
-                {
-                    var errorMessage = string.Format(
-                        Api.Resources.TransactionFailed,
-                        resourceExecutionContext.Context.HttpContext.Request.Method,
-                        resourceExecutionContext.Context.HttpContext.Request.Path);
-                    var operationOutcome = entryComponent.Response.Outcome as OperationOutcome ?? new OperationOutcome();
+                var errorMessage = string.Format(
+                    Api.Resources.TransactionFailed,
+                    resourceExecutionContext.Context.HttpContext.Request.Method,
+                    resourceExecutionContext.Context.HttpContext.Request.Path);
 
-                    TransactionExceptionHandler.ThrowTransactionException(
-                        errorMessage,
-                        httpStatusCode,
-                        operationOutcome,
-                        cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
-                }
+                TransactionExceptionHandler.ThrowTransactionException(
+                    errorMessage,
+                    httpStatusCode,
+                    (OperationOutcome)entryComponent.Response.Outcome,
+                    cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
