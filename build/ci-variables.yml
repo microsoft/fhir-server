@@ -14,7 +14,7 @@ variables:
     # Shared ACA scaling/sizing values consumed by build/jobs/provision-deploy.yml.
     # Centralized here so all CI provision-deploy invocations stay consistent.
     minReplicas: 3
-    maxReplicas: 24
+    maxReplicas: 8
     containerCpu: '2.0'
     containerMemory: '4Gi'
     cosmosAutoscaleMaxThroughput: 5000
