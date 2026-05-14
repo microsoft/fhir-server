@@ -89,6 +89,8 @@ $staticEnvNames = @(
 if ($DataStore -eq 'sql') {
     $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
     $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+    # Exercise the scalar-temporal birthdate rewrite (UNION ALL optimization) in CI/PR E2E runs.
+    $additionalProperties["FhirSqlServer__EnableScalarTemporalEqualityRewriter"] = "true"
     $staticEnvNames += @(
         "SqlServer__Initialize",
         "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
