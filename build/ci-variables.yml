@@ -20,8 +20,8 @@ variables:
     cosmosAutoscaleMaxThroughput: 5000
 
     # Shared FHIR runtime tuning values consumed by build/jobs/provision-deploy.yml.
-    taskHostingPollingFrequencyInSeconds: 30
+    taskHostingPollingFrequencyInSeconds: 1
     taskHostingMaxRunningTaskCount: 4
-    searchParameterCacheRefreshIntervalSeconds: 20
-    systemConformanceProviderRefreshIntervalSeconds: 60
+    searchParameterCacheRefreshIntervalSeconds: 2
+    systemConformanceProviderRefreshIntervalSeconds: 5
     reindexCacheRefreshWaitMultiplier: 6
