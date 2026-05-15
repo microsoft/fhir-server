@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         {
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, interactions: new[] { TypeRestfulInteraction.Read });
+            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Patient, interactions: new[] { TypeRestfulInteraction.Delete });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToTypedElement().ToResourceElement());
@@ -61,6 +62,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(deleteResourceRequest, CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.HardDelete)]
+        public async Task GivenCaseMismatchedRequestValidatedFirst_WhenValidatingCorrectCasing_ThenCapabilityLookupShouldNotBePoisoned(DeleteOperation deleteOperation)
+        {
+            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
+
+            var invalidDeleteRequest = new DeleteResourceRequest("patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
+            var validDeleteRequest = new DeleteResourceRequest("Patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
+
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(invalidDeleteRequest, CancellationToken.None));
+
+            await preProcessor.Process(validDeleteRequest, CancellationToken.None);
         }
     }
 }
