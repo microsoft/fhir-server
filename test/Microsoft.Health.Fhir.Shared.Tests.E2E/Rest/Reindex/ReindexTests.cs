@@ -75,39 +75,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
             const string urlPrefix = "http://my.org/";
             var codes = new List<string>();
-            try
+            for (var i = 0; i < numberOfSearchParams; i++)
             {
-                for (var i = 0; i < numberOfSearchParams; i++)
-                {
-                    var code = $"c-id-{i}";
-                    codes.Add(code);
-                }
-
-                var bundle = await CreatePersonSearchParamsAsync();
-                Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
-                foreach (var entry in bundle.Entry)
-                {
-                    Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
-                }
-
-                // check by urls
-                var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
-                Assert.True(search.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={search.Resource.Total}");
-
-                var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
-                Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
-
-                await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
-
-                await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
-                {
-                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
-                });
+                var code = $"c-id-{i}";
+                codes.Add(code);
             }
-            finally
+
+            var bundle = await CreatePersonSearchParamsAsync();
+            Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+            foreach (var entry in bundle.Entry)
             {
-                await DeleteSearchParamsAsync(codes);
+                Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
             }
+
+            // check by urls
+            var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
+            Assert.True(search.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={search.Resource.Total}");
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+
+            await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+            {
+                await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
+            });
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
             {
