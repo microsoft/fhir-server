@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
                 FhirJsonParser fhirJsonParser = _fhirJsonParser;
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
+                int parallelCancellationSignaled = 0;
 
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -120,6 +121,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
                         _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
+                        if ((cancellationToken.IsCancellationRequested || !requestCancellationToken.IsCancellationRequested)
+                            && Interlocked.Exchange(ref parallelCancellationSignaled, 1) == 0)
+                        {
+                            statistics.MarkBundleAsCancelled();
+                            bundleOperation.Cancel($"Cancelled parallel operation. Resource at position {resourceExecutionContext.Index}. Message: {ex.Message}");
+                        }
+
+                        await requestCancellationToken.CancelAsync();
+
+                        throw;
                     }
                     catch (BaseFhirTransactionException ex)
                     {
@@ -159,13 +170,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are cancellation or FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
 
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
                     await Task.WhenAll(requestsPerResource);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (AggregateException age)
                 {
