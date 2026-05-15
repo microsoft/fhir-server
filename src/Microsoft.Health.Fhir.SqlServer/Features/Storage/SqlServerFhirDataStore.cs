@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -229,7 +230,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // Assume that most likely case is that all resources should be updated.
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
-            (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            string transactionDefinition = BuildMergeResourcesTransactionDefinition(_requestContextAccessor?.RequestContext);
+            (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken, definition: transactionDefinition);
 
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
@@ -433,7 +435,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
-                await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
+                await using (new Timer(async _ => await PutTransactionHeartbeatAsync(transactionId), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
                     var retries = 0;
                     var timeoutRetries = 0;
@@ -473,6 +475,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
             // For atomic operations, reaching this level means that all results are successful.
             return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
+        }
+
+        internal static string BuildMergeResourcesTransactionDefinition(IFhirRequestContext context)
+        {
+            if (context == null)
+            {
+                return null;
+            }
+
+            var builder = new StringBuilder();
+            AppendTransactionDefinitionValue(builder, "correlationId", context.CorrelationId);
+            AppendTransactionDefinitionValue(builder, "method", context.Method);
+            AppendTransactionDefinitionValue(builder, "routeName", context.RouteName);
+            AppendTransactionDefinitionValue(builder, "resourceType", context.ResourceType);
+            AppendTransactionDefinitionValue(builder, "executingBatchOrTransaction", context.ExecutingBatchOrTransaction.ToString());
+            AppendTransactionDefinitionValue(builder, "host", context.BaseUri?.Host);
+
+            string definition = builder.ToString();
+            return definition.Length == 0
+                ? null
+                : definition.Substring(0, Math.Min(definition.Length, SqlStoreClient.MergeResourcesTransactionDefinitionMaxLength));
+        }
+
+        internal Task PutTransactionHeartbeatAsync(long transactionId)
+        {
+            return _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, CancellationToken.None);
+        }
+
+        private static void AppendTransactionDefinitionValue(StringBuilder builder, string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append(';');
+            }
+
+            builder.Append(key);
+            builder.Append('=');
+            builder.Append(value.Trim().Replace(';', ',').Replace('=', ':').Replace('\r', ' ').Replace('\n', ' '));
         }
 
         internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)

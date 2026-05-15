@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            IReadOnlyList<long> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
+            IReadOnlyList<SqlStoreClient.MergeResourcesTransaction> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
             if (timeoutTransactions.Count > 0)
             {
                 _logger.LogWarning(FoundTemplate, timeoutTransactions.Count);
@@ -65,16 +65,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _logger.LogDebug(FoundTemplate, timeoutTransactions.Count);
             }
 
-            await Parallel.ForEachAsync(timeoutTransactions, new ParallelOptions { MaxDegreeOfParallelism = 2 }, async (tranId, cancel) =>
+            await Parallel.ForEachAsync(timeoutTransactions, new ParallelOptions { MaxDegreeOfParallelism = 2 }, async (transaction, cancel) =>
             {
+                long tranId = transaction.TransactionId;
                 var st = DateTime.UtcNow;
-                _logger.LogInformation("TransactionWatchdog found timed out transaction={Transaction}, attempting to roll forward...", tranId);
+                _logger.LogInformation("TransactionWatchdog {TransactionWatchdogEvent}, attempting to roll forward...", FormatTransactionEventText("found timed out", transaction));
                 var resources = await _store.GetResourcesByTransactionIdAsync(tranId, cancellationToken);
                 if (resources.Count == 0)
                 {
                     await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", cancellationToken);
                     _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources=0", tranId);
-                    await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, cancellationToken);
+                    await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", FormatTransactionEventText("committed", transaction, 0), st, cancellationToken);
                     return;
                 }
 
@@ -86,11 +87,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, null, cancellationToken);
                 await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, cancellationToken);
                 _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources={Resources}", tranId, resources.Count);
-                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources={resources.Count}", st, cancellationToken);
+                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", FormatTransactionEventText("committed", transaction, resources.Count), st, cancellationToken);
 
                 affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(cancellationToken);
                 _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
             });
+        }
+
+        internal static string FormatTransactionEventText(string action, SqlStoreClient.MergeResourcesTransaction transaction, int? resources = null)
+        {
+            string text = $"{action} transaction={transaction.TransactionId}";
+            if (resources.HasValue)
+            {
+                text += $", resources={resources.Value}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(transaction.Definition))
+            {
+                text += $", requestContext={{{transaction.Definition}}}";
+            }
+
+            return text;
         }
     }
 }

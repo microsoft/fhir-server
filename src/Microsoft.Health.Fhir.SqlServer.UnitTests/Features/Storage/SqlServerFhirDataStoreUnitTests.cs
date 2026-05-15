@@ -14,6 +14,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -315,7 +316,70 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
+        [Fact]
+        public async Task GivenCancelledRequestToken_WhenPuttingTransactionHeartbeat_ThenHeartbeatUsesNonRequestCancellationToken()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
+            {
+                Current = SchemaVersionConstants.Max,
+            };
+            var storeClient = new TestSqlStoreClient(sqlRetryService, schemaInfo);
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, storeClient);
+
+            await dataStore.PutTransactionHeartbeatAsync(123);
+
+            Assert.Equal(1, storeClient.HeartbeatCallCount);
+            Assert.Equal(123, storeClient.HeartbeatTransactionId);
+            Assert.Equal(SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod, storeClient.HeartbeatPeriod);
+            Assert.False(storeClient.HeartbeatCancellationToken.CanBeCanceled);
+            Assert.False(storeClient.HeartbeatCancellationToken.IsCancellationRequested);
+        }
+
+        [Fact]
+        public void GivenRequestContext_WhenBuildingTransactionDefinition_ThenCorrelationFieldsAreCapturedWithoutFullUri()
+        {
+            var requestContext = new FhirRequestContext(
+                "POST",
+                "https://localhost/Bundle?patient=secret",
+                "https://localhost/",
+                "correlation-123",
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>())
+            {
+                ExecutingBatchOrTransaction = true,
+                ResourceType = KnownResourceTypes.Bundle,
+                RouteName = "BatchOrTransaction",
+            };
+
+            string definition = SqlServerFhirDataStore.BuildMergeResourcesTransactionDefinition(requestContext);
+
+            Assert.Contains("correlationId=correlation-123", definition, StringComparison.Ordinal);
+            Assert.Contains("method=POST", definition, StringComparison.Ordinal);
+            Assert.Contains("routeName=BatchOrTransaction", definition, StringComparison.Ordinal);
+            Assert.Contains("resourceType=Bundle", definition, StringComparison.Ordinal);
+            Assert.Contains("executingBatchOrTransaction=True", definition, StringComparison.Ordinal);
+            Assert.DoesNotContain("patient=secret", definition, StringComparison.Ordinal);
+            Assert.DoesNotContain("https://localhost/Bundle", definition, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenLongRequestContext_WhenBuildingTransactionDefinition_ThenDefinitionIsCappedAtSqlColumnLength()
+        {
+            var requestContext = new FhirRequestContext(
+                "POST",
+                "https://localhost/Bundle",
+                "https://localhost/",
+                new string('a', 3000),
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>());
+
+            string definition = SqlServerFhirDataStore.BuildMergeResourcesTransactionDefinition(requestContext);
+
+            Assert.Equal(SqlStoreClient.MergeResourcesTransactionDefinitionMaxLength, definition.Length);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlStoreClient storeClient = null)
         {
             ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
 
@@ -358,7 +422,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(model, schemaInfo.Current);
 
-            var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
+            storeClient ??= new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
             CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
             BundleConfiguration bundleConfiguration = new BundleConfiguration();
@@ -412,6 +476,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             {
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
+        }
+
+        private sealed class TestSqlStoreClient : SqlStoreClient
+        {
+            public TestSqlStoreClient(ISqlRetryService sqlRetryService, SchemaInformation schemaInformation)
+                : base(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInformation)
+            {
+            }
+
+            public int HeartbeatCallCount { get; private set; }
+
+            public long HeartbeatTransactionId { get; private set; }
+
+            public TimeSpan HeartbeatPeriod { get; private set; }
+
+            public CancellationToken HeartbeatCancellationToken { get; private set; }
+
+            internal override Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+            {
+                HeartbeatCallCount++;
+                HeartbeatTransactionId = transactionId;
+                HeartbeatPeriod = heartbeatPeriod;
+                HeartbeatCancellationToken = cancellationToken;
+                return Task.CompletedTask;
+            }
         }
     }
 }

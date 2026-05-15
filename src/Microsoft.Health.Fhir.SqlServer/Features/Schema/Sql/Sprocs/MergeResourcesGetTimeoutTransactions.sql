@@ -11,7 +11,7 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 BEGIN TRY
   EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUT
 
-  SELECT SurrogateIdRangeFirstValue
+  SELECT SurrogateIdRangeFirstValue, Definition
     FROM dbo.Transactions 
     WHERE SurrogateIdRangeFirstValue > @MinTransactionId
       AND IsCompleted = 0

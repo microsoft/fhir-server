@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
+--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @EnableThrottling bit = 0, @Definition varchar(2000) = NULL
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @EnableThrottling bit = 0, @Definition varchar(2000) = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -52,8 +52,31 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @TransactionId bigint
---EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = @TransactionId OUT
---SELECT @TransactionId
---SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
---SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC
+
+--DROP PROCEDURE MergeResourcesGetTimeoutTransactions
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesGetTimeoutTransactions @TimeoutSec int
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = 'T='+convert(varchar,@TimeoutSec)
+       ,@st datetime = getUTCdate()
+       ,@MinTransactionId bigint
+
+BEGIN TRY
+  EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUT
+
+  SELECT SurrogateIdRangeFirstValue, Definition
+    FROM dbo.Transactions 
+    WHERE SurrogateIdRangeFirstValue > @MinTransactionId
+      AND IsCompleted = 0
+      AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
+    ORDER BY SurrogateIdRangeFirstValue
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO

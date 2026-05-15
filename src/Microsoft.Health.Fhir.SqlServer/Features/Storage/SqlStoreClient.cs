@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
+        internal const int MergeResourcesTransactionDefinitionMaxLength = 2000;
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
@@ -42,6 +43,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = schemaInformation;
         }
+
+        private bool SupportsTransactionRequestContext => _schemaInformation != null &&
+            _schemaInformation.Current.HasValue &&
+            _schemaInformation.Current.Value >= SchemaVersionConstants.TransactionRequestContext;
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
         {
@@ -188,7 +193,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             };
         }
 
-        internal async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        internal virtual async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
         {
             try
             {
@@ -222,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return (long)transactionIdParam.Value;
         }
 
-        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
+        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null, string definition = null)
         {
             await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
@@ -234,6 +239,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (heartbeatDate.HasValue)
             {
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
+            }
+
+            if (SupportsTransactionRequestContext && !string.IsNullOrWhiteSpace(definition))
+            {
+                cmd.Parameters.Add("@Definition", SqlDbType.VarChar, MergeResourcesTransactionDefinitionMaxLength).Value = TruncateTransactionDefinition(definition);
             }
 
             if (_schemaInformation != null && _schemaInformation.Current.HasValue && _schemaInformation.Current.Value >= SchemaVersionConstants.MergeThrottling)
@@ -313,11 +323,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return affectedRows;
         }
 
-        internal async Task<IReadOnlyList<long>> MergeResourcesGetTimeoutTransactionsAsync(int timeoutSec, CancellationToken cancellationToken)
+        internal async Task<IReadOnlyList<MergeResourcesTransaction>> MergeResourcesGetTimeoutTransactionsAsync(int timeoutSec, CancellationToken cancellationToken)
         {
             await using var cmd = new SqlCommand { CommandText = "dbo.MergeResourcesGetTimeoutTransactions", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TimeoutSec", timeoutSec);
-            return await cmd.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetInt64(0), _logger, cancellationToken);
+            bool readDefinition = SupportsTransactionRequestContext;
+            return await cmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                reader =>
+                {
+                    string definition = readDefinition && reader.FieldCount > 1 && !reader.IsDBNull(1) ? reader.GetString(1) : null;
+                    return new MergeResourcesTransaction(reader.GetInt64(0), definition);
+                },
+                _logger,
+                cancellationToken);
         }
 
         internal async Task<IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)>> GetTransactionsAsync(long startNotInclusiveTranId, long endInclusiveTranId, CancellationToken cancellationToken, DateTime? endDate = null)
@@ -342,6 +361,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cancellationToken);
         }
 
+        private static string TruncateTransactionDefinition(string definition)
+        {
+            return definition.Length <= MergeResourcesTransactionDefinitionMaxLength
+                ? definition
+                : definition.Substring(0, MergeResourcesTransactionDefinitionMaxLength);
+        }
+
         internal async Task<IReadOnlyList<ResourceDateKey>> GetResourceDateKeysByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
             await using var cmd = new SqlCommand { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
@@ -349,6 +375,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IncludeHistory", true);
             cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);
             return await cmd.ExecuteReaderAsync(_sqlRetryService, ReadResourceDateKeyWrapper, _logger, cancellationToken);
+        }
+
+        internal readonly struct MergeResourcesTransaction
+        {
+            public MergeResourcesTransaction(long transactionId, string definition)
+            {
+                TransactionId = transactionId;
+                Definition = definition;
+            }
+
+            public long TransactionId { get; }
+
+            public string Definition { get; }
         }
     }
 }
