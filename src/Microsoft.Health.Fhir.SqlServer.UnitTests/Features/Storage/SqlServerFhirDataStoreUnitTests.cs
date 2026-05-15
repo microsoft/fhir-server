@@ -159,9 +159,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 DateTimeOffset.UtcNow,
                 false,
-                null,
-                null,
-                null,
+                Array.Empty<SearchIndexEntry>(),
+                new CompartmentIndices(),
+                Array.Empty<KeyValuePair<string, string>>(),
                 null);
         }
 
@@ -258,6 +258,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_OnRetriableMergeFailure_WithCanceledRetryDelay_CompletesTransaction()
+        {
+            using var cts = new CancellationTokenSource();
+            var sqlRetryService = new CanceledRetryDelaySqlRetryService(cts);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var resources = CreateResourceWrapperOperations("{\"resourceType\":\"Patient\",\"meta\":{\"lastUpdated\":\"2023-01-01T00:00:00Z\"},\"id\":\"123\"}");
+
+            var exception = await Record.ExceptionAsync(
+                () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
+
+            Assert.NotNull(exception);
+            Assert.True(sqlRetryService.CommitTransactionCalled);
+            Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        }
+
+        [Fact]
         public async Task MergeAsync_OnSqlSurrogateIdCollision_RetryBeforeThrowing()
         {
             // Arrange
@@ -317,7 +334,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
         {
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
+            var provider = MockModelInfoProviderBuilder
+                .Create(FhirSpecification.R4)
+                .AddKnownTypes(KnownResourceTypes.Group, "Encounter", "Device", "Practitioner", "RelatedPerson")
+                .Build();
+            var compartmentTypes = new[] { "Patient", "Practitioner", "Encounter", "Device", "RelatedPerson" };
+            provider.GetCompartmentTypeNames().Returns(compartmentTypes);
+            provider.IsKnownCompartmentType(Arg.Any<string>()).Returns(x => compartmentTypes.Contains((string)x[0]));
+            ModelInfoProvider.SetProvider(provider);
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
@@ -353,6 +377,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             typeof(SqlServerFhirModel)
                 .GetField("_resourceTypeToId", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(model, new Dictionary<string, short>(StringComparer.Ordinal) { { "Patient", 1 } });
+
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(model, new Dictionary<Uri, short> { { SearchParameterNames.IdUri, 1 }, { SearchParameterNames.LastUpdatedUri, 2 } });
 
             typeof(SqlServerFhirModel)
                 .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
@@ -407,11 +435,68 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
         private static List<ResourceWrapperOperation> CreateResourceWrapperOperations()
         {
-            var wrapper = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            return CreateResourceWrapperOperations("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+        }
+
+        private static List<ResourceWrapperOperation> CreateResourceWrapperOperations(string rawResourceData)
+        {
+            var wrapper = CreateResourceWrapper(rawResourceData);
             return new List<ResourceWrapperOperation>
             {
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
+        }
+
+        private sealed class CanceledRetryDelaySqlRetryService : ISqlRetryService
+        {
+            private readonly CancellationTokenSource _cancellationTokenSource;
+
+            public CanceledRetryDelaySqlRetryService(CancellationTokenSource cancellationTokenSource)
+            {
+                _cancellationTokenSource = cancellationTokenSource;
+            }
+
+            public bool CommitTransactionCalled { get; private set; }
+
+            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+            {
+                _cancellationTokenSource.Cancel();
+                return Task.CompletedTask;
+            }
+
+            public Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false)
+            {
+                throw new NotSupportedException();
+            }
+
+            public Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
+            {
+                switch (sqlCommand.CommandText)
+                {
+                    case "dbo.MergeResourcesBeginTransaction":
+                        sqlCommand.Parameters["@TransactionId"].Value = 123L;
+                        sqlCommand.Parameters["@SequenceRangeFirstValue"].Value = 1;
+                        return Task.CompletedTask;
+                    case "dbo.MergeResources":
+                        throw new InvalidOperationException("Execution Timeout Expired");
+                    case "dbo.MergeResourcesCommitTransaction":
+                        CommitTransactionCalled = true;
+                        Assert.Equal(CancellationToken.None, cancellationToken);
+                        return Task.CompletedTask;
+                    default:
+                        return Task.CompletedTask;
+                }
+            }
+
+            public Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+            {
+                return Task.FromResult<IReadOnlyList<TResult>>(new List<TResult>());
+            }
+
+            public Task<IReadOnlyList<IReadOnlyList<TResult>>> ExecuteMultiResultReaderAsync<TResult>(SqlCommand sqlCommand, IList<Func<SqlDataReader, TResult>> readersToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+            {
+                throw new NotSupportedException();
+            }
         }
     }
 }

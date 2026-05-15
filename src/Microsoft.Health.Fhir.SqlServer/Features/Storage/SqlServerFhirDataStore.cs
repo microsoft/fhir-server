@@ -9,6 +9,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -447,12 +448,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         catch (Exception e)
                         {
                             retries++;
+                            ExceptionDispatchInfo cancellationException = null;
                             if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
                             {
                                 _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
-                                await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
-                                await Task.Delay(5000, cancellationToken);
-                                continue;
+                                try
+                                {
+                                    await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                                    await Task.Delay(5000, cancellationToken);
+                                    continue;
+                                }
+                                catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+                                {
+                                    cancellationException = ExceptionDispatchInfo.Capture(ex);
+                                }
                             }
 
                             if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
@@ -465,6 +474,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, CancellationToken.None);
                             }
 
+                            cancellationException?.Throw();
                             throw;
                         }
                     }
