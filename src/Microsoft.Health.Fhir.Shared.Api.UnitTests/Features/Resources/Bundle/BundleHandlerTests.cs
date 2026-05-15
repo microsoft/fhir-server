@@ -955,6 +955,77 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
+        [Fact]
+        public async Task GivenABundleRequest_WhenParallelOperationIsCanceled_ThenParallelProcessingCompletesPromptly()
+        {
+            _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            using var outerCancellationTokenSource = new CancellationTokenSource();
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation?mode=wait",
+                        },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation?mode=cancel",
+                        },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            var localAsyncFunction = (CallInfo callInfo) =>
+            {
+                var routeContext = callInfo.Arg<RouteContext>();
+                routeContext.Handler = async context =>
+                {
+                    string mode = context.Request.Query["mode"].ToString();
+                    if (string.Equals(mode, "cancel", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new OperationCanceledException("Simulated parallel operation cancellation.");
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(30), context.RequestAborted);
+                    context.Response.StatusCode = 200;
+                };
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(localAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            var handleTask = _bundleHandler.Handle(bundleRequest, outerCancellationTokenSource.Token);
+
+            Task completedTask = await Task.WhenAny(handleTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            if (completedTask != handleTask)
+            {
+                outerCancellationTokenSource.Cancel();
+                Task cleanupTask = await Task.WhenAny(handleTask, Task.Delay(TimeSpan.FromSeconds(1)));
+                if (cleanupTask == handleTask)
+                {
+                    _ = await Record.ExceptionAsync(() => handleTask);
+                }
+            }
+
+            Assert.Same(handleTask, completedTask);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => handleTask);
+        }
+
         private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
