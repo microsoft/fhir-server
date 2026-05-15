@@ -457,7 +457,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                             if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
                             {
-                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                                // Use CancellationToken.None so that a cancelled client token does not prevent the
+                                // server-side transaction from being marked as failed. If we pass the original token
+                                // and it has already been cancelled, OpenAsync() will throw OperationCanceledException
+                                // before MergeResourcesCommitTransactionAsync can do any useful work, the throw below
+                                // is never reached, and the server-side transaction state is left dirty.
+                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, CancellationToken.None);
                             }
 
                             throw;
