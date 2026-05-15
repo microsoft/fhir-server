@@ -91,6 +91,9 @@ ipch/
 *.vspx
 *.sap
 
+# Visual Studio Code C# Dev Kit cache files
+*.lscache
+
 # TFS 2012 Local Workspace
 $tf/
 

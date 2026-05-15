@@ -407,13 +407,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
-            // Deduplicate exact (name, value) pairs before parsing. Repeated identical parameters produce
-            // redundant SQL CTEs (one per expression) without affecting query semantics. Parameters with the
-            // same name but different values are intentionally kept, as each represents a distinct AND predicate.
-            // Per FHIR R4 §3.1.1.4.17 and R5 §3.2.1.5.4, repeated parameters are AND semantics (set intersection),
-            // and AND of identical predicates is idempotent: X AND X ≡ X.
-            // R4: https://hl7.org/fhir/R4/search.html#combining
-            // R5: https://hl7.org/fhir/R5/search.html#multivalue
+            // Deduplicate exact (name, value) query parameter pairs before parsing. Repeated identical parameters produce
+            // redundant database lookups (one per expression) without affecting query semantics. Per FHIR spec, repeated
+            // parameters are AND semantics (set intersection), and AND of identical predicates is idempotent: X AND X ≡ X.
             searchExpressions.AddRange(searchParams.Parameters.Distinct().Select(
             q =>
             {
