@@ -139,61 +139,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return;
             }
 
-            await UpsertStatusesWithRetry(statuses, 3, cancellationToken, reindexId); // add reindexId when reindex job tests start using true queue client.
-        }
-
-        private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken, long? reindexId = null)
-        {
-            var currentStatuses = statuses.ToList();
-            int retryCount = 0;
-
-            while (retryCount <= maxRetries)
-            {
-                try
-                {
-                    await UpsertStatusesInternal(currentStatuses, cancellationToken, reindexId);
-                    return; // Success
-                }
-                catch (SqlException sqlEx) when (sqlEx.Number == 50001 && retryCount < maxRetries) // Our custom concurrency error
-                {
-                    // Optimistic concurrency conflict detected - refresh and retry
-                    retryCount++;
-                    _logger.LogWarning("Optimistic concurrency conflict detected on attempt {RetryCount}. Retrying...", retryCount);
-
-                    // Refresh the statuses with current LastUpdated values
-                    var refreshedStatuses = await GetSearchParameterStatuses(cancellationToken);
-                    var refreshedDict = refreshedStatuses.ToDictionary(s => s.Uri.OriginalString, s => s);
-
-                    // Update our statuses with fresh LastUpdated values
-                    foreach (var status in currentStatuses)
-                    {
-                        if (refreshedDict.TryGetValue(status.Uri.OriginalString, out var refreshed))
-                        {
-                            status.LastUpdated = refreshed.LastUpdated;
-                        }
-                    }
-
-                    // Wait before retry to reduce contention
-                    await Task.Delay(TimeSpan.FromMilliseconds(100.0 * retryCount), cancellationToken);
-                }
-                catch (SqlException sqlEx) when (sqlEx.Number == 50001)
-                {
-                    // Max retries exceeded
-                    throw new SearchParameterConcurrencyException("Maximum retry attempts exceeded due to concurrency conflicts", sqlEx);
-                }
-            }
-        }
-
-        private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
-        {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
-            if (_schemaInformation.Current >= 112 && reindexId.HasValue) // remove value check to invoke new max(LastUpdated) logic
-            {
-                cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
-            }
-
+            cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);

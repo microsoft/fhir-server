@@ -140,15 +140,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
             }
 
-            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var current);
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = status,
                 LastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value,
-                IsPartiallySupported = current?.IsPartiallySupported ?? false,
-                SortStatus = current?.SortStatus ?? SortParameterStatus.Disabled,
+                IsPartiallySupported = existing?.IsPartiallySupported ?? false,
+                SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
 
             lock (pendingStatuses)
