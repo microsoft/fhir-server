@@ -333,9 +333,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
                 }
 
-                if (_searchParamLastUpdated.HasValue)
+                if (zeroWaitForSemaphore && _searchParamLastUpdated.HasValue) // log only for background
                 {
-                    // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
+                    // log for cross-instance cache refresh tracking (SQL only; Cosmos/File are no-ops).
                     var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
                     await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
                 }
