@@ -134,8 +134,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(new List<ResourceSearchParameterStatus>());
 
             var contextProperties = new Dictionary<string, object>();
             var fhirContext = Substitute.For<IFhirRequestContext>();
@@ -147,7 +145,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
-            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
             Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatusUpdates));
             var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
             Assert.Single(pendingStatuses);
