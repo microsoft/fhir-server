@@ -275,14 +275,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
                 // Batch fetch all SearchParameter resources in one call
-                var searchParamResources = await GetSearchParametersByUrls(
-                    statusesToFetch
-                        .Select(p => p.Uri.OriginalString)
-                        .ToList(),
-                    cancellationToken);
+                var searchParamResources = await GetSearchParametersByUrls(statusesToFetch.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
 
                 var paramsToAdd = new List<ITypedElement>();
-                var allHaveResources = true;
                 foreach (var searchParam in statusesToFetch)
                 {
                     if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -290,12 +285,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         _logger.LogInformation(
                             "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                             searchParam.Uri);
-
-                        if (searchParam.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10)) // same as for in cache
-                        {
-                            allHaveResources = false;
-                        }
-
                         continue;
                     }
 
@@ -325,10 +314,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Once added to the definition manager we can update their status
                 await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-                var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
-
-                // Do not advance timestamp unless all in cache.
-                if (inCache && allHaveResources && results.LastUpdated.HasValue)
+                if (results.LastUpdated.HasValue)
                 {
                     _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
                 }
@@ -353,32 +339,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return true;
-        }
-
-        // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
-        // when refresh is invoked between saving status and saving resource.
-        // This will not be needed when order of saves is reversed (resource first, then status)
-        private bool ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
-        {
-            var inCache = true;
-            foreach (var status in statuses)
-            {
-                _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
-                if (existingSearchParam == null && status.Status != SearchParameterStatus.Deleted && status.Status != SearchParameterStatus.PendingDelete)
-                {
-                    var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
-                    _logger.LogInformation(msg);
-
-                    // if the parameter was updated in the last 10 minutes it's possible we hit race condition
-                    // where status was updated but resource is not yet saved, so we should not consider this as cache miss
-                    if (status.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10))
-                    {
-                        inCache = false;
-                    }
-                }
-            }
-
-            return inCache;
         }
 
         private void DeleteSearchParameter(string url)
