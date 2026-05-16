@@ -220,8 +220,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), CancellationToken.None));
         }
 
-        [Fact]
-        public async Task MergeAsync_OnSqlConflict_WithDefaultOptions_RetriesBeforeThrowing()
+        [Theory]
+        [InlineData(false, true)] // Parallel transactions.
+        [InlineData(false, false)] // Parallel batches.
+        [InlineData(true, false)] // Regular upsert requests.
+        public async Task MergeAsync_OnSqlConflict_WithDefaultOptions_RetriesBeforeThrowing(bool enlistTransaction, bool ensureAtomicOperations)
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -251,10 +254,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             await Assert.ThrowsAsync<TaskCanceledException>(
-                () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction, ensureAtomicOperations), cts.Token));
 
             await sqlRetryService.Received(1)
                 .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnSqlConflict_WithSequentialTransactions_DoNotRetry()
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            // When trying to log events, a TaskCanceledException will be thrown.
+            sqlRetryService
+                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var resources = CreateResourceWrapperOperations();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), cts.Token));
         }
 
         [Fact]

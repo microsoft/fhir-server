@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -151,11 +151,20 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.
+        ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates..
         /// </summary>
         internal static string ResourceConcurrentUpdateConflict {
             get {
                 return ResourceManager.GetString("ResourceConcurrentUpdateConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates. Switch to parallel bundles to allow safe internal retries..
+        /// </summary>
+        internal static string ResourceConcurrentUpdateConflictWithToParallelBundles {
+            get {
+                return ResourceManager.GetString("ResourceConcurrentUpdateConflictWithToParallelBundles", resourceCulture);
             }
         }
         

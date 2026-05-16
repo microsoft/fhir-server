@@ -180,7 +180,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
-                            if (retries++ >= maxRetries)
+                            if (mergeOptions.EnlistInTransaction && mergeOptions.EnsureAtomicOperations)
+                            {
+                                // In this scenario, a retry operation can't be safely performed as this is part of a C# transaction.
+                                _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict with C# transactions.");
+                                throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflictWithToParallelBundles);
+                            }
+                            else if (retries++ >= maxRetries)
                             {
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
