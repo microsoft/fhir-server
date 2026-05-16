@@ -16,7 +16,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Models;
@@ -24,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
@@ -81,16 +79,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<string>())
                 .Returns(new Uri(OperationResultUrl));
 
-            var searchService = Substitute.For<ISearchService>();
-            searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<IReadOnlyList<string>>(new List<string> { KnownResourceTypes.Patient }));
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-
             _controller = new BulkDeleteController(
                 _mediator,
                 _searchParameterOperations,
-                () => scopedSearchService,
                 urlResolver);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
@@ -223,6 +214,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             Assert.IsType<JobResult>(response);
             await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
+        }
+
+        // The controller must not preemptively block system-wide bulk delete requests when a
+        // reindex job is running. The orchestrator/processing job applies the precise check
+        // against the user's actual search filters, so the controller cannot produce false-positive
+        // conflicts. Mocking EnsureNoActiveReindexJobAsync to throw guarantees that any reliance
+        // on it from this layer would fail this test.
+        [Theory]
+        [InlineData("")]
+        [InlineData("?_tag=abc-123")]
+        [InlineData("?_lastUpdated=lt2021-12-12")]
+        [InlineData("?_tag=abc-123&_lastUpdated=lt2021-12-12")]
+        [InlineData("?identifier=urn:test|value")]
+        public async Task GivenSystemWideBulkDelete_WhenReindexIsRunning_ThenRequestSucceedsWithoutControllerLevelReindexCheck(string query)
+        {
+            _httpRequest.QueryString.Returns(new QueryString(query));
+
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            // System-wide variants: BulkDelete (no Type) and BulkDeleteSoftDeleted (no Type, soft-delete-cleanup).
+            var softDeleteResponse = await _controller.BulkDelete(new HardDeleteModel(), purgeHistory: false, removeReferences: false);
+            var hardDeleteResponse = await _controller.BulkDelete(new HardDeleteModel { HardDelete = true }, purgeHistory: false, removeReferences: false);
+
+            Assert.IsType<JobResult>(softDeleteResponse);
+            Assert.IsType<JobResult>(hardDeleteResponse);
+            await _searchParameterOperations.DidNotReceiveWithAnyArgs().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
+            await _mediator.ReceivedWithAnyArgs(2).Send<CreateBulkDeleteResponse>(default, default);
         }
 
         [Theory]
