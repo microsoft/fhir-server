@@ -15,6 +15,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -28,26 +29,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IFhirDataStore _fhirDataStore;
-        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public CreateOrUpdateSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
             IFhirDataStore fhirDataStore,
-            ISearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchParameterOperations = searchParameterOperations;
             _fhirDataStore = fhirDataStore;
-            _searchParameterStatusManager = searchParameterStatusManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _requestContextAccessor = requestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
         }
@@ -61,8 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Before committing the SearchParameter resource to the data store, validate the parameter type
                 await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
 
-                var url = request.Resource.Instance.GetStringScalar("url");
-                await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
+                QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -102,18 +102,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        await QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, cancellationToken);
+                        QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, cancellationToken);
                     }
 
-                    await QueueStatusAsync(newUrl, SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatusAsync(newUrl, SearchParameterStatus.Supported, cancellationToken);
                 }
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
                     await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
 
-                    var url = request.Resource.Instance.GetStringScalar("url");
-                    await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, cancellationToken);
                 }
             }
 
@@ -121,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return await next(cancellationToken);
         }
 
-        private async Task QueueStatusAsync(string url, SearchParameterStatus status, CancellationToken cancellationToken)
+        private void QueueStatusAsync(string url, SearchParameterStatus status, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -141,14 +140,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
             }
 
-            var currentStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var existing = currentStatuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = status,
-                LastUpdated = existing?.LastUpdated ?? DateTimeOffset.UtcNow,
+                LastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };

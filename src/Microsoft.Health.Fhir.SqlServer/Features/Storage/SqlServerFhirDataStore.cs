@@ -797,10 +797,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandType = CommandType.StoredProcedure;
             bool hasPendingStatuses = pendingStatuses?.Count > 0;
 
-            if (hasPendingStatuses && _schemaInformation.Current >= 109)
+            if (hasPendingStatuses)
             {
                 cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses.ToList()));
+                cmd.Parameters.AddWithValue("@ReindexId", 0);
             }
             else
             {

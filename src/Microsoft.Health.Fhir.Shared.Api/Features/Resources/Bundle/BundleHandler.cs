@@ -332,6 +332,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
 
+            // for deletes Entry.Resource is null. need to check in other way
+            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true))
+            {
+                searchParamsInBundle = true;
+            }
+
             if (searchParamsInBundle)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken); // refresh search param cache

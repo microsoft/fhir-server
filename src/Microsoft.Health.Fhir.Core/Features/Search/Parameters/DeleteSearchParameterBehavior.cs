@@ -86,16 +86,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // If the search parameter exists and is not already deleted, delete it
                 if (!searchParamResource.IsDeleted)
                 {
+                    var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
                     var url = typed.GetStringScalar("url");
-                    await QueuePendingDeleteStatusAsync(url, cancellationToken);
+                    await QueuePendingDeleteStatusAsync(url, refreshCache, cancellationToken);
                 }
             }
 
             return await next(cancellationToken);
         }
 
-        private async Task QueuePendingDeleteStatusAsync(string url, CancellationToken cancellationToken)
+        private async Task QueuePendingDeleteStatusAsync(string url, bool refreshCache, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -108,6 +109,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
+            if (refreshCache)
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+            }
+
             if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
                 value is not List<ResourceSearchParameterStatus> pendingStatuses)
             {
@@ -115,14 +121,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
             }
 
-            var currentStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var existing = currentStatuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = SearchParameterStatus.PendingDelete,
-                LastUpdated = existing?.LastUpdated ?? DateTimeOffset.UtcNow,
+                LastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
