@@ -570,6 +570,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (InvalidOperationException ioe) when (ioe.IsCompletedTransactionException())
             {
+                // SqlTransactionScope.Dispose() disposes SqlConnection before SqlTransaction, which zombies the
+                // transaction and causes Rollback() to throw "This SqlTransaction has completed; it is no longer
+                // usable."  When this happens because the client cancelled the request, return 408 (not 500).
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ioe, "SqlTransaction cleanup failed due to request cancellation; the transaction was rolled back by the server.");
+                    throw new FhirTransactionCancelledException(Api.Resources.GeneralTransactionFailedError);
+                }
+
                 _logger.LogError(ioe, "Failed to commit a transaction. This SqlTransaction has completed.");
                 throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.InternalServerError);
             }
