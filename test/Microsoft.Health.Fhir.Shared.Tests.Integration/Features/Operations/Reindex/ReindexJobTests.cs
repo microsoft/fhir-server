@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
                     }
                     catch (Exception)
                     {
@@ -1374,40 +1374,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _fixture.Mediator.UpsertResourceAsync(searchParam.ToResourceElement());
 
-            if (!_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
-            {
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
-            }
-
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
-                new List<string> { searchParam.Url },
-                SearchParameterStatus.Supported,
-                CancellationToken.None);
-
-            // These tests start a background cache refresh loop, so a zero-wait refresh can
-            // skip the one apply that populates the SQL search-parameter URI->ID mapping.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             return searchParam;
-        }
-
-        private async Task<SearchResult> SearchForSearchParameterByUrlAsync(string searchParamUrl, CancellationToken cancellationToken, int maxAttempts = 10, int delayMilliseconds = 200)
-        {
-            SearchResult result = null;
-            var queryParams = new List<Tuple<string, string>> { new("url", searchParamUrl) };
-
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                result = await _searchService.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (result.Results.Any())
-                {
-                    return result;
-                }
-
-                await Task.Delay(delayMilliseconds, cancellationToken);
-            }
-
-            return result;
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
