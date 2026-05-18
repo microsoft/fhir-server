@@ -440,6 +440,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     return;
                 }
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
+                {
+                    Status = suggestedStatus;
+                }
+                else if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+                {
+                    throw new BundleOrchestratorOperationCanceledException($"Bundle Operation {Id}. Operation is already in terminal state '{Status}'. Ignoring transition to '{suggestedStatus}'.");
+                }
                 else if (suggestedStatus == BundleOrchestratorOperationStatus.WaitingForResources && Status == BundleOrchestratorOperationStatus.Open)
                 {
                     Status = BundleOrchestratorOperationStatus.WaitingForResources;
@@ -451,14 +459,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 else if (suggestedStatus == BundleOrchestratorOperationStatus.Completed && Status == BundleOrchestratorOperationStatus.Processing)
                 {
                     Status = BundleOrchestratorOperationStatus.Completed;
-                }
-                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
-                {
-                    Status = suggestedStatus;
-                }
-                else if (suggestedStatus == BundleOrchestratorOperationStatus.WaitingForResources && (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled))
-                {
-                    throw new BundleOrchestratorOperationCanceledException($"Bundle Operation {Id}. Operation is already in terminal state '{Status}'. Ignoring transition to '{suggestedStatus}'.");
                 }
                 else
                 {
