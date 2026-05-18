@@ -459,19 +459,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
                 // This throws AggrigateExceptions
-                await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
+                await Parallel.ForEachAsync(includedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
                 {
-                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
+                // with concurrency based on max las updated search params must be leteted one-by-one
+                foreach (var item in includedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
                 {
-                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
+                    await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
+                }
+
+                await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
+                {
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
+
+                // with concurrency based on max las updated search params must be leteted one-by-one
+                foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
+                {
+                    await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
+                }
             }
             catch (Exception ex)
             {
@@ -646,14 +660,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
                 }
-            }
-        }
-
-        private async Task DeleteSearchParameterAsync(ResourceWrapper resource, CancellationToken cancellationToken)
-        {
-            if (string.Equals(resource?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
-            {
-                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
             }
         }
     }
