@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                // with concurrency based on max last updated search params must be leteted one-by-one
+                // with concurrency based on max last updated search params must be deleteted one-by-one
                 foreach (var item in includedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
                 {
                     await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
@@ -479,7 +479,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                // with concurrency based on max last updated search params must be leteted one-by-one
+                // with concurrency based on max last updated search params must be deleteted one-by-one
                 foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
                 {
                     await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
