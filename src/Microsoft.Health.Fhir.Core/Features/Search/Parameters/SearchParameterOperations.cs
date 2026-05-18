@@ -170,6 +170,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <summary>
         /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done
         /// to allow deletion service to properly handle Hard deletions for Search Parameters (e.g. allow reindex prior to removing resource from DB).
+        /// !!! This method has incorrect name. It does not delete search parameter, it just updates its status.
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
@@ -187,8 +188,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     {
                         await EnsureNoActiveReindexJobAsync(cancellationToken);
 
-                        _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
-                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
+                        _logger.LogInformation("DeleteSearchParameterAsync: Refreshing cache");
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        _logger.LogInformation("DeleteSearchParameterAsync: Deleting the search parameter '{Url}'", searchParameterUrl);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken, lastUpdated: SearchParamLastUpdated);
                     }
                     catch (FhirException fex)
                     {
