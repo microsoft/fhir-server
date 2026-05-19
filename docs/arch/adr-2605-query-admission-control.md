@@ -1,8 +1,8 @@
-# ADR-2605: SQL Search Query Admission Control
+# ADR-2605: Scalable FHIR Search Control
 
 **Status**: Proposed
 **Date**: 2026-05-19
-**Feature**: SQL query admission scoring and telemetry
+**Feature**: SQL query complexity scoring, telemetry, and BestEffort search controls
 
 ## Context
 
