@@ -107,11 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
             }
 
-            if (!string.IsNullOrEmpty(job.TargetSearchParameterTypeList))
-            {
-                parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
-            }
-
             if (!string.IsNullOrEmpty(job.FailureDetails?.FailureReason))
             {
                 parametersResource.Add(JobRecordProperties.FailureDetails, new FhirString(job.FailureDetails.FailureReason));

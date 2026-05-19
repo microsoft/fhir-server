@@ -996,8 +996,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // Create a ReindexJobRecord for the orchestrator
                 var orchestratorRecord = new ReindexJobRecord(
                     targetResourceTypes: Array.Empty<string>(),
-                    targetSearchParameterTypes: Array.Empty<string>(),
-                    searchParameterResourceTypes: Array.Empty<string>(),
                     maxResourcesPerQuery: 3,
                     maxResourcesPerWrite: 3)
                 {
