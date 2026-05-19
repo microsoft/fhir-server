@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
             if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
             {
-                if (retryHeaderValue > 0 && retryHeaderValue <= 30)
+                if (retryHeaderValue > 0 && retryHeaderValue <= 15)
                 {
                     retryDelay = retryHeaderValue;
                 }
