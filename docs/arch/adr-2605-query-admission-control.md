@@ -68,7 +68,20 @@ Example scores:
 | `GET /Patient?_id=abc` | `_id` exact search: 1 | `Standard` |
 | `GET /Patient?name:contains=smith&_total=accurate&_sort=name` | string contains: 20, accurate total: 20, non-`_lastUpdated` sort: 25. Total: 65 | `Complex` |
 | `GET /Patient?_include:iterate=*` | include: 20, iterate: 40, wildcard: 100, include depth 2: 40. Total: 200 | `Expensive` |
-| `GET /ServiceRequest?based-on=ServiceRequest/{id}&_count=1000&_revinclude=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result&_include:iterate=Observation:performer&_include:iterate=PractitionerRole:practitioner&_include:iterate=PractitionerRole:organization` | reference filter: 3, `_count=1000`: 40, `_includesCount=1000`: 30, five includes: 100, four iterative includes: 160, include depth 5: 250. Total: 583 | `Rejected` |
+
+Customer-style include graph example:
+
+```http
+GET /ServiceRequest?based-on=ServiceRequest/{id}
+  &_count=1000
+  &_revinclude=DiagnosticReport:based-on
+  &_include:iterate=DiagnosticReport:result
+  &_include:iterate=Observation:performer
+  &_include:iterate=PractitionerRole:practitioner
+  &_include:iterate=PractitionerRole:organization
+```
+
+This scores as `Rejected`: reference filter 3, `_count=1000` 40, `_includesCount=1000` 30, five includes 100, four iterative includes 160, and include depth 5 adds 250, for a total score of 583.
 
 This also creates a metrics normalization boundary. Instead of comparing every `SearchByResourceType` request together, dashboards can split latency, timeout rate, SQL CPU, SQL IO, and request volume by route, resource type, complexity tier, and score band. If a caller decomposes one high-score request into a root search plus smaller include retrieval searches, telemetry will show several lower-score operations rather than one high-score operation, making the performance tradeoff measurable.
 
