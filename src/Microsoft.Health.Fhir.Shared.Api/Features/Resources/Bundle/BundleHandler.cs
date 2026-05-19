@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     apiCallResults[status].Add(new BundleSubCallMetricData()
                     {
                         FhirOperation = "Bundle Sub Call",
-                        ResourceType = entry?.Resource?.TypeName,
+                        ResourceType = entry.Resource?.TypeName,
                     });
                 }
             }
@@ -779,12 +779,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                     httpContext,
                                     cancellationToken);
 
-                                if (_bundleType.Equals(BundleType.Batch))
-                                {
-                                    throttledEntryComponent = entryComponent;
-                                }
+                                // For Batch bundles, we should include the 429 response for the throttled request and skip processing subsequent requests.
+                                throttledEntryComponent = entryComponent;
 
-                                return throttledEntryComponent;
+                                continue;
                             }
 
                             await resourceContext.Context.Handler.Invoke(httpContext);

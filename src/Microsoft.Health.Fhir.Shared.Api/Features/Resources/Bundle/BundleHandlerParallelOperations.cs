@@ -363,6 +363,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 httpContext,
                                 cancellationToken);
 
+                            // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
+                            throttledEntryComponent = entryComponent;
+
                             return entryComponent;
                         }
 
