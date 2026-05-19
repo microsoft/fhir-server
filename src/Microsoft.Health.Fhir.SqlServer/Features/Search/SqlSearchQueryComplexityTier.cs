@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         Standard,
         Complex,
-        Expensive,
+        BestEffort,
         Rejected,
     }
 }

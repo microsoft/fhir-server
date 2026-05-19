@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenWildcardIterativeInclude_WhenCalculated_ThenWildcardAndIterateArePenalized()
+        public void GivenWildcardIterativeInclude_WhenCalculated_ThenQueryIsBestEffort()
         {
             SearchOptions searchOptions = CreateSearchOptions(
                 Expression.And(
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             SqlSearchQueryComplexityResult result = SqlSearchQueryComplexityCalculator.Calculate(searchOptions);
 
-            Assert.Equal(SqlSearchQueryComplexityTier.Expensive, result.Tier);
+            Assert.Equal(SqlSearchQueryComplexityTier.BestEffort, result.Tier);
             Assert.Equal(200, result.Score);
         }
 

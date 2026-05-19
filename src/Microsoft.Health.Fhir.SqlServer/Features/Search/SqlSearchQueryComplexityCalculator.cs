@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private const int StandardThreshold = 30;
         private const int ComplexThreshold = 100;
-        private const int ExpensiveThreshold = 200;
+        private const int BestEffortThreshold = 200;
 
         public static SqlSearchQueryComplexityResult Calculate(SearchOptions searchOptions)
         {
@@ -81,9 +81,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return SqlSearchQueryComplexityTier.Complex;
             }
 
-            if (score <= ExpensiveThreshold)
+            if (score <= BestEffortThreshold)
             {
-                return SqlSearchQueryComplexityTier.Expensive;
+                return SqlSearchQueryComplexityTier.BestEffort;
             }
 
             return SqlSearchQueryComplexityTier.Rejected;
