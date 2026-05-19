@@ -11,8 +11,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
@@ -23,15 +24,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class StaleJobWatchdogLogicTests
+    public class JobMonitorWatchdogLogicTests
     {
         private static DateTime _now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
-        private static StaleJobMetricsNotification MakeNotification(
+        private static JobMonitorMetricsNotification MakeNotification(
             Dictionary<QueueType, double> ages,
             Dictionary<QueueType, QueueDepth> depths = null)
         {
-            return new StaleJobMetricsNotification(
+            return new JobMonitorMetricsNotification(
                 ages,
                 depths ?? new Dictionary<QueueType, QueueDepth>());
         }
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
+            var result = JobMonitorWatchdog.ComputeQueueAges(jobs, _now);
 
             Assert.Equal(0, result[QueueType.Export]);
             Assert.Equal(20 * 60, result[QueueType.Import]);
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 [QueueType.Import] = new List<JobInfo>(),
             };
 
-            var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
+            var result = JobMonitorWatchdog.ComputeQueueAges(jobs, _now);
 
             Assert.Equal(754.0, result[QueueType.Export]);
             Assert.Equal(0, result[QueueType.Import]);
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 [QueueType.Export] = new List<JobInfo>(),
             };
 
-            var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
+            var result = JobMonitorWatchdog.ComputeQueueAges(jobs, _now);
 
             Assert.Equal(0, result[QueueType.Export]);
         }
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueAges(jobs, _now);
+            var result = JobMonitorWatchdog.ComputeQueueAges(jobs, _now);
 
             Assert.Equal(0, result[QueueType.Export]);
             Assert.Equal(900, result[QueueType.Import]);
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 [QueueType.Export] = new List<JobInfo>(),
             };
 
-            var result = StaleJobWatchdog.ComputeQueueDepths(jobs);
+            var result = JobMonitorWatchdog.ComputeQueueDepths(jobs);
 
             Assert.Equal(new QueueDepth(0, 0), result[QueueType.Export]);
         }
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueDepths(jobs);
+            var result = JobMonitorWatchdog.ComputeQueueDepths(jobs);
 
             Assert.Equal(new QueueDepth(Pending: 3, Running: 0), result[QueueType.Export]);
         }
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueDepths(jobs);
+            var result = JobMonitorWatchdog.ComputeQueueDepths(jobs);
 
             Assert.Equal(new QueueDepth(Pending: 0, Running: 2), result[QueueType.Import]);
         }
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueDepths(jobs);
+            var result = JobMonitorWatchdog.ComputeQueueDepths(jobs);
 
             Assert.Equal(new QueueDepth(Pending: 2, Running: 1), result[QueueType.Reindex]);
         }
@@ -199,22 +200,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 },
             };
 
-            var result = StaleJobWatchdog.ComputeQueueDepths(jobs);
+            var result = JobMonitorWatchdog.ComputeQueueDepths(jobs);
 
             Assert.Equal(new QueueDepth(Pending: 0, Running: 1), result[QueueType.Export]);
             Assert.Equal(new QueueDepth(Pending: 2, Running: 0), result[QueueType.Import]);
         }
 
-        // ---- StaleJobMetricHandler (ages) ----
+        // ---- JobMonitorMetricHandler (ages) ----
 
         [Fact]
-        public async Task StaleJobMetricHandler_Handle_UpdatesQueueAges()
+        public async Task JobMonitorMetricHandler_Handle_UpdatesQueueAges()
         {
             var services = new ServiceCollection();
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new StaleJobMetricHandler(factory);
+            var handler = new JobMonitorMetricHandler(factory);
 
             var ages = new Dictionary<QueueType, double>
             {
@@ -229,13 +230,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task StaleJobMetricHandler_Handle_OverwritesPreviousValues()
+        public async Task JobMonitorMetricHandler_Handle_OverwritesPreviousValues()
         {
             var services = new ServiceCollection();
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new StaleJobMetricHandler(factory);
+            var handler = new JobMonitorMetricHandler(factory);
 
             await handler.Handle(
                 MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 500.0 }),
@@ -248,16 +249,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(0.0, handler.QueueAges[QueueType.Export]);
         }
 
-        // ---- StaleJobMetricHandler (depths) ----
+        // ---- JobMonitorMetricHandler (depths) ----
 
         [Fact]
-        public async Task StaleJobMetricHandler_Handle_UpdatesQueueDepths()
+        public async Task JobMonitorMetricHandler_Handle_UpdatesQueueDepths()
         {
             var services = new ServiceCollection();
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new StaleJobMetricHandler(factory);
+            var handler = new JobMonitorMetricHandler(factory);
 
             var depths = new Dictionary<QueueType, QueueDepth>
             {
@@ -272,13 +273,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task StaleJobMetricHandler_Handle_OverwritesPreviousDepths()
+        public async Task JobMonitorMetricHandler_Handle_OverwritesPreviousDepths()
         {
             var services = new ServiceCollection();
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new StaleJobMetricHandler(factory);
+            var handler = new JobMonitorMetricHandler(factory);
 
             await handler.Handle(
                 MakeNotification(
@@ -296,13 +297,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task StaleJobMetricHandler_ObserveDepthValues_EmitsPendingAndRunningMeasurements()
+        public async Task JobMonitorMetricHandler_ObserveDepthValues_EmitsPendingAndRunningMeasurements()
         {
             var services = new ServiceCollection();
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new StaleJobMetricHandler(factory);
+            var handler = new JobMonitorMetricHandler(factory);
 
             var depths = new Dictionary<QueueType, QueueDepth>
             {

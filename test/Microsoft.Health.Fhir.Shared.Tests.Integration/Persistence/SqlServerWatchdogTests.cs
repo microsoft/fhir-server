@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -20,7 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -712,7 +712,7 @@ RAISERROR('Test',18,127)
         }
 
         [Fact]
-        public async Task StaleJobWatchdog_WhenQueueIsEmpty_PublishesNotificationWithAllQueueTypes()
+        public async Task JobMonitorWatchdog_WhenQueueIsEmpty_PublishesNotificationWithAllQueueTypes()
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
@@ -722,13 +722,13 @@ RAISERROR('Test',18,127)
                 XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
 
             var mediator = Substitute.For<IMediator>();
-            StaleJobMetricsNotification captured = null;
-            mediator.When(x => x.Publish(Arg.Any<StaleJobMetricsNotification>(), Arg.Any<CancellationToken>()))
-                    .Do(info => captured = (StaleJobMetricsNotification)info[0]);
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
 
-            var wd = new StaleJobWatchdog(
+            var wd = new JobMonitorWatchdog(
                 _fixture.SqlRetryService,
-                XUnitLogger<StaleJobWatchdog>.Create(_testOutputHelper),
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
                 sqlQueueClient,
                 mediator)
             {

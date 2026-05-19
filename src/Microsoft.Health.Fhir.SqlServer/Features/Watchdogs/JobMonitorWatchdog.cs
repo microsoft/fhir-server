@@ -12,21 +12,21 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal sealed class StaleJobWatchdog : Watchdog<StaleJobWatchdog>
+    internal sealed class JobMonitorWatchdog : Watchdog<JobMonitorWatchdog>
     {
         private readonly SqlQueueClient _queueClient;
         private readonly IMediator _mediator;
-        private readonly ILogger<StaleJobWatchdog> _logger;
+        private readonly ILogger<JobMonitorWatchdog> _logger;
 
-        public StaleJobWatchdog(
+        public JobMonitorWatchdog(
             ISqlRetryService sqlRetryService,
-            ILogger<StaleJobWatchdog> logger,
+            ILogger<JobMonitorWatchdog> logger,
             SqlQueueClient queueClient,
             IMediator mediator)
             : base(sqlRetryService, logger)
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        internal StaleJobWatchdog()
+        internal JobMonitorWatchdog()
         {
             // used to get param names for testing
         }
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     age);
             }
 
-            await _mediator.Publish(new StaleJobMetricsNotification(ages, depths), cancellationToken);
+            await _mediator.Publish(new JobMonitorMetricsNotification(ages, depths), cancellationToken);
         }
 
         internal static Dictionary<QueueType, double> ComputeQueueAges(

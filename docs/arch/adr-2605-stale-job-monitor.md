@@ -7,7 +7,7 @@ FHIR background operations such as import, export, reindex, and other async requ
 The server already has a SQL watchdog infrastructure that runs leased background checks from `WatchdogsBackgroundService`, and it already emits application metrics through the `FhirServer` meter. The stale job monitor should reuse those mechanisms rather than introduce a separate scheduler, data store, or alerting subsystem.
 
 ## Decision
-We will add a `StaleJobWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it will query `SqlQueueClient.GetActiveJobsByQueueTypeAsync` for each `QueueType` except `Unknown`, using `returnParentOnly: false`, and compute an age in seconds for each queue.
+We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it will query `SqlQueueClient.GetActiveJobsByQueueTypeAsync` for each `QueueType` except `Unknown`, using `returnParentOnly: false`, and compute an age in seconds for each queue.
 
 The queue age calculation is per queue:
 
@@ -16,7 +16,7 @@ The queue age calculation is per queue:
 - If a queue is empty, or has no active `Created` jobs, that queue emits `0`.
 - A running job in one queue does not hide staleness in another queue.
 
-The watchdog will publish the computed values through `StaleJobMetricsNotification`. `StaleJobMetricHandler` will keep the latest snapshot and expose it as an `ObservableGauge<double>` named `Jobs.OldestQueuedAgeSeconds` on the `FhirServer` meter, with unit `s` and a `queue_type` tag containing the `QueueType` name. Operators can alert on the exported metric value, for example when a queue age remains greater than 600 seconds.
+The watchdog will publish the computed values through `JobMonitorMetricsNotification`. `JobMonitorMetricHandler` will keep the latest snapshot and expose it as an `ObservableGauge<double>` named `Jobs.OldestQueuedAgeSeconds` on the `FhirServer` meter, with unit `s` and a `queue_type` tag containing the `QueueType` name. Operators can alert on the exported metric value, for example when a queue age remains greater than 600 seconds.
 
 The watchdog will use the existing watchdog defaults and lease behavior: a 60 second polling period, a 300 second lease period, and rebalance enabled. If a SQL query fails, the exception will propagate through the watchdog base class and the tick will not publish partial metric data. Queues with positive ages will also be logged with `QueueType` and `OldestJobAgeSecs` so the metric has a corresponding operational log signal.
 
@@ -24,9 +24,9 @@ This change does not require a SQL schema migration. It reads existing job queue
 
 ### Decision (continued): Queue Depth Metric
 
-The same per-tick `GetActiveJobsByQueueTypeAsync` result set is also used to compute a count of active jobs per queue. The watchdog publishes both the age map and the depth map in a single `StaleJobMetricsNotification` so the handler snapshot remains atomic across both metrics.
+The same per-tick `GetActiveJobsByQueueTypeAsync` result set is also used to compute a count of active jobs per queue. The watchdog publishes both the age map and the depth map in a single `JobMonitorMetricsNotification` so the handler snapshot remains atomic across both metrics.
 
-`StaleJobMetricHandler` exposes a second instrument — an `ObservableGauge<long>` named `Jobs.QueueDepth` on the `FhirServer` meter, with unit `{job}` — carrying two tags: `queue_type` (the `QueueType` name) and `state` (`pending` or `running`). `pending` counts jobs in the `Created` status; `running` counts jobs in the `Running` status. All other `JobStatus` values are excluded because `GetActiveJobsByQueueTypeAsync` only returns `Created` and `Running` jobs. The gauge emits two measurements per queue type per observation cycle, keeping cardinality at `queue_types × 2`.
+`JobMonitorMetricHandler` exposes a second instrument — an `ObservableGauge<long>` named `Jobs.QueueDepth` on the `FhirServer` meter, with unit `{job}` — carrying two tags: `queue_type` (the `QueueType` name) and `state` (`pending` or `running`). `pending` counts jobs in the `Created` status; `running` counts jobs in the `Running` status. All other `JobStatus` values are excluded because `GetActiveJobsByQueueTypeAsync` only returns `Created` and `Running` jobs. The gauge emits two measurements per queue type per observation cycle, keeping cardinality at `queue_types × 2`.
 
 Every non-`Unknown` `QueueType` key is always present in the snapshot, including queues with zero counts, so the gauge always reports the full set — the same contract as `Jobs.OldestQueuedAgeSeconds`.
 

@@ -7,11 +7,11 @@ using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages
+namespace Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages
 {
-    public class StaleJobMetricsNotification : INotification
+    public class JobMonitorMetricsNotification : INotification
     {
-        public StaleJobMetricsNotification(
+        public JobMonitorMetricsNotification(
             IReadOnlyDictionary<QueueType, double> queueAges,
             IReadOnlyDictionary<QueueType, QueueDepth> queueDepths)
         {

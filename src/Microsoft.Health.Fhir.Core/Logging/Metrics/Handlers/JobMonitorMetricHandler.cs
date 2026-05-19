@@ -11,11 +11,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.StaleJob.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
-    public sealed class StaleJobMetricHandler : BaseMeterMetricHandler, INotificationHandler<StaleJobMetricsNotification>
+    public sealed class JobMonitorMetricHandler : BaseMeterMetricHandler, INotificationHandler<JobMonitorMetricsNotification>
     {
         private readonly ObservableGauge<double> _ageGauge;
         private readonly ObservableGauge<long> _depthGauge;
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         private IReadOnlyDictionary<QueueType, double> _queueAges = new Dictionary<QueueType, double>();
         private IReadOnlyDictionary<QueueType, QueueDepth> _queueDepths = new Dictionary<QueueType, QueueDepth>();
 
-        public StaleJobMetricHandler(IMeterFactory meterFactory)
+        public JobMonitorMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
             _ageGauge = MetricMeter.CreateObservableGauge(
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 
         internal IReadOnlyDictionary<QueueType, QueueDepth> QueueDepths => Volatile.Read(ref _queueDepths);
 
-        public Task Handle(StaleJobMetricsNotification notification, CancellationToken cancellationToken)
+        public Task Handle(JobMonitorMetricsNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
