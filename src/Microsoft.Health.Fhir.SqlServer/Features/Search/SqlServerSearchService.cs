@@ -171,6 +171,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            SqlSearchQueryComplexityTelemetry.Record(sqlSearchOptions, _requestContextAccessor.RequestContext, _logger);
 
             if (sqlSearchOptions.IsIncludesOperation)
             {
