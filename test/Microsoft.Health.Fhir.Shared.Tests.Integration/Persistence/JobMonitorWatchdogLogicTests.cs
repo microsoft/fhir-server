@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class JobMonitorWatchdogLogicTests
     {
-        private static DateTime _now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime _now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
         private static JobMonitorMetricsNotification MakeNotification(
             Dictionary<QueueType, double> ages,
