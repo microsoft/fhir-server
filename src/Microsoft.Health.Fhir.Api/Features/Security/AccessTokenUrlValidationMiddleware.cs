@@ -27,8 +27,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             RegexOptions.Compiled,
             matchTimeout: System.TimeSpan.FromSeconds(1));
 
-
-
         public AccessTokenUrlValidationMiddleware(
             RequestDelegate next,
             ILogger<AccessTokenUrlValidationMiddleware> logger)
