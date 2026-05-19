@@ -24,6 +24,8 @@ We will add SQL-provider query complexity scoring during SQL search preparation.
 
 The first use is observability, not enforcement. Each SQL search records structured telemetry with the score, tier, correlation id, operation, method, route, resource type, include/count flags, and background-task flag. Client search responses also receive query complexity headers. This keeps the change reversible: thresholds can be tuned from production data before any blocking, timeout, or concurrency policy is attached.
 
+If enforcement is enabled later, `Expensive` queries should not be silently rejected by default. The caller should have an explicit opt-in path, such as `x-ms-fhir-expensive-query: best-effort`, which tells the service the caller accepts a higher-SLA or best-effort execution path. If the header is omitted, the service can return an OperationOutcome explaining why the query is expensive and how to narrow it or opt in.
+
 The score is SQL-specific for now because the cost factors reflect SQL search rewriting and SQL execution risk. The pattern can later become a provider-neutral request annotation if each data provider supplies its own calibrated calculator and maps to the same tier vocabulary.
 
 ## Scoring Algorithm
@@ -56,8 +58,8 @@ The initial tiers are:
 | ---: | --- | --- |
 | 0-30 | `Standard` | Normal SLA, expected to be handled like ordinary selective searches. |
 | 31-100 | `Complex` | Allowed, but should be measured separately from standard traffic. |
-| 101-200 | `Expensive` | Valid FHIR shape, but a candidate for opt-in headers, reduced concurrency, or higher SLA. |
-| >200 | `Rejected` | Too expensive for synchronous handling if enforcement is later enabled. Today this is telemetry only. |
+| 101-200 | `Expensive` | Valid FHIR shape. If enforcement is enabled, require explicit caller opt-in such as `x-ms-fhir-expensive-query: best-effort`; otherwise return an explanatory OperationOutcome. |
+| >200 | `Rejected` | Too expensive for normal synchronous handling if enforcement is later enabled. Today this is telemetry only. |
 
 Example scores:
 
@@ -74,7 +76,7 @@ This also creates a metrics normalization boundary. Instead of comparing every `
 
 - SQL search metrics can be split by complexity tier and score bands, so P50/P95/P99 latency, timeout rate, CPU, IO, and request volume can be compared within normalized query-shape buckets instead of across all searches.
 - Operational dashboards can separate normal service health from caller-selected expensive query shapes, reducing false capacity conclusions and making customer guidance more precise.
-- Future admission control can use the same deterministic signal to require an expensive-query opt-in header, route complex searches to a higher SLA, lower concurrency for expensive searches, or reject shapes that exceed a configured threshold.
+- Future admission control can use the same deterministic signal to require an expensive-query opt-in header such as `x-ms-fhir-expensive-query: best-effort`, route opted-in expensive searches to a higher SLA or lower-concurrency path, or reject shapes that exceed a configured threshold.
 - Manual or future server-side decomposition can be evaluated with evidence: the same logical request can be compared as one high-score search versus several lower-score searches.
 - The initial thresholds are heuristics and must be calibrated with production telemetry before enforcement.
 - The scoring model adds maintenance cost: new search features, include behavior, or SQL query-generation changes must update the calculator and tests.
