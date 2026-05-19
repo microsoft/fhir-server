@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
@@ -228,6 +229,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     {
                         app.UseForwardedHeaders();
                     }
+
+                    // This middleware rejects requests that contain access tokens (JWTs) in the URL path or query string.
+                    // It must run before FhirRequestContext to prevent the token from being logged.
+                    app.UseAccessTokenUrlValidation();
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
