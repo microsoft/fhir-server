@@ -26,6 +26,50 @@ The first use is observability, not enforcement. Each SQL search records structu
 
 The score is SQL-specific for now because the cost factors reflect SQL search rewriting and SQL execution risk. The pattern can later become a provider-neutral request annotation if each data provider supplies its own calibrated calculator and maps to the same tier vocabulary.
 
+## Scoring Algorithm
+
+The calculator starts at zero, walks the parsed search expression tree, adds cost for known expensive shapes, then assigns the tier from the final score.
+
+| Factor | Score impact |
+| --- | ---: |
+| No resource-type or compartment constraint | +50 |
+| `_id` exact search | +1 |
+| Token or reference search | +3 |
+| Date, number, quantity, or URI search | +5 |
+| Normal string or composite search | +10 |
+| String `contains` or `ends-with`, or special search | +20 |
+| Untyped reference search or include target | +25 |
+| `_total=accurate` | +20 |
+| Non-`_lastUpdated` sort | +25 |
+| `_count > 100` | +10 |
+| `_count >= 1000` | +30 additional |
+| `_includesCount >= 1000` when includes are present | +30 |
+| Each `_include` or `_revinclude` | +20 |
+| Each `_include:iterate` or `_revinclude:iterate` | +40 additional |
+| Wildcard include | +100 |
+| Include graph depth | `depth^2 * 10` |
+| Chain depth | `depth^2 * 15` |
+
+The initial tiers are:
+
+| Score | Tier | Intended meaning |
+| ---: | --- | --- |
+| 0-30 | `Standard` | Normal SLA, expected to be handled like ordinary selective searches. |
+| 31-100 | `Complex` | Allowed, but should be measured separately from standard traffic. |
+| 101-200 | `Expensive` | Valid FHIR shape, but a candidate for opt-in headers, reduced concurrency, or higher SLA. |
+| >200 | `Rejected` | Too expensive for synchronous handling if enforcement is later enabled. Today this is telemetry only. |
+
+Example scores:
+
+| Query shape | Score calculation | Tier |
+| --- | --- | --- |
+| `GET /Patient?_id=abc` | `_id` exact search: 1 | `Standard` |
+| `GET /Patient?name:contains=smith&_total=accurate&_sort=name` | string contains: 20, accurate total: 20, non-`_lastUpdated` sort: 25. Total: 65 | `Complex` |
+| `GET /Patient?_include:iterate=*` | include: 20, iterate: 40, wildcard: 100, include depth 2: 40. Total: 200 | `Expensive` |
+| `GET /ServiceRequest?based-on=ServiceRequest/{id}&_count=1000&_revinclude=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result&_include:iterate=Observation:performer&_include:iterate=PractitionerRole:practitioner&_include:iterate=PractitionerRole:organization` | reference filter: 3, `_count=1000`: 40, `_includesCount=1000`: 30, five includes: 100, four iterative includes: 160, include depth 5: 250. Total: 583 | `Rejected` |
+
+This also creates a metrics normalization boundary. Instead of comparing every `SearchByResourceType` request together, dashboards can split latency, timeout rate, SQL CPU, SQL IO, and request volume by route, resource type, complexity tier, and score band. If a caller decomposes one high-score request into a root search plus smaller include retrieval searches, telemetry will show several lower-score operations rather than one high-score operation, making the performance tradeoff measurable.
+
 ## Consequences
 
 - SQL search metrics can be split by complexity tier and score bands, so P50/P95/P99 latency, timeout rate, CPU, IO, and request volume can be compared within normalized query-shape buckets instead of across all searches.
