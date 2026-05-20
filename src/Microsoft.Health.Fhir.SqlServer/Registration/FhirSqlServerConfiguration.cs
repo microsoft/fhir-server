@@ -24,12 +24,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         /// <summary>
         /// When true, <see cref="Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.ScalarTemporalEqualityRewriter"/>
         /// is included in the search-expression pipeline so allow-listed scalar date parameters
-        /// (currently <c>birthdate</c>) get the End-only / UNION ALL optimization. Disabled by
-        /// default — opt in per environment by setting
-        /// <c>FhirSqlServer:EnableScalarTemporalEqualityRewriter=true</c> in configuration or
-        /// the environment variable <c>FhirSqlServer__EnableScalarTemporalEqualityRewriter=true</c>.
+        /// (currently <c>birthdate</c>) get the End-only / UNION ALL optimization. Enabled by
+        /// default; opt out per environment by setting
+        /// <c>FhirSqlServer:EnableScalarTemporalEqualityRewriter=false</c> in configuration or
+        /// the environment variable <c>FhirSqlServer__EnableScalarTemporalEqualityRewriter=false</c>.
         /// Tracked alongside AB#191826.
         /// </summary>
-        public bool EnableScalarTemporalEqualityRewriter { get; set; } = false;
+        public bool EnableScalarTemporalEqualityRewriter { get; set; } = true;
     }
 }
