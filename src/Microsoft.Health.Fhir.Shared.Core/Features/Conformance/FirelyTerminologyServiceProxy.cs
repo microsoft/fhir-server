@@ -96,6 +96,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 #endif
                 return resource.ToResourceElement();
             }
+            catch (FhirOperationException ex) when (ex.Message.Contains("is unknown", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(ex, "Failed to expand: ValueSet not found.");
+                return CreateOperationOutcome(ex);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to expand.");

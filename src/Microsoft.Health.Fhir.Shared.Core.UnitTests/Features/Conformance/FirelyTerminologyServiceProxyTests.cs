@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         private readonly FirelyTerminologyServiceProxy _proxy;
         private readonly ITerminologyService _terminologyService;
         private readonly IAsyncResourceResolver _resourceResolver;
+        private readonly ILogger<FirelyTerminologyServiceProxy> _logger;
 
         public FirelyTerminologyServiceProxyTests()
         {
@@ -51,10 +52,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             _resourceResolver.ResolveByCanonicalUriAsync(
                 Arg.Any<string>())
                 .Returns(Task.FromResult<Resource>(null));
+            _logger = Substitute.For<ILogger<FirelyTerminologyServiceProxy>>();
             _proxy = new FirelyTerminologyServiceProxy(
                 _terminologyService,
                 _resourceResolver,
-                Substitute.For<ILogger<FirelyTerminologyServiceProxy>>());
+                _logger);
         }
 
         [Theory]
@@ -340,6 +342,85 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Id = id,
                 Status = PublicationStatus.Active,
             };
+        }
+
+        [Fact]
+        public async Task GivenUnknownValueSet_WhenExpanding_ThenLogsWarningAndReturnsOperationOutcome()
+        {
+            var exception = new FhirOperationException(
+                "ValueSet 'http://terminology.medigent.ca/fhir/ValueSet/123' is unknown",
+                HttpStatusCode.NotFound);
+
+            _terminologyService.Expand(
+                Arg.Any<Parameters>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>())
+                .Throws(exception);
+
+            var parameters = new List<Tuple<string, string>>
+            {
+                Tuple.Create(TerminologyOperationParameterNames.Expand.Url, "http://terminology.medigent.ca/fhir/ValueSet/123"),
+            };
+
+            var resourceElement = await _proxy.ExpandAsync(parameters, null, CancellationToken.None);
+            Assert.NotNull(resourceElement);
+
+            var resource = resourceElement.ToPoco() as OperationOutcome;
+            Assert.NotNull(resource);
+            Assert.NotEmpty(resource.Issue);
+
+            _logger.Received(1).Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
+
+            _logger.DidNotReceive().Log(
+                LogLevel.Error,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public async Task GivenUnexpectedError_WhenExpanding_ThenLogsErrorAndReturnsOperationOutcome()
+        {
+            var exception = new FhirOperationException(
+                "An unexpected server error occurred.",
+                HttpStatusCode.InternalServerError);
+
+            _terminologyService.Expand(
+                Arg.Any<Parameters>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>())
+                .Throws(exception);
+
+            var parameters = new List<Tuple<string, string>>
+            {
+                Tuple.Create(TerminologyOperationParameterNames.Expand.Url, "http://acme.com/fhir/ValueSet/23"),
+            };
+
+            var resourceElement = await _proxy.ExpandAsync(parameters, null, CancellationToken.None);
+            Assert.NotNull(resourceElement);
+
+            var resource = resourceElement.ToPoco() as OperationOutcome;
+            Assert.NotNull(resource);
+
+            _logger.Received(1).Log(
+                LogLevel.Error,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
+
+            _logger.DidNotReceive().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
         }
 
         public static IEnumerable<object[]> GetExpandTestData()
