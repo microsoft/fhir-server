@@ -535,17 +535,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
             foreach (var entry in responseBundle.Entry)
             {
-                var status = entry.Response.Status;
-                if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
+                if (entry != null && entry.Response != null)
                 {
-                    apiCallResults[status] = new List<BundleSubCallMetricData>();
-                }
+                    var status = entry.Response.Status;
+                    if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
+                    {
+                        apiCallResults[status] = new List<BundleSubCallMetricData>();
+                    }
 
-                apiCallResults[status].Add(new BundleSubCallMetricData()
-                {
-                    FhirOperation = "Bundle Sub Call",
-                    ResourceType = entry?.Resource?.TypeName,
-                });
+                    apiCallResults[status].Add(new BundleSubCallMetricData()
+                    {
+                        FhirOperation = "Bundle Sub Call",
+                        ResourceType = entry.Resource?.TypeName,
+                    });
+                }
             }
 
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
@@ -754,14 +757,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                         {
                             _logger.LogWarning("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
-                            int retryDelay = 2;
-                            var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
-                            if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
+
+                            try
                             {
-                                retryDelay = retryHeaderValue;
+                                await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
+                            }
+                            catch (OperationCanceledException oce)
+                            {
+                                _logger.LogWarning(oce, "BundleHandler received 429 message, client cancelled during retry delay. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
+
+                                // This is an edge case scenario when the client cancels the request during the retry delay.
+                                // We should respect the cancellation and not attempt to process the request further.
+
+                                entryComponent = HandleCancelledRetryRequest(
+                                    responseBundle,
+                                    resourceContext,
+                                    _bundleType,
+                                    statistics,
+                                    _bundleConfiguration,
+                                    watch,
+                                    httpContext,
+                                    cancellationToken);
+
+                                // For Batch bundles, we should include the 429 response for the throttled request and skip processing subsequent requests.
+                                throttledEntryComponent = entryComponent;
+
+                                continue;
                             }
 
-                            await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
                             await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 
@@ -814,19 +837,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
 
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
-
-                    TransactionExceptionHandler.ThrowTransactionException(
-                        errorMessage,
-                        httpStatusCode,
-                        (OperationOutcome)entryComponent.Response.Outcome,
-                        cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.IsBundleCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
             }
 
             return throttledEntryComponent;
+        }
+
+        private static EntryComponent CreateEntryComponentForCancelledRequest(HttpContext httpContext)
+        {
+            httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+
+            ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
+
+            var entryComponent = new EntryComponent
+            {
+                Response = new ResponseComponent
+                {
+                    Status = ((int)HttpStatusCode.RequestTimeout).ToString(),
+                    Location = responseHeaders.Location?.OriginalString,
+                    Etag = responseHeaders.ETag?.ToString(),
+                    LastModified = responseHeaders.LastModified,
+                    Outcome = CreateOperationOutcome(
+                        OperationOutcome.IssueSeverity.Warning,
+                        OperationOutcome.IssueType.TooLong,
+                        diagnostics: "Request timed out."),
+                },
+            };
+
+            return entryComponent;
         }
 
         private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
@@ -865,10 +906,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
                 {
-                    entryComponent.Response.Outcome = CreateOperationOutcome(
-                        OperationOutcome.IssueSeverity.Error,
-                        OperationOutcome.IssueType.Forbidden,
-                        Api.Resources.Forbidden);
+                    entryComponent.Response.Outcome = CreateOperationOutcome(OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Forbidden, Api.Resources.Forbidden);
                 }
             }
 

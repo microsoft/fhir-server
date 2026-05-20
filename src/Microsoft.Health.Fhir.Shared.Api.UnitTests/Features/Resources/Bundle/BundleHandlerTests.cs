@@ -693,6 +693,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
+        [Theory]
+        [InlineData(BundleType.Batch)]
+        [InlineData(BundleType.Transaction)]
+        public async Task GivenABundle_WhenOneRequestProducesA429_ThenCancelledTheRequestDuringDelay(BundleType bundleType)
+        {
+            const int RetryAfterSeconds = 3;
+            const int CancellationAfterSeconds = 1;
+
+            // Set Retry-After header.
+            _fhirRequestContext.ResponseHeaders.Add("retry-after", RetryAfterSeconds.ToString());
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                },
+            };
+
+            int callCount = 0;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = context =>
+                    {
+                        callCount++;
+                        if (callCount == 2)
+                        {
+                            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                        }
+                        else
+                        {
+                            context.Response.StatusCode = StatusCodes.Status200OK;
+                        }
+
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(CancellationAfterSeconds));
+
+            if (bundleType == BundleType.Batch)
+            {
+                BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, tokenSource.Token);
+
+                Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
+                var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+                Assert.Equal(3, bundleResource.Entry.Count);
+
+                Assert.Equal("200", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("408", bundleResource.Entry[1].Response.Status); // Record marked as Request Timeout due to cancellation, before attempting to retry the throttled request.
+                Assert.Equal("408", bundleResource.Entry[2].Response.Status); // Record marked as Request Timeout due to cancellation.
+
+                Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+                Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
+                Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            }
+            else
+            {
+                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, tokenSource.Token));
+                Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
+
+                Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
+
+                // Ensures failure sign is emitted.
+                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+            }
+        }
+
         [Fact]
         public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
