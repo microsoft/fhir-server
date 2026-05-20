@@ -32,8 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         public ReindexJobRecord(
             IReadOnlyCollection<string> targetResourceTypes,
-            IReadOnlyCollection<string> targetSearchParameterTypes,
-            IReadOnlyCollection<string> searchParameterResourceTypes,
             uint maxResourcesPerQuery = 100,
             uint maxResourcesPerWrite = 1000,
             int queryDelayIntervalInMilliseconds = 500,
@@ -41,8 +39,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ushort? targetDataStoreUsagePercentage = null)
         {
             TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
-            TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
-            SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
             TypeId = typeId;
 
             // Default values
@@ -129,18 +125,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.TargetResourceTypes)]
         public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
-        /// <summary>
-        /// A user can supply a list of search params to force a reindex job even though the status is Enabled
-        /// </summary>
-        [JsonProperty(JobRecordProperties.TargetSearchParameterTypes)]
-        public IReadOnlyCollection<string> TargetSearchParameterTypes { get; private set; } = new List<string>();
-
-        /// <summary>
-        /// This will be the base resource types from the <see cref="TargetSearchParameterTypes"/>
-        /// </summary>
-        [JsonProperty(JobRecordProperties.SearchParameterResourceTypes)]
-        public IReadOnlyCollection<string> SearchParameterResourceTypes { get; private set; } = new List<string>();
-
         [JsonIgnore]
         public string ResourceList
         {
@@ -157,12 +141,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public string TargetResourceTypeList
         {
             get { return string.Join(",", TargetResourceTypes); }
-        }
-
-        [JsonIgnore]
-        public string TargetSearchParameterTypeList
-        {
-            get { return string.Join(",", TargetSearchParameterTypes); }
         }
 
         [JsonProperty(JobRecordProperties.TypeId)]
