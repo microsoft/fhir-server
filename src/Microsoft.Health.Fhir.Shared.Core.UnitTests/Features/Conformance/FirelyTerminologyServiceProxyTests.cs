@@ -365,8 +365,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             var resourceElement = await _proxy.ExpandAsync(parameters, null, CancellationToken.None);
             Assert.NotNull(resourceElement);
 
-            var resource = resourceElement.ToPoco() as OperationOutcome;
-            Assert.NotNull(resource);
+            var resource = Assert.IsType<OperationOutcome>(resourceElement.ToPoco());
             Assert.NotEmpty(resource.Issue);
 
             _logger.Received(1).Log(
