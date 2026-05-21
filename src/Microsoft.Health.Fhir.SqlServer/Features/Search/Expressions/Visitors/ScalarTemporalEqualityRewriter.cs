@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     ///     with two branches split on <c>IsLongerThanADay</c>. The <c>false</c> branch becomes
     ///     <c>DateTimeEnd = endOfDay</c>; the <c>true</c> branch keeps the original two predicates so
     ///     <see cref="DateTimeEqualityRewriter"/> expands them into the overlap form. This lets the planner
-    ///     pick the appropriate filtered index per branch (AB#191826 sunsets the <c>true</c> branch).</item>
+    ///     pick the appropriate filtered index per branch.</item>
     ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
     ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
     ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
