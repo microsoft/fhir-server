@@ -185,6 +185,64 @@ Adding a vector SP follows the existing atomic SearchParameter CRUD + cache-refr
 7. **Attachment text.** A future ADR will cover decoding `Attachment.data`, chunking, and async embedding. v1 does not include it.
 8. **Composite & chained vector search.** Useful future work (e.g. find Patients whose Observations contain notes similar to X), but explicitly v2.
 
+## Alternatives Considered
+
+This section captures the major design alternatives evaluated during the investigation. Each is recorded with the trade-offs that drove us toward the chosen approach, so that future ADRs can revisit them as the system or platform evolves.
+
+### A. Vectorization timing (write path)
+
+The choice with the largest operational consequences. Four shapes were on the table.
+
+**A1. Synchronous in-line on Create/Update.** *(Chosen for v1.)* Resource write blocks on the Foundry embedding call before the SQL transaction is committed. Simplest model, strongest read-after-write consistency for `:similar`, no separate worker. Pays for it with new external dependency on every write, amplified latency in transaction bundles, and embed-failure → write-failure semantics.
+
+**A2. Async background job via the existing JobQueue.** Resource write commits immediately; a row is enqueued onto `dbo.JobQueue` (the same infrastructure used by import/export/reindex) and a worker drains it, calling Foundry and inserting vector rows. Decouples ingestion latency and Foundry availability from the FHIR write path and lets us batch embedding calls. Trade-offs: resources are temporarily searchable on every parameter *except* `:similar` (eventual consistency window measured in seconds-to-minutes under load), need to surface "vectorization lag" in operator telemetry, and `:similar` queries can return slightly stale result sets. Strong candidate for v2 once cost/latency telemetry from v1 informs the SLA.
+
+**A3. Transactional outbox pattern.** The resource upsert and a `PendingVectorization` marker row are written atomically inside the same SQL transaction. A draining worker reads pending markers, calls Foundry, writes vector rows, and removes the marker — all idempotently. Eliminates the "did the enqueue happen?" failure mode of A2 (no dual-write between SQL and a separate queue), and survives FHIR Server pod restarts cleanly because the marker is durable in the same database that owns the data. Slightly more SQL plumbing than A2 (the marker table, the drain sproc, claim/lease semantics) but objectively the most robust async path. Recommended path for v2 / future work, written up as an Open Question rather than rejected.
+
+**A4. Reindex-only (no automatic vectorization).** Mirrors how brand-new custom search parameters are handled today: rows are populated solely by `$reindex`. Operators add a vector SP, run reindex, and from then on resources are searchable. New writes would *not* be vectorized until the next reindex. Rejected for v1 because it breaks the implicit contract that a search parameter, once installed, applies to all subsequent writes — a contract every other ISearchValue type honors.
+
+The decisive factor for choosing A1 was that it is the simplest behavior to reason about and to *unship* if the feature does not meet expectations: there is no queue to drain, no marker table to clean up, and no eventual-consistency window to explain. Moving from A1 to A2 or A3 in a future revision is a forward-compatible change (existing rows stay valid; only the trigger for producing them changes).
+
+### B. SearchParameter definition mechanism
+
+**B1. `type=special` + Microsoft `vector-search-config` extension.** *(Chosen.)* FHIR-conformant `SearchParameter` resource, rich configuration via extension. External tooling can read the SP even if it doesn't understand the extension.
+
+**B2. `type=string` + an "is-vectorized" extension.** Treat semantic search as a richer string SP with a `:similar` modifier toggle. Rejected because it pollutes the `string` type with two very different storage/index models and confuses tooling that assumes `string` means `:contains`/`:exact`.
+
+**B3. Introduce a non-spec `vector` value for `SearchParameter.type`.** Most expressive, but `SearchParameter.type` is a required-binding FHIR code; emitting an out-of-spec value breaks downstream validators and CapabilityStatement conformance.
+
+**B4. Server-side configuration only — no `SearchParameter` resource.** Operators declare vectorized paths in `appsettings`/a config registry. Simpler to implement but invisible to the FHIR API surface (no CapabilityStatement entry, no `SearchParameter` reads, no atomic CRUD/cache-refresh from ADR 2603). Rejected on principle of "everything searchable should be discoverable".
+
+### C. Query syntax
+
+**C1. `:similar` modifier on the SP.** *(Chosen.)* Familiar URL shape (`?field:similar=text`), trivially combinable with other parameters in the existing search expression tree, parsed alongside other modifiers. Cost: `:similar` is not a standard `SearchModifierCode`, so we advertise it via a capability extension.
+
+**C2. Modifier with companion query parameters.** As above, but with `_vectorThreshold` / `_vectorK` reserved parameters always required. v1 keeps the modifier and treats the companions as optional (see §2), which is functionally a subset of C2.
+
+**C3. Custom `$vector-search` operation.** `POST /Observation/$vector-search` with a `Parameters` body carrying `query`, `k`, `threshold`, and a nested FHIR search expression for hybrid filters. More expressive (room for multi-field queries, weighted ensembles, future re-ranking parameters) but redefines the query surface and duplicates significant search-parsing infrastructure. Worth revisiting if we need richer query shapes than `:similar` can express.
+
+**C4. Both — modifier *and* `$vector-search` operation.** Tempting "best of both worlds", but doubles the surface area and the test matrix before we have evidence v1 needs it.
+
+### D. Persistence scope
+
+**D1. SQL Server only, with capability gating.** *(Chosen.)* Allows the v1 design to focus on Azure SQL Database's `VECTOR` type and DiskANN ANN index, avoiding parallel design effort for a second store while the FHIR-side abstractions are still settling.
+
+**D2. SQL primary, Cosmos parity noted.** Brief parallel notes for Cosmos's vector index path. Rejected for v1 because writing accurate notes for Cosmos without doing the design work risked encoding wrong assumptions.
+
+**D3. Full design for both persistence stores.** Cleanest end state but roughly doubles design and implementation cost up front.
+
+**D4. Persistence-agnostic abstraction layer with one concrete impl.** Mirrors how existing ISearchValue types layer abstraction over storage. Considered, but the SQL-side details (VECTOR column dimension, ANN index shape, oversampling planner) leak through the abstraction in ways that would force a redesign once Cosmos is added. Better to ship one store, learn, then abstract.
+
+### E. Embedding provider integration
+
+**E1. Foundry only, managed identity, fixed model & dimension.** *(Chosen.)* Minimum surface area, one auth model, one set of operational concerns.
+
+**E2. Foundry with per-SP model/dimension override.** Rejected because mixed dimensions in a single SQL `VECTOR(N)` column are not representable; supporting it would require either per-SP tables or a sparse/variable vector type neither of which Azure SQL exposes.
+
+**E3. Abstract `IEmbeddingProvider` with Foundry as the default.** A thin `IEmbeddingClient` interface is retained for testability (so unit tests can use a fake), but full provider pluggability (AOAI direct, self-hosted) is intentionally out of scope until a second provider is actually required.
+
+**E4. Foundry plus a content-hash embedding cache.** Skip Foundry calls when an identical input text was embedded recently. Real cost-savings potential, but the cache becomes a PHI-bearing data store with retention/eviction policy and is more sensitive than the SQL search rows themselves. Deferred to Open Question §10.4.
+
 ## Consequences
 
 ### Benefits
