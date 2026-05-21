@@ -5,16 +5,16 @@
 FHIR date equality on a single-element parameter like `Patient.birthdate` is currently a two-predicate containment filter: `DateTimeStart >= periodStart AND DateTimeEnd <= periodEnd`. Against `dbo.DateTimeSearchParam` this shape forces the optimizer to reason over the full row set for that `SearchParamId`, even though, in practice, almost every stored birthdate row is a single calendar day (`IsLongerThanADay = 0`).
 
 The table carries a filtered index intended for the rare wide rows:
-`IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`. For `IsLongerThanADay = 0` there is no filtered index — the common short rows are served by the general `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax. The previous SQL generated creates a two-predicate form which doesn't build SQL the planner can use to target either index. This means it picks a generic seek on the clustered index which is far less efficient than using the non-clustered indexes on our indexes we havn.
+`IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`. For `IsLongerThanADay = 0` there is no filtered index — the common short rows are served by the general `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax`. The previous SQL generated creates a two-predicate form which doesn't build SQL the planner can use to target either index. This means it picks a generic seek on the clustered index which is far less efficient than using the non-clustered indexes on our indexes we have.
 
 The FHIR containment semantics for partial-date equality are separately tracked by AB#191826 and intentionally left untouched here.
 
 ## Decision
 
-We will add a new Date search param rewriter scoped to **exact UTC calendar-day equality on allow-listed scalar date parameters (currently `individual-birthdate`)** and emit a `UnionExpression` split on `IsLongerThanADay`:
+We will add a new Date search param rewriter scoped to **exact** UTC calendar-day equality on allow-listed scalar date parameters (currently `individual-birthdate`) and emit a `UnionExpression` split on `IsLongerThanADay`:
 
 - **Short branch** (`IsLongerThanADay = 0 AND DateTimeEnd = endOfDay`): a point-equality on `EndDateTime` that the `EndDateTime`-leading general index can satisfy as a narrow seek; `IsLongerThanADay = 0` becomes a residual on the dominant population.
-- **Long branch** (`IsLongerThanADay = 1 AND DateTimeStart >= startOfDay AND DateTimeEnd <= endOfDay`): the old logic can be run on queries that a more than a day and take advantage of the special index maded for this: `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`, which only stores the wide rows and is orders of magnitude smaller than the general index.
+- **Long branch** (`IsLongerThanADay = 1 AND DateTimeStart >= startOfDay AND DateTimeEnd <= endOfDay`): the original two-predicate form runs against rows that span more than a day and takes advantage of the dedicated filtered index `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`, which only stores the wide rows and is orders of magnitude smaller than the general index.
 
 We will observe this change and add more search parameters in the future as needed.
 
