@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     ///     <c>DateTimeEnd = endOfDay</c>; the <c>true</c> branch keeps the original two predicates so
     ///     <see cref="DateTimeEqualityRewriter"/> expands them into the overlap form. This lets the planner
     ///     pick the appropriate filtered index per branch.</item>
-    ///   <item>Exact UTC calendar year: collapses to <c>DateTimeEnd &gt;= yearStart AND DateTimeEnd &lt;= yearEnd</c>.</item>
     ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
     ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
     ///   <item>Approximate (<c>ap</c>) expressions with non-boundary constants pass through unchanged.</item>
@@ -47,7 +46,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             NotRewritable,
             ExactDay,
-            ExactYear,
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
@@ -73,13 +71,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             // 4. Classify precision and build the matching rewrite, or pass through.
             //    Day-precision returns a UnionExpression directly (lowered to SQL UNION ALL).
-            //    Year-precision returns a predicate body that we wrap back into a SearchParameterExpression.
             return ClassifyPrecision(startValue, endValue) switch
             {
                 Precision.ExactDay => BuildDaySplitUnion(expression.Parameter, startPredicate, endPredicate),
-                Precision.ExactYear => new SearchParameterExpression(
-                    expression.Parameter,
-                    BuildExactYearRewrite(endPredicate, startValue, endValue)),
                 _ => expression,
             };
         }
@@ -176,11 +170,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Precision.ExactDay;
             }
 
-            if (start.Month == 1 && start.Day == 1 && end == start.AddYears(1).AddTicks(-1))
-            {
-                return Precision.ExactYear;
-            }
-
             return Precision.NotRewritable;
         }
 
@@ -213,11 +202,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             return Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
         }
-
-        private static MultiaryExpression BuildExactYearRewrite(BinaryExpression endPredicate, DateTimeOffset yearStart, DateTimeOffset yearEnd) =>
-            Expression.And(
-                Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearStart),
-                Expression.LessThanOrEqual(FieldName.DateTimeEnd, endPredicate.ComponentIndex, yearEnd));
 
         private static bool IsStartGe(BinaryExpression be) =>
             be.FieldName == FieldName.DateTimeStart && be.BinaryOperator == BinaryOperator.GreaterThanOrEqual;

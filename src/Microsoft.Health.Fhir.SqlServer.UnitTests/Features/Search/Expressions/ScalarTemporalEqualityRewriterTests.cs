@@ -87,34 +87,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateYear_WhenRewritten_ThenUsesEndDateTimeRange()
-        {
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfYear, EndOfYear));
-
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
-
-            var rewritten = Assert.IsType<SearchParameterExpression>(result);
-            var multiary = Assert.IsType<MultiaryExpression>(rewritten.Expression);
-            Assert.Equal(MultiaryOperator.And, multiary.MultiaryOperation);
-            Assert.Collection(
-                multiary.Expressions,
-                first =>
-                {
-                    var binary = Assert.IsType<BinaryExpression>(first);
-                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                    Assert.Equal(BinaryOperator.GreaterThanOrEqual, binary.BinaryOperator);
-                    Assert.Equal(StartOfYear, binary.Value);
-                },
-                second =>
-                {
-                    var binary = Assert.IsType<BinaryExpression>(second);
-                    Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                    Assert.Equal(BinaryOperator.LessThanOrEqual, binary.BinaryOperator);
-                    Assert.Equal(EndOfYear, binary.Value);
-                });
-        }
-
-        [Fact]
         public void GivenDateParameterNotAllowListed_WhenEqualityPatternMatched_ThenPassThrough()
         {
             var expr = new SearchParameterExpression(
