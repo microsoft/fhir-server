@@ -43,7 +43,6 @@ A vector SP is declared as a normal FHIR `SearchParameter` resource so that it a
   - `kind` — discriminator, fixed to `vector` for v1.
   - `extractionPolicy` — `firstValue` | `concatenate` | `perValueRow` (see §4).
   - `maxInputTokens` — truncation budget per embedding call.
-  - `searchableOnHistory` — must be `false` in v1; reserved for future use.
 
 The embedding model name, model version/deployment fingerprint, vector dimension, and distance metric are **not** on the `SearchParameter` — they are server-level configuration. This avoids the situation where two vector SPs declare incompatible dimensions and the SQL schema cannot represent both.
 
