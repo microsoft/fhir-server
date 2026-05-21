@@ -27,8 +27,34 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
-        private static readonly DateTimeOffset StartOfYear = new DateTimeOffset(2016, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        private static readonly DateTimeOffset EndOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+
+        public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
+        {
+            { StartOfDay, EndOfDay },
+            { StartOfLastDayOfMonth, EndOfLastDayOfMonth },
+            { StartOfLastDayOfYear, EndOfLastDayOfYear },
+        };
+
+        public static TheoryData<Expression> NonRewritableExpressions => new()
+        {
+            EqualityPattern(StartOfMonth, EndOfMonth), // month precision
+            Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), // single-sided predicate
+            Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), // range operator
+            EqualityPattern(StartOfDay.AddDays(-30), EndOfDay.AddDays(30)), // approximate / multi-day window
+        };
+
+        public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()
+        {
+            BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date")),
+            BuildBirthdateParam(searchParamType: SearchParamType.String),
+            new SearchParameterInfo(
+                "Patient-code-birthdate",
+                "code-birthdate",
+                SearchParamType.Composite,
+                new Uri("http://example.org/SearchParameter/Patient-code-birthdate"),
+                expression: "Patient",
+                baseResourceTypes: new[] { "Patient" }),
+        };
 
         private static SearchParameterInfo BuildBirthdateParam(Uri url = null, SearchParamType searchParamType = SearchParamType.Date)
         {
@@ -46,72 +72,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end));
 
-        [Fact]
-        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
+        [Theory]
+        [MemberData(nameof(ExactDayDates))]
+        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenEmitsDaySplitUnion(DateTimeOffset start, DateTimeOffset end)
         {
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(start, end));
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
 
-            AssertDaySplitUnion(result, StartOfDay, EndOfDay);
+            AssertDaySplitUnion(result, start, end);
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateLastDayOfMonth_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
-        {
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth));
-
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
-
-            AssertDaySplitUnion(result, StartOfLastDayOfMonth, EndOfLastDayOfMonth);
-        }
-
-        [Fact]
-        public void GivenAllowListedBirthdateLastDayOfYear_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
-        {
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfLastDayOfYear, EndOfLastDayOfYear));
-
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
-
-            AssertDaySplitUnion(result, StartOfLastDayOfYear, EndOfLastDayOfYear);
-        }
-
-        [Fact]
-        public void GivenAllowListedBirthdateMonth_WhenRewritten_ThenPassThrough()
-        {
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenDateParameterNotAllowListed_WhenEqualityPatternMatched_ThenPassThrough()
-        {
-            var expr = new SearchParameterExpression(
-                BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date")),
-                EqualityPattern(StartOfYear, EndOfYear));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenAllowListedNonDateParameter_WhenEqualityPatternMatched_ThenPassThrough()
-        {
-            var expr = new SearchParameterExpression(
-                BuildBirthdateParam(searchParamType: SearchParamType.String),
-                EqualityPattern(StartOfYear, EndOfYear));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenAllowListedBirthdateExactDayReversedOrder_WhenRewritten_ThenUsesEndDateTimeAndNotLongerThanDay()
+        public void GivenAllowListedBirthdateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsDaySplitUnion()
         {
             var reversedPattern = Expression.And(
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
@@ -123,51 +96,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertDaySplitUnion(result, StartOfDay, EndOfDay);
         }
 
-        [Fact]
-        public void GivenSingleSidedPredicate_WhenRewritten_ThenPassThrough()
+        [Theory]
+        [MemberData(nameof(NonRewritableExpressions))]
+        public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
         {
-            var single = Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay);
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), single);
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), inner);
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 
             Assert.Same(expr, result);
         }
 
-        [Fact]
-        public void GivenRangeOperatorPattern_WhenRewritten_ThenPassThrough()
+        [Theory]
+        [MemberData(nameof(NonAllowListedParameters))]
+        public void GivenNonAllowListedParameter_WhenEqualityPatternMatched_ThenPassThrough(SearchParameterInfo param)
         {
-            var range = Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay);
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), range);
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenApproximateExpression_WhenRewritten_ThenPassThrough()
-        {
-            var approxStart = StartOfDay.AddDays(-30);
-            var approxEnd = EndOfDay.AddDays(30);
-            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(approxStart, approxEnd));
-
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
-
-            Assert.Same(expr, result);
-        }
-
-        [Fact]
-        public void GivenCompositeParameter_WhenEqualityPatternMatched_ThenPassThrough()
-        {
-            var composite = new SearchParameterInfo(
-                "Patient-code-birthdate",
-                "code-birthdate",
-                SearchParamType.Composite,
-                new Uri("http://example.org/SearchParameter/Patient-code-birthdate"),
-                expression: "Patient",
-                baseResourceTypes: new[] { "Patient" });
-            var expr = new SearchParameterExpression(composite, EqualityPattern(StartOfDay, EndOfDay));
+            var expr = new SearchParameterExpression(param, EqualityPattern(StartOfDay, EndOfDay));
 
             var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
 

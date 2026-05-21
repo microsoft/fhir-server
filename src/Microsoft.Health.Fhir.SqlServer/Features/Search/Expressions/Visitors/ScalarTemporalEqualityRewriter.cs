@@ -133,30 +133,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return false;
         }
 
-        internal static bool WouldRewrite(SearchParameterExpression expression)
-        {
-            if (!IsActivatedScalarTemporalParameter(expression))
-            {
-                return false;
-            }
-
-            if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startPredicate, out BinaryExpression endPredicate))
-            {
-                return false;
-            }
-
-            if (startPredicate.Value is not DateTimeOffset startValue ||
-                endPredicate.Value is not DateTimeOffset endValue)
-            {
-                return false;
-            }
-
-            return IsRewritablePrecision(startValue, endValue);
-        }
-
-        internal static bool IsRewritablePrecision(DateTimeOffset start, DateTimeOffset end) =>
-            ClassifyPrecision(start, end) != Precision.NotRewritable;
-
         private static Precision ClassifyPrecision(DateTimeOffset start, DateTimeOffset end)
         {
             // Both endpoints must be UTC, and start must sit on a UTC midnight, before any precision applies.
