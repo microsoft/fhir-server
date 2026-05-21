@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly ScalarTemporalEqualityRewriter Instance = new ScalarTemporalEqualityRewriter();
 
+        // NOTE: This list is only for parameters that are the same across all FHIR versions. Before adding parameters
+        // this approach may need to be revisited to support version-specific allow lists.
         private static readonly HashSet<string> _allowList = new HashSet<string>(StringComparer.Ordinal)
         {
             "http://hl7.org/fhir/SearchParameter/individual-birthdate",
@@ -62,7 +64,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            // 3. Both predicate constants must be DateTimeOffset to reason about precision.
+            // 3. The predicate operands must be concrete DateTimeOffset values so we can inspect
+            //    the start/end boundaries and decide whether they cover exactly one calendar day.
+            //    Anything else (null, string, partial date) is not something we can classify, so pass through.
             if (startPredicate.Value is not DateTimeOffset startValue ||
                 endPredicate.Value is not DateTimeOffset endValue)
             {
