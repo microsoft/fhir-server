@@ -31,7 +31,7 @@ This ADR proposes how a new "vector" search parameter would be defined, persiste
 
 ## Decision
 
-We will introduce a **Vector Search Parameter** as a new ISearchValue kind, persisted in a new SQL table backed by an Azure SQL vector index, with embeddings produced synchronously by Azure AI Foundry over managed identity at resource write time. Clients invoke it via a `:similar` modifier on the parameter name.
+We will introduce a **Vector Search Parameter** as a new ISearchValue kind, persisted in a new SQL table backed by an Azure SQL vector index, with embeddings produced synchronously by Azure AI Foundry over managed identity at resource write time. A vector SP is declared as a FHIR `SearchParameter` with `type=special` and a Microsoft `vector-search-config` extension; clients query it with the standard `?paramName=text` URL shape, and the parser uses the parameter's declared shape — not a modifier — to interpret the value as a similarity query.
 
 ### 1. Search parameter definition
 
@@ -50,16 +50,19 @@ The embedding model name, model version/deployment fingerprint, vector dimension
 ### 2. Query syntax
 
 ```
-GET /Observation?clinicalNote:similar=patient short of breath at rest&subject=Patient/123&_count=20
+GET /Observation?clinicalNote=patient short of breath at rest&subject=Patient/123&_count=20
 ```
 
-- `:similar` is a Microsoft extension to the FHIR `SearchModifierCode` value set. It is **not** in the standard value set, so the parser will accept it only for search parameters whose definition has the `vector-search-config` extension; using `:similar` on any other parameter returns `400 invalid-modifier`.
+- **No modifier is required.** The SearchParameter declaring `clinicalNote` carries the `vector-search-config` extension; the parser uses the parameter definition itself to decide the value is a similarity query, exactly the way it uses `type=date` on `birthdate` to decide `?birthdate=2020-01-01` is a date predicate. This keeps the URL surface identical in shape to every other FHIR search and avoids inventing a non-standard `SearchModifierCode` value.
 - Combinable with any other search parameter. The combined predicate is a **hybrid** query: ANN over the vector index intersected with the relational predicates produced by the rest of the expression tree.
+- Standard modifiers behave predictably on a vector SP:
+  - `:missing=true|false` — works as on any SP, returns resources that do/do not have the vectorized text.
+  - All other modifiers (`:exact`, `:contains`, `:not`, `:above`, `:below`, type modifiers, etc.) return `400 invalid-modifier` for v1. They may be reclaimed later for specific semantics (e.g. a future `:exact` could fall back to lexical match), but reserving them now would be premature.
 - Optional reserved companion parameters (under `_` prefix to avoid colliding with future spec parameters):
   - `_vectorK` — number of nearest neighbors to consider before applying filters. Default server-side, e.g. 200.
   - `_vectorMinScore` — minimum normalized similarity score (0..1) below which results are dropped.
 - Result scoring: results carry `Bundle.entry.search.score` populated as a cosine-similarity-derived 0..1 score (higher = more similar). The `Bundle.entry.search.mode` remains `match`.
-- Capability advertising: `CapabilityStatement.rest.resource.searchParam` will carry a Microsoft extension `vector-search-supported` to make `:similar` discoverable by tooling without claiming `:similar` is a base-spec modifier.
+- Capability advertising: vector SPs appear in `CapabilityStatement.rest.resource.searchParam` like any other parameter; the `vector-search-config` extension on the `SearchParameter` resource is the discoverability mechanism. Clients that read SearchParameter resources (the standard, FHIR-recommended discovery path) will see the extension and know how to query.
 
 ### 3. Embedding pipeline (write path)
 
@@ -136,9 +139,9 @@ CREATE VECTOR INDEX ...;
 
 ### 6. Search execution (read path)
 
-For a query containing a `:similar` modifier:
+For a query that targets a vector SP (i.e. the search-parameter cache reports `vector-search-config` on the parameter):
 
-1. Parse `:similar` into a new `VectorSearchExpression { SearchParameterInfo, QueryText, K, MinScore }`.
+1. Parse the value into a new `VectorSearchExpression { SearchParameterInfo, QueryText, K, MinScore }`. No modifier-name dispatch is involved — the parser's normal type-based routing recognizes the vector SP exactly the way it recognizes a date or reference SP.
 2. Server embeds `QueryText` via `IEmbeddingClient` (one Foundry call per search request). Failure here returns `503` with `OperationOutcome` — not an empty result set.
 3. The SQL expression visitor emits an ANN candidate query against `VectorSearchParam`, then `INNER JOIN`s the candidate set to the relational predicate tree (filter-after-ANN), ordering by `VECTOR_DISTANCE` and projecting the score.
 4. The default planning strategy is **ANN-then-filter with oversampling**: take the top `K * oversamplingFactor` ANN candidates and apply the relational filters, returning up to `_count` results. Oversampling factor is server-configurable; the trade-off (recall vs latency) is called out as Open Question §11.
@@ -149,7 +152,7 @@ For a query containing a `:similar` modifier:
 
 Adding a vector SP follows the existing atomic SearchParameter CRUD + cache-refresh ownership protocol (ADR 2603), with one addition:
 
-- A newly created vector SP enters status `PendingReindex` and is **not** selectable by `:similar` queries until vector reindex completes. This avoids returning silently-empty result sets while the vector index is being populated.
+- A newly created vector SP enters status `PendingReindex` and is **not** selectable in queries until vector reindex completes. This avoids returning silently-empty result sets while the vector index is being populated.
 - `$reindex` for a vector SP issues one Foundry embedding call per matching resource. The reindex job must:
   - Be checkpointed/restartable using existing reindex job infrastructure.
   - Respect a configurable maximum embeddings-per-second to avoid Foundry throttling.
@@ -160,7 +163,7 @@ Adding a vector SP follows the existing atomic SearchParameter CRUD + cache-refr
 
 ### 8. Operational controls
 
-- Feature flag at the server level: `Search:VectorSearch:Enabled`. When `false`, the schema migration is skipped, `:similar` is rejected at parse time, and no embedding clients are constructed.
+- Feature flag at the server level: `Search:VectorSearch:Enabled`. When `false`, the schema migration is skipped, vector SPs are rejected at registration time, and no embedding clients are constructed.
 - Kill switch independent of the feature flag: `Search:VectorSearch:Suspended`. When `true`, embedding calls fail fast at read and write paths with `503`, allowing operators to react to a Foundry incident without restarting.
 - Circuit breaker around `IEmbeddingClient` to prevent thundering retries during an upstream outage.
 - Per-tenant/global rate limiting of embedding calls (write + read).
@@ -169,9 +172,9 @@ Adding a vector SP follows the existing atomic SearchParameter CRUD + cache-refr
 
 ### 9. Testing
 
-- Unit tests with a fake `IEmbeddingClient` covering: extraction policies, truncation, hash stability, the new SQL expression visitor, modifier parser acceptance/rejection rules, capability statement projection.
+- Unit tests with a fake `IEmbeddingClient` covering: extraction policies, truncation, hash stability, the new SQL expression visitor, the parser's routing of vector-SP values to `VectorSearchExpression` (and rejection of non-`:missing` modifiers on vector SPs), capability statement projection.
 - SQL integration tests against an Azure SQL test database with vector support enabled, gated so they only run in environments where vector is available.
-- E2E tests exercising the `:similar` modifier on at least `Observation`, `Condition`, and `DocumentReference` (text portion only), with hybrid filters and `_count` pagination.
+- E2E tests exercising vector search on at least `Observation`, `Condition`, and `DocumentReference` (text portion only), with hybrid filters and `_count` pagination.
 - Tests must not hit a real Foundry endpoint in CI; embedding-client tests use a deterministic in-process stub.
 
 ### 10. Open Questions
@@ -179,7 +182,7 @@ Adding a vector SP follows the existing atomic SearchParameter CRUD + cache-refr
 1. **Capability gating mechanism.** Detect Azure SQL vector support via `SERVERPROPERTY`/feature query at startup vs. require an explicit configuration flag, with the failure mode for a misconfigured deployment clearly defined.
 2. **Hybrid planner.** Is ANN-then-filter-with-oversampling sufficient for highly selective filters (e.g. `subject=Patient/X`) where the patient may have only a handful of notes? Should we offer a server-side "filter-first then re-rank" path that uses ANN only as a score column over the filtered set?
 3. **Multi-tenant cost accounting.** Where in the request pipeline are embedding-call costs attributed to a tenant, and how are quotas expressed and enforced?
-4. **Query embedding cache.** Identical `:similar` queries are common; should we cache `QueryText → embedding` in-memory (LRU) with short TTL to reduce per-query Foundry cost? Risk: PHI in cache keys.
+4. **Query embedding cache.** Identical vector queries are common; should we cache `QueryText → embedding` in-memory (LRU) with short TTL to reduce per-query Foundry cost? Risk: PHI in cache keys.
 5. **Cosmos DB parity.** Cosmos has its own vector index path (DiskANN integration). When and how do we extend this design? Likely a separate ADR.
 6. **Model deprecation handling.** When Foundry deprecates the deployed model, what is the operator workflow? Auto-roll-forward to a new `EmbeddingModelId` with a banner indicating reindex is required vs. force-stop until reindex completes.
 7. **Attachment text.** A future ADR will cover decoding `Attachment.data`, chunking, and async embedding. v1 does not include it.
@@ -193,9 +196,9 @@ This section captures the major design alternatives evaluated during the investi
 
 The choice with the largest operational consequences. Four shapes were on the table.
 
-**A1. Synchronous in-line on Create/Update.** *(Chosen for v1.)* Resource write blocks on the Foundry embedding call before the SQL transaction is committed. Simplest model, strongest read-after-write consistency for `:similar`, no separate worker. Pays for it with new external dependency on every write, amplified latency in transaction bundles, and embed-failure → write-failure semantics.
+**A1. Synchronous in-line on Create/Update.** *(Chosen for v1.)* Resource write blocks on the Foundry embedding call before the SQL transaction is committed. Simplest model, strongest read-after-write consistency for vector queries, no separate worker. Pays for it with new external dependency on every write, amplified latency in transaction bundles, and embed-failure → write-failure semantics.
 
-**A2. Async background job via the existing JobQueue.** Resource write commits immediately; a row is enqueued onto `dbo.JobQueue` (the same infrastructure used by import/export/reindex) and a worker drains it, calling Foundry and inserting vector rows. Decouples ingestion latency and Foundry availability from the FHIR write path and lets us batch embedding calls. Trade-offs: resources are temporarily searchable on every parameter *except* `:similar` (eventual consistency window measured in seconds-to-minutes under load), need to surface "vectorization lag" in operator telemetry, and `:similar` queries can return slightly stale result sets. Strong candidate for v2 once cost/latency telemetry from v1 informs the SLA.
+**A2. Async background job via the existing JobQueue.** Resource write commits immediately; a row is enqueued onto `dbo.JobQueue` (the same infrastructure used by import/export/reindex) and a worker drains it, calling Foundry and inserting vector rows. Decouples ingestion latency and Foundry availability from the FHIR write path and lets us batch embedding calls. Trade-offs: resources are temporarily searchable on every parameter *except* the vector SP (eventual consistency window measured in seconds-to-minutes under load), need to surface "vectorization lag" in operator telemetry, and vector queries can return slightly stale result sets. Strong candidate for v2 once cost/latency telemetry from v1 informs the SLA.
 
 **A3. Transactional outbox pattern.** The resource upsert and a `PendingVectorization` marker row are written atomically inside the same SQL transaction. A draining worker reads pending markers, calls Foundry, writes vector rows, and removes the marker — all idempotently. Eliminates the "did the enqueue happen?" failure mode of A2 (no dual-write between SQL and a separate queue), and survives FHIR Server pod restarts cleanly because the marker is durable in the same database that owns the data. Slightly more SQL plumbing than A2 (the marker table, the drain sproc, claim/lease semantics) but objectively the most robust async path. Recommended path for v2 / future work, written up as an Open Question rather than rejected.
 
@@ -215,13 +218,15 @@ The decisive factor for choosing A1 was that it is the simplest behavior to reas
 
 ### C. Query syntax
 
-**C1. `:similar` modifier on the SP.** *(Chosen.)* Familiar URL shape (`?field:similar=text`), trivially combinable with other parameters in the existing search expression tree, parsed alongside other modifiers. Cost: `:similar` is not a standard `SearchModifierCode`, so we advertise it via a capability extension.
+**C1. Plain parameter — no modifier.** *(Chosen.)* `GET /Observation?clinicalNote=patient short of breath`. The SearchParameter's `vector-search-config` extension is what tells the parser the value is a similarity query, exactly the way `type=date` on `birthdate` causes `?birthdate=2020-01-01` to be parsed as a date predicate. Same URL shape as every other FHIR search, no new `SearchModifierCode` value to introduce, no CapabilityStatement modifier extension needed; FHIR-conformant by construction.
 
-**C2. Modifier with companion query parameters.** As above, but with `_vectorThreshold` / `_vectorK` reserved parameters always required. v1 keeps the modifier and treats the companions as optional (see §2), which is functionally a subset of C2.
+**C2. `:similar` modifier on the SP.** *(Rejected.)* Originally chosen, then dropped. The modifier added no information the parameter definition didn't already carry, and `:similar` is not in the standard `SearchModifierCode` value set — keeping it would have forced us to extend a required-bound code field and advertise the deviation via a capability extension. The only nominal benefit (URL-level "this is a vector query" hint) is illusory, since the parameter name + a `SearchParameter` read already tell the client everything. Standard modifiers like `:missing` are unaffected and continue to work.
 
-**C3. Custom `$vector-search` operation.** `POST /Observation/$vector-search` with a `Parameters` body carrying `query`, `k`, `threshold`, and a nested FHIR search expression for hybrid filters. More expressive (room for multi-field queries, weighted ensembles, future re-ranking parameters) but redefines the query surface and duplicates significant search-parsing infrastructure. Worth revisiting if we need richer query shapes than `:similar` can express.
+**C3. Modifier with required companion query parameters.** `?field:similar=text&_vectorThreshold=…&_vectorK=…`. Same problems as C2, plus mandatory tuning knobs are user-hostile when sensible server defaults work for most queries. v1 keeps `_vectorK` and `_vectorMinScore` as optional reserved parameters (see §2).
 
-**C4. Both — modifier *and* `$vector-search` operation.** Tempting "best of both worlds", but doubles the surface area and the test matrix before we have evidence v1 needs it.
+**C4. Custom `$vector-search` operation.** `POST /Observation/$vector-search` with a `Parameters` body carrying `query`, `k`, `threshold`, and a nested FHIR search expression for hybrid filters. More expressive (room for multi-field queries, weighted ensembles, future re-ranking parameters) but redefines the query surface and duplicates significant search-parsing infrastructure. Worth revisiting only if we need query shapes that the standard search URL syntax genuinely cannot express.
+
+**C5. Both — modifier *and* `$vector-search` operation.** Tempting "best of both worlds", but doubles the surface area and the test matrix before we have evidence v1 needs it.
 
 ### D. Persistence scope
 
@@ -257,7 +262,7 @@ The decisive factor for choosing A1 was that it is the simplest behavior to reas
 - **Embedding cost scales with write volume and reindex.** Operators need cost visibility (telemetry §8) and rate controls. A surprise `$reindex` of a busy `Observation.note` can be expensive.
 - **Engine compatibility narrows.** v1 works only on Azure SQL Database editions that expose vector type + ANN index. On-prem SQL Server and older Azure SQL editions cannot enable the feature; the migration must refuse to apply rather than degrade.
 - **Preview surface area.** Azure SQL vector type is preview at the time of writing; syntax and operator names may change. The implementation should isolate vector-DDL/DML behind a thin SQL layer to minimize churn when the preview GAs.
-- **Conformance asymmetry.** The `SearchParameter` resource itself remains conformant (`type=special`), but the `:similar` modifier and `_vectorK` / `_vectorMinScore` reserved parameters are Microsoft extensions. Standard FHIR tooling will not understand them; clients must read the capability extension to discover support.
+- **Limited conformance footprint.** The `SearchParameter` resource is conformant (`type=special` + a Microsoft extension, which is exactly what FHIR extensions are designed for). The URL shape of a query is conformant too — no non-standard modifier is introduced. The only Microsoft-specific surface visible to clients is the pair of optional reserved query parameters `_vectorK` / `_vectorMinScore`; standard FHIR tooling can issue a vector query without them and will simply receive server-defaulted behavior. The `vector-search-config` extension on the `SearchParameter` resource is the FHIR-native way for clients to discover that the parameter has similarity semantics.
 
 ### Neutral effects
 - Adds a new schema version and a new search-value type, increasing the surface area touched by future search-pipeline refactors.
