@@ -209,8 +209,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 };
                 await _fhirClient.CreateAsync(organization);
 
-            var patchRequest = new Parameters()
-                .AddAddPatchParameter("Resource", "language", new Code("en"));
+                var patchRequest = new Parameters()
+                    .AddAddPatchParameter("Resource", "language", new Code("en"));
 
                 ChangeTypeToUpsertPatchParameter(patchRequest);
 
