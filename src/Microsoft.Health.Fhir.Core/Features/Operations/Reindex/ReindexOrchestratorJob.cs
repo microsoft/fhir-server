@@ -1269,7 +1269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _jobInfo,
                         "Search parameter {SearchParamUrl} is ready for status update - all related resource types completed",
                         searchParamUrl);
-            }
+                }
             }
 
             return readySearchParameters;

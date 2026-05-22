@@ -83,6 +83,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             try
             {
+                if (!_fhirSqlServerConfiguration.EnableQueryPlanReuseChecker)
+                {
+                    _logger.LogInformation("QueryPlanReuseChecker is disabled.");
+                    return;
+                }
+
                 while (!_storageReady && !stoppingToken.IsCancellationRequested)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
@@ -122,7 +128,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     try
                     {
                         var name = reader.GetString(0);
-                        var skew = reader.GetDouble(2);
+                        var skewValue = reader.GetValue(2);
+
+                        double skew = 0;
+                        if (skewValue != null && skewValue != DBNull.Value)
+                        {
+                            if (double.TryParse(skewValue.ToString(), out double skewAsDouble))
+                            {
+                                skew = skewAsDouble;
+                            }
+                        }
 
                         if (skew > _skewThreshold)
                         {

@@ -155,72 +155,91 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesIgnored.Add("StructureDefinition", 4);  // Changed: use 4 StructureDefinitions instead of 2 + 2 SearchParameters
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+            var createdResources = new List<Resource>();
 
-            // Create resources of different types with the same tag
-            // Use StructureDefinition resources which are excluded from bulk update but don't have
-            // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
-            var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-ethnicity");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            // Create resources of different types with the same tag
-            await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
-            var location = new Location
+            try
             {
-                Meta = new Meta
-                {
-                    Tag = new List<Coding>
-                    {
-                        new Coding("testTag", tag.Code),
-                    },
-                },
-            };
-            await _fhirClient.CreateAsync(location);
+                // Create resources of different types with the same tag
+                // Use StructureDefinition resources which are excluded from bulk update but don't have
+                // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
+                var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
 
-            var organization = new Organization
-            {
-                Meta = new Meta
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-ethnicity");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                // Create resources of different types with the same tag
+                await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
+                var location = new Location
                 {
-                    Tag = new List<Coding>
+                    Meta = new Meta
                     {
-                        new Coding("testTag", tag.Code),
+                        Tag = new List<Coding>
+                        {
+                            new Coding("testTag", tag.Code),
+                        },
                     },
-                },
-                Active = true,
-            };
-            await _fhirClient.CreateAsync(organization);
+                };
+                await _fhirClient.CreateAsync(location);
+
+                var organization = new Organization
+                {
+                    Meta = new Meta
+                    {
+                        Tag = new List<Coding>
+                        {
+                            new Coding("testTag", tag.Code),
+                        },
+                    },
+                    Active = true,
+                };
+                await _fhirClient.CreateAsync(organization);
 
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Resource", "language", new Code("en"));
 
-            ChangeTypeToUpsertPatchParameter(patchRequest);
+                ChangeTypeToUpsertPatchParameter(patchRequest);
 
-            // Create the request with Observation and Location as excluded resource types
+                // Create the request with Observation and Location as excluded resource types
 
-            var queryParam = new Dictionary<string, string>
+                var queryParam = new Dictionary<string, string>
+                    {
+                        { "_isParallel", isParallel.ToString() },
+                    };
+                HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "$bulk-update", queryParam);
+
+                // Monitor the job until completion
+                await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+            }
+            finally
+            {
+                // Clean up created StructureDefinitions to prevent accumulation in persistent environments
+                foreach (var resource in createdResources)
                 {
-                    { "_isParallel", isParallel.ToString() },
-                };
-            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "$bulk-update", queryParam);
-
-            // Monitor the job until completion
-            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+                    try
+                    {
+                        await _fhirClient.DeleteAsync(resource);
+                    }
+                    catch (Exception)
+                    {
+                        // Best-effort cleanup — don't fail the test
+                    }
+                }
+            }
         }
 
         [SkippableFact]

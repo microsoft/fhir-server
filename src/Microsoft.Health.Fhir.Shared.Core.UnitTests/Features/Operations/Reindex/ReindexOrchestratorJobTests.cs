@@ -109,8 +109,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobRecord = new ReindexJobRecord(
                 targetResourceTypes,
-                new List<string>(),
-                new List<string>(),
                 maxResourcePerQuery);
 
             // Enqueue the orchestrator job through the queue client
