@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
-            Till = till;
+            Till = till ?? new PartialDateTime(Clock.UtcNow);
             IsTillExplicit = till != null;
             StartSurrogateId = startSurrogateId;
             EndSurrogateId = endSurrogateId;

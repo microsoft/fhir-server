@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             var createDate = new PartialDateTime(new DateTimeOffset(jobCreateDate, TimeSpan.Zero));
             var cloneList = new List<Tuple<string, string>>()
                 {
-                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"le{createDate}"),
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"),
                 };
 
             if (baseDefinition.SearchParameters != null)
