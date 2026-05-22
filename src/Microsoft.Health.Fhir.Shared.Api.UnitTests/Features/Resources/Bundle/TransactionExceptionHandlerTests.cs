@@ -49,6 +49,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(HttpStatusCode.RequestTimeout, tce.ResponseStatusCode);
         }
 
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.UnprocessableEntity)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.NotFound)]
+        [InlineData(HttpStatusCode.Conflict)]
+        public void GivenAnOperationOutcomeWithClientError_WhenCancelled_ThenFhirTransactionCancelledExceptionIsThrown(HttpStatusCode statusCode)
+        {
+            // When isCancelled is true, FhirTransactionCancelledException is always thrown regardless
+            // of the entry status code. The correct error prioritization happens at the aggregate
+            // exception level in BundleHandlerParallelOperations using IsErrorCausedDueClientFailure().
+            string message = "Error Message";
+            var operationOutcome = GetOperationOutcome();
+
+            FhirTransactionCancelledException tce = Assert.Throws<FhirTransactionCancelledException>(() => TransactionExceptionHandler.ThrowTransactionException(
+                message,
+                statusCode,
+                operationOutcome,
+                isCancelled: true));
+
+            Assert.Equal(HttpStatusCode.RequestTimeout, tce.ResponseStatusCode);
+        }
+
         [Fact]
         public void GivenAnOperationOutcome_WhenParsed_ThenACorrectListOfOperationOutComeIssuesIsReturned()
         {

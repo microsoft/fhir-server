@@ -155,6 +155,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
                 }
 
+                Task allTasks = Task.WhenAll(requestsPerResource);
+
                 try
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
@@ -165,25 +167,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
-                    await Task.WhenAll(requestsPerResource);
-                }
-                catch (AggregateException age)
-                {
-                    BaseFhirTransactionException fte = age.InnerExceptions.Where(e => e is BaseFhirTransactionException).FirstOrDefault() as BaseFhirTransactionException;
-                    if (fte != null)
-                    {
-                        // If one of the exceptions raised is a FhirTransactionFailedException, then keep its origin.
-                        ExceptionDispatchInfo.Capture(fte).Throw();
-                    }
-
-                    _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
-                    throw;
+                    await allTasks;
                 }
                 catch (Exception ex)
                 {
+                    // When parallel entries fail, await Task.WhenAll only throws the first faulted
+                    // exception by array position. To ensure the caller receives the actual error
+                    // (not a misleading 408 from a side-effect cancellation), inspect all faulted
+                    // tasks and prefer a FhirTransactionFailedException that indicates a customer-caused error.
+                    if (allTasks.Exception != null)
+                    {
+                        FhirTransactionFailedException customerError = allTasks.Exception.InnerExceptions
+                            .OfType<FhirTransactionFailedException>()
+                            .FirstOrDefault(e => e.IsErrorCausedDueClientFailure());
+
+                        if (customerError != null)
+                        {
+                            ExceptionDispatchInfo.Capture(customerError).Throw();
+                        }
+                    }
+
                     if (ex is BaseFhirTransactionException)
                     {
-                        // If one the exception raised is a FHIR Transaction Exception, then keep its origin.
+                        // If the exception raised is a FHIR Transaction Exception, then keep its origin.
                         throw;
                     }
 
