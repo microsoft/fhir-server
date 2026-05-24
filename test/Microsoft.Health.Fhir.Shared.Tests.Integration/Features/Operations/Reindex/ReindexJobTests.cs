@@ -542,7 +542,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 #else
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/CanonicalResource-name");
 #endif
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default);
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default, lastUpdated: _searchParameterOperations.SearchParamLastUpdated.Value);
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
