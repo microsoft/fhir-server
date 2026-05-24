@@ -271,11 +271,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenUpsertStatuses_WhenLastUpdatedIsPropagated_ThenInputCollectionIsUpdated()
+        public async Task GivenUpsertStatuses_WhenCollectionIsUpdated_ThenReturnedLastUpdatedIsGreaterThanOriginal()
         {
             await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
-            // Arrange
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Propagate-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
             {
@@ -287,24 +286,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                // Act - Upsert and verify LastUpdated is propagated back
-                var originalLastUpdated = status.LastUpdated;
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
-                // Assert - The status object should have an updated LastUpdated value from the database
-                // Note: The database may return timestamps in a different timezone, so we compare using UtcDateTime
-                Assert.True(
-                    status.LastUpdated.UtcDateTime >= originalLastUpdated.UtcDateTime,
-                    $"Expected LastUpdated ({status.LastUpdated}) to be >= original ({originalLastUpdated})");
+                var dbStatus = (await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == testUri);
 
-                // Verify the value in the database matches what was propagated to the input collection
-                var dbStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
-                var dbStatus = dbStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
-
-                Assert.NotNull(dbStatus);
-                Assert.True(
-                    Math.Abs((dbStatus.LastUpdated - status.LastUpdated).TotalSeconds) < 1,
-                    $"Expected propagated LastUpdated ({status.LastUpdated}) to match database ({dbStatus.LastUpdated}) within 1 second");
+                Assert.True(dbStatus.LastUpdated > status.LastUpdated, $"Expected {status.LastUpdated.ToString("yyyy-MM-ddTHH:mm:ss.fff")} < {dbStatus.LastUpdated.ToString("yyyy-MM-ddTHH:mm:ss.fff")}");
             }
             finally
             {
