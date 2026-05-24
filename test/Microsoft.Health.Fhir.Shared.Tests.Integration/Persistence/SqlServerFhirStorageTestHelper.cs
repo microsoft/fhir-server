@@ -271,7 +271,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
         {
             await using var connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand(
+            using var command = new SqlCommand(
                 @"
 UPDATE dbo.SearchParam
   SET Status = 'PendingDelete', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
