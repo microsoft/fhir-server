@@ -19,18 +19,25 @@ parameters:
   default:
     - name: General
       categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+      testFilter: ''
     - name: Search
       categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+      testFilter: ''
     - name: Import
       categoryFilter: 'Category=Import'
+      testFilter: ''
     - name: Mutation
       categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+      testFilter: ''
     - name: BulkDelete
       categoryFilter: 'Category=BulkDelete'
+      testFilter: ''
     - name: CustomSearch
       categoryFilter: 'Category=CustomSearch'
+      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests'
     - name: History
       categoryFilter: 'Category=History'
+      testFilter: ''
 - name: runReindexJob
   type: boolean
   default: true
@@ -154,6 +161,7 @@ jobs:
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'SqlServer'
           categoryFilter: '${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
+          testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
@@ -170,7 +178,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=IndexAndReindex'
+        categoryFilter: 'Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
         testRunTitleSuffix: ' Reindex'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:

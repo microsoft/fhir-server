@@ -8,6 +8,9 @@ parameters:
 - name: categoryFilter
   type: string
   default: 'Category!=ExportLongRunning'
+- name: testFilter
+  type: string
+  default: ''
 - name: testRunTitleSuffix
   type: string
   default: ''
@@ -37,7 +40,11 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+        $filter = "${{ parameters.testFilter }}"
+        if ([string]::IsNullOrWhiteSpace($filter)) {
+          $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+        }
+
         $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName)"
