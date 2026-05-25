@@ -10,6 +10,27 @@ parameters:
 - name: mainCategoryFilter
   type: string
   default: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+- name: runShardedE2eJobs
+  type: boolean
+  default: false
+- name: e2eTestShards
+  type: object
+  # Shard names must be valid Azure Pipelines job identifiers. Reindex and BulkUpdate stay isolated below.
+  default:
+    - name: General
+      categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+    - name: Search
+      categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+    - name: Import
+      categoryFilter: 'Category=Import'
+    - name: Mutation
+      categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+    - name: BulkDelete
+      categoryFilter: 'Category=BulkDelete'
+    - name: CustomSearch
+      categoryFilter: 'Category=CustomSearch'
+    - name: History
+      categoryFilter: 'Category=History'
 - name: runReindexJob
   type: boolean
   default: true
@@ -101,20 +122,39 @@ jobs:
       artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
 
-- job: 'sqlE2eTests'
-  timeoutInMinutes: 120
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      containerAppName: '${{ parameters.containerAppName }}'
-      appServiceType: 'SqlServer'
-      categoryFilter: '${{ parameters.mainCategoryFilter }}'
+- ${{ if eq(parameters.runShardedE2eJobs, false) }}:
+  - job: 'sqlE2eTests'
+    timeoutInMinutes: 120
+    dependsOn: []
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: e2e-setup.yml
+    - template: e2e-tests.yml
+      parameters:
+        version: ${{ parameters.version }}
+        containerAppName: '${{ parameters.containerAppName }}'
+        appServiceType: 'SqlServer'
+        categoryFilter: '${{ parameters.mainCategoryFilter }}'
+
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  - ${{ each shard in parameters.e2eTestShards }}:
+    - job: 'sqlE2eTests_${{ shard.name }}'
+      timeoutInMinutes: 120
+      dependsOn: []
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'SqlServer'
+          categoryFilter: '${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
+          testRunTitleSuffix: ' ${{ shard.name }}'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'

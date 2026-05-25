@@ -403,6 +403,7 @@ stages:
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedE2eJobs: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -436,6 +437,7 @@ stages:
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedE2eJobs: true
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -453,6 +455,7 @@ stages:
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedE2eJobs: true
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
