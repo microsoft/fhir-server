@@ -11,3 +11,4 @@ using Xunit;
 [assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
 [assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]
 [assembly: AssemblyFixture(typeof(TestFhirServerFactory))]
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
