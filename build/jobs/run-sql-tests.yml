@@ -29,9 +29,6 @@ parameters:
     - name: Mutation
       categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
       testFilter: ''
-    - name: BulkDelete
-      categoryFilter: 'Category=BulkDelete'
-      testFilter: ''
     - name: CustomSearch
       categoryFilter: 'Category=CustomSearch'
       testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests'
@@ -197,3 +194,26 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
+
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  - job: 'sqlE2eTests_BulkDelete'
+    timeoutInMinutes: 120
+    dependsOn:
+    - ${{ each shard in parameters.e2eTestShards }}:
+      - 'sqlE2eTests_${{ shard.name }}'
+    - ${{ if eq(parameters.runReindexJob, true) }}:
+      - 'sqlE2eTests_Reindex'
+    - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
+      - 'sqlE2eTests_BulkUpdate'
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: e2e-setup.yml
+    - template: e2e-tests.yml
+      parameters:
+        version: ${{ parameters.version }}
+        containerAppName: '${{ parameters.containerAppName }}'
+        appServiceType: 'SqlServer'
+        categoryFilter: '${{ parameters.mainCategoryFilter }}&Category=BulkDelete'
+        testRunTitleSuffix: ' BulkDelete'
