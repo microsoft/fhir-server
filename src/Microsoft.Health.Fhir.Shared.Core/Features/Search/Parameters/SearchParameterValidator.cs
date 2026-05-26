@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
+        public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken, bool refreshCache = true)
         {
             await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
@@ -108,7 +108,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    if (refreshCache)
+                    {
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    }
 
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))

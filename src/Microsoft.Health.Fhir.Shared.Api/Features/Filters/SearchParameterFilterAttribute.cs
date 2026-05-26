@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
+using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -33,11 +38,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             var searchParameter = ExtractSearchParameter(context);
             if (searchParameter != null)
             {
+                // Check if we're in a parallel bundle processing context
+                var isParallel = false;
+
+                if (context.HttpContext?.Request?.Headers != null
+                    && context.HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, out var rawBundleRequestContext))
+                {
+                    var bundleResourceContext = JObject.Parse(rawBundleRequestContext.FirstOrDefault()).ToObject<BundleResourceContext>();
+
+                    // BundleOperationId is only set for parallel bundles (non-empty Guid). Sequential bundles have Guid.Empty
+                    isParallel = bundleResourceContext?.BundleOperationId != Guid.Empty;
+                }
+
                 // wait for the validation checks to pass before allowing the FHIRController action to continue
                 await _searchParameterValidator.ValidateSearchParameterInput(
                     searchParameter,
                     context.HttpContext.Request.Method,
-                    context.HttpContext.RequestAborted);
+                    context.HttpContext.RequestAborted,
+                    !isParallel); // Refreshing cache makes sense only for sequential bundles.
             }
 
             await next();
