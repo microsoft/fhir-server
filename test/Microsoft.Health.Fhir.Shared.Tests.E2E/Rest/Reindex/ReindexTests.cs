@@ -91,8 +91,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
 
                 // check by urls
-                var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
-                Assert.True(search.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={search.Resource.Total}");
+                // code works locally for all 500, but in PR it throws - FhirClientException : RequestUriTooLong (NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION)
+                var total = 0;
+                var chunk = numberOfSearchParams / 10; // assumes there is no remainder.
+                for (var i = 0; i < 10; i++)
+                {
+                    var urls = string.Join(",", codes.Skip(i * chunk).Take(chunk).Select(_ => $"{urlPrefix}{_}"));
+                    var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={urls}");
+                    total += search.Resource.Total.Value;
+                }
+
+                Assert.True(total == numberOfSearchParams, $"Urls: expected={numberOfSearchParams} actual={total}");
 
                 var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
                 Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
