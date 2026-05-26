@@ -5,11 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DotLiquid.Tags.Html;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
@@ -344,35 +342,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrls(List<string> urls, CancellationToken cancellationToken)
         {
-            if (!urls.Any())
-            {
-                return new Dictionary<string, ITypedElement>();
-            }
-
             const int chunkSize = 100;
             var searchParametersByUrl = new Dictionary<string, ITypedElement>(StringComparer.Ordinal);
             var unresolvedUrls = new HashSet<string>(urls, StringComparer.Ordinal);
 
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
 
-            string continuationToken = null;
-
-            do
+            while (urls.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var urlChunk = urls.Take(chunkSize).ToList();
+                var urlQueryValue = string.Join(",", urlChunk);
                 var queryParams = new List<Tuple<string, string>>
                 {
-                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
+                    new("url", urlQueryValue),
+                    new(KnownQueryParameterNames.Count, chunkSize.ToString()),
                 };
-
-                if (!string.IsNullOrEmpty(continuationToken))
-                {
-                    queryParams.Add(
-                        Tuple.Create(
-                            KnownQueryParameterNames.ContinuationToken,
-                            ContinuationTokenEncoder.Encode(continuationToken)));
-                }
 
                 var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
                 if (result?.Results != null)
@@ -389,25 +375,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         if (!string.IsNullOrEmpty(url) && unresolvedUrls.Remove(url))
                         {
                             searchParametersByUrl[url] = typedElement;
-
-                            if (unresolvedUrls.Count == 0)
-                            {
-                                return searchParametersByUrl;
-                            }
                         }
                     }
                 }
 
-                continuationToken = result?.ContinuationToken;
+                urls = urls.Skip(chunkSize).ToList();
             }
-            while (!string.IsNullOrEmpty(continuationToken));
 
             if (unresolvedUrls.Count > 0)
             {
-                _logger.LogWarning(
-                    "Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}",
-                    unresolvedUrls.Count,
-                    string.Join(", ", unresolvedUrls.Take(10)));
+                _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
             }
 
             return searchParametersByUrl;
