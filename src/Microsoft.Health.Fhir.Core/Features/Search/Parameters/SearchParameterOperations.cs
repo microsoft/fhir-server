@@ -5,11 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DotLiquid.Tags.Html;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
@@ -361,6 +359,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // search is not by url because it should work for deleted resources. this can be fixed only when resource deletes are delayed.
                 var queryParams = new List<Tuple<string, string>>
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
@@ -368,10 +367,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!string.IsNullOrEmpty(continuationToken))
                 {
-                    queryParams.Add(
-                        Tuple.Create(
-                            KnownQueryParameterNames.ContinuationToken,
-                            ContinuationTokenEncoder.Encode(continuationToken)));
+                    queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
                 }
 
                 var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
@@ -404,10 +400,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (unresolvedUrls.Count > 0)
             {
-                _logger.LogWarning(
-                    "Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}",
-                    unresolvedUrls.Count,
-                    string.Join(", ", unresolvedUrls.Take(10)));
+                _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
             }
 
             return searchParametersByUrl;
