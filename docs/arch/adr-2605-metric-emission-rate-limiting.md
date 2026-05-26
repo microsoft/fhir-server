@@ -8,6 +8,26 @@
 >
 > **Action**: Review current dashboards and alerts. If no consumer depends on per-request 401/403 metrics, adopt the simple suppression approach. If consumers exist, proceed with the rate-limiting options below.
 
+> **Open Question — Geneva metric account capacity and emission architecture**
+>
+> The threshold rationale throughout this ADR assumes Geneva's per-metric-account ingest limit is ~50,000 events/minute (~833 events/second), and that a single shared account is used across all FHIR instances. However, **in production we have ~2,000 FHIR accounts, each with at least 2 instances (some with many more), totaling 4,000+ instances — and Geneva is not overwhelmed under normal operations.** This suggests one or more of our assumptions are wrong:
+>
+> 1. **Geneva's actual capacity may be much higher** than 50K events/min (different account tier, autoscaling, or the documented limit applies to a different metric type)
+> 2. **Metrics may be pre-aggregated or batched** before reaching Geneva — the emission path may not be 1:1 with HTTP requests
+> 3. **The metric account structure may be sharded** — per-region, per-stamp, or per-customer rather than one global account
+> 4. **Normal per-instance emission rates may be very low** — if each instance only emits a few metrics/second normally, 4,000 instances × 3 metrics/sec = ~12,000/sec, which implies Geneva handles at least that much
+>
+> **The incident** was caused by a single customer sending a massive flood of unauthorized requests, which produced a spike orders of magnitude above normal emission rates. Understanding the gap between normal (4,000+ instances, no problem) and incident (one customer flooding, Geneva throttled) is critical for setting correct rate-limiting thresholds.
+>
+> **Action**: Investigate how fhir-server and fhir-paas metrics are emitted to Geneva. Specifically:
+> - What is the actual Geneva account structure? (shared vs. sharded, account tier/quota)
+> - Are metrics batched or pre-aggregated before ingestion? If so, what is the aggregation ratio?
+> - What is the normal per-instance metric emission rate under steady-state traffic?
+> - What was the actual emission rate during the incident that triggered Geneva throttling?
+> - Are there different Geneva limits for different metric types (pre-aggregated vs. raw events)?
+>
+> **Until this investigation is complete, the specific numeric defaults in this ADR (e.g., `TokensPerPeriod: 20`) should be treated as placeholders.** The design and architecture of the rate-limiting approach are sound regardless of the specific thresholds — the numbers just need to be calibrated to Geneva's actual capacity and the real emission architecture.
+
 ## Context
 
 An incident occurred where a customer sent a massive volume of unauthorized requests to the FHIR service using an expired token. Each 401 response still triggered per-request metric emission to Geneva (Azure's monitoring pipeline). The metric volume was so high that Geneva began throttling the shared metric account, which degraded monitoring for **both** the FHIR service and the DICOM service — neither could reliably emit or read metrics during the incident.
@@ -329,8 +349,8 @@ The rate limit is configured through the existing `Throttling` configuration sec
   "Throttling": {
     "Enabled": true,
     "ConcurrentRequestLimit": 25,
-    "UnauthenticatedBurstLimit": 20,
-    "UnauthenticatedTokensPerPeriod": 20,
+    "UnauthenticatedBurstLimit": 10,
+    "UnauthenticatedTokensPerPeriod": 10,
     "ExcludedEndpoints": [
       { "Method": "GET", "Path": "/metadata" },
       { "Method": "GET", "Path": "/.well-known/smart-configuration" }
@@ -339,12 +359,13 @@ The rate limit is configured through the existing `Throttling` configuration sec
 }
 ```
 
-**Threshold rationale (tied to Geneva capacity):**
-- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second)
-- The FHIR service shares this account with the DICOM service, so FHIR should not consume more than ~50% → **~400 events/second** budget for FHIR
-- `UnauthenticatedTokensPerPeriod: 20` allows 20 unauthenticated requests/second to pass through — each may generate a 401 with metric emission, consuming ~2.4% of the FHIR Geneva budget
+**Threshold rationale (per-instance, see [Multi-Instance Considerations](#multi-instance-considerations) below):**
+- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second) across ALL instances and services sharing the account
+- The FHIR service shares this account with the DICOM service, so FHIR should not consume more than ~50% → **~400 events/second** total FHIR budget across all instances
+- `UnauthenticatedTokensPerPeriod: 20` is a **per-instance** limit — with N instances, the worst-case aggregate unauthenticated throughput is `20 × N` requests/second that pass through with metric emission
+- For the original incident scenario (one customer, typically 2-10 instances), this caps auth-failure metric emission at 40-200/second — well within Geneva's capacity
+- For larger deployments, this value should be tuned down proportionally (see table below)
 - `UnauthenticatedBurstLimit: 20` allows a short burst (e.g., at startup or during a brief spike) without immediately triggering rate limiting
-- Under flood conditions (thousands of req/sec with expired tokens), only 20/second pass through to generate 401 + metrics — the remaining are rejected with 429 (no metric emission). This caps auth-failure metric emission at ~1,200/minute, well within Geneva's capacity
 - The `ExcludedEndpoints` configuration already exists and should include `/metadata` and `/.well-known/smart-configuration` since these are legitimately unauthenticated FHIR endpoints
 
 #### Why Not a Custom Metric Emission Rate Limiter?
@@ -430,8 +451,8 @@ public class ApiNotificationMiddleware : IMiddleware
         var config = metricEmissionConfig.Value;
         _metricEmissionRateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
         {
-            TokenLimit = config.BurstLimit,             // default: 200
-            TokensPerPeriod = config.TokensPerPeriod,   // default: 200
+            TokenLimit = config.BurstLimit,             // default: 20
+            TokensPerPeriod = config.TokensPerPeriod,   // default: 20
             ReplenishmentPeriod = TimeSpan.FromSeconds(1),
             QueueLimit = 0,
             AutoReplenishment = true,
@@ -490,12 +511,13 @@ public class MetricEmissionConfiguration
     /// <summary>
     /// Maximum burst of metric emissions allowed before rate limiting kicks in.
     /// </summary>
-    public int BurstLimit { get; set; } = 200;
+    public int BurstLimit { get; set; } = 20;
 
     /// <summary>
     /// Number of metric emission tokens replenished per second (sustained rate).
+    /// Per-instance limit — tune down for deployments with many instances.
     /// </summary>
-    public int TokensPerPeriod { get; set; } = 200;
+    public int TokensPerPeriod { get; set; } = 20;
 }
 ```
 
@@ -591,26 +613,84 @@ flowchart TD
   "Throttling": {
     "Enabled": true,
     "ConcurrentRequestLimit": 25,
-    "UnauthenticatedBurstLimit": 20,
-    "UnauthenticatedTokensPerPeriod": 20,
+    "UnauthenticatedBurstLimit": 10,
+    "UnauthenticatedTokensPerPeriod": 10,
     "ExcludedEndpoints": [
       { "Method": "GET", "Path": "/metadata" },
       { "Method": "GET", "Path": "/.well-known/smart-configuration" }
     ]
   },
   "MetricEmission": {
-    "BurstLimit": 200,
-    "TokensPerPeriod": 200
+    "BurstLimit": 20,
+    "TokensPerPeriod": 20
   }
 }
 ```
 
-**Threshold rationale (tied to Geneva capacity):**
-- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second)
-- FHIR shares the account with DICOM → ~400 events/second FHIR budget
-- `TokensPerPeriod: 200` caps total metric emissions at 200/second (~48% of FHIR budget), leaving headroom for DICOM and for the fhir-paas billing/request metrics that emit independently
+**Threshold rationale (per-instance, see [Multi-Instance Considerations](#multi-instance-considerations) below):**
+- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second) across ALL instances and services sharing the account
+- FHIR shares the account with DICOM → ~400 events/second total FHIR budget across all instances
+- `TokensPerPeriod: 200` is a **per-instance** limit — with N instances, worst-case aggregate metric emission is `200 × N` per second
+- This default is appropriate for small deployments (2-5 instances) where `200 × 5 = 1,000/sec` is over budget but unlikely to be sustained at max rate across all instances simultaneously under normal traffic
+- **For larger deployments this MUST be tuned down** — see the multi-instance guidance table below
 - `BurstLimit: 200` allows a 1-second burst at startup or during traffic spikes
 - The unauthenticated rate limiter (`UnauthenticatedTokensPerPeriod: 20`) is the first line of defense for the most common flood scenario; the metric emission rate limiter is the safety net for everything else
+
+#### Multi-Instance Considerations
+
+> **Critical**: Both rate limiters (`TokenBucketRateLimiter` in `ThrottlingMiddleware` and in `ApiNotificationMiddleware`) are **in-process, per-instance**. There is no cross-instance coordination. Geneva's ingest limit applies to the **aggregate** of all instances across all FHIR accounts sharing the metric account. The per-instance defaults must be set with the deployment's instance count in mind.
+
+**The fundamental tension**: A default that is safe for 100 instances (~4/sec per instance) would unnecessarily suppress metrics for 2-instance deployments under normal load. A default that fully utilizes Geneva's budget for 2 instances (200/sec) would overwhelm Geneva at 100 instances if all instances flooded simultaneously.
+
+**Recommended approach**: Set conservative defaults and document that operators should tune based on their deployment size. The rate limiters should only activate during abnormal traffic — not during normal operations.
+
+**Per-instance limit guidance (metric emission rate limiter — Option 3):**
+
+| Instance count | Recommended `TokensPerPeriod` | Aggregate worst-case | % of Geneva budget | Notes |
+|---|---|---|---|---|
+| 2-5 | 50 | 100-250/sec | 12-30% | Safe — room for DICOM + normal FHIR |
+| 5-20 | 20 | 100-400/sec | 12-48% | Moderate — approaches budget at high end |
+| 20-50 | 10 | 200-500/sec | 24-60% | Conservative — limit should rarely activate under normal load |
+| 50-100 | 5 | 250-500/sec | 30-60% | Aggressive — but normal per-instance emission rate is typically 1-3/sec, so this only fires during floods |
+
+**Key insight**: Under normal operations, a single FHIR instance emits far fewer metrics/second than any of these limits. The rate limiter is a **circuit breaker for abnormal conditions**, not a throttle on normal traffic. Even a limit of 5/sec per instance is generous for normal request patterns — it only activates when something has gone wrong (flood, retry storm, misconfigured client).
+
+**Per-instance limit guidance (unauthenticated rate limiter — Option 2):**
+
+| Instance count | Recommended `UnauthenticatedTokensPerPeriod` | Aggregate 401 metric emission | Notes |
+|---|---|---|---|
+| 2-5 | 20 | 40-100/sec | Safe — default is appropriate |
+| 5-20 | 10 | 50-200/sec | Moderate |
+| 20-100 | 5 | 100-500/sec | Conservative — 5 unauthenticated req/sec per instance is still generous for legitimate traffic |
+
+**Why not make this dynamic?**
+
+An instance could theoretically discover its sibling count (e.g., via service discovery or a shared configuration) and auto-compute its per-instance budget. However:
+- This adds infrastructure dependency and complexity
+- Instance counts change during scale events — the rate limiter would need to react dynamically
+- The rate limiter is a safety net, not a precision tool — conservative static defaults with per-deployment tuning is simpler and sufficient
+- If the team later wants dynamic coordination, it can be added as an enhancement without changing the core design
+
+**Recommended defaults (revised for multi-instance safety):**
+
+```json
+{
+  "Throttling": {
+    "Enabled": true,
+    "ConcurrentRequestLimit": 25,
+    "UnauthenticatedBurstLimit": 10,
+    "UnauthenticatedTokensPerPeriod": 10
+  },
+  "MetricEmission": {
+    "BurstLimit": 20,
+    "TokensPerPeriod": 20
+  }
+}
+```
+
+These defaults are safe for deployments up to ~20 instances. Under normal traffic (1-3 metrics/sec per instance), the rate limiters will never activate. Under flood conditions, per-instance emission is capped at 20 metrics/sec — even with 20 instances flooding simultaneously, the aggregate is 400/sec (~48% of Geneva budget).
+
+Deployments with more than 20 instances should tune these values down proportionally. This should be documented in operational runbooks alongside the existing `ConcurrentRequestLimit` tuning guidance.
 
 #### Design Option 3 — Consequences
 
@@ -620,8 +700,8 @@ flowchart TD
 - **Still uses framework primitives**: Both rate limiters are `System.Threading.RateLimiting.TokenBucketRateLimiter` — no custom algorithm code
 - **No `IHostedService` or background tasks**: Both rate limiters use `AutoReplenishment = true` (framework-managed timer). The `LogWarning` on suppression provides operator visibility without a dedicated aggregate reporting service
 - **Strongly-typed cross-repo coordination**: `HttpContextMetricEmissionExtensions` with a private `object` key — compile-time safe, no magic strings
-- **Preserves full metrics under normal load**: The 200/second global limit far exceeds typical metric emission rates; rate limiting only activates under genuine flood conditions
-- **Geneva-aligned defaults**: Total emission rate capped at ~48% of FHIR's Geneva budget
+- **Preserves full metrics under normal load**: Under normal traffic a single instance emits ~1-3 metrics/second — well below the per-instance limit of 20/second. Rate limiting only activates under genuine flood conditions
+- **Geneva-aligned defaults**: Per-instance defaults of 20/second are safe for deployments up to ~20 instances; larger deployments tune proportionally
 
 ##### Adverse
 - **Cross-repo coordination required**: Unlike Option 2 (fhir-server only), this option requires fhir-paas changes to check `IsMetricEmissionSuppressed()` in billing and request metric middleware. However, the change is minimal (one-line check per middleware) and the shared extension method makes it compile-time safe.
@@ -630,6 +710,7 @@ flowchart TD
 - **No per-status-code granularity in the global limiter**: The metric emission rate limiter is a single bucket across all status codes. A flood of 500 metrics could consume the budget and suppress 200 metrics in the same window. For most scenarios this is acceptable (floods are transient), but if the team needs independent budgets per status code class, this would need to be extended.
 - **No aggregate "suppressed metric" signal as a metric**: Suppression is logged via `LogWarning` but not emitted as a dedicated Geneva metric. Operators must monitor logs or set up log-based alerts. If the team wants a first-class metric, a lightweight `IHostedService` could be added later as an enhancement without changing the core design.
 - **Legitimate unauthenticated endpoints affected**: Same as Option 2 — `/metadata` and SMART discovery must be in `ExcludedEndpoints`
+- **Per-instance rate limiters with no cross-instance coordination**: Both rate limiters are in-process singletons with no awareness of sibling instances. Geneva's ingest limit applies to the aggregate of all instances, so the per-instance defaults must be tuned for the deployment's instance count. The defaults (20/sec) are safe for up to ~20 instances; larger deployments must tune down. See [Multi-Instance Considerations](#multi-instance-considerations) for guidance.
 
 ##### Neutral
 - **Audit unaffected**: Audit middleware runs before and independently of the metric emission gate — all requests are still audited
