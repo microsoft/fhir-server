@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     public class SmartSearchTests : IClassFixture<SmartSearchTests.SmartSearchSharedFixture>
     {
         private readonly SmartSearchSharedFixture _smartFixture;
-        private FhirStorageTestsFixture _fixture;
+        private readonly FhirStorageTestsFixture _fixture;
 
         private IScoped<ISearchService> _searchService;
 
