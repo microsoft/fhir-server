@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -41,6 +42,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
@@ -62,23 +64,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ITestOutputHelper _output;
 
         private IScoped<ISearchService> _searchService;
 
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
 
-        public SmartSearchTests(FhirStorageTestsFixture fixture)
+        public SmartSearchTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _testHelper = _fixture.TestHelper;
+            _output = output;
         }
 
         public async Task InitializeAsync()
         {
+            Stopwatch initializeStopwatch = Stopwatch.StartNew();
+            LogTiming("InitializeAsync starting.");
+
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
             {
+                LogTiming("Configuring SMART search integration fixture.");
                 _dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
                 {
                     x[1] = null;
@@ -96,7 +104,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
                 _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
 
-                _typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
+                _typedElementToSearchValueConverterManager = await MeasureAsync(
+                    "CreateFhirTypedElementToSearchValueConverterManagerAsync",
+                    CreateFhirTypedElementToSearchValueConverterManagerAsync);
 
                 _searchIndexer = new TypedElementSearchIndexer(
                     _supportedSearchParameterDefinitionManager,
@@ -114,44 +124,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
                 _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
 
-                _searchService = _fixture.SearchService.CreateMockScope();
+                _searchService = ((ISearchService)new TimedSearchService(
+                    _fixture.SearchService,
+                    _output,
+                    $"{ModelInfoProvider.Instance.Version}/{_fixture.DataStore.GetType().Name}")).CreateMockScope();
 
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
 
-                var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
-                foreach (var entry in smartBundle.Entry)
-                {
-                    await UpsertResource(entry.Resource);
-                }
+                await LoadBundleAsync("SmartPatientA");
+                await LoadBundleAsync("SmartPatientB");
+                await LoadBundleAsync("SmartPatientC");
+                await LoadBundleAsync("SmartPatientD");
+                await LoadBundleAsync("SmartCommon");
 
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientB");
-                foreach (var entry in smartBundle.Entry)
-                {
-                    await UpsertResource(entry.Resource);
-                }
-
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientC");
-                foreach (var entry in smartBundle.Entry)
-                {
-                    await UpsertResource(entry.Resource);
-                }
-
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientD");
-                foreach (var entry in smartBundle.Entry)
-                {
-                    await UpsertResource(entry.Resource);
-                }
-
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartCommon");
-                foreach (var entry in smartBundle.Entry)
-                {
-                    await UpsertResource(entry.Resource);
-                }
-
-                await UpsertResource(Samples.GetJsonSample<Medication>("Medication"));
-                await UpsertResource(Samples.GetJsonSample<Organization>("Organization"));
-                await UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq"));
+                await UpsertResourceWithTiming(Samples.GetJsonSample<Medication>("Medication"), "Medication");
+                await UpsertResourceWithTiming(Samples.GetJsonSample<Organization>("Organization"), "Organization");
+                await UpsertResourceWithTiming(Samples.GetJsonSample<Location>("Location-example-hq"), "Location-example-hq");
             }
+
+            LogTiming($"InitializeAsync completed in {initializeStopwatch.Elapsed.TotalSeconds:F3}s.");
         }
 
         public Task DisposeAsync()
@@ -1134,6 +1125,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             wrapper.SearchParameterHash = "hash";
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+        }
+
+        private async Task LoadBundleAsync(string sampleName)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            var smartBundle = Samples.GetJsonSample<Bundle>(sampleName);
+            var upserted = 0;
+
+            foreach (var entry in smartBundle.Entry)
+            {
+                await UpsertResourceWithTiming(entry.Resource, $"{sampleName}/{entry.Resource.TypeName}/{entry.Resource.Id}");
+                upserted++;
+            }
+
+            LogTiming($"Loaded bundle {sampleName}: resources={upserted}, elapsed={stopwatch.Elapsed.TotalSeconds:F3}s.");
+        }
+
+        private async Task<UpsertOutcome> UpsertResourceWithTiming(Resource resource, string operationName)
+        {
+            return await MeasureAsync($"Upsert {operationName}", () => UpsertResource(resource));
+        }
+
+        private async Task<T> MeasureAsync<T>(string operationName, Func<Task<T>> action)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
+            {
+                return await action();
+            }
+            finally
+            {
+                LogTiming($"{operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s.");
+            }
+        }
+
+        private void LogTiming(string message)
+        {
+            _output.WriteLine($"[SmartSearchTiming] {ModelInfoProvider.Instance.Version}/{_fixture.DataStore.GetType().Name}: {message}");
         }
 
         private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()
@@ -3850,6 +3879,149 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Appointment");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "MedicationRequest");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
+        }
+
+        private sealed class TimedSearchService : ISearchService
+        {
+            private readonly ISearchService _innerSearchService;
+            private readonly ITestOutputHelper _output;
+            private readonly string _context;
+
+            public TimedSearchService(ISearchService innerSearchService, ITestOutputHelper output, string context)
+            {
+                _innerSearchService = innerSearchService;
+                _output = output;
+                _context = context;
+            }
+
+            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+            {
+                return _innerSearchService.TryLogEvent(process, status, text, startDate, cancellationToken);
+            }
+
+            public Task<SearchResult> SearchAsync(
+                string resourceType,
+                IReadOnlyList<Tuple<string, string>> queryParameters,
+                CancellationToken cancellationToken,
+                bool isAsyncOperation = false,
+                ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+                bool onlyIds = false,
+                bool isIncludesOperation = false)
+            {
+                return MeasureSearchAsync(
+                    $"SearchAsync resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, version={resourceVersionTypes}, onlyIds={onlyIds}, includes={isIncludesOperation}",
+                    () => _innerSearchService.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation));
+            }
+
+            public Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+            {
+                return MeasureSearchAsync(
+                    $"SearchAsync options countOnly={searchOptions?.CountOnly}, onlyIds={searchOptions?.OnlyIds}, expression={searchOptions?.Expression?.GetType().Name ?? "<none>"}",
+                    () => _innerSearchService.SearchAsync(searchOptions, cancellationToken));
+            }
+
+            public Task<SearchResult> SearchCompartmentAsync(
+                string compartmentType,
+                string compartmentId,
+                string resourceType,
+                IReadOnlyList<Tuple<string, string>> queryParameters,
+                CancellationToken cancellationToken,
+                bool isAsyncOperation = false,
+                bool useSmartCompartmentDefinition = false)
+            {
+                return MeasureSearchAsync(
+                    $"SearchCompartmentAsync compartment={compartmentType}/{compartmentId}, resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, smartCompartment={useSmartCompartmentDefinition}",
+                    () => _innerSearchService.SearchCompartmentAsync(compartmentType, compartmentId, resourceType, queryParameters, cancellationToken, isAsyncOperation, useSmartCompartmentDefinition));
+            }
+
+            public Task<SearchResult> SearchHistoryAsync(
+                string resourceType,
+                string resourceId,
+                PartialDateTime at,
+                PartialDateTime since,
+                PartialDateTime before,
+                int? count,
+                string summary,
+                string continuationToken,
+                string sort,
+                CancellationToken cancellationToken,
+                bool isAsyncOperation = false)
+            {
+                return MeasureSearchAsync(
+                    $"SearchHistoryAsync resourceType={resourceType}, resourceId={resourceId}, count={count}, summary={summary}, sort={sort}",
+                    () => _innerSearchService.SearchHistoryAsync(resourceType, resourceId, at, since, before, count, summary, continuationToken, sort, cancellationToken, isAsyncOperation));
+            }
+
+            public Task<SearchResult> SearchForReindexAsync(
+                IReadOnlyList<Tuple<string, string>> queryParameters,
+                string searchParameterHash,
+                bool countOnly,
+                CancellationToken cancellationToken,
+                bool isAsyncOperation = false)
+            {
+                return MeasureSearchAsync(
+                    $"SearchForReindexAsync query={FormatQuery(queryParameters)}, countOnly={countOnly}",
+                    () => _innerSearchService.SearchForReindexAsync(queryParameters, searchParameterHash, countOnly, cancellationToken, isAsyncOperation));
+            }
+
+            public Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
+                string resourceType,
+                long startId,
+                long endId,
+                int rangeSize,
+                int numberOfRanges,
+                bool up,
+                CancellationToken cancellationToken,
+                bool activeOnly = false)
+            {
+                return _innerSearchService.GetSurrogateIdRanges(resourceType, startId, endId, rangeSize, numberOfRanges, up, cancellationToken, activeOnly);
+            }
+
+            public Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+            {
+                return _innerSearchService.GetUsedResourceTypes(cancellationToken);
+            }
+
+            public Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+            {
+                return _innerSearchService.GetFeedRanges(cancellationToken);
+            }
+
+            private async Task<SearchResult> MeasureSearchAsync(string operationName, Func<Task<SearchResult>> action)
+            {
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                try
+                {
+                    SearchResult result = await action();
+                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s. results={GetResultCount(result)}, total={result.TotalCount?.ToString() ?? "<null>"}.");
+                    return result;
+                }
+                catch (Exception exception)
+                {
+                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} failed in {stopwatch.Elapsed.TotalSeconds:F3}s. exception={exception.GetType().Name}: {exception.Message}");
+                    throw;
+                }
+            }
+
+            private static string GetResultCount(SearchResult result)
+            {
+                if (result.Results == null)
+                {
+                    return "<null>";
+                }
+
+                return result.Results.TryGetNonEnumeratedCount(out int count) ? count.ToString() : "<deferred>";
+            }
+
+            private static string FormatQuery(IReadOnlyList<Tuple<string, string>> queryParameters)
+            {
+                if (queryParameters == null || queryParameters.Count == 0)
+                {
+                    return "<none>";
+                }
+
+                return string.Join("&", queryParameters.Select(queryParameter => $"{queryParameter.Item1}={queryParameter.Item2}"));
+            }
         }
     }
 }
