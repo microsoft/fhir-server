@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Import = nameof(Import);
 
+        public const string ImportLongRunning = nameof(ImportLongRunning);
+
         public const string IndexAndReindex = nameof(IndexAndReindex);
 
         /// <summary>
