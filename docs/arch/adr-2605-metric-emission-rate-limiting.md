@@ -1,36 +1,18 @@
-# Metric Emission Rate Limiting for Auth-Failure Flood Protection
-
-> **Open Question — Do we need 401/403 metrics at all?**
->
-> Before investing in rate-limiting infrastructure, the team should decide whether per-request metrics for 401/403 responses provide actionable monitoring value. If no dashboard, alert, or operational runbook depends on per-request 401/403 metric granularity, the simplest solution is to **skip metric emission entirely for these status codes** — a one-line guard in `ApiNotificationMiddleware` and the fhir-paas billing/metric middleware. This would eliminate the Geneva flooding problem with zero new infrastructure.
->
-> If 401/403 metrics *are* valuable (e.g., for detecting credential-stuffing attacks, monitoring misconfigured clients, or tracking auth-failure trends), the rate-limiting approach in Option 2 preserves visibility under normal load while protecting Geneva under flood conditions.
->
-> **Action**: Review current dashboards and alerts. If no consumer depends on per-request 401/403 metrics, adopt the simple suppression approach. If consumers exist, proceed with the rate-limiting options below.
-
-> **Open Question — Geneva metric account capacity and emission architecture**
->
-> The threshold rationale throughout this ADR assumes Geneva's per-metric-account ingest limit is ~50,000 events/minute (~833 events/second), and that a single shared account is used across all FHIR instances. However, **in production we have ~2,000 FHIR accounts, each with at least 2 instances (some with many more), totaling 4,000+ instances — and Geneva is not overwhelmed under normal operations.** This suggests one or more of our assumptions are wrong:
->
-> 1. **Geneva's actual capacity may be much higher** than 50K events/min (different account tier, autoscaling, or the documented limit applies to a different metric type)
-> 2. **Metrics may be pre-aggregated or batched** before reaching Geneva — the emission path may not be 1:1 with HTTP requests
-> 3. **The metric account structure may be sharded** — per-region, per-stamp, or per-customer rather than one global account
-> 4. **Normal per-instance emission rates may be very low** — if each instance only emits a few metrics/second normally, 4,000 instances × 3 metrics/sec = ~12,000/sec, which implies Geneva handles at least that much
->
-> **The incident** was caused by a single customer sending a massive flood of unauthorized requests, which produced a spike orders of magnitude above normal emission rates. Understanding the gap between normal (4,000+ instances, no problem) and incident (one customer flooding, Geneva throttled) is critical for setting correct rate-limiting thresholds.
->
-> **Action**: Investigate how fhir-server and fhir-paas metrics are emitted to Geneva. Specifically:
-> - What is the actual Geneva account structure? (shared vs. sharded, account tier/quota)
-> - Are metrics batched or pre-aggregated before ingestion? If so, what is the aggregation ratio?
-> - What is the normal per-instance metric emission rate under steady-state traffic?
-> - What was the actual emission rate during the incident that triggered Geneva throttling?
-> - Are there different Geneva limits for different metric types (pre-aggregated vs. raw events)?
->
-> **Until this investigation is complete, the specific numeric defaults in this ADR (e.g., `TokensPerPeriod: 20`) should be treated as placeholders.** The design and architecture of the rate-limiting approach are sound regardless of the specific thresholds — the numbers just need to be calibrated to Geneva's actual capacity and the real emission architecture.
+# Suppress Auth-Failure Metrics at Emission Point for Flood Protection
 
 ## Context
 
 An incident occurred where a customer sent a massive volume of unauthorized requests to the FHIR service using an expired token. Each 401 response still triggered per-request metric emission to Geneva (Azure's monitoring pipeline). The metric volume was so high that Geneva began throttling the shared metric account, which degraded monitoring for **both** the FHIR service and the DICOM service — neither could reliably emit or read metrics during the incident.
+
+### Why Not Filter at Geneva?
+
+The initial plan was to filter these high-volume 401/403 metrics inbound at Geneva (e.g., via ingestion-time filters or a pre-aggregation rule on the metric account). After investigation, **this is not possible** with the current Geneva configuration:
+
+- Geneva does not support inbound filtering of per-request metric events by status-code dimension before they count against the account's ingest budget. The metrics are charged on receipt, so a server-side filter does not relieve pressure on the shared account.
+- The shared metric account is owned outside of the FHIR team's control, and per-customer/per-tenant filter rules at the account level are not a supported configuration path.
+- Even if account-level filtering existed, the events still travel from the FHIR instance to the metric pipeline, consuming network resources and contributing to the per-instance/agent emission limits before they would be dropped.
+
+Because the flood cannot be filtered at the ingest side, **the only place we can stop it is at the point of emission in the FHIR server itself.**
 
 ### Current Middleware Pipeline (fhir-server)
 
@@ -46,29 +28,11 @@ The ASP.NET Core middleware pipeline is configured in `FhirServerServiceCollecti
 7. UseThrottling()                         — concurrent request limiter
 ```
 
-The critical issue: **`ApiNotificationMiddleware` is registered before authentication**. It wraps the entire pipeline and publishes an `ApiResponseNotification` via MediatR in a `finally{}` block for every FHIR request where `AuditEventType` is set. For 401 responses, `FhirRequestContextBeforeAuthenticationMiddleware` backfills the `AuditEventType`, so unauthorized requests **do** trigger metric publication.
+`ApiNotificationMiddleware` wraps the entire pipeline and publishes an `ApiResponseNotification` via MediatR in its `finally{}` block for every FHIR request where `AuditEventType` is set. For 401 responses, `FhirRequestContextBeforeAuthenticationMiddleware` backfills the `AuditEventType`, so unauthorized requests **do** trigger metric publication today. 403 responses produced after authentication (e.g., authorization policy failures) likewise reach the publication path because `AuditEventType` is set during request routing.
 
-The existing `ThrottlingMiddleware` limits concurrent in-flight requests but is positioned **after** authentication and metrics — it does not protect against metric emission floods from rejected auth requests.
+`ApiResponseNotification` is the single in-process chokepoint for the FHIR error/request metric — it is the notification consumed by the per-request metric handler that ultimately reports to Geneva (e.g., `TotalRequests`, `TotalLatency`, `TotalErrors`). Stopping the publish here stops every downstream consumer of that signal.
 
-### Current Middleware Pipeline (fhir-paas)
-
-The fhir-paas layer adds additional metric-emitting middleware inside the `UseFhirServer` callback:
-
-```
-... (fhir-server pipeline above, including ApiNotificationMiddleware)
-   → BillingLogMiddlewareV2ApiRequests    — billing metrics via Geneva
-   → BillingLogMiddlewareV2Egress         — egress billing metrics
-   → BillingLogMiddlewareV2Transformation — transformation billing metrics
-   → RequestMetricLoggingMiddleware       — per-request metric logging to Geneva
-   → ByteCountingStreamMiddleware         — response size tracking
-```
-
-Additionally, `ApiResponseNotification` published by fhir-server is handled by:
-- `TotalMetricsNotificationHandler` — emits shoebox metrics (TotalRequests, TotalLatency, TotalErrors) to Geneva
-
-None of these have status-code-based filtering for 401/403. `BillingUtilities.IsBillableRequest()` excludes 500s and 429s but **not** 401/403 responses.
-
-### Metric Emission Flow — Current State
+### Metric Emission Flow — Before This Change
 
 ```mermaid
 flowchart TD
@@ -90,7 +54,7 @@ flowchart TD
     BACKFILL --> API_FINALLY
 
     API_FINALLY --> PUBLISH{AuditEventType set?}
-    PUBLISH -->|Yes| EMIT["Publish ApiResponseNotification → Geneva Metrics Emitted (TotalRequests, TotalLatency, CRUD, Search, etc.)"]
+    PUBLISH -->|Yes| EMIT["Publish ApiResponseNotification → Geneva Metrics Emitted (TotalRequests, TotalLatency, TotalErrors, CRUD, Search, etc.)"]
     PUBLISH -->|No| SKIP[No metrics emitted]
 
     style RESP_401 fill:#f66,stroke:#333,color:#fff
@@ -99,624 +63,104 @@ flowchart TD
     style SKIP fill:#9f9,stroke:#333,color:#000
 ```
 
-**Key insight**: Every 401 request follows the red path and still reaches the orange metric emission box. Under flood conditions, this overwhelms Geneva.
+**Key insight**: Every 401 (and 403) request follows the red path and still reaches the orange metric emission box. Under flood conditions, this overwhelms Geneva.
 
 ## Decision
 
-Two design options are presented below for team discussion.
+**Suppress metric emission entirely for 401 (Unauthorized) and 403 (Forbidden) responses at the point of emission in `ApiNotificationMiddleware`.**
 
----
-
-### Design Option 1: Include Unauthenticated Requests in Existing Throttling (Minimal Change)
-
-This option makes the smallest possible code change: remove the unauthenticated user bypass in `ThrottlingMiddleware` so that unauthorized requests count toward the concurrency limit. **No pipeline reordering is needed.**
-
-The current `ThrottlingMiddleware` (`ThrottlingMiddleware.cs:159-164`) explicitly skips unauthenticated requests:
+Concretely: extend the existing guard in `ApiNotificationMiddleware.PublishNotificationAsync()` so that the MediatR `Publish(apiNotification)` call is skipped whenever the HTTP response status code is `401` or `403`, regardless of whether `AuditEventType` is set.
 
 ```csharp
-if (_securityEnabled && !context.User.Identity.IsAuthenticated)
+if (fhirRequestContext?.AuditEventType != null && !IsAuthFailure(statusCode))
 {
-    // Ignore Unauthenticated users if security is enabled
-    await _next(context);
-    return;
+    // ... populate notification ...
+    await _mediator.Publish(apiNotification, CancellationToken.None);
 }
+
+private static bool IsAuthFailure(HttpStatusCode statusCode)
+    => statusCode == HttpStatusCode.Unauthorized || statusCode == HttpStatusCode.Forbidden;
 ```
 
-By removing (or making configurable) this bypass, unauthenticated requests would be subject to the same concurrency limits as authenticated ones. Optionally, a separate `UnauthenticatedConcurrentRequestLimit` could be added to cap them independently.
+### Why This Approach
 
-#### Why This Works (Partially)
+- **It is the only place left to filter.** Geneva-side filtering is not available (see Context). The FHIR error metric must be suppressed before it is published, in the process that produces it.
+- **It is the minimum viable change.** A single guard in one middleware eliminates the entire class of auth-failure metric floods — no new components, no new background services, no cross-repo coordination, no behavioural change to clients (they still receive 401/403 with normal latency).
+- **`ApiResponseNotification` is the chokepoint.** All downstream Geneva consumers of the per-request FHIR metric (including `TotalErrors`) fan out from this single MediatR publish. Suppressing here suppresses everything.
+- **Auth-failure metrics are low-value per-request.** 401/403 responses do not perform FHIR work, do not touch storage, and are not billable. The actionable signal for auth failures is "this client is misbehaving / this tenant has misconfigured credentials," which is better surfaced from logs, audit, and gateway/edge counters than from per-request FHIR metrics.
 
-Because the pipeline order is **unchanged**, the existing behavior properties are preserved:
-
-```
-1. UseFhirRequestContext()
-2. UseApiNotifications()                ← still wraps everything
-3. Error handling
-4. UseExceptionNotificationMiddleware()
-5. UseAudit()                           ← still audits throttled requests
-6. UseFhirRequestContextAuthentication()
-7. UseThrottling()                      ← now includes unauthenticated requests
-```
-
-When `ThrottlingMiddleware` rejects a request with 429:
-- `ApiNotificationMiddleware` still runs its `finally{}` block, **but** `AuditEventType` is **never set** for 429 responses — `FhirRequestContextBeforeAuthenticationMiddleware` only backfills `AuditEventType` for 401/403, and MVC filters never execute since the request was rejected before reaching the controller
-- Therefore, the `if (fhirRequestContext?.AuditEventType != null)` guard in `ApiNotificationMiddleware` causes **no metric to be published** for throttled 429 requests
-- Similarly, fhir-paas `RequestMetricLoggingMiddleware` checks for `AuditEventType` and **skips** metric logging when it's null
-
-In other words: throttled requests naturally avoid metric emission without any additional suppression logic.
-
-#### Changes Required
-
-**fhir-server:**
-
-1. **Remove the unauthenticated bypass** in `ThrottlingMiddleware.Invoke()` (or make it configurable with a new `ThrottleUnauthenticatedRequests` boolean, defaulting to `true`)
-2. **(Optional)** Add a separate `UnauthenticatedConcurrentRequestLimit` to `ThrottlingConfiguration` to avoid consuming authenticated request capacity
-
-**fhir-paas:**
-
-3. **Update `BillingUtilities.IsBillableRequest()`** to exclude 401/403 status codes
+### Metric Emission Flow — After This Change
 
 ```mermaid
 flowchart TD
     REQ([Incoming Request]) --> CTX[FhirRequestContext Middleware]
-    CTX --> API_START["ApiNotificationMiddleware (wraps pipeline — unchanged)"]
+    CTX --> API_START[ApiNotification Middleware - start]
     API_START --> ERR[Error Handling Middleware]
     ERR --> EXC[ExceptionNotification Middleware]
     EXC --> AUDIT[Audit Middleware]
     AUDIT --> AUTH{Authentication Middleware}
 
-    AUTH -->|Valid Token| THROTTLE{"ThrottlingMiddleware (now includes unauthenticated)"}
-    AUTH -->|"Expired Token (unauthenticated)"| THROTTLE
-
-    THROTTLE -->|Under concurrency limit| NEXT{Request Routing}
-    THROTTLE -->|Over limit| REJECT(["429 Too Many Requests"])
-
-    NEXT -->|Authenticated| CONTROLLER[FHIR Controller → 200 Response]
-    NEXT -->|"Unauthenticated (was not blocked by throttle)"| RESP_401(["401 Response + AuditEventType backfilled → Metrics emitted"])
-
-    CONTROLLER --> API_FINALLY_OK["ApiNotification finally: AuditEventType set → Metrics emitted"]
-
-    REJECT --> API_FINALLY_429["ApiNotification finally: AuditEventType is NULL → No metrics emitted"]
-
-    style THROTTLE fill:#ff9,stroke:#333,color:#000
-    style REJECT fill:#69f,stroke:#333,color:#fff
-    style API_FINALLY_429 fill:#69f,stroke:#333,color:#fff
-    style RESP_401 fill:#f66,stroke:#333,color:#fff
-    style API_FINALLY_OK fill:#9f9,stroke:#333,color:#000
-    style CONTROLLER fill:#9f9,stroke:#333,color:#000
-```
-
-#### Key Limitation: Concurrency ≠ Rate for Fast Requests
-
-This option shares the same fundamental caveat as Option 1: the `ThrottlingMiddleware` is a **concurrency limiter**, not a rate limiter.
-
-- 401 responses complete in sub-milliseconds (no DB access, just an auth check)
-- With a concurrency limit of 25, and each 401 taking ~1ms, the theoretical throughput is **~25,000 requests/second** — still enough to flood Geneva
-- At lower concurrency limits (e.g., 3-5 for unauthenticated), throughput drops to ~3,000-5,000/second — this may reduce the blast radius but likely won't eliminate it
-
-However, this provides a **first line of defense** that can be combined with other measures, and the change is low-risk enough to deploy quickly.
-
-#### Design Option 1 — Consequences
-
-##### Beneficial
-- **Smallest possible change**: A single `if` condition removal (or configuration addition) — minimal risk of regressions
-- **No pipeline reordering**: Audit and API metric middleware remain in their current positions — no loss of audit coverage or metric visibility for non-throttled requests
-- **No new components**: No new interfaces, implementations, or background tasks to maintain
-- **Throttled 429s naturally skip metrics**: Because `AuditEventType` is not set for 429 responses, `ApiNotificationMiddleware` and `RequestMetricLoggingMiddleware` already skip metric emission — no additional suppression logic needed
-- **Quick to deploy**: Can be shipped as an emergency mitigation while Option 2 is developed
-- **Preserves correct 401 for most requests**: Under normal load, unauthorized requests still receive 401; only under extreme concurrency do they get 429
-
-##### Adverse
-- **Concurrency limiting may be insufficient**: For sub-millisecond 401 requests, even low concurrency limits allow thousands of requests per second — this reduces but may not eliminate the Geneva flooding problem
-- **Legitimate unauthenticated requests affected**: Metadata/capability statement and SMART discovery endpoints are typically unauthenticated; these would now count toward concurrency limits and could be throttled during high load (mitigable by adding them to `ExcludedEndpoints`)
-- **Shared concurrency pool**: Unless a separate `UnauthenticatedConcurrentRequestLimit` is added, unauthenticated requests consume slots that authenticated requests need
-- **fhir-paas billing metrics still exposed**: `BillingLogMiddlewareBase` still emits for 401 requests that pass under the concurrency limit (partially addressed by the `IsBillableRequest` fix for 401/403)
-- **Does not address Geneva flooding from other status codes**: Only helps with the unauthenticated bypass; does not provide general metric emission protection
-
-##### Neutral
-- **Audit still works for all requests**: Pipeline order unchanged — throttled 429s are still audited
-- **Metrics still emitted for non-throttled 401s**: Unauthorized requests under the concurrency limit still generate metrics — low-volume auth failures remain visible in dashboards
-- **Billing exclusion for 401/403**: Same as other options — this is a correctness fix independent of the throttling approach
-
----
-
-### Design Option 2: Rate Limit Unauthenticated Requests in ThrottlingMiddleware
-
-This option addresses Option 1's key limitation — concurrency ≠ rate for sub-millisecond requests — by adding a true **rate limit** for unauthenticated requests using the framework-provided `System.Threading.RateLimiting.TokenBucketRateLimiter`. The change is contained entirely within the existing `ThrottlingMiddleware` — no new middleware, no cross-repo coordination, no changes to metric emission infrastructure.
-
-The FHIR server targets `net8.0`/`net9.0`, so `System.Threading.RateLimiting` is available as a built-in framework primitive.
-
-#### How It Works
-
-The current unauthenticated bypass in `ThrottlingMiddleware.Invoke()` (lines 159-164):
-
-```csharp
-if (_securityEnabled && !context.User.Identity.IsAuthenticated)
-{
-    // Ignore Unauthenticated users if security is enabled
-    await _next(context);
-    return;
-}
-```
-
-Is replaced with a rate-limit check:
-
-```csharp
-if (_securityEnabled && !context.User.Identity.IsAuthenticated)
-{
-    using var lease = _unauthenticatedRateLimiter.AttemptAcquire();
-    if (!lease.IsAcquired)
-    {
-        await Return429(context);
-        return;
-    }
-
-    await _next(context);
-    return;
-}
-```
-
-The `_unauthenticatedRateLimiter` is a `TokenBucketRateLimiter` initialized in the constructor:
-
-```csharp
-_unauthenticatedRateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-{
-    TokenLimit = configuration.UnauthenticatedBurstLimit,        // default: 20
-    TokensPerPeriod = configuration.UnauthenticatedTokensPerPeriod, // default: 20
-    ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-    QueueLimit = 0,             // no queueing — reject immediately
-    AutoReplenishment = true,   // framework handles the timer
-});
-```
-
-When the rate limit is exceeded, the middleware returns 429. As documented in Option 1, **429 responses naturally skip metric emission** because `AuditEventType` is never set — `ApiNotificationMiddleware`, `RequestMetricLoggingMiddleware`, and `TotalMetricsNotificationHandler` all guard on `AuditEventType != null`. No changes to any metric-emitting middleware are needed.
-
-#### Pipeline — Unchanged
-
-```
-1. UseFhirRequestContext()
-2. UseApiNotifications()                ← still wraps everything
-3. Error handling
-4. UseExceptionNotificationMiddleware()
-5. UseAudit()                           ← still audits all requests
-6. UseFhirRequestContextAuthentication()
-7. UseThrottling()                      ← unauthenticated path now rate-limited
-```
-
-```mermaid
-flowchart TD
-    REQ([Incoming Request]) --> CTX[FhirRequestContext Middleware]
-    CTX --> API_START["ApiNotificationMiddleware (wraps pipeline — unchanged)"]
-    API_START --> ERR[Error Handling Middleware]
-    ERR --> EXC[ExceptionNotification Middleware]
-    EXC --> AUDIT[Audit Middleware]
-    AUDIT --> AUTH{Authentication Middleware}
-
-    AUTH -->|Valid Token| CONC_LIMIT{"ThrottlingMiddleware Concurrency Limit (existing)"}
-    AUTH -->|"Expired/Invalid Token"| RATE_LIMIT{"ThrottlingMiddleware TokenBucketRateLimiter (new)"}
-
-    CONC_LIMIT -->|Under limit| CONTROLLER[FHIR Controller → 200 Response]
-    CONC_LIMIT -->|Over limit| REJECT_CONC(["429 Too Many Requests"])
-
-    RATE_LIMIT -->|"Lease acquired (under rate)"| NEXT_UNAUTH([Continue pipeline → 401 Response + Metrics emitted normally])
-    RATE_LIMIT -->|"Lease denied (over rate)"| REJECT_RATE(["429 Too Many Requests"])
-
-    CONTROLLER --> API_OK["ApiNotification finally: AuditEventType set → Metrics emitted"]
-    REJECT_CONC --> API_429_C["ApiNotification finally: AuditEventType NULL → No metrics"]
-    REJECT_RATE --> API_429_R["ApiNotification finally: AuditEventType NULL → No metrics"]
-
-    style RATE_LIMIT fill:#ff9,stroke:#333,color:#000
-    style REJECT_RATE fill:#69f,stroke:#333,color:#fff
-    style API_429_R fill:#69f,stroke:#333,color:#fff
-    style REJECT_CONC fill:#69f,stroke:#333,color:#fff
-    style API_429_C fill:#69f,stroke:#333,color:#fff
-    style NEXT_UNAUTH fill:#f66,stroke:#333,color:#fff
-    style API_OK fill:#9f9,stroke:#333,color:#000
-    style CONTROLLER fill:#9f9,stroke:#333,color:#000
-```
-
-#### Changes Required
-
-**fhir-server only** (no fhir-paas changes beyond the shared billing fix):
-
-1. **`ThrottlingMiddleware`**: Add a `TokenBucketRateLimiter` field, initialize from configuration, replace the unauthenticated bypass with a rate-limit check as shown above. Dispose the rate limiter in `DisposeAsync()`.
-
-2. **`ThrottlingConfiguration`**: Add two new properties:
-   ```csharp
-   /// <summary>
-   /// Maximum burst of unauthenticated requests allowed before rate limiting kicks in.
-   /// </summary>
-   public int UnauthenticatedBurstLimit { get; set; } = 20;
-
-   /// <summary>
-   /// Number of unauthenticated request tokens replenished per second (sustained rate).
-   /// </summary>
-   public int UnauthenticatedTokensPerPeriod { get; set; } = 20;
-   ```
-
-3. **`ThrottlingMiddlewareTests`**: Add tests for the new rate-limiting behavior with unauthenticated requests.
-
-**fhir-paas:**
-
-4. **`BillingUtilities.IsBillableRequest()`**: Exclude 401 and 403 status codes (same correctness fix as all options).
-
-#### Configuration
-
-The rate limit is configured through the existing `Throttling` configuration section — no new configuration root:
-
-```json
-{
-  "Throttling": {
-    "Enabled": true,
-    "ConcurrentRequestLimit": 25,
-    "UnauthenticatedBurstLimit": 10,
-    "UnauthenticatedTokensPerPeriod": 10,
-    "ExcludedEndpoints": [
-      { "Method": "GET", "Path": "/metadata" },
-      { "Method": "GET", "Path": "/.well-known/smart-configuration" }
-    ]
-  }
-}
-```
-
-**Threshold rationale (per-instance, see [Multi-Instance Considerations](#multi-instance-considerations) below):**
-- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second) across ALL instances and services sharing the account
-- The FHIR service shares this account with the DICOM service, so FHIR should not consume more than ~50% → **~400 events/second** total FHIR budget across all instances
-- `UnauthenticatedTokensPerPeriod: 20` is a **per-instance** limit — with N instances, the worst-case aggregate unauthenticated throughput is `20 × N` requests/second that pass through with metric emission
-- For the original incident scenario (one customer, typically 2-10 instances), this caps auth-failure metric emission at 40-200/second — well within Geneva's capacity
-- For larger deployments, this value should be tuned down proportionally (see table below)
-- `UnauthenticatedBurstLimit: 20` allows a short burst (e.g., at startup or during a brief spike) without immediately triggering rate limiting
-- The `ExcludedEndpoints` configuration already exists and should include `/metadata` and `/.well-known/smart-configuration` since these are legitimately unauthenticated FHIR endpoints
-
-#### Why Not a Custom Metric Emission Rate Limiter?
-
-An earlier design considered building a per-status-code metric emission rate limiter with custom `IMetricEmissionRateLimiter` interface, `IHostedService`-based aggregate reporting, and cross-repo `HttpContext.Items` coordination. That approach was rejected in favor of this simpler design for these reasons:
-
-| Concern | Custom metric rate limiter | Framework rate limiter in ThrottlingMiddleware |
-|---|---|---|
-| New interfaces / implementations | `IMetricEmissionRateLimiter`, `MetricEmissionRateLimiter`, `MetricEmissionAggregateReporter` | None — uses `System.Threading.RateLimiting.TokenBucketRateLimiter` |
-| Background services | `IHostedService` for aggregate reporting with lifecycle management | None — `AutoReplenishment = true` uses the framework's internal timer |
-| Cross-repo coordination | `HttpContext.Items` flag checked in fhir-paas middleware | None — 429s naturally skip metrics via existing `AuditEventType` guard |
-| Changes to metric middleware | `ApiNotificationMiddleware`, `ExceptionNotificationMiddleware`, fhir-paas billing/metric middleware | None |
-| Configuration surface | New `MetricEmissionRateLimiting` section with per-status-code overrides | Two properties added to existing `Throttling` section |
-| Client behavior | No change (still returns 401) | Returns 429 with `Retry-After` header (provides backpressure signal) |
-
-The only capability lost is protection against metric floods from non-auth status codes (e.g., a flood of 500s). However, authenticated requests that produce 500s are naturally rate-limited by the existing concurrency limiter — those requests touch the database and are slow enough that concurrency limiting is effective. The concurrency ≠ rate problem is specific to sub-millisecond unauthenticated responses.
-
-#### Design Option 2 — Consequences
-
-##### Beneficial
-- **Solves the core problem**: True rate limiting (not concurrency limiting) caps unauthenticated request throughput to a configurable sustained rate, preventing Geneva flooding regardless of how fast 401 responses are
-- **Uses framework primitives**: `System.Threading.RateLimiting.TokenBucketRateLimiter` is battle-tested, maintained by the .NET team, and already handles thread safety, token replenishment, and disposal
-- **No new components**: No new middleware, interfaces, `IHostedService`, or background tasks — the change is contained within the existing `ThrottlingMiddleware`
-- **No cross-repo coordination**: 429 responses naturally skip metric emission via the existing `AuditEventType` guard — no changes needed in `ApiNotificationMiddleware`, `ExceptionNotificationMiddleware`, or any fhir-paas metric middleware
-- **Provides backpressure**: Returning 429 with `Retry-After` tells misbehaving clients to back off — the previous design silently suppressed metrics while still responding 401, potentially encouraging the flood to continue
-- **Preserves 401 metrics under normal load**: Requests under the rate limit still produce 401 with full metric emission — low-volume auth failures remain visible in dashboards
-- **Configurable via existing section**: No new configuration root — two properties added to the existing `Throttling` section that operators already understand
-- **Geneva-aligned defaults**: Rate set to consume ~2.4% of FHIR's Geneva budget, making it mathematically impossible for auth failures to flood the metric pipeline
-
-##### Adverse
-- **Client-visible behavior change during floods**: Clients receive 429 instead of 401 when the unauthenticated rate limit is exceeded. This is a semantic change — 429 means "too many requests" rather than "unauthorized". Well-behaved clients should honor `Retry-After`, but some may not expect 429 for an auth problem
-- **Does not protect against non-auth metric floods**: Only rate-limits unauthenticated requests. A theoretical flood of authenticated requests producing 500s would not be caught by this rate limiter (though the existing concurrency limiter handles this case adequately since those requests are slow)
-- **Legitimate unauthenticated endpoints affected**: Endpoints like `/metadata` and `/.well-known/smart-configuration` are legitimately unauthenticated — they must be added to `ExcludedEndpoints` or they will count against the rate limit
-- **Shared rate limiter across all unauthenticated traffic**: Unlike a per-status-code approach, all unauthenticated requests share one token bucket. A flood of one type of unauthenticated request could starve others (mitigated by the `ExcludedEndpoints` configuration for known legitimate endpoints)
-- **No per-status-code granularity**: This approach treats all unauthenticated requests as a single class. A per-status-code metric emission rate limiter (the rejected alternative) would have allowed independent thresholds for each status code — e.g., allowing more 401 metrics than 403 metrics, or rate-limiting a sudden spike of 400s independently from 401s. With this design, we cannot distinguish *why* unauthenticated requests are being rate-limited or tune thresholds per failure mode. If the team later discovers that different unauthenticated failure modes need different visibility levels in metrics, this approach would need to be extended or replaced.
-- **No aggregate "suppressed metric" signal**: The rejected alternative included a dedicated `SuppressedMetricEmissions` metric that would fire periodically during flood conditions, giving operators an explicit signal that metric emission was being rate-limited. With this approach, the signal is indirect — operators must infer suppression from an elevated 429 rate in `ThrottlingMiddleware` logs. This is arguably sufficient (429 counts are already logged with `LogWarning`), but it is a less explicit signal than a purpose-built metric. If the team wants a first-class "we are suppressing metrics right now" dashboard indicator, this approach does not provide it out of the box.
-
-##### Neutral
-- **Audit still works for all requests**: Pipeline order unchanged — rate-limited 429s are still audited
-- **Metrics still emitted for non-throttled 401s**: Unauthorized requests under the rate limit still generate metrics — auth failure trends remain visible
-- **Billing exclusion for 401/403**: Same correctness fix as all options — unauthorized requests should not be billed since no work was performed
-- **Existing concurrency limiter unchanged**: Authenticated requests continue to use the existing concurrency-based throttling, which works well for requests that involve database access
-
----
-
-### Design Option 3: Option 2 + Global Metric Emission Rate Limiter in ApiNotificationMiddleware
-
-This option extends Option 2 (unauthenticated request rate limiting in `ThrottlingMiddleware`) with a **global metric emission rate limiter** in `ApiNotificationMiddleware` to protect against floods from *any* status code — including authenticated requests that fail fast (e.g., 400 validation errors, 403 authorization failures, 500 early failures).
-
-The key observation: `ApiNotificationMiddleware.PublishNotificationAsync()` (line 82) is the **single chokepoint** through which all fhir-server metric emissions flow via `_mediator.Publish(apiNotification)`. A rate limiter here protects Geneva regardless of what upstream middleware produced the response.
-
-#### Layered Defense
-
-| Layer | What it does | What it catches |
-|---|---|---|
-| **ThrottlingMiddleware** (from Option 2) | Rate-limits unauthenticated *requests* via `TokenBucketRateLimiter` → returns 429 | Unauthenticated floods (the original incident). 429s naturally skip metric emission. |
-| **ApiNotificationMiddleware** (this option) | Rate-limits *metric emission* via a second `TokenBucketRateLimiter` → silently skips MediatR publish | Any remaining flood that produces metrics — authenticated 400s, 403s, 500s, or unauthenticated requests that passed under the rate limit |
-
-The two rate limiters serve different purposes and operate at different layers:
-- Layer 1 (ThrottlingMiddleware): Protects the *service* from processing flood traffic — returns 429 to clients, provides backpressure
-- Layer 2 (ApiNotificationMiddleware): Protects *Geneva* from metric emission floods — does not affect request handling, only metric visibility
-
-#### Implementation
-
-**`ApiNotificationMiddleware` change** — add a `TokenBucketRateLimiter` and gate the MediatR publish:
-
-```csharp
-public class ApiNotificationMiddleware : IMiddleware
-{
-    private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-    private readonly IMediator _mediator;
-    private readonly ILogger<ApiNotificationMiddleware> _logger;
-    private readonly TokenBucketRateLimiter _metricEmissionRateLimiter;
-
-    public ApiNotificationMiddleware(
-        RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-        IMediator mediator,
-        IOptions<MetricEmissionConfiguration> metricEmissionConfig,
-        ILogger<ApiNotificationMiddleware> logger)
-    {
-        // ... existing constructor code ...
-
-        var config = metricEmissionConfig.Value;
-        _metricEmissionRateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-        {
-            TokenLimit = config.BurstLimit,             // default: 20
-            TokensPerPeriod = config.TokensPerPeriod,   // default: 20
-            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-            QueueLimit = 0,
-            AutoReplenishment = true,
-        });
-    }
-
-    protected virtual async Task PublishNotificationAsync(HttpContext context, RequestDelegate next)
-    {
-        // ... existing try/await next(context) ...
-        finally
-        {
-            // ... existing AuditEventType check ...
-            if (fhirRequestContext?.AuditEventType != null)
-            {
-                using var lease = _metricEmissionRateLimiter.AttemptAcquire();
-                if (lease.IsAcquired)
-                {
-                    // Normal path — emit metrics
-                    await _mediator.Publish(apiNotification, CancellationToken.None);
-                }
-                else
-                {
-                    // Over rate — suppress metrics, set flag for fhir-paas middleware
-                    context.SuppressMetricEmission();
-                    _logger.LogWarning(
-                        "Metric emission rate limit exceeded. Suppressing metrics for {StatusCode} {Operation}.",
-                        context.Response.StatusCode,
-                        fhirRequestContext.AuditEventType);
-                }
-            }
-        }
-    }
-}
-```
-
-**`HttpContextMetricEmissionExtensions`** — strongly-typed shared extension methods (eliminates magic string coupling with fhir-paas):
-
-```csharp
-public static class HttpContextMetricEmissionExtensions
-{
-    private static readonly object Key = new object();
-
-    public static void SuppressMetricEmission(this HttpContext context)
-        => context.Items[Key] = true;
-
-    public static bool IsMetricEmissionSuppressed(this HttpContext context)
-        => context.Items.TryGetValue(Key, out var value) && value is true;
-}
-```
-
-**`MetricEmissionConfiguration`** — small config class:
-
-```csharp
-public class MetricEmissionConfiguration
-{
-    /// <summary>
-    /// Maximum burst of metric emissions allowed before rate limiting kicks in.
-    /// </summary>
-    public int BurstLimit { get; set; } = 20;
-
-    /// <summary>
-    /// Number of metric emission tokens replenished per second (sustained rate).
-    /// Per-instance limit — tune down for deployments with many instances.
-    /// </summary>
-    public int TokensPerPeriod { get; set; } = 20;
-}
-```
-
-#### fhir-paas Changes
-
-Because the MediatR publish is skipped when the rate limiter denies, `TotalMetricsNotificationHandler` is automatically protected — it simply won't fire. The fhir-paas per-request middleware needs a one-line check:
-
-1. **`RequestMetricLoggingMiddleware`**: Add `if (context.IsMetricEmissionSuppressed()) return;`
-2. **`BillingLogMiddlewareBase`**: Add same check. Additionally, update `BillingUtilities.IsBillableRequest()` to exclude 401/403 (shared correctness fix).
-
-Both reference `HttpContextMetricEmissionExtensions` from a shared package — compile-time safe, no magic strings.
-
-#### Pipeline Flow
-
-```mermaid
-flowchart TD
-    REQ([Incoming Request]) --> CTX[FhirRequestContext Middleware]
-    CTX --> API_START["ApiNotificationMiddleware (start)"]
-    API_START --> PIPELINE["Error Handling → Exception → Audit → Auth → Throttling → Controller"]
-
-    PIPELINE --> API_FINALLY["ApiNotificationMiddleware (finally block)"]
-
-    API_FINALLY --> AUDIT_CHECK{AuditEventType set?}
-    AUDIT_CHECK -->|No| SKIP_ALL[No metrics emitted]
-    AUDIT_CHECK -->|Yes| RATE_CHECK{"TokenBucketRateLimiter AttemptAcquire()"}
-
-    RATE_CHECK -->|Lease acquired| EMIT["_mediator.Publish(apiNotification) → TotalMetricsNotificationHandler → Geneva"]
-    RATE_CHECK -->|Lease denied| SUPPRESS["context.SuppressMetricEmission() + LogWarning"]
-
-    EMIT --> PAAS_OK["fhir-paas middleware: IsMetricEmissionSuppressed() = false → Billing + RequestMetric emitted"]
-    SUPPRESS --> PAAS_SKIP["fhir-paas middleware: IsMetricEmissionSuppressed() = true → Skip billing + request metrics"]
-
-    style RATE_CHECK fill:#ff9,stroke:#333,color:#000
+    AUTH -->|Valid Token| THROTTLE[Throttling Middleware]
+    THROTTLE --> CONTROLLER[FHIR Controller]
+    CONTROLLER --> RESP_OK([200/4xx/5xx Response])
+
+    AUTH -->|Expired/Invalid Token| RESP_401([401 Response])
+    CONTROLLER -->|Authorization fails| RESP_403([403 Response])
+
+    RESP_OK --> API_FINALLY[ApiNotification finally block]
+    RESP_401 --> API_FINALLY
+    RESP_403 --> API_FINALLY
+
+    API_FINALLY --> GUARD{AuditEventType set AND status code != 401/403?}
+    GUARD -->|Yes| EMIT[Publish ApiResponseNotification → Geneva]
+    GUARD -->|No - auth failure or unaudited| SKIP[No metric emitted]
+
+    style RESP_401 fill:#69f,stroke:#333,color:#fff
+    style RESP_403 fill:#69f,stroke:#333,color:#fff
+    style GUARD fill:#ff9,stroke:#333,color:#000
     style EMIT fill:#9f9,stroke:#333,color:#000
-    style PAAS_OK fill:#9f9,stroke:#333,color:#000
-    style SUPPRESS fill:#69f,stroke:#333,color:#fff
-    style PAAS_SKIP fill:#69f,stroke:#333,color:#fff
-    style SKIP_ALL fill:#eee,stroke:#999,color:#666
+    style SKIP fill:#9f9,stroke:#333,color:#000
 ```
 
-#### Combined with Option 2 — Full Picture
+### Scope of Changes
 
-```mermaid
-flowchart TD
-    REQ([Incoming Request]) --> AUTH{Authentication}
+- **`ApiNotificationMiddleware`** (`src/Microsoft.Health.Fhir.Api/Features/ApiNotifications/ApiNotificationMiddleware.cs`): Add the `IsAuthFailure(statusCode)` guard around the MediatR publish.
+- **`ApiNotificationMiddlewareTests`** (`src/Microsoft.Health.Fhir.Shared.Api.UnitTests/Features/ApiNotifications/ApiNotificationMiddlewareTests.cs`): Add tests that confirm 401 and 403 responses do not produce a publish, and that other status codes (200, 400, 404, 429, 500) still do.
 
-    AUTH -->|Authenticated| CONC["ThrottlingMiddleware: Concurrency Limit (existing)"]
-    AUTH -->|Unauthenticated| RATE["ThrottlingMiddleware: TokenBucketRateLimiter (Option 2)"]
+`ExceptionNotificationMiddleware` is not changed. It only fires on uncaught exceptions; authentication and authorization failures complete normally by setting a status code and do not propagate exceptions through that middleware, so no 401/403 flood reaches it.
 
-    CONC -->|Under limit| CONTROLLER["Controller → 200/400/500"]
-    CONC -->|Over limit| REJECT_429(["429 → No metrics (AuditEventType null)"])
+The `ThrottlingMiddleware`'s existing unauthenticated bypass is left as-is. With auth-failure metrics suppressed at the emission point, an unauthenticated request flood no longer produces Geneva pressure regardless of how many requests get through the bypass, so a separate rate limit for unauthenticated requests is no longer needed to solve this incident.
 
-    RATE -->|Lease acquired| PASS_UNAUTH["Continue → 401 Response"]
-    RATE -->|Lease denied| REJECT_429
+### Considered Alternatives
 
-    CONTROLLER --> METRIC_GATE{"ApiNotificationMiddleware: Metric Emission RateLimiter (Option 3)"}
-    PASS_UNAUTH --> METRIC_GATE
+The following approaches were considered and rejected in favor of the chosen design:
 
-    METRIC_GATE -->|Lease acquired| EMIT["Metrics emitted to Geneva"]
-    METRIC_GATE -->|Lease denied| SUPPRESS["Metrics suppressed + flag set"]
+1. **Filter inbound at Geneva.** Not supported by the metric account configuration (see Context). This is what motivated the move to emission-point filtering.
+2. **Rate-limit unauthenticated requests in `ThrottlingMiddleware` using `System.Threading.RateLimiting.TokenBucketRateLimiter`.** Adds new configuration surface, changes client-visible behavior (401 → 429), and only addresses the unauthenticated subset — it leaves authenticated 403s producing metrics. The simple emission-point suppression covers both 401 and 403 with no client-visible change and no new configuration.
+3. **Global metric-emission rate limiter in `ApiNotificationMiddleware` (token bucket gating every publish).** Heavier infrastructure (rate limiter lifecycle, configuration, multi-instance tuning guidance, optional cross-repo `HttpContext.Items` flag for downstream middleware) for a problem that is solved by skipping a single well-defined class of low-value metrics. Can be revisited as a follow-up if a future flood comes from a different status-code class.
 
-    style RATE fill:#ff9,stroke:#333,color:#000
-    style METRIC_GATE fill:#f9f,stroke:#333,color:#000
-    style REJECT_429 fill:#69f,stroke:#333,color:#fff
-    style EMIT fill:#9f9,stroke:#333,color:#000
-    style SUPPRESS fill:#69f,stroke:#333,color:#fff
-```
+### Consequences
 
-#### Changes Required — Summary
+#### Beneficial
+- **Eliminates the root cause of the incident.** No matter how many 401/403 responses a client generates, the FHIR error metric pipeline emits zero events for them.
+- **Surgical change.** One guard, one middleware, one set of unit tests. No new components, configuration, dependencies, background services, or cross-repo coordination.
+- **No client-visible behavior change.** Clients still receive 401/403 with the same status codes, headers, and latency as today. No 429 substitution, no `Retry-After` semantics to negotiate.
+- **No tuning required per deployment.** Unlike a per-instance rate limit, the suppression is deterministic and identical across all deployment sizes — there is nothing to recalibrate as instance counts scale.
+- **Aligns with billing exclusions.** 401/403 responses already perform no FHIR work; not counting them in per-request metrics is consistent with how they are (or should be) treated for billing.
 
-| Component | Change | Complexity |
-|---|---|---|
-| `ThrottlingMiddleware` | Add `TokenBucketRateLimiter` for unauthenticated path (from Option 2) | Low — replace 3-line bypass |
-| `ThrottlingConfiguration` | Add `UnauthenticatedBurstLimit`, `UnauthenticatedTokensPerPeriod` (from Option 2) | Low — 2 properties |
-| `ApiNotificationMiddleware` | Add `TokenBucketRateLimiter`, gate MediatR publish | Low — ~10 lines in `finally` block |
-| `MetricEmissionConfiguration` | New config class with 2 properties | Low — small POCO |
-| `HttpContextMetricEmissionExtensions` | Shared extension methods for suppression flag | Low — 2 methods |
-| fhir-paas `RequestMetricLoggingMiddleware` | Add `IsMetricEmissionSuppressed()` check | Trivial — 1 line |
-| fhir-paas `BillingLogMiddlewareBase` | Add `IsMetricEmissionSuppressed()` check + 401/403 billing exclusion | Low |
+#### Adverse
+- **Loss of per-request 401/403 visibility in FHIR metrics.** Dashboards and alerts driven off the FHIR `ApiResponseNotification` pipeline will no longer see auth failures. Operators who need this signal must rely on:
+  - Audit logs (still emitted for 401/403; pipeline order is unchanged)
+  - Gateway / front-door / WAF counters for auth failures
+  - Application logs (auth middleware still logs failures)
+- **No granularity per failure mode.** This is a blanket suppression of 401 and 403. If, in the future, we want to distinguish "expired token" from "missing scope" in metrics, we will need a different mechanism (e.g., a low-cardinality, low-volume counter that is not per-request).
+- **Does not protect against floods of other status codes.** A hypothetical flood of, e.g., 400 validation failures, would still produce metrics. This is acceptable today because (a) such floods have not been observed, and (b) authenticated request floods are naturally bounded by the existing concurrency limiter and downstream work cost. A broader emission-side rate limiter can be added later if a new failure mode emerges.
 
-**What we avoided vs. the old complex Option 2:**
-- ❌ No `IMetricEmissionRateLimiter` interface
-- ❌ No custom token bucket implementation (uses framework's `TokenBucketRateLimiter` in both layers)
-- ❌ No `IHostedService` for aggregate reporting
-- ❌ No per-status-code `ConcurrentDictionary` of rate limiters
-- ❌ No `StatusCodeOverrides` configuration
-- ❌ No `GetAndResetStats()` / aggregate flush lifecycle
-
-#### Configuration
-
-```json
-{
-  "Throttling": {
-    "Enabled": true,
-    "ConcurrentRequestLimit": 25,
-    "UnauthenticatedBurstLimit": 10,
-    "UnauthenticatedTokensPerPeriod": 10,
-    "ExcludedEndpoints": [
-      { "Method": "GET", "Path": "/metadata" },
-      { "Method": "GET", "Path": "/.well-known/smart-configuration" }
-    ]
-  },
-  "MetricEmission": {
-    "BurstLimit": 20,
-    "TokensPerPeriod": 20
-  }
-}
-```
-
-**Threshold rationale (per-instance, see [Multi-Instance Considerations](#multi-instance-considerations) below):**
-- Geneva's per-metric-account ingest limit is approximately **50,000 events/minute** (~833 events/second) across ALL instances and services sharing the account
-- FHIR shares the account with DICOM → ~400 events/second total FHIR budget across all instances
-- `TokensPerPeriod: 200` is a **per-instance** limit — with N instances, worst-case aggregate metric emission is `200 × N` per second
-- This default is appropriate for small deployments (2-5 instances) where `200 × 5 = 1,000/sec` is over budget but unlikely to be sustained at max rate across all instances simultaneously under normal traffic
-- **For larger deployments this MUST be tuned down** — see the multi-instance guidance table below
-- `BurstLimit: 200` allows a 1-second burst at startup or during traffic spikes
-- The unauthenticated rate limiter (`UnauthenticatedTokensPerPeriod: 20`) is the first line of defense for the most common flood scenario; the metric emission rate limiter is the safety net for everything else
-
-#### Multi-Instance Considerations
-
-> **Critical**: Both rate limiters (`TokenBucketRateLimiter` in `ThrottlingMiddleware` and in `ApiNotificationMiddleware`) are **in-process, per-instance**. There is no cross-instance coordination. Geneva's ingest limit applies to the **aggregate** of all instances across all FHIR accounts sharing the metric account. The per-instance defaults must be set with the deployment's instance count in mind.
-
-**The fundamental tension**: A default that is safe for 100 instances (~4/sec per instance) would unnecessarily suppress metrics for 2-instance deployments under normal load. A default that fully utilizes Geneva's budget for 2 instances (200/sec) would overwhelm Geneva at 100 instances if all instances flooded simultaneously.
-
-**Recommended approach**: Set conservative defaults and document that operators should tune based on their deployment size. The rate limiters should only activate during abnormal traffic — not during normal operations.
-
-**Per-instance limit guidance (metric emission rate limiter — Option 3):**
-
-| Instance count | Recommended `TokensPerPeriod` | Aggregate worst-case | % of Geneva budget | Notes |
-|---|---|---|---|---|
-| 2-5 | 50 | 100-250/sec | 12-30% | Safe — room for DICOM + normal FHIR |
-| 5-20 | 20 | 100-400/sec | 12-48% | Moderate — approaches budget at high end |
-| 20-50 | 10 | 200-500/sec | 24-60% | Conservative — limit should rarely activate under normal load |
-| 50-100 | 5 | 250-500/sec | 30-60% | Aggressive — but normal per-instance emission rate is typically 1-3/sec, so this only fires during floods |
-
-**Key insight**: Under normal operations, a single FHIR instance emits far fewer metrics/second than any of these limits. The rate limiter is a **circuit breaker for abnormal conditions**, not a throttle on normal traffic. Even a limit of 5/sec per instance is generous for normal request patterns — it only activates when something has gone wrong (flood, retry storm, misconfigured client).
-
-**Per-instance limit guidance (unauthenticated rate limiter — Option 2):**
-
-| Instance count | Recommended `UnauthenticatedTokensPerPeriod` | Aggregate 401 metric emission | Notes |
-|---|---|---|---|
-| 2-5 | 20 | 40-100/sec | Safe — default is appropriate |
-| 5-20 | 10 | 50-200/sec | Moderate |
-| 20-100 | 5 | 100-500/sec | Conservative — 5 unauthenticated req/sec per instance is still generous for legitimate traffic |
-
-**Why not make this dynamic?**
-
-An instance could theoretically discover its sibling count (e.g., via service discovery or a shared configuration) and auto-compute its per-instance budget. However:
-- This adds infrastructure dependency and complexity
-- Instance counts change during scale events — the rate limiter would need to react dynamically
-- The rate limiter is a safety net, not a precision tool — conservative static defaults with per-deployment tuning is simpler and sufficient
-- If the team later wants dynamic coordination, it can be added as an enhancement without changing the core design
-
-**Recommended defaults (revised for multi-instance safety):**
-
-```json
-{
-  "Throttling": {
-    "Enabled": true,
-    "ConcurrentRequestLimit": 25,
-    "UnauthenticatedBurstLimit": 10,
-    "UnauthenticatedTokensPerPeriod": 10
-  },
-  "MetricEmission": {
-    "BurstLimit": 20,
-    "TokensPerPeriod": 20
-  }
-}
-```
-
-These defaults are safe for deployments up to ~20 instances. Under normal traffic (1-3 metrics/sec per instance), the rate limiters will never activate. Under flood conditions, per-instance emission is capped at 20 metrics/sec — even with 20 instances flooding simultaneously, the aggregate is 400/sec (~48% of Geneva budget).
-
-Deployments with more than 20 instances should tune these values down proportionally. This should be documented in operational runbooks alongside the existing `ConcurrentRequestLimit` tuning guidance.
-
-#### Design Option 3 — Consequences
-
-##### Beneficial
-- **Protects against ANY metric flood**: Unlike Option 2 which only covers unauthenticated requests, the metric emission rate limiter in `ApiNotificationMiddleware` caps total metric output regardless of status code, authentication state, or failure mode
-- **Two-layer defense**: Unauthenticated floods are caught at the request level (429 + backpressure); all other floods are caught at the metric emission level — defense in depth with each layer serving a distinct purpose
-- **Still uses framework primitives**: Both rate limiters are `System.Threading.RateLimiting.TokenBucketRateLimiter` — no custom algorithm code
-- **No `IHostedService` or background tasks**: Both rate limiters use `AutoReplenishment = true` (framework-managed timer). The `LogWarning` on suppression provides operator visibility without a dedicated aggregate reporting service
-- **Strongly-typed cross-repo coordination**: `HttpContextMetricEmissionExtensions` with a private `object` key — compile-time safe, no magic strings
-- **Preserves full metrics under normal load**: Under normal traffic a single instance emits ~1-3 metrics/second — well below the per-instance limit of 20/second. Rate limiting only activates under genuine flood conditions
-- **Geneva-aligned defaults**: Per-instance defaults of 20/second are safe for deployments up to ~20 instances; larger deployments tune proportionally
-
-##### Adverse
-- **Cross-repo coordination required**: Unlike Option 2 (fhir-server only), this option requires fhir-paas changes to check `IsMetricEmissionSuppressed()` in billing and request metric middleware. However, the change is minimal (one-line check per middleware) and the shared extension method makes it compile-time safe.
-- **Client-visible behavior change for unauthenticated floods**: Same as Option 2 — unauthenticated requests over the rate limit receive 429 instead of 401
-- **Silent metric suppression for authenticated floods**: When the global metric rate limiter activates for authenticated requests, the client still receives their normal response (200/400/500) but metrics are silently dropped. There is no `Retry-After` or other client-facing signal — the only indicator is the `LogWarning` in server logs.
-- **No per-status-code granularity in the global limiter**: The metric emission rate limiter is a single bucket across all status codes. A flood of 500 metrics could consume the budget and suppress 200 metrics in the same window. For most scenarios this is acceptable (floods are transient), but if the team needs independent budgets per status code class, this would need to be extended.
-- **No aggregate "suppressed metric" signal as a metric**: Suppression is logged via `LogWarning` but not emitted as a dedicated Geneva metric. Operators must monitor logs or set up log-based alerts. If the team wants a first-class metric, a lightweight `IHostedService` could be added later as an enhancement without changing the core design.
-- **Legitimate unauthenticated endpoints affected**: Same as Option 2 — `/metadata` and SMART discovery must be in `ExcludedEndpoints`
-- **Per-instance rate limiters with no cross-instance coordination**: Both rate limiters are in-process singletons with no awareness of sibling instances. Geneva's ingest limit applies to the aggregate of all instances, so the per-instance defaults must be tuned for the deployment's instance count. The defaults (20/sec) are safe for up to ~20 instances; larger deployments must tune down. See [Multi-Instance Considerations](#multi-instance-considerations) for guidance.
-
-##### Neutral
-- **Audit unaffected**: Audit middleware runs before and independently of the metric emission gate — all requests are still audited
-- **Billing exclusion for 401/403**: Same correctness fix across all options
-- **Existing concurrency limiter unchanged**: Authenticated request throughput is still governed by the concurrency limiter, which works well for database-bound requests
+#### Neutral
+- **Audit is unaffected.** `UseAudit()` runs independently of the metric publication path; 401/403 audit records continue to be written.
+- **Exception-path metrics are unaffected.** `ExceptionNotificationMiddleware` only fires for thrown exceptions and is not part of the normal 401/403 flow.
+- **Pipeline order is unchanged.** No middleware is added, removed, or reordered.
 
 ## Status
 
-Proposed
+Accepted

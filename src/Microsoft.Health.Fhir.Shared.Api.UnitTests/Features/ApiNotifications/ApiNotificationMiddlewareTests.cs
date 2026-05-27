@@ -63,6 +63,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
+        [Theory]
+        [InlineData(401)]
+        [InlineData(403)]
+        public async Task GivenAuthFailureStatusCode_WhenInvoked_DoesNotEmitMediatREvents(int statusCode)
+        {
+            _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.AuditEventType = "read";
+
+            RequestDelegate next = httpContext =>
+            {
+                httpContext.Response.StatusCode = statusCode;
+                return Task.CompletedTask;
+            };
+
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, next);
+
+            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(200)]
+        [InlineData(400)]
+        [InlineData(404)]
+        [InlineData(429)]
+        [InlineData(500)]
+        public async Task GivenNonAuthFailureStatusCode_WhenInvoked_EmitsMediatREvents(int statusCode)
+        {
+            _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.AuditEventType = "read";
+
+            RequestDelegate next = httpContext =>
+            {
+                httpContext.Response.StatusCode = statusCode;
+                return Task.CompletedTask;
+            };
+
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, next);
+
+            await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+        }
+
         [Fact]
         public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMediatREvents()
         {
