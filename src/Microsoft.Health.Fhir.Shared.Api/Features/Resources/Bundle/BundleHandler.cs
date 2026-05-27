@@ -111,9 +111,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Total number of resolved references in the bundle.
         private int _totalResolvedReferences = 0;
 
-        // Flag to indicate if the transaction failed due to a client error (HTTP4xx, other than HTTP408).
-        private bool _transactionFailedDueClientError = false;
-
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>

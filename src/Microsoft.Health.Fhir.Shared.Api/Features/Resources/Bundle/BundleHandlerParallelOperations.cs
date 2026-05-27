@@ -78,17 +78,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
-            BundleExecutionContext bundleExecutionContext = new BundleExecutionContext(
-                _bundleConfiguration,
-                _bundleType.Value,
-                _requestCount);
-
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
                 RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
                 FhirJsonParser fhirJsonParser = _fhirJsonParser;
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
+
+                BundleExecutionContext bundleExecutionContext = new BundleExecutionContext(
+                    _bundleConfiguration,
+                    _bundleType.Value,
+                    _requestCount);
 
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -167,6 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
                 }
 
+                Task allProcessedRequests = Task.WhenAll(requestsPerResource);
                 try
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
-                    await Task.WhenAll(requestsPerResource);
+                   await allProcessedRequests;
                 }
                 catch (AggregateException age)
                 {
@@ -543,7 +544,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             public void SetTransactionFailedByClientError()
             {
-                _transactionFailedByClientCancellation = true;
+                _transactionFailedByClientError = true;
             }
         }
     }

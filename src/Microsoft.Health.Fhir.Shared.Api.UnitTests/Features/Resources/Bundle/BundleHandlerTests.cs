@@ -770,6 +770,103 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
         }
 
+        [Theory]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        public async Task GivenATransaction_WithMultipleEntriesAndOneFailsWithClientError_ReturnClientErrorNotTimeout(BundleProcessingLogic bundleProcessingLogic)
+        {
+            _bundleConfiguration.TransactionDefaultProcessingLogic = bundleProcessingLogic;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            // When a transaction bundle has multiple entries processed in parallel, and one entry
+            // fails with a client error (400), the transaction should return that client error
+            // instead of 408 (Request Timeout) from entries cancelled as a side effect.
+            int callCount = 0;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Patient",
+                        },
+                        Resource = new Patient(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Patient",
+                        },
+                        Resource = new Patient(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Patient",
+                        },
+                        Resource = new Patient(),
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    int currentCall = Interlocked.Increment(ref callCount);
+                    if (currentCall == 1)
+                    {
+                        // First entry: handler returns 400 BadRequest with OperationOutcome.
+                        var routeContext = callInfo.Arg<RouteContext>();
+                        routeContext.Handler = async context =>
+                        {
+                            context.Response.StatusCode = (int)System.Net.HttpStatusCode.BadRequest;
+                            var outcome = new OperationOutcome
+                            {
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.Invalid,
+                                        Diagnostics = "Validation failed",
+                                    },
+                                },
+                            };
+                            var serializer = new FhirJsonSerializer();
+                            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(serializer.SerializeToString(outcome));
+                            await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
+                        };
+                    }
+
+                    // Second entry: no handler set, simulating a route that was not resolved.
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+
+            // The client error (400) should take priority over 408 from cancelled entries.
+            Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.BadRequest);
+            Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
+        }
+
         [Fact]
         public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
