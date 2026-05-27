@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
 
-    public class SmartSearchTests : IClassFixture<SmartSearchTests.SmartSearchSharedFixture>, IAsyncLifetime
+    public class SmartSearchTests : IClassFixture<SmartSearchTests.SmartSearchSharedFixture>
     {
         private readonly SmartSearchSharedFixture _smartFixture;
         private FhirStorageTestsFixture _fixture;
@@ -60,10 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         public SmartSearchTests(SmartSearchSharedFixture smartFixture)
         {
             _smartFixture = smartFixture;
-        }
 
-        public Task InitializeAsync()
-        {
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
             {
@@ -71,13 +68,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
                 _searchService = _fixture.SearchService.CreateMockScope();
             }
-
-            return Task.CompletedTask;
-        }
-
-        public Task DisposeAsync()
-        {
-            return Task.CompletedTask;
         }
 
         [SkippableFact]
@@ -1040,11 +1030,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Observation);
         }
 
-        private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
-        {
-            return await _smartFixture.UpsertResource(resource, httpMethod);
-        }
-
         private static string CreateSmartV2TestResourceId(string scenario)
         {
             return $"smart-v2-{scenario}-{Guid.NewGuid():N}";
@@ -1118,7 +1103,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("TestCreate").AndFamily("SmartV2") },
             };
 
-            var result = await UpsertResource(newPatient);
+            var result = await _smartFixture.UpsertResource(newPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1179,7 +1164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Update, "patient");
             var patientId = CreateSmartV2TestResourceId("update");
 
-            await UpsertResource(new Patient
+            await _smartFixture.UpsertResource(new Patient
             {
                 Id = patientId,
                 Name = new List<HumanName> { new HumanName().WithGiven("InitialName").AndFamily("SmartV2") },
@@ -1196,7 +1181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("UpdatedName").AndFamily("Updated") },
             };
 
-            var result = await UpsertResource(updatedPatient);
+            var result = await _smartFixture.UpsertResource(updatedPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1231,7 +1216,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchCreate").AndFamily("SmartV2") },
             };
 
-            var createResult = await UpsertResource(newPatient);
+            var createResult = await _smartFixture.UpsertResource(newPatient);
             Assert.NotNull(createResult);
         }
 
@@ -1247,7 +1232,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Update, "patient");
             var patientId = CreateSmartV2TestResourceId("search-update");
 
-            await UpsertResource(new Patient
+            await _smartFixture.UpsertResource(new Patient
             {
                 Id = patientId,
                 Name = new List<HumanName> { new HumanName().WithGiven("InitialSearchUpdate").AndFamily("SmartV2") },
@@ -1270,7 +1255,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchUpdate").AndFamily("SmartV2") },
             };
 
-            var updateResult = await UpsertResource(updatedPatient);
+            var updateResult = await _smartFixture.UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal(patientId, updateResult.Wrapper.ResourceId);
         }
