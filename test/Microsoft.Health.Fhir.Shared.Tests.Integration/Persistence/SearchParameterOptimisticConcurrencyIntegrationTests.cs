@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
@@ -160,10 +161,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     await _fixture.SearchParameterStatusDataStore.UpsertStatuses([staleUpdate], CancellationToken.None);
                 }
-                catch (SqlException ex)
+                catch (BadRequestException ex)
                 {
-                    var expected = $"Optimistic concurrency conflict detected : expected last updated = {createdStatus.LastUpdated.ToString("yyyy-MM-ddTHH:mm:ss.fff")}";
-                    Assert.True(ex.Message.StartsWith(expected), $"expected={expected}, actual={ex.Message}");
+                    Assert.True(ex.Message.StartsWith(Core.Resources.SearchParameterConcurrencyConflict), $"expected={Core.Resources.SearchParameterConcurrencyConflict}, actual={ex.Message}");
                 }
             }
             finally
