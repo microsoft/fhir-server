@@ -9,7 +9,7 @@ parameters:
   type: string
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+  default: 'Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
 - name: runShardedIntegrationTests
   type: boolean
   default: false

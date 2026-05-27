@@ -307,6 +307,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
+        [Trait(Traits.Category, Categories.ImportLongRunning)]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             // To minimize number of size dependent retries last batch should have max size - 1000.
