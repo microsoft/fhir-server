@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// Determines whether a bundle has been cancelled by the client.
         /// If the cancellation is requested and the elapsed time is less than the max bundle execution time, it is assumed that the client cancelled the request.
         /// </summary>
-        public static bool IsBundleCancelledByClient(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
+        public static bool HasCancellationHappenedBeforeMaxExecutionTime(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
 

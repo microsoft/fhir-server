@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         {
             // A client error is defined as a 4xx status code.
             // It can be caused by a malformed request, invalid data, precondition failures, etc.
-            return ResponseStatusCode >= HttpStatusCode.BadRequest && ResponseStatusCode < HttpStatusCode.InternalServerError;
+            return ResponseStatusCode >= HttpStatusCode.BadRequest && ResponseStatusCode < HttpStatusCode.InternalServerError && ResponseStatusCode != HttpStatusCode.RequestTimeout;
         }
     }
 }

@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             const int timeWhenCustomerCancelledTheOperation = 4;
             const int maxTransactionExecutionTimeInSeconds = 5;
 
-            var result = BundleHandlerRuntime.IsBundleCancelledByClient(
+            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(timeWhenCustomerCancelledTheOperation),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
                 new CancellationToken(canceled: true));
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(true, 5, 5)]
         public void IsTransactionCancelledByClient_WhenFalse(bool isCancelled, int transactionElapsedTime, int maxTransactionExecutionTime)
         {
-            var result = BundleHandlerRuntime.IsBundleCancelledByClient(
+            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(transactionElapsedTime),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTime },
                 new CancellationToken(canceled: isCancelled));

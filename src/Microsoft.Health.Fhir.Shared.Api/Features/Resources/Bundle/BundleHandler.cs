@@ -111,6 +111,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Total number of resolved references in the bundle.
         private int _totalResolvedReferences = 0;
 
+        // Flag to indicate if the transaction failed due to a client error (HTTP4xx, other than HTTP408).
+        private bool _transactionFailedDueClientError = false;
+
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
@@ -462,7 +465,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (FhirTransactionFailedException tfe) when (tfe.IsErrorCausedDueClientFailure())
             {
                 _logger.LogWarning(tfe, "Client failure while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
-                statistics.MarkBundleAsFailedDueClientError();
+                statistics.SetBundleAsFailedByClientError();
 
                 // Errors caused by customer failures do not count as service failures.
                 _metricHandler.EmitSuccess();
@@ -472,7 +475,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (FhirTransactionCancelledException tce)
             {
                 _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
-                statistics.MarkBundleAsCancelled();
+                statistics.SetBundleAsCancelled();
 
                 _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
 
@@ -483,7 +486,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogWarning(ex, "Operation cancelled. Error while processing a bundle: {ErrorMessage}.", ex.Message);
-                    statistics.MarkBundleAsCancelled();
+                    statistics.SetBundleAsCancelled();
                 }
                 else
                 {
@@ -837,7 +840,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
 
-                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.IsBundleCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
