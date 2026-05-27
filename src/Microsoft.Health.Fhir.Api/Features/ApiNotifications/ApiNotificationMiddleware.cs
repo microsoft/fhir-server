@@ -69,19 +69,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 try
                 {
                     IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-                    var statusCode = (HttpStatusCode)context.Response.StatusCode;
 
                     // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
-                    // Authentication/authorization failures (401/403) are intentionally excluded to prevent metric
-                    // flooding from unauthorized request bursts (e.g., expired-token retry storms) overwhelming the
-                    // metric pipeline. See docs/arch/adr-2605-metric-emission-rate-limiting.md.
-                    if (fhirRequestContext?.AuditEventType != null && !IsAuthFailure(statusCode))
+                    if (fhirRequestContext?.AuditEventType != null)
                     {
                         apiNotification.Authentication = fhirRequestContext.Principal?.Identity.AuthenticationType;
                         apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
                         apiNotification.Protocol = context.Request.Scheme;
                         apiNotification.ResourceType = fhirRequestContext.ResourceType;
-                        apiNotification.StatusCode = statusCode;
+                        apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
                         await _mediator.Publish(apiNotification, CancellationToken.None);
                     }
@@ -93,8 +89,5 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 }
             }
         }
-
-        private static bool IsAuthFailure(HttpStatusCode statusCode)
-            => statusCode == HttpStatusCode.Unauthorized || statusCode == HttpStatusCode.Forbidden;
     }
 }
