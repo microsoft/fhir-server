@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using Antlr4.Runtime.Tree;
+using Microsoft.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
@@ -23,6 +25,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
         {
             var str = e.ToString().ToLowerInvariant();
             return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsSearchParameterConcurrencyConflict(this Exception e)
+        {
+            var sqlEx = e as SqlException;
+            return sqlEx != null && sqlEx.Number == 50001 && e.Message.StartsWith("optimistic concurrency conflict", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasDeadlockErrorPattern(string str)

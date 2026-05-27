@@ -151,9 +151,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             }
-            catch (SqlException ex) when (ex.Number == 50001 && ex.Message.StartsWith("Optimistic", StringComparison.OrdinalIgnoreCase))
+            catch (SqlException ex) when (ex.IsSearchParameterConcurrencyConflict())
             {
-                _logger.LogWarning(ex, "Optimistic concurrency conflict occurred while calling dbo.MergeSearchParams. ReindexId: {ReindexId}", reindexId);
+                _logger.LogWarning(ex, $"Optimistic concurrency conflict occurred while calling dbo.MergeSearchParams. ReindexId={reindexId ?? 0}");
                 throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
             }
         }

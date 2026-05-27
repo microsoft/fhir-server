@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
                             continue;
                         }
-                        else if (sqlEx.Number == 50001 && sqlEx.Message.StartsWith("optimistic concurrency", StringComparison.OrdinalIgnoreCase))
+                        else if (sqlEx.IsSearchParameterConcurrencyConflict())
                         {
                             _logger.LogWarning(sqlEx, "Optimistic concurrency conflict occurred while calling dbo.MergeResourcesAndSearchParams");
                             throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
