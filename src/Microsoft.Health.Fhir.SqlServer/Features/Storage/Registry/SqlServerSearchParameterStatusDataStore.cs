@@ -12,8 +12,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -145,7 +147,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            try
+            {
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            }
+            catch (SqlException ex) when (ex.Number == 50001 && ex.Message.StartsWith("Optimistic", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(ex, "Optimistic concurrency conflict occurred while calling dbo.MergeSearchParams. ReindexId: {ReindexId}", reindexId);
+                throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+            }
         }
 
         // Synchronize the FHIR model dictionary with the data in SQL search parameter status table

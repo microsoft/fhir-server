@@ -13,6 +13,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -67,6 +68,79 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        [Fact]
+        public async Task GivenConcurrentSearchParamCreates_SomeShouldFail()
+        {
+            const string urlPrefix = "http://my.org/";
+            var codes = new List<string>();
+            try
+            {
+                var threw = false;
+                await Parallel.ForAsync(0, 20, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
+                {
+                    var code = $"c-id-{i}";
+                    lock (codes)
+                    {
+                        codes.Add(code);
+                    }
+
+                    try
+                    {
+                        await CreatePersonSearchParamAsync(code);
+                        _output.WriteLine($"Created search param = {code}");
+                    }
+                    catch (FhirClientException ex)
+                    {
+                        _output.WriteLine($"Error creating search param = {code}. Error={ex.Message}");
+                        if (ex.StatusCode != HttpStatusCode.InternalServerError) // ignore
+                        {
+                            Assert.True(ex.Message.Contains(Core.Resources.SearchParameterConcurrencyConflict), $"Expected={Core.Resources.SearchParameterConcurrencyConflict}, Actual={ex.Message}");
+                            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                            threw = true;
+                        }
+
+                        lock (codes)
+                        {
+                            codes.Remove(code);
+                        }
+                    }
+                });
+
+                Assert.True(threw, "Expected at least one create to fail due to concurrency.");
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync(codes);
+            }
+
+            async Task<FhirResponse<SearchParameter>> CreatePersonSearchParamAsync(string code)
+            {
+#if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
+                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+#else
+                var resourceTypes = new List<ResourceType?>();
+                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+#endif
+
+                var searchParam = new SearchParameter
+                {
+                    Id = code,
+                    Url = $"{urlPrefix}{code}",
+                    Name = code,
+                    Code = code,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "Person.id",
+                    Description = "any",
+                    Base = resourceTypes,
+                };
+
+                var result = await _fixture.TestFhirClient.CreateAsync(searchParam);
+                return result;
+            }
         }
 
         [Fact]

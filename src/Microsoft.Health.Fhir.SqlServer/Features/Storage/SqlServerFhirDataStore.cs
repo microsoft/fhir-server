@@ -202,6 +202,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
                             continue;
                         }
+                        else if (sqlEx.Number == 50001 && sqlEx.Message.StartsWith("optimistic concurrency", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning(sqlEx, "Optimistic concurrency conflict occurred while calling dbo.MergeResourcesAndSearchParams");
+                            throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                        }
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
