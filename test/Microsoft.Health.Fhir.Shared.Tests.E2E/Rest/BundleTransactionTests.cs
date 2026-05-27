@@ -618,6 +618,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
+            Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "HTTP Status code is different than HTTP200.");
+
             Assert.True(bundleResponse.Resource.Entry[0].Resource.TypeName == ResourceType.Patient.GetLiteral(), "First entry should be a Patient resource.");
             Assert.True(bundleResponse.Resource.Entry[1].Resource.TypeName == ResourceType.Consent.GetLiteral(), "Second entry should be a Consent resource.");
             Assert.True(bundleResponse.Resource.Entry[2].Resource.TypeName == ResourceType.Observation.GetLiteral(), "Third entry should be an Observation resource.");

@@ -78,17 +78,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
+            BundleExecutionContext bundleExecutionContext = new BundleExecutionContext(
+                _bundleConfiguration,
+                _bundleType.Value,
+                _requestCount);
+
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
                 RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
                 FhirJsonParser fhirJsonParser = _fhirJsonParser;
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
-
-                BundleExecutionContext bundleExecutionContext = new BundleExecutionContext(
-                    _bundleConfiguration,
-                    _bundleType.Value,
-                    _requestCount);
 
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -496,9 +496,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private sealed class BundleExecutionContext
         {
-            private bool _transactionFailedByClientCancellation;
+            private int _transactionFailedByClientCancellation;
 
-            private bool _transactionFailedByClientError;
+            private int _transactionFailedByClientError;
 
             public BundleExecutionContext(BundleConfiguration bundleConfiguration, BundleType bundleType, int requestCount)
             {
@@ -508,8 +508,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 BundleType = bundleType;
                 RequestCount = requestCount;
 
-                _transactionFailedByClientCancellation = false;
-                _transactionFailedByClientError = false;
+                _transactionFailedByClientCancellation = 0;
+                _transactionFailedByClientError = 0;
             }
 
             public BundleConfiguration Configuration
@@ -527,24 +527,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 get;
             }
 
-            public bool IsTransactionFailedByClientCancellation
-            {
-                get { return _transactionFailedByClientCancellation; }
-            }
+            public bool IsTransactionFailedByClientCancellation => _transactionFailedByClientCancellation == 1;
 
-            public bool IsTransactionFailedByClientError
-            {
-                get { return _transactionFailedByClientError; }
-            }
+            public bool IsTransactionFailedByClientError => _transactionFailedByClientError == 1;
 
             public void SetTransactionFailedByClientCancellation()
             {
-                _transactionFailedByClientCancellation = true;
+                Interlocked.Exchange(ref _transactionFailedByClientCancellation, 1);
             }
 
             public void SetTransactionFailedByClientError()
             {
-                _transactionFailedByClientError = true;
+                Interlocked.Exchange(ref _transactionFailedByClientError, 1);
             }
         }
     }
