@@ -877,6 +877,6 @@
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
   <data name="SearchParameterConcurrencyConflict" xml:space="preserve">
-    <value>Optimistic concurrency conflict occurred while writing search parameters. Make sure that search parameters are not written in parallel. Consider sequential writes or a bundle.</value>
+    <value>Optimistic concurrency conflict detected while writing custom search parameter(s). Make sure that custom search parameters are not written in parallel. Consider sequential writes or a bundle.</value>
   </data>
 </root>
