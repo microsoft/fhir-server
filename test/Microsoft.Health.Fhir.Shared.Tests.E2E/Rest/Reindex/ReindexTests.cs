@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     catch (FhirClientException ex)
                     {
                         _output.WriteLine($"Error creating search param = {code}. Error={ex.Message}");
-                        if (ex.StatusCode != HttpStatusCode.InternalServerError) // ignore
+                        if (ex.StatusCode != HttpStatusCode.InternalServerError) // this can happen because of short wait limit to accquire "lock" in "get and apply" code. testing only.
                         {
                             Assert.True(ex.Message.Contains(Core.Resources.SearchParameterConcurrencyConflict), $"Expected={Core.Resources.SearchParameterConcurrencyConflict}, Actual={ex.Message}");
                             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
