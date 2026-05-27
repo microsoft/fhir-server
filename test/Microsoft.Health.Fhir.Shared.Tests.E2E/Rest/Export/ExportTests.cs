@@ -190,6 +190,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        [Theory]
+        [InlineData("../secret")]
+        [InlineData("..\\secret")]
+        [InlineData("..%2fsecret")]
+        public async Task GivenExportIsEnabled_WhenContainerContainsPathTraversal_ThenServerShouldReturnBadRequest(string container)
+        {
+            var queryParam = new Dictionary<string, string>
+            {
+                { KnownQueryParameterNames.Container, container },
+            };
+
+            using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("../secret/config.json")]
+        [InlineData("..\\secret\\config.json")]
+        [InlineData("..%2fsecret%2fconfig.json")]
+        public async Task GivenExportIsEnabled_WhenAnonymizationConfigContainsPathTraversal_ThenServerShouldReturnBadRequest(string anonymizationConfig)
+        {
+            var queryParam = new Dictionary<string, string>
+            {
+                { KnownQueryParameterNames.Container, "test-container" },
+                { KnownQueryParameterNames.AnonymizationConfigurationLocation, anonymizationConfig },
+            };
+
+            using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
         private HttpRequestMessage GenerateExportRequest(
             string path = "$export",
             string acceptHeader = ContentType.JSON_CONTENT_HEADER,

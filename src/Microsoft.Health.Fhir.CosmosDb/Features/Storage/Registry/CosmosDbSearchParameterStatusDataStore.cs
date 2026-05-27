@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 

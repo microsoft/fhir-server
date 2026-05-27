@@ -60,7 +60,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _queueClient = queueClient;
 
             _dbSetupRetryPolicy = Policy
-                .Handle<Exception>()
+                .Handle<SqlException>()
+                .Or<TimeoutException>()
                 .WaitAndRetryAsync(
                     retryCount: 5,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
@@ -221,27 +222,37 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         {
             try
             {
-                await DbSetupSemaphore.WaitAsync(cancellationToken);
-                try
+                await _dbSetupRetryPolicy.ExecuteAsync(async () =>
                 {
-                    SqlConnection.ClearAllPools();
+                    await DbSetupSemaphore.WaitAsync(cancellationToken);
+                    try
+                    {
+                        SqlConnection.ClearAllPools();
 
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-                    await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 15;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                    await connection.CloseAsync();
-                }
-                finally
-                {
-                    DbSetupSemaphore.Release();
-                }
+                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+                        await using SqlCommand command = connection.CreateCommand();
+
+                        // DROP DATABASE on Azure SQL routinely takes 30-90s under load; the prior 15s timeout
+                        // was the root cause of orphaned integration test databases (silent timeouts swallowed
+                        // by the surrounding catch block left ghost DBs accumulating on the inttest server).
+                        command.CommandTimeout = 300;
+                        command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                        await command.ExecuteNonQueryAsync(cancellationToken);
+                        await connection.CloseAsync();
+                    }
+                    finally
+                    {
+                        DbSetupSemaphore.Release();
+                    }
+                });
             }
             catch (Exception ex)
             {
-                Trace.TraceError($"Failed to delete database: {ex.Message}. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
+                // Log AND rethrow so the xUnit fixture's DisposeAsync surfaces the failure rather than
+                // silently leaking the database. Previously this was swallowed which masked the leak.
+                Trace.TraceError($"Failed to delete database '{databaseName}' after retries: {ex.Message}. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
+                throw;
             }
         }
 

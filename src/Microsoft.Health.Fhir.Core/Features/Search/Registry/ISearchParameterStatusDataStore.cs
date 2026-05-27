@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null);
 
-        Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken);
+        Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null);
 
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
 

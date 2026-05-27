@@ -67,27 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return new CreateReindexResponse(existingJob);
             }
 
-            // What this handles is the scenario where a user is effectively forcing a reindex to run by passing
-            // in a parameter of targetSearchParameterTypes. From those we can identify the base resource types.
-            var searchParameterResourceTypes = new HashSet<string>();
-            if (request.TargetSearchParameterTypes.Any())
-            {
-                foreach (var searchParameterUrl in request.TargetSearchParameterTypes)
-                {
-                    SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
-                    if (searchParameterInfo == null)
-                    {
-                        throw new RequestNotValidException(Core.Resources.SearchParameterByDefinitionUriNotSupported, searchParameterUrl);
-                    }
-
-                    searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
-                }
-            }
-
             var jobRecord = new ReindexJobRecord(
             request.TargetResourceTypes,
-            request.TargetSearchParameterTypes,
-            searchParameterResourceTypes,
             request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
             request.MaximumResourcesPerWrite ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerWrite,
             request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds);

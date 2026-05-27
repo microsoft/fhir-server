@@ -6,23 +6,23 @@
 using System.Diagnostics.Metrics;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
-    public sealed class DefaultCrudMetricHandler : BaseMeterMetricHandler, ICrudMetricHandler
+    public sealed class DefaultSearchMetricHandler : BaseMeterMetricHandler, ISearchMetricHandler
     {
-        private readonly Counter<long> _crudLatencyCounter;
+        private readonly Histogram<long> _searchLatencyHistogram;
 
-        public DefaultCrudMetricHandler(IMeterFactory meterFactory)
+        public DefaultSearchMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _crudLatencyCounter = MetricMeter.CreateCounter<long>("Crud.Latency");
+            _searchLatencyHistogram = MetricMeter.CreateHistogram<long>("Search.Latency");
         }
 
-        public void EmitLatency(CrudMetricNotification notification)
+        public void EmitLatency(SearchMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _crudLatencyCounter.Add(notification.ElapsedMilliseconds);
+            _searchLatencyHistogram.Record(notification.ElapsedMilliseconds);
         }
     }
 }

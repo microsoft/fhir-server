@@ -109,8 +109,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobRecord = new ReindexJobRecord(
                 targetResourceTypes,
-                new List<string>(),
-                new List<string>(),
                 maxResourcePerQuery);
 
             // Enqueue the orchestrator job through the queue client
@@ -798,9 +796,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Assert
             Assert.NotNull(jobResult);
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
-                Arg.Is<List<string>>(l => l.Contains(searchParam.Url.ToString())),
-                SearchParameterStatus.Disabled,
-                Arg.Any<CancellationToken>());
+                        Arg.Is<List<string>>(l => l.Contains(searchParam.Url.ToString())),
+                        SearchParameterStatus.Disabled,
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
         }
 
         [Fact]
@@ -849,7 +849,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                 Arg.Is<List<string>>(l => l.Contains(searchParam.Url.ToString())),
                 SearchParameterStatus.Deleted,
-                Arg.Any<CancellationToken>());
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<long?>());
         }
 
         [Fact]
@@ -1564,7 +1566,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                             l.Contains(patientNameParam.Url.ToString()) ||
                             l.Contains(patientBirthdateParam.Url.ToString())),
                         SearchParameterStatus.Enabled,
-                        Arg.Any<CancellationToken>());
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
 
                     receivedCall = true;
                 }
@@ -1780,7 +1784,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                 Arg.Any<List<string>>(),
                 SearchParameterStatus.Enabled,
-                Arg.Any<CancellationToken>());
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<long?>());
         }
 
         [Fact]
@@ -1940,12 +1946,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<List<string>>(l => l.Contains(searchParamLowercase.Url.ToString())),
                         SearchParameterStatus.Enabled,
-                        Arg.Any<CancellationToken>());
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
 
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<List<string>>(l => l.Contains(searchParamMixedCase.Url.ToString())),
                         SearchParameterStatus.Deleted,
-                        Arg.Any<CancellationToken>());
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
         }
 
         [Fact]
@@ -2006,14 +2016,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Assert
             Assert.NotNull(jobResult);
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
-                Arg.Is<List<string>>(l => l.Contains(searchParam1.Url.ToString())),
-                SearchParameterStatus.Disabled,
-                Arg.Any<CancellationToken>());
+                        Arg.Is<List<string>>(l => l.Contains(searchParam1.Url.ToString())),
+                        SearchParameterStatus.Disabled,
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
 
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
-                    Arg.Is<List<string>>(l => l.Contains(searchParam2.Url.ToString())),
-                    SearchParameterStatus.Disabled,
-                    Arg.Any<CancellationToken>());
+                        Arg.Is<List<string>>(l => l.Contains(searchParam2.Url.ToString())),
+                        SearchParameterStatus.Disabled,
+                        Arg.Any<CancellationToken>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<long?>());
         }
 
         [Fact]

@@ -150,6 +150,20 @@ stages:
       deploymentName: "IntegrationTests"
       nspName: 'nsp-$(ResourceGroupName)'
 
+- stage: deploySqlElasticPool
+  displayName: 'Deploy SQL Elastic Pool (CI)'
+  dependsOn:
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-sqlElasticPool.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      elasticPoolName: $(DeploymentEnvironmentName)-pool
+      capacity: 8
+      dbMinCapacity: 0
+      dbMaxCapacity: 8
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -177,6 +191,7 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -193,6 +208,7 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
+      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       reindexEnabled: true
 
 - stage: deployR4
@@ -222,6 +238,7 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -238,6 +255,7 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
+      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       reindexEnabled: true
 
 - stage: deployR5Sql
@@ -246,6 +264,7 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -262,4 +281,5 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
+      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       reindexEnabled: true

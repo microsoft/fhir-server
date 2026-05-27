@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
         private readonly ImportJobConfiguration _importConfig;
+        private readonly Uri _configuredStorageAccountUri;
 
         public ImportController(
             IMediator mediator,
@@ -67,12 +69,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
+            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration, nameof(integrationDataStoreConfiguration));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -80,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _importConfig = operationsConfig.Value.Import;
             _urlResolver = urlResolver;
             _features = features.Value;
+            _configuredStorageAccountUri = GetConfiguredStorageAccountUri(integrationDataStoreConfiguration.Value);
             _mediator = mediator;
             _logger = logger;
         }
@@ -205,6 +211,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            // Ensure that the server has a valid storage account configured for import operations.
+            if (_configuredStorageAccountUri == null)
+            {
+                throw new RequestNotValidException(Resources.ImportStorageAccountNotConfigured);
+            }
+
             var duplicateInputUrls = input.GroupBy(item => item.Url).Where(group => group.Count() > 1).Select(group => group.Key);
 
             if (duplicateInputUrls.Any())
@@ -224,12 +236,91 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
+
+                if (!IsConfiguredStorageAccountEndpoint(item.Url))
+                {
+                    throw new RequestNotValidException(Resources.ImportRequestInputUrlStorageEndpointMismatch);
+                }
             }
 
             if (input.Any(i => i.Type == "SearchParameter"))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, "SearchParameter"));
             }
+        }
+
+        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri)
+        {
+            if (_configuredStorageAccountUri == null)
+            {
+                return false;
+            }
+
+            // Match scheme and hostname only. The hostname is the security boundary; port is
+            // intentionally not checked because callers may specify a port that differs from the
+            // configured URI (e.g. Azure Storage always uses the default HTTPS port in production).
+            return string.Equals(inputUri.Scheme, _configuredStorageAccountUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(inputUri.IdnHost, _configuredStorageAccountUri.IdnHost, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Uri GetConfiguredStorageAccountUri(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            if (Uri.TryCreate(integrationDataStoreConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
+            {
+                return storageAccountUri;
+            }
+
+            if (string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountConnection))
+            {
+                return null;
+            }
+
+            if (integrationDataStoreConfiguration.StorageAccountConnection.StartsWith("UseDevelopmentStorage", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    return new BlobServiceClient(integrationDataStoreConfiguration.StorageAccountConnection).Uri;
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+                catch (FormatException)
+                {
+                    return null;
+                }
+            }
+
+            // Derive the default account endpoint from AccountName so explicit BlobEndpoint overrides
+            // cannot allow arbitrary hosts. This supports both full and minimal connection strings
+            // (e.g. AccountName-only when using managed identity or other credential providers).
+            string accountName = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "AccountName");
+            if (accountName == null)
+            {
+                return null;
+            }
+
+            string defaultEndpointsProtocol = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "DefaultEndpointsProtocol") ?? Uri.UriSchemeHttps;
+            string endpointSuffix = GetConnectionStringValue(integrationDataStoreConfiguration.StorageAccountConnection, "EndpointSuffix") ?? "core.windows.net";
+
+            return Uri.TryCreate($"{defaultEndpointsProtocol}://{accountName}.blob.{endpointSuffix}", UriKind.Absolute, out Uri connectionStringStorageAccountUri)
+                ? connectionStringStorageAccountUri
+                : null;
+        }
+
+        private static string GetConnectionStringValue(string connectionString, string key)
+        {
+            foreach (string segment in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                int separatorIndex = segment.IndexOf('=', StringComparison.Ordinal);
+                if (separatorIndex > 0 && string.Equals(segment.Substring(0, separatorIndex), key, StringComparison.OrdinalIgnoreCase))
+                {
+                    string value = segment.Substring(separatorIndex + 1);
+                    return string.IsNullOrWhiteSpace(value) ? null : value;
+                }
+            }
+
+            return null;
         }
     }
 }

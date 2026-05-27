@@ -11,5 +11,20 @@ variables:
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
 
+    # Shared ACA scaling/sizing values consumed by build/jobs/provision-deploy.yml.
+    # Centralized here so all PR provision-deploy invocations stay consistent.
+    minReplicas: 3
+    maxReplicas: 8
+    containerCpu: '0.5'
+    containerMemory: '1Gi'
+    cosmosAutoscaleMaxThroughput: 5000
+
+    # Shared FHIR runtime tuning values consumed by build/jobs/provision-deploy.yml.
+    taskHostingPollingFrequencyInSeconds: 1
+    taskHostingMaxRunningTaskCount: 4
+    searchParameterCacheRefreshIntervalSeconds: 2
+    systemConformanceProviderRefreshIntervalSeconds: 5
+    reindexCacheRefreshWaitMultiplier: 6
+
     # The following is passed in from a Pipeline variable, this allows it to be overriden if required.
     # prName: $(system.pullRequest.pullRequestNumber)

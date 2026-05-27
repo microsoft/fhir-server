@@ -10,6 +10,16 @@ variables:
 
 stages:
 # *********************** Setup ***********************
+- stage: scaleUpContainerApps
+  displayName: 'Scale Container Apps Up (min=3)'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 3
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
@@ -175,6 +185,8 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
+      runReindexJob: false
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -188,6 +200,9 @@ stages:
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -227,6 +242,8 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
+      runReindexJob: false
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -240,6 +257,9 @@ stages:
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
@@ -267,6 +287,9 @@ stages:
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -288,6 +311,25 @@ stages:
     - template: ./jobs/aggregate-coverage.yml
 
 # *********************** Finalize ***********************
+- stage: scaleDownContainerApps
+  displayName: 'Scale Container Apps Down (min=0)'
+  dependsOn:
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR5Sql
+  # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
+  # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
+  # doesn't hit cold-started apps mid-test.
+  condition: succeeded()
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 0
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:

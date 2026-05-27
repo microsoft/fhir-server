@@ -342,14 +342,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             requestCount,
                             resourceExecutionContext.Index);
 
-                        int retryDelay = 2;
-                        var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
-                        if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
+                        try
                         {
-                            retryDelay = retryHeaderValue;
+                            await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
                         }
+                        catch (OperationCanceledException oce)
+                        {
+                            logger.LogWarning(oce, "BundleHandler received 429 message, client cancelled during retry delay. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", resourceExecutionContext.HttpVerb, requestCount, resourceExecutionContext.Index);
 
-                        await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
+                            // This is an edge case scenario when the client cancels the request during the retry delay.
+                            // We should respect the cancellation and not attempt to process the request further.
+
+                            entryComponent = HandleCancelledRetryRequest(
+                                responseBundle,
+                                resourceExecutionContext,
+                                bundleType,
+                                statistics,
+                                bundleConfiguration,
+                                watch,
+                                httpContext,
+                                cancellationToken);
+
+                            // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
+                            throttledEntryComponent = entryComponent;
+
+                            return entryComponent;
+                        }
 
                         // Attempt 2.
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
@@ -404,21 +422,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpStatusCode = HttpStatusCode.BadRequest;
                 }
 
-                var errorMessage = string.Format(
-                    Api.Resources.TransactionFailed,
-                    resourceExecutionContext.Context.HttpContext.Request.Method,
-                    resourceExecutionContext.Context.HttpContext.Request.Path);
-
-                TransactionExceptionHandler.ThrowTransactionException(
-                    errorMessage,
-                    httpStatusCode,
-                    (OperationOutcome)entryComponent.Response.Outcome,
-                    cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
+                RaiseFhirTransactionException(resourceExecutionContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.IsBundleCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
 
             return entryComponent;
+        }
+
+        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, ResourceExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, CancellationToken cancellationToken)
+        {
+            EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
+
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
+
+            if (bundleType.Equals(BundleType.Transaction))
+            {
+                RaiseFhirTransactionException(resourceExecutionContext, HttpStatusCode.RequestTimeout, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.IsBundleCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
+            }
+
+            // Default path for batch bundles.
+            responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
+            return entryComponent;
+        }
+
+        private static void RaiseFhirTransactionException(
+            ResourceExecutionContext resourceContext,
+            HttpStatusCode httpStatusCode,
+            Hl7.Fhir.Model.Bundle.EntryComponent entryComponent,
+            bool isBundleCancelledByClient)
+        {
+            var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
+
+            TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome, isCancelled: isBundleCancelledByClient);
         }
 
         private struct ResourceExecutionContext

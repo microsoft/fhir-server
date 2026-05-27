@@ -6,23 +6,23 @@
 using System.Diagnostics.Metrics;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
-    public sealed class DefaultBundleMetricHandler : BaseMeterMetricHandler, IBundleMetricHandler
+    public sealed class DefaultBundleMetricHandler : BaseSuccessRateMetricHandler, IBundleMetricHandler
     {
-        private readonly Counter<long> _bundleLatencyCounter;
+        private readonly Histogram<long> _bundleLatencyHistogram;
 
         public DefaultBundleMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory)
+            : base(meterFactory, successMetricName: "Bundle.Success", failureMetricName: "Bundle.Failure")
         {
-            _bundleLatencyCounter = MetricMeter.CreateCounter<long>("Bundle.Latency");
+            _bundleLatencyHistogram = MetricMeter.CreateHistogram<long>("Bundle.Latency");
         }
 
         public void EmitLatency(BundleMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _bundleLatencyCounter.Add(notification.ElapsedMilliseconds);
+            _bundleLatencyHistogram.Record(notification.ElapsedMilliseconds);
         }
     }
 }

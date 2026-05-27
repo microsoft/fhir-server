@@ -91,6 +91,9 @@ ipch/
 *.vspx
 *.sap
 
+# Visual Studio Code C# Dev Kit cache files
+*.lscache
+
 # TFS 2012 Local Workspace
 $tf/
 
@@ -295,6 +298,10 @@ install-aso/
 # Generated C# code
 *.Generated.cs
 *.Generated.*.cs
+
+# Exclude auto-generated SQL schema snapshot files, keep the .diff.sql
+src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/*.sql
+!src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/*.diff.sql
 
 # Azurite temporary files
 __*

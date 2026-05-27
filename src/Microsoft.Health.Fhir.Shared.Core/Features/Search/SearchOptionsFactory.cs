@@ -405,12 +405,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
-            searchExpressions.AddRange(searchParams.Parameters.Select(
+            var validSearchParameters = new List<SearchParameterInfo>();
+
+            // Deduplicate exact (name, value) query parameter pairs before parsing. Repeated identical parameters produce
+            // redundant database lookups (one per expression) without affecting query semantics. Per FHIR spec, repeated
+            // parameters are AND semantics (set intersection), and AND of identical predicates is idempotent: X AND X ≡ X.
+            searchExpressions.AddRange(searchParams.Parameters.Distinct().Select(
             q =>
             {
                 try
                 {
-                    return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+                    var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+
+                    foreach (var resourceTypeString in resourceTypesString)
+                    {
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(resourceTypeString, q.Item1, out var searchParameter))
+                        {
+                            validSearchParameters.Add(searchParameter);
+                        }
+                    }
+
+                    return parsed;
                 }
                 catch (SearchParameterNotSupportedException)
                 {
@@ -420,6 +435,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             })
             .Where(item => item != null));
+
+            searchOptions.SearchParameters = validSearchParameters;
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter

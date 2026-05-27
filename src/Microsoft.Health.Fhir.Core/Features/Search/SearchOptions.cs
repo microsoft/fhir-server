@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
             Expression = other.Expression;
+            SearchParameters = new List<SearchParameterInfo>(other.SearchParameters);
             UnsupportedSearchParams = new List<Tuple<string, string>>(other.UnsupportedSearchParams);
             Sort = new List<(SearchParameterInfo, SortOrder)>(other.Sort);
 
@@ -139,6 +140,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the search expression.
         /// </summary>
         public Expression Expression { get; internal set; }
+
+        /// <summary>
+        /// Gets the collection of search parameters used for filtering and querying resources.
+        /// </summary>
+        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.

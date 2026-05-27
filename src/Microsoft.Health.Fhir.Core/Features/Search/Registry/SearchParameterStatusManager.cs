@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -171,14 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
-        }
-
-        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
-        {
-            // new search parameters are added as supported, until reindexing occurs, when
-            // they will be fully enabled
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken, reindexId);
         }
 
         public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)

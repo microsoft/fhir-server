@@ -17,7 +17,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -315,19 +314,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (OutOfMemoryException ex)
-            {
-                // The job has encountered an error it cannot recover from.
-                // Try to update the job to failed state.
-                _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
-
-                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
                 await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
+            }
+            catch (OutOfMemoryException)
+            {
+                // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
+                throw;
             }
             catch (Exception ex)
             {
@@ -629,7 +624,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult?.Results.ToList(), anonymizer);
+                    ProcessSearchResults(searchResult?.Results, anonymizer);
                 }
 
                 if (searchResult?.ContinuationToken == null)
@@ -637,11 +632,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
+                // For the SQL parallel path (surrogate IDs set), skip per-page job segmentation.
+                // The surrogate ID range is the resumability unit, so resources accumulate in one
+                // file until the rolling size limit is reached or the range is fully processed.
+                bool hasSurrogateIdRange = !string.IsNullOrEmpty(_exportJobRecord.StartSurrogateId) &&
+                                           !string.IsNullOrEmpty(_exportJobRecord.EndSurrogateId);
+
                 await ProcessProgressChange(
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    false,
+                    hasSurrogateIdRange,
                     cancellationToken);
             }
 
@@ -787,23 +788,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
-            // Testing to see if the returned enumerable is a list so we can remove items from it. This helps conserve memory by not keeping entries that have already been processed.
-            // Since the search service isn't guaranteed to return a list, we need to handle both cases.
-            if (searchResults is not List<SearchResultEntry>)
+            if (searchResults == null)
+            {
+                return;
+            }
+
+            if (searchResults is List<SearchResultEntry> searchResultsList)
+            {
+                for (int i = 0; i < searchResultsList.Count; i++)
+                {
+                    ProcessSearchResult(searchResultsList[i], anonymizer);
+                }
+
+                searchResultsList.Clear();
+            }
+            else
             {
                 foreach (var result in searchResults)
                 {
                     ProcessSearchResult(result, anonymizer);
-                }
-            }
-            else
-            {
-                var searchResultsList = searchResults as List<SearchResultEntry>;
-                while (searchResultsList.Any())
-                {
-                    var result = searchResultsList.First();
-                    ProcessSearchResult(result, anonymizer);
-                    searchResultsList.Remove(result);
                 }
             }
         }
@@ -841,6 +844,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
+
+            // Release the raw resource data to allow GC to reclaim LOH memory.
+            // The Lazy<string> inside RawResource caches the decompressed JSON string (~MBs per resource)
+            // and its closure retains the compressed byte[]. After writing to blob, neither is needed.
+            resourceWrapper.RawResource = null;
         }
 
         private async Task ProcessProgressChange(

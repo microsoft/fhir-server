@@ -137,5 +137,6 @@ resource cosmosDbHostSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
 output containerAppName string = common.outputs.containerAppName
 output containerAppFqdn string = common.outputs.containerAppFqdn
 output containerAppUrl string = common.outputs.containerAppUrl
+output storageAccountName string = common.outputs.storageAccountName
 output exportStorageUri string = common.outputs.exportStorageUri
 output integrationStorageUri string = common.outputs.integrationStorageUri

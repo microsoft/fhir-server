@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return _statusResults;
         }
 
-        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;

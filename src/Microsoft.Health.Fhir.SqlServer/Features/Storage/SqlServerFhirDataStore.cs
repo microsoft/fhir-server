@@ -339,12 +339,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // check if the new resource data is same as existing resource data
                         if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                         {
+                            _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
+
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
                         else if (!resourceExt.MetaHistory && ChangesAreOnlyInMetadata(resource, existingResource))
                         {
+                            _logger.LogInformation("Update operation modified only meta fields for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
                             metaHistory = false;
                         }
                     }
