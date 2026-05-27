@@ -76,6 +76,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Health\ImproperBehaviorHealthCheckTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Health\StorageInitializedHealthCheckTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Metrics\AuthenticationFailureExceptionMetricEmissionFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Metrics\SecurityAbuseExceptionMetricEmissionFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />

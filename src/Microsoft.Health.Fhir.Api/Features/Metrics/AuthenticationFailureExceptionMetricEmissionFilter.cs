@@ -30,6 +30,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
     /// to produce metrics so that genuine failure signals remain visible.
     /// </para>
     /// <para>
+    /// <b>Covered exception types.</b> The default implementation of <see cref="IsAuthenticationException"/>
+    /// matches <see cref="SecurityTokenException"/> anywhere in the inner-exception chain. Because the
+    /// following types derive from <see cref="SecurityTokenException"/>, they are also matched without any
+    /// additional code:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><description><see cref="SecurityTokenExpiredException"/></description></item>
+    ///   <item><description><see cref="SecurityTokenInvalidAudienceException"/></description></item>
+    ///   <item><description><see cref="SecurityTokenInvalidIssuerException"/></description></item>
+    ///   <item><description>Any other type derived from <see cref="SecurityTokenException"/>.</description></item>
+    /// </list>
+    /// <para>
     /// <b>Extensibility for downstream consumers (e.g. fhir-paas).</b> Three extension patterns are supported:
     /// </para>
     /// <list type="bullet">
@@ -45,8 +57,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
     ///   <item>
     ///     <description>
     ///       <b>Extend what counts as an authentication exception.</b> Subclass this type and override
-    ///       <see cref="IsAuthenticationException"/> to recognize additional exception types in addition to
-    ///       <see cref="SecurityTokenException"/>. Then replace the registration:
+    ///       <see cref="IsAuthenticationException"/> to recognize additional authentication-related exception
+    ///       types (for example, an fhir-paas <c>S2SAuthenticationException</c>) in addition to the default
+    ///       <see cref="SecurityTokenException"/> family. Then replace the registration:
     ///       <c>services.RemoveAll&lt;IExceptionMetricEmissionFilter&gt;()</c> followed by
     ///       <c>services.AddSingleton&lt;IExceptionMetricEmissionFilter, MyAuthFilter&gt;()</c> (plus any other
     ///       filters you want to keep).

@@ -47,19 +47,41 @@ The chosen design narrows the filter to the precise condition that caused the fl
 
 Introduce a pluggable `IExceptionMetricEmissionFilter` interface that decides, given an exception and the current `HttpContext`, whether the `fhir/failures/exceptions` metric should be emitted. `AzureMonitorOpenTelemetryLogEnricher` consults all registered filters before emitting; a metric is published only when every filter returns `true` (logical AND).
 
-Ship one default implementation in fhir-server — `AuthenticationFailureExceptionMetricEmissionFilter` — that suppresses metric emission when **both**:
+Ship two default implementations in fhir-server:
+
+### 1. `AuthenticationFailureExceptionMetricEmissionFilter`
+
+Suppresses metric emission when **both**:
 
 1. The exception (or any exception in its inner-exception chain) is a `Microsoft.IdentityModel.Tokens.SecurityTokenException`, AND
 2. The HTTP response status code is `401 Unauthorized`.
 
-This combination is the exact signature of the incident: expired-token authentication failures producing 401 responses. Authorization failures (403), validation errors, and every other failure mode continue to produce metrics, so genuine failure signals remain visible.
+Because `SecurityTokenException` is the common base class, the following derived types are matched automatically without any extra code:
+
+- `SecurityTokenExpiredException`
+- `SecurityTokenInvalidAudienceException`
+- `SecurityTokenInvalidIssuerException`
+- Any other `SecurityTokenException` subclass (the `Microsoft.IdentityModel.Tokens` family is large; the inner-chain walk catches all of them).
+
+The 401 condition is required because `SecurityTokenException` can legitimately be thrown by outbound code paths in non-401 contexts — we should not suppress those.
+
+### 2. `SecurityAbuseExceptionMetricEmissionFilter`
+
+Suppresses metric emission for exceptions thrown when the server detects and rejects an abuse pattern. The default implementation matches `ServerSideRequestForgeryException` in the inner-exception chain.
+
+Matching is **exception-type-only** (no status-code condition) because:
+
+- These types are constructed only inside FHIR's SSRF-detection/security-rejection paths — there is no legitimate non-abuse code path that throws them.
+- They always produce a 4xx response (typically 403); a status-code condition would add no precision.
+
+The actionable signal for these events comes from audit logs and gateway-level rejection counters, not from per-event FHIR failure metrics, so suppression preserves no operational value.
 
 ### Why an Interface (Not Just a Status-Code Check or an Extension Method)
 
-The decision uses *both* the exception type *and* the request context. An extension method on `Exception` alone cannot make a request-aware decision; a status-code check alone cannot distinguish authentication failures from authorization failures (both produce 401/403). An `IExceptionMetricEmissionFilter(Exception, HttpContext) → bool` interface is the smallest abstraction that captures both inputs cleanly, while also being:
+The decision uses *both* the exception type *and* the request context. An extension method on `Exception` alone cannot make a request-aware decision (the auth filter needs the status code); a status-code check alone cannot distinguish authentication failures from authorization failures (both produce 401/403). An `IExceptionMetricEmissionFilter(Exception, HttpContext) → bool` interface is the smallest abstraction that captures both inputs cleanly, while also being:
 
 - **Composable** — multiple filters can be registered and are AND-combined. New "this exception is not worth a metric" rules can be added by registering a new implementation, with no change to the enricher or to existing filters.
-- **Replaceable** — a downstream consumer can swap out our default implementation if their notion of "authentication failure" differs.
+- **Replaceable** — a downstream consumer can swap out our default implementations if their notion of "authentication failure" or "security abuse" differs.
 - **Testable in isolation** — each filter is a pure function of (exception, http context) and can be unit-tested without the enricher, the OpenTelemetry pipeline, or DI.
 
 ### Code Shape
@@ -82,7 +104,20 @@ public class AuthenticationFailureExceptionMetricEmissionFilter : IExceptionMetr
     }
 
     // Virtual so subclasses can recognize additional authentication exception types.
-    protected virtual bool IsAuthenticationException(Exception exception) { /* walks inner-exception chain */ }
+    protected virtual bool IsAuthenticationException(Exception exception) { /* walks inner-exception chain for SecurityTokenException */ }
+}
+
+// src/Microsoft.Health.Fhir.Api/Features/Metrics/SecurityAbuseExceptionMetricEmissionFilter.cs
+public class SecurityAbuseExceptionMetricEmissionFilter : IExceptionMetricEmissionFilter
+{
+    public bool ShouldEmit(Exception exception, HttpContext httpContext)
+    {
+        if (exception == null) return true;
+        return !IsSecurityAbuseException(exception);
+    }
+
+    // Virtual so subclasses can recognize additional security-abuse exception types.
+    protected virtual bool IsSecurityAbuseException(Exception exception) { /* walks inner-exception chain for ServerSideRequestForgeryException */ }
 }
 ```
 
@@ -115,32 +150,40 @@ flowchart TD
 
 ### Extensibility for Downstream Consumers (fhir-paas)
 
-fhir-paas already extends fhir-server through DI. The filter chain is designed so that fhir-paas (or any other consumer) can extend or override behavior without forking the FHIR server:
+fhir-paas already extends fhir-server through DI. The filter chain is designed so that fhir-paas (or any other consumer) can extend or override behavior without forking the FHIR server. Several downstream-only exception types motivate this design:
+
+| Downstream exception | Defined in | Recommended extension pattern |
+|---|---|---|
+| `S2SAuthenticationException` | fhir-paas | Subclass `AuthenticationFailureExceptionMetricEmissionFilter` and override `IsAuthenticationException` to also return `true` for `S2SAuthenticationException`. Replace the registration via `RemoveAll` + `AddSingleton`. |
+| `AntiSSRFException` | fhir-paas | Subclass `SecurityAbuseExceptionMetricEmissionFilter` and override `IsSecurityAbuseException` to also return `true` for `AntiSSRFException`. Replace the registration via `RemoveAll` + `AddSingleton`. (Alternative: register a separate filter that only checks for `AntiSSRFException`; the chain AND-combines, so the net behavior is identical.) |
+
+The general extension patterns are:
 
 | Goal | Pattern | Code |
 |---|---|---|
 | **Add a new, independent rule** (e.g., suppress a specific benign exception type) | Register an additional filter. The enricher AND-combines all registered filters. | `services.AddSingleton<IExceptionMetricEmissionFilter, MyPaasBenignExceptionFilter>();` |
-| **Extend what counts as an authentication exception** (e.g., recognize a fhir-paas-specific auth exception type) | Subclass `AuthenticationFailureExceptionMetricEmissionFilter` and override `IsAuthenticationException`. Replace the registration. | `services.RemoveAll<IExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, MyExtendedAuthFilter>();` |
-| **Tighten or loosen the auth filter's status-code condition** | Implement a new `IExceptionMetricEmissionFilter` from scratch and replace the registration. | Same as above, with a fully custom implementation. |
+| **Extend what counts as an authentication exception** | Subclass `AuthenticationFailureExceptionMetricEmissionFilter` and override `IsAuthenticationException`. Replace the registration. | `services.RemoveAll<IExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, MyExtendedAuthFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, SecurityAbuseExceptionMetricEmissionFilter>();` |
+| **Extend what counts as a security-abuse exception** | Subclass `SecurityAbuseExceptionMetricEmissionFilter` and override `IsSecurityAbuseException`. Replace the registration. | `services.RemoveAll<IExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, AuthenticationFailureExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, MyExtendedSecurityFilter>();` |
 | **Disable all filtering** | Remove all registrations. | `services.RemoveAll<IExceptionMetricEmissionFilter>();` |
 
-The default registration in fhir-server uses `AddSingleton` (not `TryAddSingleton`) so that additional consumer registrations do **not** silently replace ours — they compose. Consumers that want replacement must opt in explicitly via `RemoveAll`. This is the safer default: an fhir-paas team that adds a new filter does not accidentally turn off the auth-failure suppression that protects Geneva.
+The default registrations in fhir-server use `AddSingleton` (not `TryAddSingleton`) so that additional consumer registrations do **not** silently replace ours — they compose. Consumers that want replacement must opt in explicitly via `RemoveAll`. This is the safer default: an fhir-paas team that adds a new filter does not accidentally turn off the auth-failure or SSRF suppression that protects Geneva.
 
-The `AuthenticationFailureExceptionMetricEmissionFilter` class is intentionally **not sealed**, and `IsAuthenticationException` is `protected virtual`, so subclassing is a first-class extension path.
+Both default filter classes are intentionally **not sealed**, and their `Is…Exception` methods are `protected virtual`, so subclassing is a first-class extension path.
 
 ### Scope of Changes
 
 **fhir-server (this repo):**
 - `src/Microsoft.Health.Fhir.Api/Features/Metrics/IExceptionMetricEmissionFilter.cs` — new interface.
-- `src/Microsoft.Health.Fhir.Api/Features/Metrics/AuthenticationFailureExceptionMetricEmissionFilter.cs` — default implementation (subclassable).
+- `src/Microsoft.Health.Fhir.Api/Features/Metrics/AuthenticationFailureExceptionMetricEmissionFilter.cs` — auth-failure default implementation (subclassable; covers entire `SecurityTokenException` family).
+- `src/Microsoft.Health.Fhir.Api/Features/Metrics/SecurityAbuseExceptionMetricEmissionFilter.cs` — security-abuse default implementation (subclassable; covers `ServerSideRequestForgeryException`).
 - `src/Microsoft.Health.Fhir.Shared.Web/AzureMonitorOpenTelemetryLogEnricher.cs` — accept and consult `IEnumerable<IExceptionMetricEmissionFilter>`.
 - `src/Microsoft.Health.Fhir.Shared.Web/Startup.cs` — resolve the filter collection and pass it to the enricher.
-- `src/Microsoft.Health.Fhir.Shared.Api/Registration/FhirServerServiceCollectionExtensions.cs` — register the default filter via `AddSingleton`.
-- Unit tests for the filter and for the enricher's integration with the filter chain.
+- `src/Microsoft.Health.Fhir.Shared.Api/Registration/FhirServerServiceCollectionExtensions.cs` — register both default filters via `AddSingleton`.
+- Unit tests for each filter (including a subclass-extension test for the security filter) and for the enricher's integration with the filter chain.
 
 **fhir-paas (downstream, not in this PR):**
-- No required changes. The default filter is registered automatically when fhir-paas calls `AddFhirServer`/`UseFhirServer`.
-- Optional: register additional filters for paas-specific benign exception types if such a need is identified.
+- No required changes. Both default filters are registered automatically when fhir-paas calls `AddFhirServer`/`UseFhirServer`.
+- Recommended follow-up: subclass the default filters to recognize `S2SAuthenticationException` (auth filter) and `AntiSSRFException` (security filter), and re-register via `RemoveAll` + `AddSingleton`. See the table above.
 
 ### Considered Alternatives
 
