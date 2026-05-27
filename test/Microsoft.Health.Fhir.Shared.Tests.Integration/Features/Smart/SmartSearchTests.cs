@@ -4,9 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -41,9 +39,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
-using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
@@ -56,57 +52,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     {
         private readonly SmartSearchSharedFixture _smartFixture;
         private FhirStorageTestsFixture _fixture;
-        private IFhirStorageTestHelper _testHelper;
-        private IFhirOperationDataStore _fhirOperationDataStore;
-        private IScoped<IFhirDataStore> _scopedDataStore;
-        private IFhirStorageTestHelper _fhirStorageTestHelper;
-        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private ITypedElementToSearchValueConverterManager _typedElementToSearchValueConverterManager;
-        private ISearchIndexer _searchIndexer;
-        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-        private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ITestOutputHelper _output;
 
         private IScoped<ISearchService> _searchService;
 
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
-        private SmartSearchSharedContext _sharedContext;
 
-        public SmartSearchTests(SmartSearchSharedFixture smartFixture, ITestOutputHelper output)
+        public SmartSearchTests(SmartSearchSharedFixture smartFixture)
         {
             _smartFixture = smartFixture;
-            _output = output;
         }
 
-        public async Task InitializeAsync()
+        public Task InitializeAsync()
         {
-            Stopwatch initializeStopwatch = Stopwatch.StartNew();
-            LogTiming("InitializeAsync starting.");
-
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
             {
-                _sharedContext = await _smartFixture.GetContextAsync(_output);
-                _fixture = _sharedContext.Fixture;
-                _testHelper = _fixture.TestHelper;
-                _fhirOperationDataStore = _sharedContext.FhirOperationDataStore;
-                _fhirStorageTestHelper = _sharedContext.FhirStorageTestHelper;
-                _scopedDataStore = _sharedContext.ScopedDataStore;
-                _searchParameterDefinitionManager = _sharedContext.SearchParameterDefinitionManager;
-                _supportedSearchParameterDefinitionManager = _sharedContext.SupportedSearchParameterDefinitionManager;
-                _typedElementToSearchValueConverterManager = _sharedContext.TypedElementToSearchValueConverterManager;
-                _searchIndexer = _sharedContext.SearchIndexer;
-                _searchParameterStatusManager = _sharedContext.SearchParameterStatusManager;
+                _fixture = _smartFixture.Fixture;
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
-                _searchService = ((ISearchService)new TimedSearchService(
-                    _fixture.SearchService,
-                    _output,
-                    $"{ModelInfoProvider.Instance.Version}/{_fixture.DataStore.GetType().Name}")).CreateMockScope();
+                _searchService = _fixture.SearchService.CreateMockScope();
             }
 
-            LogTiming($"InitializeAsync completed in {initializeStopwatch.Elapsed.TotalSeconds:F3}s.");
+            return Task.CompletedTask;
         }
 
         public Task DisposeAsync()
@@ -1076,46 +1042,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
         {
-            return await _sharedContext.UpsertResource(resource, httpMethod);
-        }
-
-        private async Task LoadBundleAsync(string sampleName)
-        {
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            var smartBundle = Samples.GetJsonSample<Bundle>(sampleName);
-            var upserted = 0;
-
-            foreach (var entry in smartBundle.Entry)
-            {
-                await UpsertResourceWithTiming(entry.Resource, $"{sampleName}/{entry.Resource.TypeName}/{entry.Resource.Id}");
-                upserted++;
-            }
-
-            LogTiming($"Loaded bundle {sampleName}: resources={upserted}, elapsed={stopwatch.Elapsed.TotalSeconds:F3}s.");
-        }
-
-        private async Task<UpsertOutcome> UpsertResourceWithTiming(Resource resource, string operationName)
-        {
-            return await MeasureAsync($"Upsert {operationName}", () => UpsertResource(resource));
-        }
-
-        private async Task<T> MeasureAsync<T>(string operationName, Func<Task<T>> action)
-        {
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            try
-            {
-                return await action();
-            }
-            finally
-            {
-                LogTiming($"{operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s.");
-            }
-        }
-
-        private void LogTiming(string message)
-        {
-            string dataStoreName = _fixture?.DataStore.GetType().Name ?? _smartFixture.DataStore.ToString();
-            _output.WriteLine($"[SmartSearchTiming] {ModelInfoProvider.Instance.Version}/{dataStoreName}: {message}");
+            return await _smartFixture.UpsertResource(resource, httpMethod);
         }
 
         private static string CreateSmartV2TestResourceId(string scenario)
@@ -1327,12 +1254,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             });
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = patientId;
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             // Test search capability
             var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_id", patientId));
             var searchResults = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(searchResults.Results);
 
@@ -3856,190 +3783,60 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
         }
 
-        private sealed class TimedSearchService : ISearchService
+        public sealed class SmartSearchSharedFixture : IAsyncLifetime
         {
-            private readonly ISearchService _innerSearchService;
-            private readonly ITestOutputHelper _output;
-            private readonly string _context;
+            private readonly DataStore _dataStore;
+            private FhirStorageTestsFixture _fixture;
+            private IScoped<IFhirDataStore> _scopedDataStore;
+            private SearchParameterDefinitionManager _searchParameterDefinitionManager;
+            private ISearchIndexer _searchIndexer;
 
-            public TimedSearchService(ISearchService innerSearchService, ITestOutputHelper output, string context)
+            public SmartSearchSharedFixture(DataStore dataStore)
             {
-                _innerSearchService = innerSearchService;
-                _output = output;
-                _context = context;
+                _dataStore = dataStore;
             }
 
-            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-            {
-                return _innerSearchService.TryLogEvent(process, status, text, startDate, cancellationToken);
-            }
+            public FhirStorageTestsFixture Fixture => _fixture;
 
-            public Task<SearchResult> SearchAsync(
-                string resourceType,
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false,
-                ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-                bool onlyIds = false,
-                bool isIncludesOperation = false)
+            public async Task InitializeAsync()
             {
-                return MeasureSearchAsync(
-                    $"SearchAsync resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, version={resourceVersionTypes}, onlyIds={onlyIds}, includes={isIncludesOperation}",
-                    () => _innerSearchService.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation));
-            }
-
-            public Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
-            {
-                return MeasureSearchAsync(
-                    $"SearchAsync options countOnly={searchOptions?.CountOnly}, onlyIds={searchOptions?.OnlyIds}, expression={searchOptions?.Expression?.GetType().Name ?? "<none>"}",
-                    () => _innerSearchService.SearchAsync(searchOptions, cancellationToken));
-            }
-
-            public Task<SearchResult> SearchCompartmentAsync(
-                string compartmentType,
-                string compartmentId,
-                string resourceType,
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false,
-                bool useSmartCompartmentDefinition = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchCompartmentAsync compartment={compartmentType}/{compartmentId}, resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, smartCompartment={useSmartCompartmentDefinition}",
-                    () => _innerSearchService.SearchCompartmentAsync(compartmentType, compartmentId, resourceType, queryParameters, cancellationToken, isAsyncOperation, useSmartCompartmentDefinition));
-            }
-
-            public Task<SearchResult> SearchHistoryAsync(
-                string resourceType,
-                string resourceId,
-                PartialDateTime at,
-                PartialDateTime since,
-                PartialDateTime before,
-                int? count,
-                string summary,
-                string continuationToken,
-                string sort,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchHistoryAsync resourceType={resourceType}, resourceId={resourceId}, count={count}, summary={summary}, sort={sort}",
-                    () => _innerSearchService.SearchHistoryAsync(resourceType, resourceId, at, since, before, count, summary, continuationToken, sort, cancellationToken, isAsyncOperation));
-            }
-
-            public Task<SearchResult> SearchForReindexAsync(
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                string searchParameterHash,
-                bool countOnly,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchForReindexAsync query={FormatQuery(queryParameters)}, countOnly={countOnly}",
-                    () => _innerSearchService.SearchForReindexAsync(queryParameters, searchParameterHash, countOnly, cancellationToken, isAsyncOperation));
-            }
-
-            public Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
-                string resourceType,
-                long startId,
-                long endId,
-                int rangeSize,
-                int numberOfRanges,
-                bool up,
-                CancellationToken cancellationToken,
-                bool activeOnly = false)
-            {
-                return _innerSearchService.GetSurrogateIdRanges(resourceType, startId, endId, rangeSize, numberOfRanges, up, cancellationToken, activeOnly);
-            }
-
-            public Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
-            {
-                return _innerSearchService.GetUsedResourceTypes(cancellationToken);
-            }
-
-            public Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
-            {
-                return _innerSearchService.GetFeedRanges(cancellationToken);
-            }
-
-            private async Task<SearchResult> MeasureSearchAsync(string operationName, Func<Task<SearchResult>> action)
-            {
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                try
+                if (ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                    ModelInfoProvider.Instance.Version != FhirSpecification.R4B)
                 {
-                    SearchResult result = await action();
-                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s. results={GetResultCount(result)}, total={result.TotalCount?.ToString() ?? "<null>"}.");
-                    return result;
-                }
-                catch (Exception exception)
-                {
-                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} failed in {stopwatch.Elapsed.TotalSeconds:F3}s. exception={exception.GetType().Name}: {exception.Message}");
-                    throw;
-                }
-            }
-
-            private static string GetResultCount(SearchResult result)
-            {
-                if (result.Results == null)
-                {
-                    return "<null>";
+                    return;
                 }
 
-                return result.Results.TryGetNonEnumeratedCount(out int count) ? count.ToString() : "<deferred>";
+                _fixture = new FhirStorageTestsFixture(_dataStore);
+                await _fixture.InitializeAsync();
+
+                var typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
+                _searchIndexer = new TypedElementSearchIndexer(
+                    _fixture.SupportedSearchParameterDefinitionManager,
+                    typedElementToSearchValueConverterManager,
+                    Substitute.For<IReferenceToElementResolver>(),
+                    ModelInfoProvider.Instance,
+                    NullLogger<TypedElementSearchIndexer>.Instance);
+                _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
+                _scopedDataStore = _fixture.DataStore.CreateMockScope();
+
+                await LoadBundleAsync("SmartPatientA");
+                await LoadBundleAsync("SmartPatientB");
+                await LoadBundleAsync("SmartPatientC");
+                await LoadBundleAsync("SmartPatientD");
+                await LoadBundleAsync("SmartCommon");
+
+                await UpsertResource(Samples.GetJsonSample<Medication>("Medication"));
+                await UpsertResource(Samples.GetJsonSample<Organization>("Organization"));
+                await UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq"));
             }
 
-            private static string FormatQuery(IReadOnlyList<Tuple<string, string>> queryParameters)
+            public async Task DisposeAsync()
             {
-                if (queryParameters == null || queryParameters.Count == 0)
+                if (_fixture != null)
                 {
-                    return "<none>";
+                    await _fixture.DisposeAsync();
                 }
-
-                return string.Join("&", queryParameters.Select(queryParameter => $"{queryParameter.Item1}={queryParameter.Item2}"));
             }
-        }
-
-        public sealed class SmartSearchSharedContext
-        {
-            public SmartSearchSharedContext(
-                FhirStorageTestsFixture fixture,
-                IFhirOperationDataStore fhirOperationDataStore,
-                IFhirStorageTestHelper fhirStorageTestHelper,
-                IScoped<IFhirDataStore> scopedDataStore,
-                SearchParameterDefinitionManager searchParameterDefinitionManager,
-                ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
-                ITypedElementToSearchValueConverterManager typedElementToSearchValueConverterManager,
-                ISearchIndexer searchIndexer,
-                SearchParameterStatusManager searchParameterStatusManager)
-            {
-                Fixture = fixture;
-                FhirOperationDataStore = fhirOperationDataStore;
-                FhirStorageTestHelper = fhirStorageTestHelper;
-                ScopedDataStore = scopedDataStore;
-                SearchParameterDefinitionManager = searchParameterDefinitionManager;
-                SupportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
-                TypedElementToSearchValueConverterManager = typedElementToSearchValueConverterManager;
-                SearchIndexer = searchIndexer;
-                SearchParameterStatusManager = searchParameterStatusManager;
-            }
-
-            public FhirStorageTestsFixture Fixture { get; }
-
-            public IFhirOperationDataStore FhirOperationDataStore { get; }
-
-            public IFhirStorageTestHelper FhirStorageTestHelper { get; }
-
-            public IScoped<IFhirDataStore> ScopedDataStore { get; }
-
-            public SearchParameterDefinitionManager SearchParameterDefinitionManager { get; }
-
-            public ISupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager { get; }
-
-            public ITypedElementToSearchValueConverterManager TypedElementToSearchValueConverterManager { get; }
-
-            public ISearchIndexer SearchIndexer { get; }
-
-            public SearchParameterStatusManager SearchParameterStatusManager { get; }
 
             public async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
             {
@@ -4051,177 +3848,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
                 var resourceRequest = new ResourceRequest(httpMethod);
                 var compartmentIndices = Substitute.For<CompartmentIndices>();
-                var searchIndices = SearchIndexer.Extract(resourceElement);
-                var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), SearchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+                var searchIndices = _searchIndexer.Extract(resourceElement);
+                var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
                 wrapper.SearchParameterHash = "hash";
 
-                return await ScopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
-            }
-        }
-
-        public sealed class SmartSearchSharedFixture
-        {
-            private static readonly ConcurrentDictionary<SmartSearchSharedFixtureKey, Lazy<Task<SmartSearchSharedContext>>> SharedContexts = new();
-            private static int _processExitCleanupRegistered;
-            private readonly DataStore _dataStore;
-
-            public SmartSearchSharedFixture(DataStore dataStore)
-            {
-                _dataStore = dataStore;
-                RegisterProcessExitCleanup();
+                return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
             }
 
-            public DataStore DataStore => _dataStore;
-
-            public Task<SmartSearchSharedContext> GetContextAsync(ITestOutputHelper output)
+            private async Task LoadBundleAsync(string sampleName)
             {
-                var key = new SmartSearchSharedFixtureKey(ModelInfoProvider.Instance.Version, _dataStore);
-                return SharedContexts.GetOrAdd(
-                    key,
-                    _ => new Lazy<Task<SmartSearchSharedContext>>(() => CreateContextAsync(_dataStore, output), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
-            }
+                var smartBundle = Samples.GetJsonSample<Bundle>(sampleName);
 
-            private static async Task<SmartSearchSharedContext> CreateContextAsync(DataStore dataStore, ITestOutputHelper output)
-            {
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                var fixture = new FhirStorageTestsFixture(dataStore);
-                await fixture.InitializeAsync();
-
-                void LogTiming(string message)
+                foreach (var entry in smartBundle.Entry)
                 {
-                    output.WriteLine($"[SmartSearchTiming] {ModelInfoProvider.Instance.Version}/{fixture.DataStore.GetType().Name}: {message}");
+                    await UpsertResource(entry.Resource);
                 }
-
-                async Task<T> MeasureAsync<T>(string operationName, Func<Task<T>> action)
-                {
-                    Stopwatch operationStopwatch = Stopwatch.StartNew();
-                    try
-                    {
-                        return await action();
-                    }
-                    finally
-                    {
-                        LogTiming($"{operationName} completed in {operationStopwatch.Elapsed.TotalSeconds:F3}s.");
-                    }
-                }
-
-                var dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
-                dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
-                {
-                    x[1] = null;
-                    return true;
-                });
-
-                var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-                searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
-                var typedElementToSearchValueConverterManager = await MeasureAsync(
-                    "CreateFhirTypedElementToSearchValueConverterManagerAsync",
-                    CreateFhirTypedElementToSearchValueConverterManagerAsync);
-
-                var searchIndexer = new TypedElementSearchIndexer(
-                    fixture.SupportedSearchParameterDefinitionManager,
-                    typedElementToSearchValueConverterManager,
-                    Substitute.For<IReferenceToElementResolver>(),
-                    ModelInfoProvider.Instance,
-                    NullLogger<TypedElementSearchIndexer>.Instance);
-
-                ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
-                    new RawResourceFactory(new FhirJsonSerializer()),
-                    new FhirRequestContextAccessor(),
-                    searchIndexer,
-                    fixture.SearchParameterDefinitionManager,
-                    Deserializers.ResourceDeserializer);
-
-                var context = new SmartSearchSharedContext(
-                    fixture,
-                    fixture.OperationDataStore,
-                    fixture.TestHelper,
-                    fixture.DataStore.CreateMockScope(),
-                    fixture.SearchParameterDefinitionManager,
-                    fixture.SupportedSearchParameterDefinitionManager,
-                    typedElementToSearchValueConverterManager,
-                    searchIndexer,
-                    fixture.SearchParameterStatusManager);
-
-                async Task LoadBundleAsync(string sampleName)
-                {
-                    Stopwatch bundleStopwatch = Stopwatch.StartNew();
-                    var smartBundle = Samples.GetJsonSample<Bundle>(sampleName);
-                    var upserted = 0;
-
-                    foreach (var entry in smartBundle.Entry)
-                    {
-                        await MeasureAsync($"Upsert {sampleName}/{entry.Resource.TypeName}/{entry.Resource.Id}", () => context.UpsertResource(entry.Resource));
-                        upserted++;
-                    }
-
-                    LogTiming($"Loaded bundle {sampleName}: resources={upserted}, elapsed={bundleStopwatch.Elapsed.TotalSeconds:F3}s.");
-                }
-
-                await LoadBundleAsync("SmartPatientA");
-                await LoadBundleAsync("SmartPatientB");
-                await LoadBundleAsync("SmartPatientC");
-                await LoadBundleAsync("SmartPatientD");
-                await LoadBundleAsync("SmartCommon");
-
-                await MeasureAsync("Upsert Medication", () => context.UpsertResource(Samples.GetJsonSample<Medication>("Medication")));
-                await MeasureAsync("Upsert Organization", () => context.UpsertResource(Samples.GetJsonSample<Organization>("Organization")));
-                await MeasureAsync("Upsert Location-example-hq", () => context.UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq")));
-
-                LogTiming($"Shared SMART context initialization completed in {stopwatch.Elapsed.TotalSeconds:F3}s.");
-                return context;
-            }
-
-            private static void RegisterProcessExitCleanup()
-            {
-                if (Interlocked.Exchange(ref _processExitCleanupRegistered, 1) == 1)
-                {
-                    return;
-                }
-
-                AppDomain.CurrentDomain.ProcessExit += (_, _) => DisposeSharedContexts();
-            }
-
-            private static void DisposeSharedContexts()
-            {
-                foreach (Lazy<Task<SmartSearchSharedContext>> contextTask in SharedContexts.Values)
-                {
-                    if (!contextTask.IsValueCreated || !contextTask.Value.IsCompletedSuccessfully)
-                    {
-                        continue;
-                    }
-
-                    contextTask.Value.Result.Fixture.DisposeAsync().GetAwaiter().GetResult();
-                }
-            }
-        }
-
-        private sealed class SmartSearchSharedFixtureKey : IEquatable<SmartSearchSharedFixtureKey>
-        {
-            public SmartSearchSharedFixtureKey(FhirSpecification version, DataStore dataStore)
-            {
-                Version = version;
-                DataStore = dataStore;
-            }
-
-            public FhirSpecification Version { get; }
-
-            public DataStore DataStore { get; }
-
-            public bool Equals(SmartSearchSharedFixtureKey other)
-            {
-                return other != null && Version == other.Version && DataStore == other.DataStore;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is SmartSearchSharedFixtureKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                return HashCode.Combine(Version, DataStore);
             }
         }
     }
