@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential transaction bundle). 
+                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential transaction bundle).
                 bool wasEnlistedInAmbientTransaction = mergeOptions.EnlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null;
 
                 try
