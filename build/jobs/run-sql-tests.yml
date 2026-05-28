@@ -9,7 +9,7 @@ parameters:
   type: string
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+  default: 'Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate'
 - name: runShardedIntegrationTests
   type: boolean
   default: false
@@ -33,7 +33,7 @@ parameters:
   default: false
 - name: e2eTestShards
   type: object
-  # Shard names must be valid Azure Pipelines job identifiers. Reindex and BulkUpdate stay isolated below.
+  # Shard names must be valid Azure Pipelines job identifiers. Tests tagged RequiresIsolation run in a terminal lane below.
   default:
     - name: General
       categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
@@ -49,7 +49,7 @@ parameters:
       testFilter: ''
     - name: CustomSearch
       categoryFilter: 'Category=CustomSearch'
-      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests'
+      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests&Category!=RequiresIsolation'
     - name: History
       categoryFilter: 'Category=History'
       testFilter: ''
@@ -309,7 +309,7 @@ jobs:
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
-- ${{ if eq(parameters.runBulkUpdateJob, true) }}:
+- ${{ if and(eq(parameters.runBulkUpdateJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_BulkUpdate'
     timeoutInMinutes: 120
     dependsOn: []
@@ -327,17 +327,10 @@ jobs:
         testRunTitleSuffix: ' BulkUpdate'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
-- ${{ if eq(parameters.runReindexJob, true) }}:
+- ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_Reindex'
     timeoutInMinutes: 120
-    ${{ if eq(parameters.runShardedE2eJobs, true) }}:
-      dependsOn:
-      - ${{ each shard in parameters.e2eTestShards }}:
-        - 'sqlE2eTests_${{ shard.name }}'
-      - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
-        - 'sqlE2eTests_BulkUpdate'
-    ${{ if eq(parameters.runShardedE2eJobs, false) }}:
-      dependsOn: []
+    dependsOn: []
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
@@ -353,15 +346,11 @@ jobs:
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
-  - job: 'sqlE2eTests_BulkDelete'
+  - job: 'sqlE2eTests_RequiresIsolation'
     timeoutInMinutes: 120
     dependsOn:
     - ${{ each shard in parameters.e2eTestShards }}:
       - 'sqlE2eTests_${{ shard.name }}'
-    - ${{ if eq(parameters.runReindexJob, true) }}:
-      - 'sqlE2eTests_Reindex'
-    - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
-      - 'sqlE2eTests_BulkUpdate'
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
@@ -372,6 +361,6 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: '${{ parameters.mainCategoryFilter }}&Category=BulkDelete'
-        testRunTitleSuffix: ' BulkDelete'
+        categoryFilter: 'Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+        testRunTitleSuffix: ' RequiresIsolation'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}

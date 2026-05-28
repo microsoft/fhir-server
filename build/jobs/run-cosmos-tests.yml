@@ -7,7 +7,7 @@ parameters:
   type: string
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+  default: 'Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex'
 - name: runReindexJob
   type: boolean
   default: true
@@ -168,7 +168,25 @@ jobs:
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
       parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
-- ${{ if eq(parameters.runReindexJob, true) }}:
+- job: 'cosmosE2eTests_RequiresIsolation'
+  timeoutInMinutes: 75
+  dependsOn:
+  - cosmosE2eTests
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      containerAppName: '${{ parameters.containerAppName }}'
+      appServiceType: 'CosmosDb'
+      categoryFilter: 'Category=RequiresIsolation&Category!=ExportLongRunning'
+      testRunTitleSuffix: ' RequiresIsolation'
+      parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
+
+- ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.e2eParallelizeTestCollections, false)) }}:
   - job: 'cosmosE2eTests_Reindex'
     timeoutInMinutes: 75
     dependsOn: []
