@@ -392,6 +392,8 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
       e2eParallelizeTestCollections: true
 
 - stage: testStu3Sql
@@ -431,6 +433,8 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
       e2eParallelizeTestCollections: true
 
 - stage: testR4Sql
