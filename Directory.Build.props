@@ -27,6 +27,14 @@
   </PropertyGroup>
 
   <Choose>
+    <When Condition="$(MSBuildProjectName.Contains('Tests.Integration'))">
+      <ItemGroup>
+        <Content Include="$(MSBuildThisFileDirectory)/xunit.runner.integration.json">
+          <Link>xunit.runner.json</Link>
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+      </ItemGroup>
+    </When>
     <When Condition="$(MSBuildProjectName.Contains('UnitTest'))">
       <ItemGroup>
         <Content Include="$(MSBuildThisFileDirectory)/xunit.runner.json">
