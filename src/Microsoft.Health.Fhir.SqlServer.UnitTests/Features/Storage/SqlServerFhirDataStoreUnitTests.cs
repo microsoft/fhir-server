@@ -197,11 +197,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         // This method is indirectly tested through integration tests (UpdateTests, FhirPathPatchTests)
 
         [Fact]
-        public async Task MergeAsync_OnSqlConflict_WithAtomicOptions_ThrowsPreconditionFailedException()
+        public async Task MergeAsync_OnSqlConflict_WithEnlistedTransaction_ThrowsResourceConflictExceptionWithoutRetry()
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
             var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
                 Arg.Any<SqlCommand>(),
@@ -212,12 +213,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Arg.Any<bool>())
             .Throws(sqlException);
 
+            sqlRetryService
+                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
+
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations();
 
             // Act & Assert
-            await Assert.ThrowsAsync<PreconditionFailedException>(
-                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), cts.Token));
+
+            await sqlRetryService.DidNotReceive()
+                .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]

@@ -180,6 +180,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
+                            if (mergeOptions.EnlistInTransaction)
+                            {
+                                _logger.LogInformation("Conflict: ResourceConcurrentUpdateConflict");
+                                throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
+                            }
+
                             if (retries++ >= maxRetries)
                             {
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");

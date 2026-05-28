@@ -20,5 +20,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     OperationOutcomeConstants.IssueType.Conflict,
                     string.Format(Core.Resources.ResourceVersionConflict, etag?.VersionId)));
         }
+
+        public ResourceConflictException(string message)
+        {
+            Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Conflict,
+                    message));
+        }
     }
 }
