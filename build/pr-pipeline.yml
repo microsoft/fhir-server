@@ -392,6 +392,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      e2eParallelizeTestCollections: true
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -411,6 +412,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedE2eJobs: true
+      e2eParallelizeTestCollections: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -428,6 +430,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      e2eParallelizeTestCollections: true
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -447,6 +450,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedE2eJobs: true
+      e2eParallelizeTestCollections: true
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -466,6 +470,7 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedE2eJobs: true
+      e2eParallelizeTestCollections: true
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'

@@ -11,6 +11,9 @@ parameters:
 - name: runReindexJob
   type: boolean
   default: true
+- name: e2eParallelizeTestCollections
+  type: boolean
+  default: false
 jobs:
 
 - job: "CosmosIntegrationTests"
@@ -163,6 +166,7 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'CosmosDb'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'cosmosE2eTests_Reindex'
@@ -180,3 +184,4 @@ jobs:
         appServiceType: 'CosmosDb'
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
