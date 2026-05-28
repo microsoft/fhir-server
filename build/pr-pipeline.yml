@@ -411,6 +411,7 @@ stages:
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
       runShardedE2eJobs: true
       e2eParallelizeTestCollections: true
 
@@ -449,6 +450,7 @@ stages:
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
       runShardedE2eJobs: true
       e2eParallelizeTestCollections: true
 
@@ -469,6 +471,7 @@ stages:
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
       runShardedE2eJobs: true
       e2eParallelizeTestCollections: true
 
