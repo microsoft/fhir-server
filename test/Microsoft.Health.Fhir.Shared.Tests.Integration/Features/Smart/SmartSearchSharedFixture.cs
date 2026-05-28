@@ -117,14 +117,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var fhirElementToSearchValueConverters = new List<ITypedElementToSearchValueConverter>();
 
-            foreach (Type type in types)
+            foreach (Type type in types.Where(type => type.Name != nameof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter)))
             {
                 // Filter out the extension converter because it will be added to the converter dictionary in the converter manager's constructor
-                if (type.Name != nameof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter))
-                {
-                    var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
-                    fhirElementToSearchValueConverters.Add(x);
-                }
+                var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
+                fhirElementToSearchValueConverters.Add(x);
             }
 
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
