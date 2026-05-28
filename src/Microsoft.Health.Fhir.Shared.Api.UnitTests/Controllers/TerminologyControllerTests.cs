@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Web;
 using Hl7.Fhir.Model;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -415,6 +417,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
                 yield return d;
             }
+        }
+
+        [Fact]
+        public async Task GivenUnknownValueSet_WhenExpanding_ThenReturnsHttp200WithOperationOutcome()
+        {
+            // When the terminology service returns an OperationOutcome for an unknown ValueSet,
+            // the controller currently returns HTTP 200 with the OperationOutcome body.
+            var operationOutcome = new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.NotFound,
+                        Diagnostics = "ValueSet 'http://example.org/fhir/ValueSet/unknown' is unknown",
+                    },
+                },
+            };
+
+            _mediator.Send<ExpandResponse>(
+                Arg.Any<ExpandRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new ExpandResponse(operationOutcome.ToResourceElement()));
+
+            _controller.HttpContext.Request.QueryString = new QueryString("?url=http://example.org/fhir/ValueSet/unknown");
+
+            var result = await _controller.Expand();
+
+            var fhirResult = Assert.IsType<FhirResult>(result);
+            Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
         }
     }
 }
