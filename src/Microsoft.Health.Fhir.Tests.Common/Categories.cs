@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string IndexAndReindex = nameof(IndexAndReindex);
 
+        public const string RequiresIsolation = nameof(RequiresIsolation);
+
         /// <summary>
         /// Marks tests that exercise the full reindex operation. Allows CI cosmos pipeline to skip them
         /// (kept SQL-only) without affecting other IndexAndReindex-tagged tests like BulkDelete or
