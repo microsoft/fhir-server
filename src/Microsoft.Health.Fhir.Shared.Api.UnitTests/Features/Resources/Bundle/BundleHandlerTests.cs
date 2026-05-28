@@ -470,7 +470,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransaction_WhenSqlConflictZombiesCSharpTransactionAtCommit_ThenHttp500IsReturned()
+        public async Task GivenATransaction_WhenTransactionIsZombiedAtCommit_ThenHttp500IsReturned()
         {
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
 
@@ -520,6 +520,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirTfe.ResponseStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenATransaction_WhenInnerRequestReturnsConflictOperationOutcome_ThenHttp409IsReturned()
+        {
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = async context =>
+                    {
+                        var outcome = new OperationOutcome
+                        {
+                            Issue = new List<OperationOutcome.IssueComponent>
+                            {
+                                new OperationOutcome.IssueComponent
+                                {
+                                    Severity = OperationOutcome.IssueSeverity.Error,
+                                    Code = OperationOutcome.IssueType.Conflict,
+                                    Diagnostics = "Resource has been recently updated or added",
+                                },
+                            },
+                        };
+
+                        context.Response.StatusCode = StatusCodes.Status409Conflict;
+                        await context.Response.WriteAsync(outcome.ToJson());
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+
+            Assert.Equal(HttpStatusCode.Conflict, fhirTfe.ResponseStatusCode);
         }
 
         [Fact]

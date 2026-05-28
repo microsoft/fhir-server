@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Diagnostics;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -23,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public ResourceConflictException(string message)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Conflict,

@@ -217,6 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
+                    // Tripwire: if the retry loop is incorrectly entered, cancellation makes the test fail fast rather than hang.
                     cts.Cancel();
                     await Task.CompletedTask;
                 });

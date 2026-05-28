@@ -188,6 +188,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                             if (retries++ >= maxRetries)
                             {
+                                // Preserve existing non-enlisted retry behavior; enlisted transactions cannot retry
+                                // because the active SqlTransaction has already been invalidated by the conflict.
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
                             }
