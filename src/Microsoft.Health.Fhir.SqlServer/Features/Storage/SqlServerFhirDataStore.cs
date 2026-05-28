@@ -156,6 +156,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential
+                // transaction bundle). A SQL conflict (50409) while enlisted zombies that transaction, so any
+                // retry within it is guaranteed to fail - we must fail fast with a 409 instead of retrying.
+                bool wasEnlistedInAmbientTransaction = mergeOptions.EnlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null;
+
                 try
                 {
                     var results = await MergeInternalAsync(
@@ -180,16 +185,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
-                            if (mergeOptions.EnlistInTransaction)
+                            if (wasEnlistedInAmbientTransaction)
                             {
-                                _logger.LogInformation("Conflict: ResourceConcurrentUpdateConflict");
+                                // The ambient SqlTransaction is now zombied by this conflict; retrying within it is
+                                // futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
+                                _logger.LogWarning(e, "Conflict: ResourceConcurrentUpdateConflict in ambient transaction; failing fast (SQL error {SqlErrorNumber}).", sqlEx.Number);
                                 throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
                             }
 
                             if (retries++ >= maxRetries)
                             {
-                                // Preserve existing non-enlisted retry behavior; enlisted transactions cannot retry
-                                // because the active SqlTransaction has already been invalidated by the conflict.
+                                // Preserve existing non-enlisted retry behavior; an enlisted transaction is handled
+                                // above because its active SqlTransaction is already invalidated by the conflict.
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
                             }
