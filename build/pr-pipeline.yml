@@ -164,7 +164,6 @@ stages:
   - UpdateVersion
   - provisionEnvironment
   jobs:
-  - template: ./jobs/cleanup-aad.yml
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
@@ -172,15 +171,6 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./tasks/delete-keyvaults.yml
-  - job: setup
-    displayName: 'Setup AAD'
-    dependsOn:
-    - cleanupAad
-    - deleteKeyVaults
-    pool:
-      vmImage: '$(WindowsVmImage)'
-    steps:
-    - template: ./jobs/add-aad-test-environment.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
@@ -233,7 +223,7 @@ stages:
 - stage: associateKeyVaultNsp
   displayName: 'Associate KeyVault with NSP'
   dependsOn:
-  - setupEnvironment
+  - setupAad
   - createNsp
   jobs:
   - template: ./jobs/associate-keyvault-nsp.yml
@@ -242,6 +232,21 @@ stages:
       keyVaultName: '$(KeyVaultBaseName)-ts'
       nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
+
+- stage: setupAad
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/cleanup-aad.yml
+  - job: setup
+    displayName: 'Setup AAD'
+    dependsOn:
+    - cleanupAad
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
@@ -376,6 +381,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployStu3
   variables:
     TestEnvironmentUrl_Stu3: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3']]
@@ -392,6 +398,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployStu3Sql
   variables:
     TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
@@ -411,6 +418,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR4
   variables:
     TestEnvironmentUrl_R4: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4']]
@@ -427,6 +435,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR4Sql
   variables:
     TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
@@ -446,6 +455,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR5Sql
   variables:
     TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]

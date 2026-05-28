@@ -303,9 +303,7 @@ jobs:
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - job: 'sqlE2eTests_RequiresIsolation'
     timeoutInMinutes: 120
-    dependsOn:
-    - ${{ each shard in parameters.e2eTestShards }}:
-      - 'sqlE2eTests_${{ shard.name }}'
+    dependsOn: []
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
