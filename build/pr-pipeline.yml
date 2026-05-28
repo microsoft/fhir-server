@@ -164,7 +164,6 @@ stages:
   - UpdateVersion
   - provisionEnvironment
   jobs:
-  - template: ./jobs/cleanup-aad.yml
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
@@ -175,7 +174,6 @@ stages:
   - job: setup
     displayName: 'Setup AAD'
     dependsOn:
-    - cleanupAad
     - deleteKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'

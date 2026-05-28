@@ -113,10 +113,11 @@ function New-FhirServerClientApplicationRegistration {
     $securityAuthenticationAuthority = "https://login.microsoftonline.com/$tenantId"
 
     @{
-        AppId     = $clientAppReg.AppId;
-        AppSecret = $clientAppPassword.SecretText;
-        ReplyUrl  = $clientAppReg.Web.RedirectUris[0]
-        AuthUrl   = "$securityAuthenticationAuthority/oauth2/authorize?resource=$securityAuthenticationAudience"
-        TokenUrl  = "$securityAuthenticationAuthority/oauth2/token"
+        AppId          = $clientAppReg.AppId;
+        AppSecret      = $clientAppPassword.SecretText;
+        AppSecretKeyId = $clientAppPassword.KeyId;
+        ReplyUrl       = $clientAppReg.Web.RedirectUris[0]
+        AuthUrl        = "$securityAuthenticationAuthority/oauth2/authorize?resource=$securityAuthenticationAudience"
+        TokenUrl       = "$securityAuthenticationAuthority/oauth2/token"
     }
 }

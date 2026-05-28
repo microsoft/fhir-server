@@ -61,27 +61,39 @@ function Set-FhirServerApiUsers {
         # See if the user exists
         $aadUser = Get-AzureADUser -Filter "userPrincipalName eq '$userUpn'"
 
-        Add-Type -AssemblyName System.Web
-        $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
-        Set-Secret -Name passwordSecure -Secret $password
-        $passwordSecureString = Get-Secret -Name passwordSecure
+        $passwordSecretName = "user--$($user.id)--secret"
+        $existingPasswordSecret = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name $passwordSecretName -ErrorAction SilentlyContinue
+        $passwordSecureString = $null
 
-        if ($aadUser) {
-            Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
+        if ($aadUser -and $existingPasswordSecret -and $existingPasswordSecret.SecretValue) {
+            Write-Host "User $userUpn already exists and has a Key Vault password secret. Reusing existing password."
+            $passwordSecureString = $existingPasswordSecret.SecretValue
         }
         else {
-            $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
-            $PasswordProfile.Password = $password
-            $PasswordProfile.EnforceChangePasswordPolicy = $false
-            $PasswordProfile.ForceChangePasswordNextLogin = $false
+            Add-Type -AssemblyName System.Web
+            $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
+            Set-Secret -Name passwordSecure -Secret $password
+            $passwordSecureString = Get-Secret -Name passwordSecure
 
-            $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
+            if ($aadUser) {
+                Write-Host "User $userUpn already exists but is missing a Key Vault password secret. Repairing password secret."
+                Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
+            }
+            else {
+                Write-Host "Creating user $userUpn."
+                $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
+                $PasswordProfile.Password = $password
+                $PasswordProfile.EnforceChangePasswordPolicy = $false
+                $PasswordProfile.ForceChangePasswordNextLogin = $false
+
+                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
+            }
         }
 
         Set-Secret -Name upnSecure -Secret $userUpn
         $upnSecureString = Get-Secret -Name upnSecure
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--id" -SecretValue $upnSecureString | Out-Null
-        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--secret" -SecretValue $passwordSecureString | Out-Null
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name $passwordSecretName -SecretValue $passwordSecureString | Out-Null
 
         $environmentUsers += @{
             upn           = $userUpn
