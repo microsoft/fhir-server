@@ -159,9 +159,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 DateTimeOffset.UtcNow,
                 false,
-                Array.Empty<SearchIndexEntry>(),
-                new CompartmentIndices(),
-                Array.Empty<KeyValuePair<string, string>>(),
+                null,
+                null,
+                null,
                 null);
         }
 
@@ -269,7 +269,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var exception = await Record.ExceptionAsync(
                 () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
 
-            Assert.NotNull(exception);
             Assert.True(sqlRetryService.CommitTransactionCalled);
             Assert.IsAssignableFrom<OperationCanceledException>(exception);
         }
@@ -334,14 +333,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
         {
-            var provider = MockModelInfoProviderBuilder
-                .Create(FhirSpecification.R4)
-                .AddKnownTypes(KnownResourceTypes.Group, "Encounter", "Device", "Practitioner", "RelatedPerson")
-                .Build();
-            var compartmentTypes = new[] { "Patient", "Practitioner", "Encounter", "Device", "RelatedPerson" };
-            provider.GetCompartmentTypeNames().Returns(compartmentTypes);
-            provider.IsKnownCompartmentType(Arg.Any<string>()).Returns(x => compartmentTypes.Contains((string)x[0]));
-            ModelInfoProvider.SetProvider(provider);
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
