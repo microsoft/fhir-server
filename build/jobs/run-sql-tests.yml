@@ -118,20 +118,35 @@ jobs:
           Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
           Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-    - task: DotNetCoreCLI@2
-      displayName: 'Build Integration Test Projects'
-      inputs:
-        command: build
-        projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-        arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: 'Run SQL Integration Tests with coverage'
       inputs:
-        command: test
-        projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-        arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-        testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
+          $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+          $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+          if (-not $dll) {
+            throw "Could not find $testName.dll under $testRoot"
+          }
+
+          $testArgs = @(
+            '--filter', 'FullyQualifiedName!~CosmosDb',
+            '--retry-failed-tests', '3',
+            '--coverage',
+            '--coverage-output-format', 'cobertura',
+            '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",
+            '--report-trx'
+          )
+
+          Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
+          & dotnet $dll.FullName @testArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "SQL integration tests failed with exit code $LASTEXITCODE"
+          }
       env:
         'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
         platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
@@ -224,20 +239,35 @@ jobs:
               Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
               Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-        - task: DotNetCoreCLI@2
-          displayName: 'Build Integration Test Projects'
-          inputs:
-            command: build
-            projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-            arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-        - task: DotNetCoreCLI@2
+        - task: PowerShell@2
           displayName: 'Run SQL Integration Tests ${{ shard.name }} with coverage'
           inputs:
-            command: test
-            projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-            arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb&${{ shard.testFilter }}" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-            testRunTitle: '${{ parameters.version }} SQL Integration Tests ${{ shard.name }}'
+            targetType: inline
+            pwsh: true
+            script: |
+              $ErrorActionPreference = 'Stop'
+              $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
+              $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+              $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+              if (-not $dll) {
+                throw "Could not find $testName.dll under $testRoot"
+              }
+
+              $testArgs = @(
+                '--filter', 'FullyQualifiedName!~CosmosDb&${{ shard.testFilter }}',
+                '--retry-failed-tests', '3',
+                '--coverage',
+                '--coverage-output-format', 'cobertura',
+                '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",
+                '--report-trx'
+              )
+
+              Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
+              & dotnet $dll.FullName @testArgs
+
+              if ($LASTEXITCODE -ne 0) {
+                throw "SQL integration tests failed with exit code $LASTEXITCODE"
+              }
           env:
             'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
             platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'

@@ -118,20 +118,35 @@ jobs:
           Write-Host "$dataStoreResourceId"
           Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
-    - task: DotNetCoreCLI@2
-      displayName: 'Build Integration Test Projects'
-      inputs:
-        command: build
-        projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-        arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: 'Run Cosmos Integration Tests with coverage'
       inputs:
-        command: test
-        projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-        arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-        testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
+          $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+          $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+          if (-not $dll) {
+            throw "Could not find $testName.dll under $testRoot"
+          }
+
+          $testArgs = @(
+            '--filter', 'FullyQualifiedName!~SqlServer',
+            '--retry-failed-tests', '3',
+            '--coverage',
+            '--coverage-output-format', 'cobertura',
+            '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",
+            '--report-trx'
+          )
+
+          Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
+          & dotnet $dll.FullName @testArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Cosmos integration tests failed with exit code $LASTEXITCODE"
+          }
       env:
         'CosmosDb__Host': $(CosmosDb--Host)
         'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -258,20 +273,35 @@ jobs:
             Write-Host "$dataStoreResourceId"
             Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
-      - task: DotNetCoreCLI@2
-        displayName: 'Build Integration Test Projects'
-        inputs:
-          command: build
-          projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-          arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-      - task: DotNetCoreCLI@2
+      - task: PowerShell@2
         displayName: 'Run Cosmos Integration Tests ${{ shard.name }} with coverage'
         inputs:
-          command: test
-          projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-          arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer&${{ shard.testFilter }}" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-          testRunTitle: '${{ parameters.version }} Cosmos Integration Tests ${{ shard.name }}'
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
+            $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+            $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+            if (-not $dll) {
+              throw "Could not find $testName.dll under $testRoot"
+            }
+
+            $testArgs = @(
+              '--filter', 'FullyQualifiedName!~SqlServer&${{ shard.testFilter }}',
+              '--retry-failed-tests', '3',
+              '--coverage',
+              '--coverage-output-format', 'cobertura',
+              '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",
+              '--report-trx'
+            )
+
+            Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
+            & dotnet $dll.FullName @testArgs
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Cosmos integration tests failed with exit code $LASTEXITCODE"
+            }
         env:
           'CosmosDb__Host': $(CosmosDb--Host)
           'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
