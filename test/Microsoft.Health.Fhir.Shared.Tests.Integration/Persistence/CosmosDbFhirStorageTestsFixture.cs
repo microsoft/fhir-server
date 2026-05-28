@@ -294,6 +294,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDbPhysicalPartitionInfo,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
+                Array.Empty<ISearchParameterQueryParameterExpander>(),
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
