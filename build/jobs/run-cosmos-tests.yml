@@ -96,6 +96,26 @@ jobs:
       failTaskOnFailedTests: false
     condition: succeededOrFailed()
 
+  - task: PowerShell@2
+    displayName: 'Report Cosmos integration duration by class'
+    condition: succeededOrFailed()
+    inputs:
+      targetType: filePath
+      filePath: '$(System.DefaultWorkingDirectory)/build/scripts/Write-TestClassDurationReport.ps1'
+      pwsh: true
+      arguments: >-
+        -ResultsDirectory "$(Agent.TempDirectory)/coverage"
+        -OutputDirectory "$(Agent.TempDirectory)/test-class-duration"
+        -ReportName "Cosmos_${{ parameters.version }}_Integration_ByClass"
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Cosmos integration class duration report'
+    condition: succeededOrFailed()
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/test-class-duration'
+      artifactName: 'TestClassDuration_IntegrationTests_Cosmos_${{ parameters.version }}'
+      artifactType: 'container'
+
   - task: reportgenerator@5
     displayName: 'Aggregate Cosmos integration test coverage'
     condition: succeededOrFailed()
