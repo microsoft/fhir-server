@@ -156,9 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential
-                // transaction bundle). A SQL conflict (50409) while enlisted zombies that transaction, so any
-                // retry within it is guaranteed to fail - we must fail fast with a 409 instead of retrying.
+                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential transaction bundle). 
                 bool wasEnlistedInAmbientTransaction = mergeOptions.EnlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null;
 
                 try
@@ -187,16 +185,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             if (wasEnlistedInAmbientTransaction)
                             {
-                                // The ambient SqlTransaction is now zombied by this conflict; retrying within it is
-                                // futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
+                                // The ambient SqlTransaction is now zombied by this conflict; retrying within it is futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
                                 _logger.LogWarning(e, "Conflict: ResourceConcurrentUpdateConflict in ambient transaction; failing fast (SQL error {SqlErrorNumber}).", sqlEx.Number);
                                 throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
                             }
 
                             if (retries++ >= maxRetries)
                             {
-                                // Preserve existing non-enlisted retry behavior; an enlisted transaction is handled
-                                // above because its active SqlTransaction is already invalidated by the conflict.
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
                             }
@@ -211,12 +206,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else if (sqlEx.Number == FhirSqlErrorCodes.SurrogateIdCollision && retries++ < maxRetries)
                         {
-                            // Known gap: like a 50409 conflict, a 50424 collision is raised via THROW inside the
-                            // merge sproc, so when enlisted in an ambient C# transaction it also zombies that
-                            // transaction and these retries are futile - the request will still surface as a 500
-                            // ("This SqlTransaction has completed") rather than failing fast. This is intentionally
-                            // not handled here: 50424 is rare and C# transactions are being deprecated. If that
-                            // changes, mirror the wasEnlistedInAmbientTransaction fail-fast used for 50409 above.
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (SurrogateIdCollision)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
 

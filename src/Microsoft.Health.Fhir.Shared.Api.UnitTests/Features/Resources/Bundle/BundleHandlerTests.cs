@@ -469,6 +469,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.InternalServerError);
         }
 
+        // Scenario: the inner requests succeed, but committing the C# transaction throws because the
+        // ambient SqlTransaction was already zombied (e.g. by a SQL error during an earlier entry that
+        // was not surfaced before reaching Complete()). At that point the real cause is gone and we only
+        // see a generic "This SqlTransaction has completed" InvalidOperationException, so the handler maps
+        // it to a 500. This is the fallback path - contrast with the 409 test below, where the conflict is
+        // surfaced by an inner request before commit and can be mapped to a precise status.
         [Fact]
         public async Task GivenATransaction_WhenTransactionIsZombiedAtCommit_ThenHttp500IsReturned()
         {
@@ -522,6 +528,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(HttpStatusCode.InternalServerError, fhirTfe.ResponseStatusCode);
         }
 
+        // Scenario: an inner request fails fast with a 409 conflict (as the SQL data store now does for a
+        // concurrency conflict inside an ambient transaction, throwing ResourceConflictException). Because
+        // the conflict is surfaced as an entry response before the transaction is committed, the handler can
+        // propagate the precise 409 to the caller instead of the generic 500 from the zombied-at-commit path
+        // above. This is the user-facing behavior that the SqlServerFhirDataStore fail-fast enables.
         [Fact]
         public async Task GivenATransaction_WhenInnerRequestReturnsConflictOperationOutcome_ThenHttp409IsReturned()
         {
