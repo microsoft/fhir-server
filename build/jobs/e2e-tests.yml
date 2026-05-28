@@ -143,5 +143,5 @@ steps:
     condition: succeededOrFailed()
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/test-class-duration'
-      artifactName: 'TestClassDuration_E2E_${{ parameters.appServiceType }}_${{ parameters.version }}${{ replace(parameters.testRunTitleSuffix, ' ', '_') }}'
+      artifactName: "TestClassDuration_E2E_${{ parameters.appServiceType }}_${{ parameters.version }}${{ replace(parameters.testRunTitleSuffix, ' ', '_') }}"
       artifactType: 'container'
