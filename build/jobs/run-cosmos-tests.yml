@@ -30,6 +30,24 @@ jobs:
     parameters:
       version: ${{ parameters.version }}
 
+  - task: PowerShell@2
+    displayName: 'Enable integration test class parallelism'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $runnerConfig = @{
+          '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
+          parallelizeAssembly = $true
+          parallelizeTestCollections = $true
+        } | ConvertTo-Json
+        Get-ChildItem -Path '$(Agent.TempDirectory)/IntegrationTests' -Filter 'Microsoft.Health.Fhir.*.Tests.Integration.dll' -Recurse |
+          ForEach-Object {
+            $configPath = Join-Path $_.DirectoryName 'xunit.runner.json'
+            Set-Content -Path $configPath -Value $runnerConfig
+            Write-Host "Wrote $configPath"
+          }
+
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
     inputs:
