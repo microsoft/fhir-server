@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -62,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly IMediator _mediator;
         private readonly IBundleMetricHandler _bundleMetricHandler;
+        private readonly ITransactionHandler _transactionHandler;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -114,7 +116,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
             httpContextAccessor.HttpContext.Returns(httpContext);
 
-            var transactionHandler = Substitute.For<ITransactionHandler>();
+            _transactionHandler = Substitute.For<ITransactionHandler>();
 
             var resourceIdProvider = new ResourceIdProvider();
 
@@ -132,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,
                 fhirJsonParser,
-                transactionHandler,
+                _transactionHandler,
                 bundleHttpContextAccessor,
                 bundleOrchestrator,
                 resourceIdProvider,
@@ -465,6 +467,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.Handle(bundleRequest, default));
 
             Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.InternalServerError);
+        }
+
+        [Fact]
+        public async Task GivenATransaction_WhenSqlConflictZombiesCSharpTransactionAtCommit_ThenHttp500IsReturned()
+        {
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            ITransactionScope transactionScope = Substitute.For<ITransactionScope>();
+            _transactionHandler.BeginTransaction().Returns(transactionScope);
+            transactionScope
+                .When(scope => scope.Complete())
+                .Do(_ => throw new InvalidOperationException("This SqlTransaction has completed; it is no longer usable."));
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status201Created;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+
+            Assert.Equal(HttpStatusCode.InternalServerError, fhirTfe.ResponseStatusCode);
         }
 
         [Fact]
