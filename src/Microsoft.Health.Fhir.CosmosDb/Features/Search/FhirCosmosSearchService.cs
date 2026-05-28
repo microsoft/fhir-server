@@ -54,8 +54,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
+            IEnumerable<ISearchParameterQueryParameterExpander> queryParameterExpanders,
             ILogger<FhirCosmosSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore, logger)
+            : base(searchOptionsFactory, fhirDataStore, logger, queryParameterExpanders)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
