@@ -351,6 +351,7 @@ jobs:
     dependsOn:
     - ${{ each shard in parameters.e2eTestShards }}:
       - 'sqlE2eTests_${{ shard.name }}'
+    condition: succeededOrFailed()
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'

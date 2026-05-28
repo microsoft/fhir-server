@@ -172,6 +172,7 @@ jobs:
   timeoutInMinutes: 75
   dependsOn:
   - cosmosE2eTests
+  condition: succeededOrFailed()
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
