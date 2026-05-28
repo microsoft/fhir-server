@@ -25,8 +25,12 @@ parameters:
       testFilter: '(Category=Search|Category=SearchParameterStatus)&FullyQualifiedName!~SqlServer'
     - name: Reindex
       testFilter: 'Category=IndexAndReindex&FullyQualifiedName!~SqlServer'
+    # CosmosSpecific is the catch-all for Cosmos-named classes and Cosmos data-store variants.
+    # FullyQualifiedName~CosmosDb matches both Cosmos-only test classes and the "(CosmosDb)" suffix
+    # on every DataStore.All test, so the categorized shards above must be excluded here to avoid
+    # running those tests twice (mirrors the SqlSpecific exclusions).
     - name: CosmosSpecific
-      testFilter: 'FullyQualifiedName~CosmosDb'
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&Category!=SmartOnFhir'
 - name: runShardedE2eJobs
   type: boolean
   default: false
