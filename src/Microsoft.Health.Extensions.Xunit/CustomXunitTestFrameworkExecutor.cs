@@ -186,7 +186,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
 
                 var cacheOwner = context.ClassFixtureMappings;
-                if (ParentMappingManagerField?.GetValue(cacheOwner) is FixtureMappingManager parentMappingManager)
+                if (ParentMappingManagerField.GetValue(cacheOwner) is FixtureMappingManager parentMappingManager)
                 {
                     cacheOwner = parentMappingManager;
                 }

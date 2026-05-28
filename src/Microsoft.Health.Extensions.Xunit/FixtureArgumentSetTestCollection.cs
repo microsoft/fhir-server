@@ -14,13 +14,13 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     internal sealed class FixtureArgumentSetTestCollection : XunitTestCollection
     {
-        public FixtureArgumentSetTestCollection(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null)
+        public FixtureArgumentSetTestCollection(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments)
             : base(
                 EnsureArg.IsNotNull(sourceCollection, nameof(sourceCollection)).TestAssembly,
                 sourceCollection.CollectionDefinition,
                 sourceCollection.DisableParallelization || IsExplicitCollection(sourceCollection),
-                BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName),
-                uniqueID: BuildUniqueId(sourceCollection, fixtureArguments, testClassName))
+                BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments),
+                uniqueID: BuildUniqueId(sourceCollection, fixtureArguments))
         {
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
         }
@@ -31,30 +31,31 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 #pragma warning restore CS0618
 
-        private static string BuildDisplayName(string baseDisplayName, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName)
+        private static string BuildDisplayName(string baseDisplayName, IReadOnlyList<SingleFlag> fixtureArguments)
         {
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
 
             if (fixtureArguments.Count == 0)
             {
-                return string.IsNullOrEmpty(testClassName) ? baseDisplayName : testClassName;
+                return baseDisplayName;
             }
 
             var argsLabel = string.Join(", ", fixtureArguments.Select(v => v.EnumValue));
-            return string.IsNullOrEmpty(testClassName)
-                ? $"{baseDisplayName}({argsLabel})"
-                : $"{testClassName}({argsLabel})";
+            return $"{baseDisplayName}({argsLabel})";
         }
 
-        private static string BuildUniqueId(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName)
+        private static string BuildUniqueId(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> fixtureArguments)
         {
-            var displayName = BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName);
+            var displayName = BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments);
             return UniqueIDGenerator.ForTestCollection(sourceCollection.TestAssembly.UniqueID, displayName, sourceCollection.TestCollectionClassName);
         }
 
         private static bool IsExplicitCollection(IXunitTestCollection sourceCollection)
         {
-            return sourceCollection.CollectionDefinition != null || sourceCollection.TestCollectionClassName == null;
+            // A collection is explicit when it has a [CollectionDefinition] class or a named
+            // [Collection("...")] attribute (TestCollectionClassName is non-null for named collections,
+            // null for the implicit per-class default collection).
+            return sourceCollection.CollectionDefinition != null || sourceCollection.TestCollectionClassName != null;
         }
     }
 }

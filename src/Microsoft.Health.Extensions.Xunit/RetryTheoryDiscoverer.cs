@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             if (testCase is not XunitTestCase xunitTestCase)
             {
+                Trace.WriteLine($"[RetryTheory] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not XunitTestCase. Retry logic will NOT be applied.");
                 return testCase;
             }
 
