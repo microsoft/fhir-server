@@ -63,5 +63,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             string activityId,
             string clientElapsedTime = null,
             Exception exception = null);
+
+        /// <summary>
+        /// Logs when a malformed continuation token is detected.
+        /// </summary>
+        /// <param name="exception">The exception thrown by the Cosmos DB SDK.</param>
+        void LogMalformedContinuationToken(Exception exception);
     }
 }
