@@ -55,9 +55,12 @@ namespace Microsoft.Health.Extensions.Xunit
                 .ToArray();
         }
 
-        private static RetryTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute, int maxRetries, int delayMs, bool retryOnAssertionFailure)
+        private static IXunitTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute, int maxRetries, int delayMs, bool retryOnAssertionFailure)
         {
-            var xunitTestCase = (XunitTestCase)testCase;
+            if (testCase is not XunitTestCase xunitTestCase)
+            {
+                return testCase;
+            }
 
             return new RetryTestCase(
                 testMethod,

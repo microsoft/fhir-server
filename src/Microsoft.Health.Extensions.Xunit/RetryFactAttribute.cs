@@ -19,14 +19,9 @@ namespace Microsoft.Health.Extensions.Xunit
     public sealed class RetryFactAttribute : FactAttribute
     {
         public RetryFactAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
+            : base(sourceFilePath, sourceLineNumber)
         {
-            SourceFilePath = sourceFilePath;
-            SourceLineNumber = sourceLineNumber;
         }
-
-        internal new string SourceFilePath { get; }
-
-        internal new int SourceLineNumber { get; }
 
         /// <summary>
         /// Gets or sets the maximum number of retry attempts (default is 3).

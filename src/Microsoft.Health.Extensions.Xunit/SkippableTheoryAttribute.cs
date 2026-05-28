@@ -15,13 +15,8 @@ namespace Xunit
     public sealed class SkippableTheoryAttribute : TheoryAttribute
     {
         public SkippableTheoryAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
+            : base(sourceFilePath, sourceLineNumber)
         {
-            SourceFilePath = sourceFilePath;
-            SourceLineNumber = sourceLineNumber;
         }
-
-        internal new string SourceFilePath { get; }
-
-        internal new int SourceLineNumber { get; }
     }
 }

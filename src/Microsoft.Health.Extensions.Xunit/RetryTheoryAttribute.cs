@@ -19,14 +19,9 @@ namespace Microsoft.Health.Extensions.Xunit
     public sealed class RetryTheoryAttribute : TheoryAttribute
     {
         public RetryTheoryAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
+            : base(sourceFilePath, sourceLineNumber)
         {
-            SourceFilePath = sourceFilePath;
-            SourceLineNumber = sourceLineNumber;
         }
-
-        internal new string SourceFilePath { get; }
-
-        internal new int SourceLineNumber { get; }
 
         /// <summary>
         /// Gets or sets the maximum number of retry attempts (default is 3).

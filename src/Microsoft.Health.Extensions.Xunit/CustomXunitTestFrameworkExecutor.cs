@@ -34,6 +34,7 @@ namespace Microsoft.Health.Extensions.Xunit
         private sealed class FixtureArgumentSetTestAssembly : XunitTestAssembly
         {
             private readonly Assembly _assembly;
+            private readonly object _assemblyFixtureTypesLock = new object();
             private IReadOnlyCollection<Type> _assemblyFixtureTypes;
             private static readonly FieldInfo AssemblyFixtureTypesField = typeof(XunitTestAssembly).GetField("assemblyFixtureTypes", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -55,20 +56,26 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     if (_assemblyFixtureTypes == null)
                     {
+                        lock (_assemblyFixtureTypesLock)
+                        {
+                            if (_assemblyFixtureTypes == null)
+                            {
 #pragma warning disable CS0618 // AssemblyFixtureAttribute is obsolete; usage is required for assembly fixture discovery.
-                        _assemblyFixtureTypes = _assembly
-                            .GetCustomAttributes(typeof(global::Xunit.AssemblyFixtureAttribute), inherit: false)
-                            .Cast<global::Xunit.AssemblyFixtureAttribute>()
-                            .Select(attribute => attribute.AssemblyFixtureType)
-                            .ToArray();
+                                _assemblyFixtureTypes = _assembly
+                                    .GetCustomAttributes(typeof(global::Xunit.AssemblyFixtureAttribute), inherit: false)
+                                    .Cast<global::Xunit.AssemblyFixtureAttribute>()
+                                    .Select(attribute => attribute.AssemblyFixtureType)
+                                    .ToArray();
 #pragma warning restore CS0618
 
-                        if (AssemblyFixtureTypesField == null)
-                        {
-                            throw new InvalidOperationException("Unable to initialize assembly fixtures because XunitTestAssembly.assemblyFixtureTypes was not found.");
-                        }
+                                if (AssemblyFixtureTypesField == null)
+                                {
+                                    throw new InvalidOperationException("Unable to initialize assembly fixtures because XunitTestAssembly.assemblyFixtureTypes was not found.");
+                                }
 
-                        AssemblyFixtureTypesField.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
+                                AssemblyFixtureTypesField.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
+                            }
+                        }
                     }
 
                     return _assemblyFixtureTypes;
@@ -170,7 +177,12 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 if (FixtureCacheField == null)
                 {
-                    return;
+                    throw new InvalidOperationException("Unable to inject fixture arguments because FixtureMappingManager.fixtureCache was not found.");
+                }
+
+                if (ParentMappingManagerField == null)
+                {
+                    throw new InvalidOperationException("Unable to inject fixture arguments because FixtureMappingManager.parentMappingManager was not found.");
                 }
 
                 var cacheOwner = context.ClassFixtureMappings;
@@ -182,7 +194,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 var cache = FixtureCacheField.GetValue(cacheOwner) as IDictionary<Type, object>;
                 if (cache == null)
                 {
-                    return;
+                    throw new TestPipelineException("Unable to inject fixture arguments because the xUnit fixture cache could not be read.");
                 }
 
                 var fixtureArguments = new List<Enum>();

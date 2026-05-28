@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -20,6 +21,9 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     {
+        private readonly ConcurrentDictionary<string, FixtureArgumentSetTestCollection> _variantCollectionCache = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, FixtureArgumentSetTestClass> _variantClassCache = new(StringComparer.Ordinal);
+
         public CustomXunitTestFrameworkDiscoverer(Assembly assembly, IXunitTestCollectionFactory collectionFactory = null)
             : base(new XunitTestAssembly(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)), collectionFactory)
         {
@@ -52,12 +56,6 @@ namespace Microsoft.Health.Extensions.Xunit
                 // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
                 classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
             }
-
-            // Cache collections (and classes) per variant within a single test class so that all methods of the same class + variant
-            // share the same test collection instance. This matches the xunit v2 behavior where methods of a test class belong to
-            // a single collection and therefore run serially (and share IClassFixture lifetime). Without this caching, xunit v3
-            // schedules each method as its own collection and runs them in parallel, breaking fixture/state sharing assumptions.
-            var collectionCache = new Dictionary<string, (FixtureArgumentSetTestCollection Collection, FixtureArgumentSetTestClass Class)>(StringComparer.Ordinal);
 
             foreach (var method in testClass.Methods)
             {
@@ -110,27 +108,25 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 foreach (SingleFlag[] closedVariant in closedSets)
                 {
-                    // Always scope the collection to the test class. In xunit v3 test collections are the unit of
-                    // parallelism (methods within a collection run serially, collections run in parallel). If multiple
-                    // classes share a collection (as they would under SharedPerVariant), every test across those classes
-                    // is forced to run serially, which causes massive slowdowns in large integration test runs.
-                    // Scoping per-class preserves xunit v2 behavior: one IClassFixture per class, methods within a
-                    // class run serially, classes run in parallel.
-                    var testClassName = testClass.Class.FullName;
+                    // Key variant collections by the source xUnit collection identity. Default xUnit collections are
+                    // already per-class, while explicit [Collection] groups share one source UniqueID. Preserving that
+                    // identity keeps explicit collection serialization intact without forcing unrelated classes to run
+                    // serially.
+                    var variantKey = BuildVariantCollectionKey(testClass.TestCollection, closedVariant);
+                    var variantCollection = _variantCollectionCache.GetOrAdd(
+                        variantKey,
+                        _ => new FixtureArgumentSetTestCollection(testClass.TestCollection, closedVariant));
 
-                    // Key the cache by the collection display identity (variant + class scoping). Methods that
-                    // resolve to the same key share one collection instance.
-                    var variantKey = testClassName + "|" + string.Join(",", closedVariant.Select(v => v.EnumValue));
+                    var classKey = BuildVariantClassKey(variantKey, testClass.Class);
+                    var closedVariantTestClass = _variantClassCache.GetOrAdd(
+                        classKey,
+                        _ => new FixtureArgumentSetTestClass(
+                            testClass.Class,
+                            variantCollection,
+                            closedVariant,
+                            UniqueIDGenerator.ForTestClass(variantCollection.UniqueID, testClass.Class.FullName)));
 
-                    if (!collectionCache.TryGetValue(variantKey, out var cached))
-                    {
-                        var newCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection, closedVariant, testClassName);
-                        var newClass = new FixtureArgumentSetTestClass(testClass.Class, newCollection, closedVariant, UniqueIDGenerator.ForTestClass(newCollection.UniqueID, testClass.Class.FullName));
-                        cached = (newCollection, newClass);
-                        collectionCache[variantKey] = cached;
-                    }
-
-                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(cached.Class, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(cached.Class.UniqueID, method.Name));
+                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
 
                     closedVariantTestMethod.UpdateArgumentsFromMethod();
 
@@ -142,6 +138,20 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             return true;
+        }
+
+        private static string BuildVariantCollectionKey(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> closedVariant)
+        {
+            var variantKey = string.Join(
+                ",",
+                closedVariant.Select(argument => $"{argument.EnumValue.GetType().AssemblyQualifiedName}={Convert.ToInt64(argument.EnumValue)}"));
+
+            return $"{sourceCollection.UniqueID}|{variantKey}";
+        }
+
+        private static string BuildVariantClassKey(string variantCollectionKey, Type testClass)
+        {
+            return $"{variantCollectionKey}|{testClass.AssemblyQualifiedName}";
         }
 
         private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)

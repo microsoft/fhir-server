@@ -18,7 +18,7 @@ namespace Microsoft.Health.Extensions.Xunit
             : base(
                 EnsureArg.IsNotNull(sourceCollection, nameof(sourceCollection)).TestAssembly,
                 sourceCollection.CollectionDefinition,
-                sourceCollection.DisableParallelization,
+                sourceCollection.DisableParallelization || IsExplicitCollection(sourceCollection),
                 BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName),
                 uniqueID: BuildUniqueId(sourceCollection, fixtureArguments, testClassName))
         {
@@ -50,6 +50,11 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var displayName = BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments, testClassName);
             return UniqueIDGenerator.ForTestCollection(sourceCollection.TestAssembly.UniqueID, displayName, sourceCollection.TestCollectionClassName);
+        }
+
+        private static bool IsExplicitCollection(IXunitTestCollection sourceCollection)
+        {
+            return sourceCollection.CollectionDefinition != null || sourceCollection.TestCollectionClassName == null;
         }
     }
 }
