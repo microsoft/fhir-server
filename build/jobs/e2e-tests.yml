@@ -43,7 +43,7 @@ steps:
         $allParts = @("DataStore=${{ parameters.appServiceType }}") + $parts
         $traitFilter = "[" + (($allParts | ForEach-Object { "($_)" }) -join '&') + "]"
         $filterQuery = "/$traitFilter"
-        $args = @('--filter-query', $filterQuery, '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
         & dotnet $dll.FullName @args
