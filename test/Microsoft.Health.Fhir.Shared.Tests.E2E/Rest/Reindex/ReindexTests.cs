@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     }
                 });
 
-                Assert.True(threw, "Expected at least one create to fail due to concurrency.");
+                Assert.True(threw && !_isSql, "Expected at least one create to fail due to concurrency.");
             }
             finally
             {
