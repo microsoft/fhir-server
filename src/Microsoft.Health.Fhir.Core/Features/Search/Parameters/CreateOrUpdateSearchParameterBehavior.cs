@@ -57,12 +57,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
-
                 // Before committing the SearchParameter resource to the data store, validate the parameter type
-                await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, cancellationToken);
+                QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated, cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -90,29 +88,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     prevSearchParamResource = null;
                 }
 
-                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
-                    // Validate any changes to the fhirpath or the datatype
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
-
                     var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, cancellationToken);
+                        QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, lastUpdated, cancellationToken);
                     }
 
-                    QueueStatusAsync(newUrl, SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatusAsync(newUrl, SearchParameterStatus.Supported, lastUpdated, cancellationToken);
                 }
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
-
-                    QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated, cancellationToken);
                 }
             }
 
@@ -120,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return await next(cancellationToken);
         }
 
-        private void QueueStatusAsync(string url, SearchParameterStatus status, CancellationToken cancellationToken)
+        private void QueueStatusAsync(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -146,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 Uri = new Uri(url),
                 Status = status,
-                LastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = lastUpdated,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };

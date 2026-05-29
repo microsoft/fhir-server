@@ -96,19 +96,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache = true)
+        public async Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);
             var searchParameterUrl = searchParameterWrapper.Url;
-
             try
             {
                 // We need to make sure we have the latest search parameters before trying to add
                 // a search parameter. This is to avoid creating a duplicate search parameter that
                 // was recently added and that hasn't propogated to all fhir-server instances.
-                if (refreshCache)
+                // if last updated is provided, it means that updates were applied by pipeline. In this case do not update and keep the input.
+                if (!lastUpdated.HasValue)
                 {
                     await GetAndApplySearchParameterUpdates(cancellationToken);
+                    lastUpdated = SearchParamLastUpdated.Value;
                 }
 
                 // verify the parameter is supported before continuing
@@ -156,6 +157,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 throw customSearchException;
             }
+
+            return lastUpdated.Value;
         }
 
         /// <summary>

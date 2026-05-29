@@ -86,17 +86,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // If the search parameter exists and is not already deleted, delete it
                 if (!searchParamResource.IsDeleted)
                 {
-                    var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
                     var url = typed.GetStringScalar("url");
-                    await QueuePendingDeleteStatusAsync(url, refreshCache, cancellationToken);
+                    await QueuePendingDeleteStatusAsync(url, cancellationToken);
                 }
             }
 
             return await next(cancellationToken);
         }
 
-        private async Task QueuePendingDeleteStatusAsync(string url, bool refreshCache, CancellationToken cancellationToken)
+        private async Task QueuePendingDeleteStatusAsync(string url, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -109,9 +108,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
-            if (refreshCache)
+            var lastUpdated = _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated();
+            if (!lastUpdated.HasValue)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                lastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value;
             }
 
             if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 Uri = new Uri(url),
                 Status = SearchParameterStatus.PendingDelete,
-                LastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = lastUpdated.Value,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
