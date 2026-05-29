@@ -167,7 +167,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
                 }
 
-                Task allProcessedRequests = Task.WhenAll(requestsPerResource);
                 try
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
@@ -178,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
-                   await allProcessedRequests;
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {
