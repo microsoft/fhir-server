@@ -146,6 +146,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
         {
+            if (!_isSql) // max(lastUpdated) works only for SQL. For Cosmos - NOOP.
+            {
+                return;
+            }
+
             const int numberOfSearchParams = 500; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
             const string urlPrefix = "http://my.org/";
             var codes = new List<string>();
