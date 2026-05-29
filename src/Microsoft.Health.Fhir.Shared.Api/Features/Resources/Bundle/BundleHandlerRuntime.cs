@@ -4,10 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
@@ -38,6 +42,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
+        }
+
+        /// <summary>
+        /// Given a list of exceptions raised during a bundle execution, prioritizes the exceptions of type <see cref="FhirTransactionFailedException"/>, based on their status code, to determine which exception should be returned to the customer.
+        /// </summary>
+        public static FhirTransactionFailedException GetPrioritizedClientException(Exception exception)
+        {
+            if (exception == null)
+            {
+                return null;
+            }
+
+            if (exception is AggregateException aggregateException && aggregateException.InnerExceptions != null && aggregateException.InnerExceptions.Any())
+            {
+                // Ensure that, if a transaction fails with a client error, then the exception with the customer error type is prioritized.
+                // In the following code, we are prioritizing exceptions of type FhirTransactionFailedException.
+                FhirTransactionFailedException customerException = aggregateException.InnerExceptions
+                    .OfType<FhirTransactionFailedException>()
+                    .FirstOrDefault(e =>
+                        e.ResponseStatusCode == HttpStatusCode.BadRequest ||
+                        e.ResponseStatusCode == HttpStatusCode.PreconditionFailed ||
+                        e.ResponseStatusCode == HttpStatusCode.MethodNotAllowed ||
+                        e.ResponseStatusCode == HttpStatusCode.TooManyRequests ||
+                        e.ResponseStatusCode == HttpStatusCode.NotFound);
+
+                if (customerException != null)
+                {
+                    return customerException;
+                }
+            }
+
+            if (exception is FhirTransactionFailedException transactionFailedException)
+            {
+                return transactionFailedException;
+            }
+
+            return null;
         }
 
         /// <summary>

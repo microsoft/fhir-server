@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -167,6 +168,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
                 }
 
+                Task parallelRequests = null;
                 try
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
@@ -177,28 +179,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
-                    await Task.WhenAll(requestsPerResource);
-                }
-                catch (AggregateException age)
-                {
-                    BaseFhirTransactionException fte = age.InnerExceptions.Where(e => e is BaseFhirTransactionException).FirstOrDefault() as BaseFhirTransactionException;
-                    if (fte != null)
-                    {
-                        // If one of the exceptions raised is a FhirTransactionFailedException, then keep its origin.
-                        ExceptionDispatchInfo.Capture(fte).Throw();
-                    }
-
-                    _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
-                    throw;
+                    parallelRequests = Task.WhenAll(requestsPerResource);
+                    await parallelRequests;
                 }
                 catch (Exception ex)
                 {
+                    if (bundleExecutionContext.IsTransactionFailedByClientError && parallelRequests != null && parallelRequests.Exception != null)
+                    {
+                        // FhirTransactionFailedException - It means that the transaction failed due a possible client error.
+                        FhirTransactionFailedException clientException = BundleHandlerRuntime.GetPrioritizedClientException(parallelRequests.Exception);
+                        if (clientException != null)
+                        {
+                            ExceptionDispatchInfo.Capture(clientException).Throw();
+                        }
+                    }
+
+                    // In this case, it handles FhirTransactionCancelledException or any other exception that is not prioritized by client errors.
                     if (ex is BaseFhirTransactionException)
                     {
                         // If one the exception raised is a FHIR Transaction Exception, then keep its origin.
                         throw;
                     }
 
+                    // For any other exception.
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
