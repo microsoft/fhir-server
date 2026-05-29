@@ -4,30 +4,35 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Health.Fhir.Api.Features.Metrics
 {
     /// <summary>
-    /// Suppresses <c>fhir/failures/exceptions</c> metric emission for authentication failures that resulted in
-    /// an HTTP 401 (Unauthorized) response.
+    /// Suppresses <c>fhir/failures/exceptions</c> metric emission for token-validation failures
+    /// (<see cref="SecurityTokenException"/> and its derivatives).
     /// </summary>
     /// <remarks>
     /// <para>
     /// During an incident, a customer sent a sustained burst of requests with an expired bearer token. Every
-    /// request produced a <see cref="SecurityTokenException"/> that was logged at error severity, which in turn
-    /// caused the OpenTelemetry log enricher to emit a <c>fhir/failures/exceptions</c> metric event per request.
-    /// The aggregate volume was high enough to cause Geneva to throttle the shared metric account, degrading
-    /// monitoring for FHIR and DICOM.
+    /// request produced a <see cref="SecurityTokenException"/> that the token-introspection path logged with
+    /// the exception object attached, which in turn caused the OpenTelemetry log enricher to emit a
+    /// <c>fhir/failures/exceptions</c> metric event per request. The aggregate volume was high enough to
+    /// cause Geneva to throttle the shared metric account, degrading monitoring for FHIR and DICOM.
     /// </para>
     /// <para>
-    /// Filtering inbound at Geneva is not supported (see ADR-2605), so this filter suppresses the metric at the
-    /// emission site. The suppression is intentionally narrow: only exceptions for which
-    /// <see cref="IsAuthenticationException"/> returns <c>true</c> AND that produced a response status code of
-    /// 401 are filtered out. 403 (Forbidden) responses, validation errors, and any other failure mode continue
-    /// to produce metrics so that genuine failure signals remain visible.
+    /// Filtering inbound at Geneva is not supported (see ADR-2605), so this filter suppresses the metric at
+    /// the emission site, keyed on the exception type alone.
+    /// </para>
+    /// <para>
+    /// <b>Why not also gate on a 401 response status?</b> The flood log is written from inside the
+    /// authentication / token-introspection path — i.e. <i>before</i> the challenge that writes the 401 to
+    /// the response. At the moment the enricher observes the log record, <c>HttpContext.Response.StatusCode</c>
+    /// is still the default 200, so a 401 condition would never match the very flood the filter is intended
+    /// to suppress. <see cref="SecurityTokenException"/> is defined in <c>Microsoft.IdentityModel.Tokens</c>
+    /// and in this server is produced only by token-validation code, so suppression by exception type alone
+    /// does not hide any non-authentication failure.
     /// </para>
     /// <para>
     /// <b>Covered exception types.</b> The default implementation of <see cref="IsAuthenticationException"/>
@@ -79,12 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
         /// <inheritdoc />
         public bool ShouldEmit(Exception exception, HttpContext httpContext)
         {
-            if (exception == null || httpContext == null)
-            {
-                return true;
-            }
-
-            if (httpContext.Response?.StatusCode != (int)HttpStatusCode.Unauthorized)
+            if (exception == null)
             {
                 return true;
             }

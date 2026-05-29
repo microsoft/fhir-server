@@ -41,7 +41,7 @@ An earlier proposal added a status-code guard in `ApiNotificationMiddleware` to 
 1. **Wrong metric.** `ApiNotificationMiddleware` produces the request/latency metric notification, not the `fhir/failures/exceptions` metric. The metric that overwhelmed Geneva is emitted from the OpenTelemetry log enricher, not from MediatR notifications.
 2. **Too broad.** Filtering on status code alone removes the metric for *every* 401/403, including 403s that come from legitimate authorization-policy failures we may want to see in dashboards. The incident was specifically driven by authentication exceptions (expired tokens producing `SecurityTokenException`), not by all 401/403 responses.
 
-The chosen design narrows the filter to the precise condition that caused the flood — an authentication exception that resulted in a 401 response — and places it at the metric that actually went out of control.
+The chosen design narrows the filter to the precise exception type that caused the flood — `SecurityTokenException` and its derivatives — and places it at the metric that actually went out of control.
 
 ## Decision
 
@@ -51,10 +51,7 @@ Ship two default implementations in fhir-server:
 
 ### 1. `AuthenticationFailureExceptionMetricEmissionFilter`
 
-Suppresses metric emission when **both**:
-
-1. The exception (or any exception in its inner-exception chain) is a `Microsoft.IdentityModel.Tokens.SecurityTokenException`, AND
-2. The HTTP response status code is `401 Unauthorized`.
+Suppresses metric emission when the exception (or any exception in its inner-exception chain) is a `Microsoft.IdentityModel.Tokens.SecurityTokenException`.
 
 Because `SecurityTokenException` is the common base class, the following derived types are matched automatically without any extra code:
 
@@ -63,7 +60,11 @@ Because `SecurityTokenException` is the common base class, the following derived
 - `SecurityTokenInvalidIssuerException`
 - Any other `SecurityTokenException` subclass (the `Microsoft.IdentityModel.Tokens` family is large; the inner-chain walk catches all of them).
 
-The 401 condition is required because `SecurityTokenException` can legitimately be thrown by outbound code paths in non-401 contexts — we should not suppress those.
+Matching is **exception-type-only** (no status-code condition). This was the source of the most important design correction during review:
+
+- **The flood log is written *before* the 401 is set on the response.** The expired-token requests are logged from inside the token-introspection / JwtBearer authentication path (e.g. `DefaultTokenIntrospectionService.ValidateAsync` `_logger.LogInformation(ex, ...)`, and JwtBearer's own `TokenValidationFailed` log at Information level with the exception attached). The OpenTelemetry log enricher fires synchronously on those records — at which point the authorization middleware has not yet issued the challenge that writes the 401, so `HttpContext.Response.StatusCode` is still the default 200. A 401-coupled filter would therefore never match the very flood it was intended to suppress.
+- **`SecurityTokenException` is not produced outside the auth surface in this server.** It is defined in `Microsoft.IdentityModel.Tokens` and the only producers in this repo are the token-validation and token-introspection paths. Suppressing on type alone does not hide any non-authentication failure mode.
+- **The enricher does not require `LogLevel.Error` to emit.** It fires on `data.Exception != null OR data.LogLevel == LogLevel.Error`, so Information-level logs that carry an exception object (exactly the JwtBearer / introspection flood path) are full-fat metric events.
 
 ### 2. `SecurityAbuseExceptionMetricEmissionFilter`
 
@@ -78,7 +79,7 @@ The actionable signal for these events comes from audit logs and gateway-level r
 
 ### Why an Interface (Not Just a Status-Code Check or an Extension Method)
 
-The decision uses *both* the exception type *and* the request context. An extension method on `Exception` alone cannot make a request-aware decision (the auth filter needs the status code); a status-code check alone cannot distinguish authentication failures from authorization failures (both produce 401/403). An `IExceptionMetricEmissionFilter(Exception, HttpContext) → bool` interface is the smallest abstraction that captures both inputs cleanly, while also being:
+Both default filters today key on exception type alone, but the abstraction intentionally exposes the `HttpContext` as well so that future filters can make request-aware decisions (e.g. suppressing only on a particular request path or for a particular tenant) without another round of plumbing changes. An `IExceptionMetricEmissionFilter(Exception, HttpContext) → bool` interface is the smallest abstraction that captures both inputs cleanly, while also being:
 
 - **Composable** — multiple filters can be registered and are AND-combined. New "this exception is not worth a metric" rules can be added by registering a new implementation, with no change to the enricher or to existing filters.
 - **Replaceable** — a downstream consumer can swap out our default implementations if their notion of "authentication failure" or "security abuse" differs.
@@ -98,8 +99,7 @@ public class AuthenticationFailureExceptionMetricEmissionFilter : IExceptionMetr
 {
     public bool ShouldEmit(Exception exception, HttpContext httpContext)
     {
-        if (exception == null || httpContext == null) return true;
-        if (httpContext.Response?.StatusCode != (int)HttpStatusCode.Unauthorized) return true;
+        if (exception == null) return true;
         return !IsAuthenticationException(exception);
     }
 
@@ -190,20 +190,26 @@ Both default filter classes are intentionally **not sealed**, and their `Is…Ex
 1. **Filter inbound at Geneva.** Not supported by the metric account configuration (see Context).
 2. **Status-code-only suppression in `ApiNotificationMiddleware`** (the previous version of this ADR). Wrong middleware — that path produces a different metric and is not what overwhelmed Geneva — and too broad (suppresses all 401/403 regardless of cause).
 3. **Extension method on `Exception` (`ShouldEmitFailureMetric`).** Considered for simplicity, but rejected because (a) authoritative emission decisions need *both* the exception and the request context, and a static extension cannot be replaced or composed by downstream consumers; (b) DI-registered filters give fhir-paas a first-class extension path without subclassing or forking.
-4. **Per-instance rate limiting of the metric pipeline.** Considered for general flood protection, but rejected as overkill given that the actual incident has a precise, narrow signature (auth exception + 401) that can be eliminated deterministically. A general rate limiter can be revisited if a future flood comes from a different signature.
+4. **Per-instance rate limiting of the metric pipeline.** Considered for general flood protection, but rejected as overkill given that the actual incident has a precise, narrow signature (token-validation exception type) that can be eliminated deterministically. A general rate limiter can be revisited if a future flood comes from a different signature.
+5. **Gate suppression on the HTTP 401/403 response status code (in addition to exception type).** This was the initial design and is intuitively appealing — "only suppress when the request actually produced an auth failure response" — but it cannot be made race-free at the metric emission point:
+   - The flood log is written from inside the auth pipeline (`JwtBearerHandler.HandleAuthenticateAsync` and `DefaultTokenIntrospectionService.ValidateAsync`) **before** `AuthorizationMiddleware` issues the challenge that writes the 401 to the response. The OpenTelemetry log enricher runs synchronously when each log record is recorded, so at the moment the filter runs `HttpContext.Response.StatusCode` is still the default 200. A 401/403 gate would therefore never match the flood it is intended to suppress — exactly the opposite of the intent.
+   - The metric pipeline does not support "emit-then-rescind", so we cannot defer the decision until the response status is known without buffering every candidate log record per request (which would also break for log records emitted outside an HTTP request scope).
+   - The two race-free ways to recover the 401-equivalent precision were considered and rejected for this PR:
+     - **A `HttpContext.Items` marker set by `JwtBearerEvents.OnAuthenticationFailed`/`OnChallenge` and by the token-introspection catch block.** The marker would be set before the failure log fires, so the filter could read it race-free. Rejected because `SecurityTokenException` is produced only by the auth surface in this server (verified by code search) and the type check is therefore already as precise as the marker would be — the marker would add plumbing across multiple files without changing observed behavior. May be revisited if a downstream consumer introduces a non-auth producer of `SecurityTokenException`.
+     - **Buffering log records and emitting on `HttpResponse.OnStarting`.** Rejected as too invasive for this incident-driven change and because it changes the shape of the entire metric pipeline (introduces per-request state and silently drops logs that occur outside an HTTP scope).
 
 ### Consequences
 
 #### Beneficial
-- **Eliminates the root cause.** Exact-shape filter (auth exception + 401) deterministically removes the flood class without affecting other failure metrics.
-- **Targeted, not blanket.** Authorization failures (403), validation errors, expired-token retries on non-401 paths, and every other failure continue to emit metrics. Operators still see auth-failure trends via logs, audit, and gateway-level counters.
+- **Eliminates the root cause.** Exact-shape filter (`SecurityTokenException` family) deterministically removes the flood class without affecting other failure metrics.
+- **Targeted, not blanket.** Authorization failures (403), validation errors, and every other failure continue to emit metrics. Operators still see auth-failure trends via logs, audit, and gateway-level counters.
 - **Composable.** Adding a new "skip this exception" rule is a single DI registration in fhir-paas. No need to coordinate changes in fhir-server.
 - **Replaceable.** Subclassing and `RemoveAll` give consumers full control over the filter set without forking fhir-server.
 - **Single chokepoint.** The enricher is the only place that emits `fhir/failures/exceptions`. One guard, all consumers protected.
 - **Safe default.** `AddSingleton` (not `TryAddSingleton`) means a consumer that adds a new filter does not accidentally turn off the auth-failure suppression.
 
 #### Adverse
-- **Loss of per-request 401-auth-failure visibility in `fhir/failures/exceptions`.** Operators who used this metric to count expired-token events must rely on alternative signals (logs, audit, gateway/WAF counters, or a separate low-cardinality auth-failure counter).
+- **Loss of per-request token-validation-failure visibility in `fhir/failures/exceptions`.** Operators who used this metric to count expired-token events must rely on alternative signals (logs, audit, gateway/WAF counters, or a separate low-cardinality auth-failure counter).
 - **Filter chain is in-process only.** No cross-instance coordination. This is fine because the filter is deterministic (same input → same decision on every instance); there is nothing to coordinate.
 - **Convention-based composition.** "All filters AND-combined" is a documented contract on the interface, not a compiler-enforced invariant. A consumer that misreads the contract could be surprised.
 - **Subclass-based extension of the auth filter requires `RemoveAll`.** Slightly more friction than a single `AddSingleton`. This is intentional — it makes "I am replacing the default" an explicit action.
