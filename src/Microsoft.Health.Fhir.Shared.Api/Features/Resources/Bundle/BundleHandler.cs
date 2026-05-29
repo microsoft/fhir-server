@@ -826,18 +826,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
                 }
 
-                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
+                HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent);
+                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, httpStatusCode, watch.Elapsed);
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    // Bug 182314: Standardize status code returned when a bundle fails.
-
-                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
-                    {
-                        httpStatusCode = HttpStatusCode.BadRequest;
-                    }
-
-                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;

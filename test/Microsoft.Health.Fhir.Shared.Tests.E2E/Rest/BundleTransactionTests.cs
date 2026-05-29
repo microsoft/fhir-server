@@ -8,13 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -736,6 +736,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Assert.Equal("urn:uuid:4a089b8a-b0a0-46a9-92da-c8b653aa2e73", reference.Reference);
                 }
             }
+        }
+
+        [SkippableTheory]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABundleWithAnInvalidReference_WhenSubmittingATransaction_ThenReturnsHttp400(FhirBundleProcessingLogic processingLogic)
+        {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRecord");
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.PostBundleAsync(
+                    requestBundle.ToPoco<Bundle>(),
+                    new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
+
+            Assert.True(fhirException.StatusCode == HttpStatusCode.BadRequest, "Expected HTTP 400 Bad Request response.");
+            Assert.True(fhirException.OperationOutcome.Issue.Count == 2, "Two issues are expected to be returned.");
+            Assert.True(fhirException.OperationOutcome.Issue[1].Diagnostics.Equals("Id must be specified in the resource.", StringComparison.OrdinalIgnoreCase), "The expected error message is 'Id must be specified in the resource.'.");
         }
 
         [Fact]

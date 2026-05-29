@@ -422,22 +422,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
             }
 
-            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
+            HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent, bundleExecutionContext);
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, httpStatusCode, watch.Elapsed);
 
             if (bundleExecutionContext.BundleType == BundleType.Transaction && entryComponent.Response.Outcome != null)
             {
-                // Bug 182314: Standardize status code returned when a bundle fails.
-
-                if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
-                {
-                    httpStatusCode = HttpStatusCode.BadRequest;
-                }
-
                 RaiseFhirTransactionException(
                     resourceExecutionContext,
                     httpStatusCode,
                     entryComponent,
-                    isBundleCancelledByClient: !bundleExecutionContext.IsTransactionFailedByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleExecutionContext.Configuration, cancellationToken));
+                    isOperationCancelledByClient: !bundleExecutionContext.IsTransactionFailedByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleExecutionContext.Configuration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
@@ -447,13 +441,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, ResourceExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, CancellationToken cancellationToken)
         {
+            const HttpStatusCode cancelledRequestHttpStatusCode = HttpStatusCode.RequestTimeout;
             EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
 
-            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, cancelledRequestHttpStatusCode, watch.Elapsed);
 
             if (bundleType.Equals(BundleType.Transaction))
             {
-                RaiseFhirTransactionException(resourceExecutionContext, HttpStatusCode.RequestTimeout, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
+                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             // Default path for batch bundles.
@@ -465,11 +460,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceExecutionContext resourceContext,
             HttpStatusCode httpStatusCode,
             Hl7.Fhir.Model.Bundle.EntryComponent entryComponent,
-            bool isBundleCancelledByClient)
+            bool isOperationCancelledByClient)
         {
             var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
-            TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome, isCancelled: isBundleCancelledByClient);
+            TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome, isOperationCancelledByClient: isOperationCancelledByClient);
+        }
+
+        private static HttpStatusCode GetFinalHttpStatusCode(EntryComponent entryComponent, BundleExecutionContext bundleExecutionContext = null)
+        {
+            // Bug 182314: Standardize status code returned when a bundle fails.
+            if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+            {
+                httpStatusCode = HttpStatusCode.BadRequest;
+            }
+            else if (bundleExecutionContext != null && bundleExecutionContext.IsTransactionFailedByClientError && httpStatusCode == HttpStatusCode.RequestTimeout)
+            {
+                // At this point, an operations failed with a client error and it was handled as a HTTP400.
+                // The remaining operations will be cancelled and return HTTP408 (RequestTimeout) to this handler.
+                // The bundle will return HTTP400 (BadRequest) to properly reflect that the failure was caused by a client error, not a timeout.
+                // And to avoid misunderstanding in logs, the not-executed operations will be logged as HTTP424 (FailedDependency) instead of HTTP408 (RequestTimeout).
+                httpStatusCode = HttpStatusCode.FailedDependency;
+            }
+
+            return httpStatusCode;
         }
 
         private struct ResourceExecutionContext

@@ -107,13 +107,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return serializableEntity.ToString();
         }
 
-        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, string statusCode, TimeSpan elapsedTime)
+        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, HttpStatusCode httpStatusCode, TimeSpan elapsedTime)
         {
-            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
-            {
-                httpStatusCode = HttpStatusCode.BadRequest;
-            }
-
             _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, ResourceType = resourceType, Index = index, HttpStatusCode = (int)httpStatusCode, ElapsedTime = elapsedTime });
         }
 
