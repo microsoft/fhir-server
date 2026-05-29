@@ -26,7 +26,7 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 {
     [JobTypeId((int)JobType.ExportOrchestrator)]
-    public class SqlExportOrchestratorJob : IJob
+    public class SqlExportOrchestratorJob : ExportOrchestratorJob
     {
         private IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -50,12 +50,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public override async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
-            var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
-            record.QueuedTime = jobInfo.CreateDate; // get record of truth
+            var record = ExtractJobRecord(jobInfo);
+
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
@@ -186,56 +186,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             record.Status = OperationStatus.Completed;
             return JsonConvert.SerializeObject(record);
-        }
-
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
-        {
-            var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
-            var container = record.StorageAccountContainerName;
-
-            if (record.Id != record.StorageAccountContainerName)
-            {
-                format = $"{ExportFormatTags.Timestamp}-{groupId}/{format}";
-            }
-            else
-            {
-                // Need the export- to make sure the container meets the minimum length requirements of 3 characters.
-                container = $"export-{groupId}";
-            }
-
-            var rec = new ExportJobRecord(
-                        requestUri: record.RequestUri,
-                        exportType: record.ExportType,
-                        exportFormat: format,
-                        resourceType: string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
-                        filters: record.Filters,
-                        hash: record.Hash,
-                        rollingFileSizeInMB: record.RollingFileSizeInMB,
-                        requestorClaims: record.RequestorClaims,
-                        since: since == null ? record.Since : since,
-                        till: till == null ? record.Till : till,
-                        startSurrogateId: startSurrogateId,
-                        endSurrogateId: endSurrogateId,
-                        globalStartSurrogateId: globalStartSurrogateId,
-                        globalEndSurrogateId: globalEndSurrogateId,
-                        groupId: record.GroupId,
-                        storageAccountConnectionHash: record.StorageAccountConnectionHash,
-                        storageAccountUri: record.StorageAccountUri,
-                        anonymizationConfigurationCollectionReference: record.AnonymizationConfigurationCollectionReference,
-                        anonymizationConfigurationLocation: record.AnonymizationConfigurationLocation,
-                        anonymizationConfigurationFileETag: record.AnonymizationConfigurationFileETag,
-                        maximumNumberOfResourcesPerQuery: record.MaximumNumberOfResourcesPerQuery,
-                        numberOfPagesPerCommit: record.NumberOfPagesPerCommit,
-                        storageAccountContainerName: container,
-                        isParallel: record.IsParallel,
-                        includeHistory: record.IncludeHistory,
-                        includeDeleted: record.IncludeDeleted,
-                        schemaVersion: record.SchemaVersion,
-                        typeId: (int)JobType.ExportProcessing,
-                        smartRequest: record.SmartRequest);
-            rec.Id = string.Empty;
-            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
-            return rec;
         }
     }
 }
