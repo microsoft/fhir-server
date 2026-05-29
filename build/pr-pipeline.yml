@@ -83,8 +83,9 @@ stages:
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
+  # Security analysis consumes only the deploy + nuget artifacts from BuildArtifacts and runs its
+  # own RoslynAnalyzers build; it does not use unit-test output, so it does not depend on BuildUnitTests.
   dependsOn:
-  - BuildUnitTests
   - BuildArtifacts
   jobs:
   - job: Guardian
