@@ -777,6 +777,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                     _bundleConfiguration,
                                     watch,
                                     httpContext,
+                                    isOperationCancelledByClientError: false, // For sequential bundles this value is always 'false', as client errors are handled sequentially.
                                     cancellationToken);
 
                                 // For Batch bundles, we should include the 429 response for the throttled request and skip processing subsequent requests.

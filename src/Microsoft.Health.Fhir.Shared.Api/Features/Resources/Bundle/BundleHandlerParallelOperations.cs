@@ -371,6 +371,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 bundleExecutionContext.Configuration,
                                 watch,
                                 httpContext,
+                                isOperationCancelledByClientError: bundleExecutionContext.IsTransactionFailedByClientError,
                                 cancellationToken);
 
                             // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
@@ -438,7 +439,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, ResourceExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, CancellationToken cancellationToken)
+        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, ResourceExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, bool isOperationCancelledByClientError, CancellationToken cancellationToken)
         {
             const HttpStatusCode cancelledRequestHttpStatusCode = HttpStatusCode.RequestTimeout;
             EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
@@ -447,7 +448,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (bundleType.Equals(BundleType.Transaction))
             {
-                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
+                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: !isOperationCancelledByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             // Default path for batch bundles.
