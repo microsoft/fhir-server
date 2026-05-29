@@ -451,21 +451,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             {
                                 _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
                                 await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
-
-                                // If the request is cancelled during the retry delay, let the OperationCanceledException
-                                // propagate without running cleanup. The TransactionWatchdog will roll the abandoned
-                                // transaction forward/back.
                                 await Task.Delay(5000, cancellationToken);
                                 continue;
                             }
 
                             if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
                             {
-                                // Use CancellationToken.None so that an already-cancelled client token does not prevent
-                                // the server-side transaction from being marked as failed. If we passed the original token
-                                // and it had already been cancelled, OpenAsync() would throw OperationCanceledException
-                                // before MergeResourcesCommitTransactionAsync could do any useful work, leaving the
-                                // server-side transaction state dirty.
+                                // Use CancellationToken.None so that an already-cancelled client token does not prevent the server-side transaction from being marked as failed. 
                                 await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, CancellationToken.None);
                             }
 
