@@ -35,6 +35,14 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
 
 ---
 
+## Pull Request Reviews
+
+- For pull request reviews, use `.github/instructions/pr-review.instructions.md` as the dedicated review workflow.
+- Focus review comments on changed code, merge-blocking correctness risks, FHIR behavior, test coverage, silent failures, and maintainability issues.
+- Do not claim that builds or tests passed unless they were actually run.
+
+---
+
 ## Project Structure
 
 Here's a high-level overview of key directories and their purposes. Consider how each component relates to typical user stories or feature implementations:
