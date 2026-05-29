@@ -258,19 +258,115 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task MergeAsync_OnRetriableMergeFailure_WithCanceledRetryDelay_CompletesTransaction()
+        public async Task MergeAsync_OnRetriableMergeFailure_WithCanceledRetryDelay_DoesNotCompleteTransaction()
         {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
             using var cts = new CancellationTokenSource();
-            var sqlRetryService = new CanceledRetryDelaySqlRetryService(cts);
+            var commitTransactionCalled = false;
+
+            // Begin the transaction successfully, then fail the merge with a retriable timeout.
+            sqlRetryService
+                .ExecuteSql(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<string>())
+                .Returns(callInfo =>
+                {
+                    var sqlCommand = callInfo.Arg<SqlCommand>();
+                    switch (sqlCommand.CommandText)
+                    {
+                        case "dbo.MergeResourcesBeginTransaction":
+                            sqlCommand.Parameters["@TransactionId"].Value = 123L;
+                            sqlCommand.Parameters["@SequenceRangeFirstValue"].Value = 1;
+                            return Task.CompletedTask;
+                        case "dbo.MergeResources":
+                            throw new InvalidOperationException("Execution Timeout Expired");
+                        case "dbo.MergeResourcesCommitTransaction":
+                            commitTransactionCalled = true;
+                            return Task.CompletedTask;
+                        default:
+                            return Task.CompletedTask;
+                    }
+                });
+
+            // Cancel the request while the retriable failure is being logged, before the retry delay runs.
+            sqlRetryService
+                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    cts.Cancel();
+                    return Task.CompletedTask;
+                });
 
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations("{\"resourceType\":\"Patient\",\"meta\":{\"lastUpdated\":\"2023-01-01T00:00:00Z\"},\"id\":\"123\"}");
 
-            var exception = await Record.ExceptionAsync(
+            // Act & Assert: the cancellation propagates and the abandoned transaction is left for the
+            // TransactionWatchdog to roll back, so inline cleanup is not run.
+            await Assert.ThrowsAsync<TaskCanceledException>(
                 () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
 
-            Assert.True(sqlRetryService.CommitTransactionCalled);
-            Assert.IsAssignableFrom<OperationCanceledException>(exception);
+            Assert.False(commitTransactionCalled);
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnNonRetriableMergeFailure_WithCanceledRequestToken_RunsCleanupWithUncanceledToken()
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            var commitTransactionCalled = false;
+            CancellationToken cleanupToken = default;
+
+            sqlRetryService
+                .ExecuteSql(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<string>())
+                .Returns(callInfo =>
+                {
+                    var sqlCommand = callInfo.Arg<SqlCommand>();
+                    switch (sqlCommand.CommandText)
+                    {
+                        case "dbo.MergeResourcesBeginTransaction":
+                            sqlCommand.Parameters["@TransactionId"].Value = 123L;
+                            sqlCommand.Parameters["@SequenceRangeFirstValue"].Value = 1;
+                            return Task.CompletedTask;
+                        case "dbo.MergeResources":
+                            // Cancel the request token, then fail with a non-retriable exception. Cleanup must
+                            // still run because an already-cancelled client token should not leave the
+                            // server-side transaction dirty.
+                            cts.Cancel();
+                            throw new InvalidOperationException("non-retriable merge failure");
+                        case "dbo.MergeResourcesCommitTransaction":
+                            commitTransactionCalled = true;
+                            cleanupToken = callInfo.Arg<CancellationToken>();
+                            return Task.CompletedTask;
+                        default:
+                            return Task.CompletedTask;
+                    }
+                });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var resources = CreateResourceWrapperOperations("{\"resourceType\":\"Patient\",\"meta\":{\"lastUpdated\":\"2023-01-01T00:00:00Z\"},\"id\":\"123\"}");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => dataStore.MergeAsync(resources, MergeOptions.Default, cts.Token));
+
+            Assert.True(commitTransactionCalled);
+            Assert.Equal(CancellationToken.None, cleanupToken);
         }
 
         [Fact]
@@ -333,7 +429,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
         {
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
+            // ModelInfoProvider is a shared static. Configure the compartment types so this provider stays
+            // consistent with other test classes (e.g. CompartmentQueryGeneratorTests) that validate
+            // compartment types against the same global provider.
+            var provider = MockModelInfoProviderBuilder
+                .Create(FhirSpecification.R4)
+                .AddKnownTypes(KnownResourceTypes.Group, "Encounter", "Device", "Practitioner", "RelatedPerson")
+                .Build();
+            var compartmentTypes = new[] { "Patient", "Practitioner", "Encounter", "Device", "RelatedPerson" };
+            provider.GetCompartmentTypeNames().Returns(compartmentTypes);
+            provider.IsKnownCompartmentType(Arg.Any<string>()).Returns(x => compartmentTypes.Contains((string)x[0]));
+            ModelInfoProvider.SetProvider(provider);
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
@@ -437,58 +543,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             {
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
-        }
-
-        private sealed class CanceledRetryDelaySqlRetryService : ISqlRetryService
-        {
-            private readonly CancellationTokenSource _cancellationTokenSource;
-
-            public CanceledRetryDelaySqlRetryService(CancellationTokenSource cancellationTokenSource)
-            {
-                _cancellationTokenSource = cancellationTokenSource;
-            }
-
-            public bool CommitTransactionCalled { get; private set; }
-
-            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-            {
-                _cancellationTokenSource.Cancel();
-                return Task.CompletedTask;
-            }
-
-            public Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false)
-            {
-                throw new NotSupportedException();
-            }
-
-            public Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
-            {
-                switch (sqlCommand.CommandText)
-                {
-                    case "dbo.MergeResourcesBeginTransaction":
-                        sqlCommand.Parameters["@TransactionId"].Value = 123L;
-                        sqlCommand.Parameters["@SequenceRangeFirstValue"].Value = 1;
-                        return Task.CompletedTask;
-                    case "dbo.MergeResources":
-                        throw new InvalidOperationException("Execution Timeout Expired");
-                    case "dbo.MergeResourcesCommitTransaction":
-                        CommitTransactionCalled = true;
-                        Assert.Equal(CancellationToken.None, cancellationToken);
-                        return Task.CompletedTask;
-                    default:
-                        return Task.CompletedTask;
-                }
-            }
-
-            public Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
-            {
-                return Task.FromResult<IReadOnlyList<TResult>>(new List<TResult>());
-            }
-
-            public Task<IReadOnlyList<IReadOnlyList<TResult>>> ExecuteMultiResultReaderAsync<TResult>(SqlCommand sqlCommand, IList<Func<SqlDataReader, TResult>> readersToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
-            {
-                throw new NotSupportedException();
-            }
         }
     }
 }
