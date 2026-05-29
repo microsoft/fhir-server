@@ -156,6 +156,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Capture whether this attempt is enlisted in an ambient C# transaction (e.g. a sequential transaction bundle).
+                bool wasEnlistedInAmbientTransaction = mergeOptions.EnlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null;
+
                 try
                 {
                     var results = await MergeInternalAsync(
@@ -180,6 +183,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
+                            if (wasEnlistedInAmbientTransaction)
+                            {
+                                // The ambient SqlTransaction is now zombied by this conflict; retrying within it is futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
+                                _logger.LogWarning(e, "Conflict: ResourceConcurrentUpdateConflict in ambient transaction; failing fast (SQL error {SqlErrorNumber}).", sqlEx.Number);
+                                throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
+                            }
+
                             if (retries++ >= maxRetries)
                             {
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
