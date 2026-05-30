@@ -114,12 +114,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
-        private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
+        private static readonly string[] HeadersToAccumulate = [KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge"];
 
         /// <summary>
         /// Properties to propagate from the outer HTTP requests to the inner actions.
         /// </summary>
-        private static readonly string[] PropertiesToAccumulate = new[] { KnownQueryParameterNames.OptimizeConcurrency };
+        private static readonly string[] PropertiesToAccumulate = [KnownQueryParameterNames.OptimizeConcurrency, SearchParameterRequestContextPropertyNames.LastUpdated];
 
         private static readonly Uri LocalHost = new("http://localhost/");
 
@@ -1084,19 +1084,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 },
             };
-        }
-
-        private static string SanitizeString(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return string.Empty;
-            }
-
-            return input
-                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)
-                .Replace("\n", " ", StringComparison.OrdinalIgnoreCase);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)

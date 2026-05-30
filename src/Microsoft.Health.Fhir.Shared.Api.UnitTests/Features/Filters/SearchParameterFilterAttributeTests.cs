@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -11,8 +12,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -28,11 +32,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class SearchParameterFilterAttributeTests
     {
         private readonly ISearchParameterValidator _searchParameterValidator = Substitute.For<ISearchParameterValidator>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
+
+        public SearchParameterFilterAttributeTests()
+        {
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
+        }
 
         [Fact]
         public async Task GivenAnAction_WhenPostingAnObservationObject_ThenNoSearchParameterActionTaken()
         {
-            var filter = new SearchParameterFilterAttribute(_searchParameterValidator);
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _fhirRequestContextAccessor);
 
             var context = CreateContext(new Observation());
             var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
@@ -40,13 +51,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
-            await _searchParameterValidator.DidNotReceive().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _searchParameterValidator.DidNotReceive().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>());
         }
 
         [Fact]
         public async Task GivenAnAction_WhenPostingASearchParameterObject_ThenSearchParameterActionsTaken()
         {
-            var filter = new SearchParameterFilterAttribute(_searchParameterValidator);
+            _searchParameterValidator.ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(DateTimeOffset.UtcNow);
+
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _fhirRequestContextAccessor);
 
             var context = CreateContext(new SearchParameter());
             var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
@@ -54,7 +68,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
-            await _searchParameterValidator.Received().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _searchParameterValidator.Received().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>());
+        }
+
+        [Fact]
+        public async Task GivenAnAction_WhenPostingASearchParameterObject_ThenLastUpdatedIsClearedAfterExecution()
+        {
+            var capturedLastUpdated = DateTimeOffset.UtcNow;
+            _searchParameterValidator.ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(capturedLastUpdated);
+
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _fhirRequestContextAccessor);
+
+            var context = CreateContext(new SearchParameter());
+            var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
+            ActionExecutionDelegate actionExecutionDelegate = () => Task.Run(() => actionExecutedContext);
+
+            // Set a value before execution
+            _fhirRequestContext.SetSearchParameterLastUpdated(capturedLastUpdated);
+
+            await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
+
+            // Verify LastUpdated was cleared
+            Assert.Null(_fhirRequestContext.GetSearchParameterLastUpdated());
+        }
+
+        [Fact]
+        public async Task GivenAnAction_WhenPostingASearchParameterObjectWithExistingLastUpdated_ThenExistingLastUpdatedIsPassedToValidator()
+        {
+            var existingLastUpdated = DateTimeOffset.UtcNow.AddHours(-1);
+            _fhirRequestContext.SetSearchParameterLastUpdated(existingLastUpdated);
+
+            _searchParameterValidator.ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), existingLastUpdated)
+                .Returns(existingLastUpdated);
+
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _fhirRequestContextAccessor);
+
+            var context = CreateContext(new SearchParameter());
+            var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
+            ActionExecutionDelegate actionExecutionDelegate = () => Task.Run(() => actionExecutedContext);
+
+            await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
+
+            await _searchParameterValidator.Received().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), existingLastUpdated);
         }
 
         private static ActionExecutingContext CreateContext(Base type)
