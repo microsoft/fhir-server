@@ -138,15 +138,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             List<Task> tasks = new List<Task>();
 
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test5", HttpStatusCode.FailedDependency); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test6", HttpStatusCode.PreconditionFailed); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test7"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test8", HttpStatusCode.FailedDependency); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test9", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test5", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test6", HttpStatusCode.PreconditionFailed); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test7"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test8", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test9", HttpStatusCode.FailedDependency); }));
 
             Task mainTask = Task.WhenAll(tasks);
 
@@ -170,12 +170,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             List<Task> tasks = new List<Task>();
 
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test6"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test7"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test6"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test7"); }));
 
             Task mainTask = Task.WhenAll(tasks);
 
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             List<Task> tasks = new List<Task>();
 
-            tasks.Add(Task.Run(async () => { throw new InvalidOperationException("test1"); }));
+            tasks.Add(Task.Run(() => { throw new InvalidOperationException("test1"); }));
 
             Task mainTask = Task.WhenAll(tasks);
 
@@ -223,11 +223,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             List<Task> tasks = new List<Task>();
 
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test4"); }));
-            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test5"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test4"); }));
+            tasks.Add(Task.Run(() => { throw new FhirTransactionCancelledException("test5"); }));
 
             Task mainTask = Task.WhenAll(tasks);
 
