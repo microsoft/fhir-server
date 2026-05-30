@@ -184,6 +184,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 catch (Exception ex)
                 {
+                    // Stage 1 - Identify prioritized exceptions with client errors.
                     if (bundleExecutionContext.IsTransactionFailedByClientError && parallelRequests != null && parallelRequests.Exception != null)
                     {
                         // FhirTransactionFailedException - It means that the transaction failed due a possible client error.
@@ -194,14 +195,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    // In this case, it handles FhirTransactionCancelledException or any other exception that is not prioritized by client errors.
+                    // Stage 2 - Handle FhirTransactionCancelledException or any other BaseFhirTransactionException that is not prioritized by client errors.
                     if (ex is BaseFhirTransactionException)
                     {
-                        // If one the exception raised is a FHIR Transaction Exception, then keep its origin.
                         throw;
                     }
 
-                    // For any other exception.
+                    // Stage 3 - Handle other exception types.
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
@@ -544,9 +544,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 get;
             }
 
-            public bool IsTransactionFailedByClientCancellation => _transactionFailedByClientCancellation == 1;
+            public bool IsTransactionFailedByClientCancellation => Volatile.Read(ref _transactionFailedByClientCancellation) == 1;
 
-            public bool IsTransactionFailedByClientError => _transactionFailedByClientError == 1;
+            public bool IsTransactionFailedByClientError => Volatile.Read(ref _transactionFailedByClientError) == 1;
 
             public void SetTransactionFailedByClientCancellation()
             {

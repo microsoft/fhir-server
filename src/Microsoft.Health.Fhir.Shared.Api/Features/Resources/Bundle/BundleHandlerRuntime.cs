@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -54,25 +54,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return null;
             }
 
+            // Scenario 1 - When the exception is an AggregateException and there are inner exceptions to be analized.
             if (exception is AggregateException aggregateException && aggregateException.InnerExceptions != null && aggregateException.InnerExceptions.Any())
             {
-                // Ensure that, if a transaction fails with a client error, then the exception with the customer error type is prioritized.
-                // In the following code, we are prioritizing exceptions of type FhirTransactionFailedException.
-                FhirTransactionFailedException customerException = aggregateException.InnerExceptions
-                    .OfType<FhirTransactionFailedException>()
-                    .FirstOrDefault(e =>
-                        e.ResponseStatusCode == HttpStatusCode.BadRequest ||
-                        e.ResponseStatusCode == HttpStatusCode.PreconditionFailed ||
-                        e.ResponseStatusCode == HttpStatusCode.MethodNotAllowed ||
-                        e.ResponseStatusCode == HttpStatusCode.TooManyRequests ||
-                        e.ResponseStatusCode == HttpStatusCode.NotFound);
+                IEnumerable<FhirTransactionFailedException> failedTransactionExceptions = aggregateException.Flatten().InnerExceptions.OfType<FhirTransactionFailedException>().ToList();
 
-                if (customerException != null)
+                if (failedTransactionExceptions.Any())
                 {
-                    return customerException;
+                    // Ensure that, if a transaction fails with a client error, then the exception with the customer error is prioritized.
+                    FhirTransactionFailedException customerException = failedTransactionExceptions
+                        .FirstOrDefault(e =>
+                            e.ResponseStatusCode != HttpStatusCode.FailedDependency &&
+                            e.ResponseStatusCode != HttpStatusCode.RequestTimeout);
+
+                    if (customerException != null)
+                    {
+                        return customerException;
+                    }
+
+                    // At this point, prioritize other types of client errors.
+                    return failedTransactionExceptions.FirstOrDefault();
                 }
             }
 
+            // Scenario 2 - When the exception is not an AggregateException.
             if (exception is FhirTransactionFailedException transactionFailedException)
             {
                 return transactionFailedException;

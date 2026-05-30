@@ -4,9 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Threading;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -15,6 +19,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
@@ -126,7 +131,121 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.False(result);
         }
 
-        private HttpContext GetHttpContext()
+        [Fact]
+        public async Task GetPrioritizedClientException_WhenMultipleExceptionsHappened_ThenPrioritizeExceptionsWithClientErrors()
+        {
+            // This test ensures that FhirTransactionFailedExceptions with client errors are prioritized over other possible exceptions.
+
+            List<Task> tasks = new List<Task>();
+
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test5", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test6", HttpStatusCode.PreconditionFailed); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test7"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test8", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test9", HttpStatusCode.FailedDependency); }));
+
+            Task mainTask = Task.WhenAll(tasks);
+
+            try
+            {
+                await mainTask;
+            }
+            catch (Exception)
+            {
+                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+
+                Assert.NotNull(ftfe);
+                Assert.Equal(HttpStatusCode.PreconditionFailed, ftfe.ResponseStatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task GetPrioritizedClientException_WhenMultipleExceptionsHappened_ThenPrioritizeNonCancelledExceptions()
+        {
+            // This test ensures that FhirTransactionFailedException have priority over FhirTransactionCancelledException.
+
+            List<Task> tasks = new List<Task>();
+
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionFailedException("test4", HttpStatusCode.FailedDependency); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test6"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test7"); }));
+
+            Task mainTask = Task.WhenAll(tasks);
+
+            try
+            {
+                await mainTask;
+            }
+            catch (Exception)
+            {
+                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+
+                Assert.NotNull(ftfe);
+                Assert.Equal(HttpStatusCode.FailedDependency, ftfe.ResponseStatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task GetPrioritizedClientException_WhenNoBaseFhirTransactionExceptionsHappened_ThenHandleException()
+        {
+            // This test ensures that when there are no FhirTransactionFailedException, "GetPrioritizedClientException" returns null.
+
+            List<Task> tasks = new List<Task>();
+
+            tasks.Add(Task.Run(async () => { throw new InvalidOperationException("test1"); }));
+
+            Task mainTask = Task.WhenAll(tasks);
+
+            try
+            {
+                await mainTask;
+            }
+            catch (Exception e)
+            {
+                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+
+                Assert.Null(ftfe);
+                Assert.True(e is InvalidOperationException);
+            }
+        }
+
+        [Fact]
+        public async Task GetPrioritizedClientException_WhenMultipleCancelledExceptionsHappened_ThenThereIsNoPrioritizeException()
+        {
+            // This test ensures that when there are no FhirTransactionFailedException, even if there is a FhirTransactionCancelledException, "GetPrioritizedClientException" returns null.
+
+            List<Task> tasks = new List<Task>();
+
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test1"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test2"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test3"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test4"); }));
+            tasks.Add(Task.Run(async () => { throw new FhirTransactionCancelledException("test5"); }));
+
+            Task mainTask = Task.WhenAll(tasks);
+
+            try
+            {
+                await mainTask;
+            }
+            catch (Exception e)
+            {
+                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+
+                Assert.Null(ftfe);
+
+                Assert.True(e is FhirTransactionCancelledException);
+            }
+        }
+
+        private static HttpContext GetHttpContext()
         {
             var httpContext = new DefaultHttpContext()
             {
