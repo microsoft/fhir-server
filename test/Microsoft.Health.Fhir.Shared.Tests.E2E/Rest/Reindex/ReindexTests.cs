@@ -71,6 +71,65 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
+        public async Task GivenSequentialBundleSearchParamCreates_ShouldSuceed()
+        {
+            const int numberOfSearchParams = 10;
+            const string urlPrefix = "http://my.org/";
+            var codes = new List<string>();
+            try
+            {
+                for (var i = 0; i < numberOfSearchParams; i++)
+                {
+                    var code = $"c-id-{i}";
+                    codes.Add(code);
+                }
+
+                var bundle = await CreatePersonSearchParamsAsync();
+                Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+                foreach (var entry in bundle.Entry)
+                {
+                    Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+                }
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync(codes);
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+#if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
+#else
+                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
+#endif
+
+                foreach (var code in codes)
+                {
+                    var searchParam = new SearchParameter
+                    {
+                        Id = code,
+                        Url = $"{urlPrefix}{code}",
+                        Name = code,
+                        Code = code,
+                        Status = PublicationStatus.Active,
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
+                        Description = "any",
+                        Base = resourceTypes,
+                    };
+
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+                return result;
+            }
+        }
+
+        [Fact]
         public async Task GivenConcurrentSearchParamCreates_SomeShouldFail()
         {
             const string urlPrefix = "http://my.org/";
@@ -108,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     }
                 });
 
-                Assert.True(threw && !_isSql, "Expected at least one create to fail due to concurrency.");
+                Assert.True(threw || !_isSql, "Expected at least one create to fail due to concurrency for SQL only.");
             }
             finally
             {
@@ -118,11 +177,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             async Task<FhirResponse<SearchParameter>> CreatePersonSearchParamAsync(string code)
             {
 #if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
-                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
 #else
-                var resourceTypes = new List<ResourceType?>();
-                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
 #endif
 
                 var searchParam = new SearchParameter
@@ -202,11 +259,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
 #if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
-                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
 #else
-                var resourceTypes = new List<ResourceType?>();
-                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
 #endif
 
                 foreach (var code in codes)
