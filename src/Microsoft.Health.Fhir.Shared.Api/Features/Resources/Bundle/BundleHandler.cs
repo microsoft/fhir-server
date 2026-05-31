@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (FhirTransactionFailedException tfe) when (tfe.IsErrorCausedDueClientFailure())
             {
                 _logger.LogWarning(tfe, "Client failure while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
-                statistics.MarkBundleAsFailedDueClientError();
+                statistics.SetBundleAsFailedByClientError();
 
                 // Errors caused by customer failures do not count as service failures.
                 _metricHandler.EmitSuccess();
@@ -472,7 +472,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (FhirTransactionCancelledException tce)
             {
                 _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
-                statistics.MarkBundleAsCancelled();
+                statistics.SetBundleAsCancelled();
 
                 _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
 
@@ -483,7 +483,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogWarning(ex, "Operation cancelled. Error while processing a bundle: {ErrorMessage}.", ex.Message);
-                    statistics.MarkBundleAsCancelled();
+                    statistics.SetBundleAsCancelled();
                 }
                 else
                 {
@@ -777,6 +777,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                     _bundleConfiguration,
                                     watch,
                                     httpContext,
+                                    isOperationCancelledByClientError: false, // For sequential bundles this value is always 'false', as client errors are handled sequentially.
                                     cancellationToken);
 
                                 // For Batch bundles, we should include the 429 response for the throttled request and skip processing subsequent requests.
@@ -826,18 +827,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
                 }
 
-                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
+                HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent);
+                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, httpStatusCode, watch.Elapsed);
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    // Bug 182314: Standardize status code returned when a bundle fails.
-
-                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
-                    {
-                        httpStatusCode = HttpStatusCode.BadRequest;
-                    }
-
-                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isBundleCancelledByClient: BundleHandlerRuntime.IsBundleCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
