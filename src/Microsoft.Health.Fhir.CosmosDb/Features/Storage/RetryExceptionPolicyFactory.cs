@@ -116,13 +116,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     {
                         // Log details about each retry attempt for better visibility
                         string statusCode = "N/A";
-                        string diagnostics = "N/A";
 
                         // Single type check for CosmosException to improve performance
                         if (e is CosmosException cosmosException)
                         {
                             statusCode = cosmosException.StatusCode.ToString();
-                            diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
                         }
 
                         var retryType = useExponentialRetry ? "exponential" : "fixed";

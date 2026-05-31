@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -32,14 +33,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("W\"version1\"", false)]
         [InlineData("", true)]
         [InlineData(null, true)]
-        public async Task GivenETag_WhenBinding_ThenModelBindingContextShouldBeFilledProperly(
-            string etag,
-            bool valid)
+        public async Task GivenETag_WhenBinding_ThenModelBindingContextShouldBeFilledProperly(string etag, bool valid)
         {
-            var headers = new HeaderDictionary();
+            var headers = HeaderDictionaryFactory.Create();
             if (!string.IsNullOrEmpty(etag))
             {
-                headers.Add(HeaderNames.IfMatch, etag);
+                headers.Append(HeaderNames.IfMatch, etag);
             }
 
             var request = Substitute.For<HttpRequest>();
