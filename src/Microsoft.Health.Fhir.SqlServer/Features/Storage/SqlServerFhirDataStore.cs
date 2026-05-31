@@ -842,7 +842,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
             }
 
-            _logger.LogInformation($"MergeResourcesWrapperAsync: transactionId={transactionId}, singleTransaction={singleTransaction}, resources={mergeWrappers.Count}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
+            _logger.LogInformation($"MergeResourcesWrapperAsync: resources={mergeWrappers.Count}, searchParams={pendingStatuses.Count} transactionId={transactionId}, singleTransaction={singleTransaction}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
         private bool TryGetPendingSearchParameterStatusUpdates(out List<ResourceSearchParameterStatus> pendingStatuses)
