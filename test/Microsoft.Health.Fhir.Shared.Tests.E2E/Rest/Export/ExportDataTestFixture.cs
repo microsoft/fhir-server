@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Antlr4.Runtime.Atn;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime:O}";
         }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             await SaveTestResourcesToServer();
         }

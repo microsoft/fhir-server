@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -51,7 +51,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
@@ -106,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _output = output;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _operationsConfig.Value.Returns(new OperationsConfiguration());
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
@@ -186,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             StartCacheUpdateTask(_backgroundCts.Token);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             // Clean up resources before finishing test class
             await DeleteTestResources();

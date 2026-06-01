@@ -129,4 +129,12 @@
     <Rule Id="CA2200" Action="None" />
     <Rule Id="CA2234" Action="None" />
   </Rules>
+  <Rules AnalyzerId="xUnit.Analyzers" RuleNamespace="xUnit.Analyzers">
+    <Rule Id="xUnit1031" Action="None" />
+    <Rule Id="xUnit1051" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
+    <Rule Id="SA1208" Action="None" />
+    <Rule Id="SA1209" Action="None" />
+  </Rules>
 </RuleSet>

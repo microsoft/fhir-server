@@ -4,9 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using Xunit.Abstractions;
+using System.Threading.Tasks;
+using Xunit;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
@@ -15,77 +18,70 @@ namespace Microsoft.Health.Extensions.Xunit
     /// For Theory tests, we need to let xUnit discover the data-driven test cases first,
     /// then wrap each one with retry logic.
     /// </summary>
-    public class RetryTheoryDiscoverer : TheoryDiscoverer
+    public sealed class RetryTheoryDiscoverer : TheoryDiscoverer
     {
-        public RetryTheoryDiscoverer(IMessageSink diagnosticMessageSink)
-            : base(diagnosticMessageSink)
+        protected override async ValueTask<IReadOnlyCollection<IXunitTestCase>> CreateTestCasesForDataRow(
+            ITestFrameworkDiscoveryOptions discoveryOptions,
+            IXunitTestMethod testMethod,
+            ITheoryAttribute theoryAttribute,
+            ITheoryDataRow dataRow,
+            object[] testMethodArguments)
         {
+            var attribute = (RetryTheoryAttribute)theoryAttribute;
+
+            var maxRetries = attribute.MaxRetries;
+            var delayMs = attribute.DelayBetweenRetriesMs;
+            var retryOnAssertionFailure = attribute.RetryOnAssertionFailure;
+
+            var baseCases = await base.CreateTestCasesForDataRow(discoveryOptions, testMethod, theoryAttribute, dataRow, testMethodArguments);
+            return baseCases
+                .Select(testCase => WrapTestCase(testMethod, testCase, attribute, maxRetries, delayMs, retryOnAssertionFailure))
+                .ToArray();
         }
 
-        protected override IEnumerable<IXunitTestCase> CreateTestCasesForDataRow(
+        protected override async ValueTask<IReadOnlyCollection<IXunitTestCase>> CreateTestCasesForTheory(
             ITestFrameworkDiscoveryOptions discoveryOptions,
-            ITestMethod testMethod,
-            IAttributeInfo theoryAttribute,
-            object[] dataRow)
+            IXunitTestMethod testMethod,
+            ITheoryAttribute theoryAttribute)
         {
-            var maxRetries = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.MaxRetries));
-            var delayMs = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.DelayBetweenRetriesMs));
-            var retryOnAssertionFailure = theoryAttribute.GetNamedArgument<bool>(nameof(RetryTheoryAttribute.RetryOnAssertionFailure));
+            var attribute = (RetryTheoryAttribute)theoryAttribute;
 
-            // Use default values if not specified
-            if (maxRetries == 0)
+            var maxRetries = attribute.MaxRetries;
+            var delayMs = attribute.DelayBetweenRetriesMs;
+            var retryOnAssertionFailure = attribute.RetryOnAssertionFailure;
+
+            var baseCases = await base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute);
+            return baseCases
+                .Select(testCase => WrapTestCase(testMethod, testCase, attribute, maxRetries, delayMs, retryOnAssertionFailure))
+                .ToArray();
+        }
+
+        private static IXunitTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute, int maxRetries, int delayMs, bool retryOnAssertionFailure)
+        {
+            if (testCase is not XunitTestCase xunitTestCase)
             {
-                maxRetries = 3;
+                Trace.WriteLine($"[RetryTheory] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not XunitTestCase. Retry logic will NOT be applied.");
+                return testCase;
             }
 
-            if (delayMs == 0)
-            {
-                delayMs = 5000;
-            }
-
-            // Create a RetryTestCase for each data row
-            yield return new RetryTestCase(
-                DiagnosticMessageSink,
-                discoveryOptions.MethodDisplayOrDefault(),
-                discoveryOptions.MethodDisplayOptionsOrDefault(),
+            return new RetryTestCase(
                 testMethod,
+                xunitTestCase.TestCaseDisplayName,
+                xunitTestCase.UniqueID,
+                xunitTestCase.Explicit,
+                xunitTestCase.SkipExceptions,
+                xunitTestCase.SkipReason,
+                xunitTestCase.SkipType,
+                xunitTestCase.SkipUnless,
+                xunitTestCase.SkipWhen,
+                new Dictionary<string, HashSet<string>>(xunitTestCase.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value))),
+                xunitTestCase.TestMethodArguments,
+                xunitTestCase.SourceFilePath,
+                xunitTestCase.SourceLineNumber,
+                xunitTestCase.Timeout == 0 ? null : xunitTestCase.Timeout,
                 maxRetries,
                 delayMs,
-                retryOnAssertionFailure,
-                dataRow);
-        }
-
-        protected override IEnumerable<IXunitTestCase> CreateTestCasesForTheory(
-            ITestFrameworkDiscoveryOptions discoveryOptions,
-            ITestMethod testMethod,
-            IAttributeInfo theoryAttribute)
-        {
-            var maxRetries = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.MaxRetries));
-            var delayMs = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.DelayBetweenRetriesMs));
-            var retryOnAssertionFailure = theoryAttribute.GetNamedArgument<bool>(nameof(RetryTheoryAttribute.RetryOnAssertionFailure));
-
-            // Use default values if not specified
-            if (maxRetries == 0)
-            {
-                maxRetries = 3;
-            }
-
-            if (delayMs == 0)
-            {
-                delayMs = 5000;
-            }
-
-            // For theories without data (will be skipped), wrap in retry
-            return base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute)
-                .Select(testCase => new RetryTestCase(
-                    DiagnosticMessageSink,
-                    discoveryOptions.MethodDisplayOrDefault(),
-                    discoveryOptions.MethodDisplayOptionsOrDefault(),
-                    testMethod,
-                    maxRetries,
-                    delayMs,
-                    retryOnAssertionFailure,
-                    testCase.TestMethodArguments));
+                retryOnAssertionFailure);
         }
     }
 }

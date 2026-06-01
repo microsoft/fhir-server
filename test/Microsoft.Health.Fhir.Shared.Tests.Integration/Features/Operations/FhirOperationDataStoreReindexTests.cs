@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             _testHelper = fixture.TestHelper;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _testHelper.DeleteAllReindexJobRecordsAsync();
             await CancelActiveReindexJobIfExists();
@@ -55,9 +55,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             await AssertNoReindexJobsExist();
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         private async Task AssertNoReindexJobsExist()

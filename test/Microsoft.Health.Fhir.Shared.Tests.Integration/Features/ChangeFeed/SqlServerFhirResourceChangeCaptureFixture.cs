@@ -47,12 +47,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _storageFixture.InitializeAsync();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_storageFixture != null)
             {

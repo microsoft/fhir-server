@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Throttling)]
     [Trait(Traits.Category, Categories.Web)]
-    public class ThrottlingMiddlewareTests : IAsyncLifetime
+    public class ThrottlingMiddlewareTests : IAsyncLifetime, IAsyncDisposable
     {
         private HttpContext _httpContext = new DefaultHttpContext();
         private Lazy<ThrottlingMiddleware> _middleware;
@@ -316,8 +316,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             return output;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-        async Task IAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
+        public ValueTask DisposeAsync() => _middleware.Value.DisposeAsync();
     }
 }

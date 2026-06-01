@@ -4,19 +4,22 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit.Abstractions;
+using Xunit;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// Test case that implements retry logic.
     /// </summary>
-    public class RetryTestCase : XunitTestCase
+    public sealed class RetryTestCase : XunitTestCase, ISelfExecutingXunitTestCase
     {
         private int _maxRetries;
         private int _delayMs;
@@ -29,30 +32,39 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         public RetryTestCase(
-            IMessageSink diagnosticMessageSink,
-            TestMethodDisplay defaultMethodDisplay,
-            TestMethodDisplayOptions defaultMethodDisplayOptions,
-            ITestMethod testMethod,
+            IXunitTestMethod testMethod,
+            string displayName,
+            string uniqueId,
+            bool @explicit,
+            Type[] skipExceptions,
+            string skipReason,
+            Type skipType,
+            string skipUnless,
+            string skipWhen,
+            Dictionary<string, HashSet<string>> traits,
+            object[] testMethodArguments,
+            string sourceFile,
+            int? sourceLine,
+            int? timeout,
             int maxRetries,
             int delayMs,
-            bool retryOnAssertionFailure = false,
-            object[] testMethodArguments = null)
-            : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+            bool retryOnAssertionFailure)
+            : base(testMethod, displayName, uniqueId, @explicit, skipExceptions, skipReason, skipType, skipUnless, skipWhen, traits, testMethodArguments, sourceFile, sourceLine, timeout)
         {
             _maxRetries = maxRetries;
             _delayMs = delayMs;
             _retryOnAssertionFailure = retryOnAssertionFailure;
         }
 
-        public override async Task<RunSummary> RunAsync(
-            IMessageSink diagnosticMessageSink,
+        public async ValueTask<RunSummary> Run(
+            ExplicitOption explicitOption,
             IMessageBus messageBus,
             object[] constructorArguments,
             ExceptionAggregator aggregator,
             CancellationTokenSource cancellationTokenSource)
         {
             // Use System.Diagnostics.Trace for ADO visibility
-            Trace.WriteLine($"##vso[task.logdetail]RetryFact starting test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
+            Trace.WriteLine($"##vso[task.logdetail]RetryFact starting test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
 
             var runSummary = new RunSummary { Total = 1 };
             Exception lastException = null;
@@ -61,7 +73,7 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 var isLastAttempt = attempt == _maxRetries;
 
-                Trace.WriteLine($"##vso[task.logdetail]RetryFact attempt {attempt}/{_maxRetries} for test '{TestMethod.Method.Name}'");
+                Trace.WriteLine($"##vso[task.logdetail]RetryFact attempt {attempt}/{_maxRetries} for test '{TestMethod.MethodName}'");
 
                 // Create a fresh aggregator for each attempt
                 var attemptAggregator = new ExceptionAggregator();
@@ -83,21 +95,22 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 try
                 {
-                    var summary = await base.RunAsync(
-                        diagnosticMessageSink,
+                    var summary = await XunitRunnerHelper.RunXunitTestCase(
+                        this,
                         busToUse,
-                        constructorArguments,
+                        cancellationTokenSource,
                         attemptAggregator,
-                        cancellationTokenSource);
+                        explicitOption,
+                        constructorArguments);
 
                     runSummary.Time = summary.Time;
 
                     if (summary.Failed == 0)
                     {
                         // Test passed - success message already went through to Test Explorer
-                        Trace.WriteLine($"##vso[task.logdetail]RetryFact test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}"));
+                        Trace.WriteLine($"##vso[task.logdetail]RetryFact test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' passed on attempt {attempt}/{_maxRetries}");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' passed on attempt {attempt}/{_maxRetries}"));
 
                         runSummary.Failed = 0;
                         return runSummary;
@@ -140,9 +153,9 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         if (!shouldRetry)
                         {
-                            Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.Method.Name}' failed with non-retriable exception. Skipping retries.");
-                            diagnosticMessageSink.OnMessage(
-                                new DiagnosticMessage($"[RetryFact] Test '{TestMethod.Method.Name}' failed with non-retriable exception. Skipping retries."));
+                            Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.MethodName}' failed with non-retriable exception. Skipping retries.");
+                            messageBus.QueueMessage(
+                                new DiagnosticMessage($"[RetryFact] Test '{TestMethod.MethodName}' failed with non-retriable exception. Skipping retries."));
 
                             if (lastException != null)
                             {
@@ -154,18 +167,18 @@ namespace Microsoft.Health.Extensions.Xunit
                         }
 
                         // Not the last attempt - the failure was intercepted, so retry
-                        Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}, will retry after {_delayMs}ms");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
+                        Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}, will retry after {_delayMs}ms");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
 
                         await Task.Delay(_delayMs);
                     }
                     else
                     {
                         // Last attempt - failure message already went through to Test Explorer
-                        Trace.WriteLine($"##vso[task.logissue type=error]Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
+                        Trace.WriteLine($"##vso[task.logissue type=error]Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed after {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
 
                         if (lastException != null)
                         {
@@ -199,20 +212,20 @@ namespace Microsoft.Health.Extensions.Xunit
             return runSummary;
         }
 
-        public override void Serialize(IXunitSerializationInfo data)
+        protected override void Serialize(IXunitSerializationInfo info)
         {
-            base.Serialize(data);
-            data.AddValue(nameof(_maxRetries), _maxRetries);
-            data.AddValue(nameof(_delayMs), _delayMs);
-            data.AddValue(nameof(_retryOnAssertionFailure), _retryOnAssertionFailure);
+            base.Serialize(info);
+            info.AddValue(nameof(_maxRetries), _maxRetries);
+            info.AddValue(nameof(_delayMs), _delayMs);
+            info.AddValue(nameof(_retryOnAssertionFailure), _retryOnAssertionFailure);
         }
 
-        public override void Deserialize(IXunitSerializationInfo data)
+        protected override void Deserialize(IXunitSerializationInfo info)
         {
-            base.Deserialize(data);
-            _maxRetries = data.GetValue<int>(nameof(_maxRetries));
-            _delayMs = data.GetValue<int>(nameof(_delayMs));
-            _retryOnAssertionFailure = data.GetValue<bool>(nameof(_retryOnAssertionFailure));
+            base.Deserialize(info);
+            _maxRetries = info.GetValue<int>(nameof(_maxRetries));
+            _delayMs = info.GetValue<int>(nameof(_delayMs));
+            _retryOnAssertionFailure = info.GetValue<bool>(nameof(_retryOnAssertionFailure));
         }
 
         /// <summary>

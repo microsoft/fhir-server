@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Management.Smo;
 using Xunit;
-using Xunit.Abstractions;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 using Task = System.Threading.Tasks.Task;

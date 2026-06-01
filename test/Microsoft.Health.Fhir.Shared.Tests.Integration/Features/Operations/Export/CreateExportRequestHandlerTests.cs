@@ -299,14 +299,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             }
         }
 
-        public Task InitializeAsync()
+        public ValueTask InitializeAsync()
         {
-            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
+            return new ValueTask(_fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken));
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [Theory]

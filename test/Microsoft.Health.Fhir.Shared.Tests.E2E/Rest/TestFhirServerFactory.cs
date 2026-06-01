@@ -162,12 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
-
-        async Task IAsyncLifetime.DisposeAsync()
-        {
-            await DisposeAsync();
-        }
+        ValueTask IAsyncLifetime.InitializeAsync() => ValueTask.CompletedTask;
 
         public async ValueTask DisposeAsync()
         {
