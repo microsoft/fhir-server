@@ -86,12 +86,9 @@ namespace Microsoft.Health.Fhir.Shared.Web
                 // Consult registered filters. A metric is emitted only when every filter returns true.
                 // This is the single chokepoint for the fhir/failures/exceptions metric, so suppressing here
                 // suppresses it for all downstream consumers (see ADR-2605).
-                foreach (var filter in _exceptionMetricEmissionFilters)
+                if (!_exceptionMetricEmissionFilters.All(filter => filter.ShouldEmit(data.Exception, httpContext)))
                 {
-                    if (!filter.ShouldEmit(data.Exception, httpContext))
-                    {
-                        return;
-                    }
+                    return;
                 }
 
                 string operationName = string.Empty;
