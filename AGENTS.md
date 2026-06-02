@@ -100,7 +100,6 @@ Bulk operations use the async job queue. To add a new background job type:
 | `coding-agent` | General implementation, delegates to fast/complex as needed |
 | `complex-coding-agent` | Complex multi-file refactors, threading, race conditions |
 | `fast-coding-agent` | Single-file edits, simple fixes, build errors |
-| `well-architected-agent` | Architecture reviews across reliability/security/performance/cost |
 
 ## Available Skills (`.github/skills/`)
 
@@ -109,7 +108,3 @@ Beyond the SQL skills above, these cross-cutting skills are available:
 | Skill | Use when |
 |-------|---------|
 | `create-adr` | Drafting an Architectural Decision Record |
-| `wa-full-review` | Full Well-Architected Framework review |
-| `wa-security-review` | Security-focused review |
-| `wa-performance-review` | Performance-focused review |
-| `wa-reliability-review` | Reliability-focused review |
