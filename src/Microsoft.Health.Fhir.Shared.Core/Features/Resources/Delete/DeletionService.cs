@@ -400,7 +400,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
 
-                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(), cancellationToken);
+                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(_ => _.Resource), cancellationToken);
 
                 await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
             }
@@ -466,7 +466,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                await DeleteSearchParametersAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter).Select(x => x.Resource).ToList(), cancellationToken);
+                await DeleteSearchParametersAsync(matchedResources.Select(_ => _.Resource), cancellationToken);
 
                 await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
                 {
