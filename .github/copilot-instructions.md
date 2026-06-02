@@ -7,21 +7,11 @@
 
 ## Skill Activation
 
-Activate the relevant skill from `.github/skills/` **before** any SQL or architecture task.
-The schema has strict invariants; generic SQL knowledge will produce incorrect code.
+Activate the relevant skill from `.github/skills/` **before** any architecture task.
 
 | Task | Skill |
 |------|-------|
-| Schema migration / new version | `fhir-sql-author-schema-migration` |
-| New table or index | `fhir-sql-add-table-or-index` |
-| New or modified stored procedure | `fhir-sql-write-stored-procedure` |
-| Background job / export / import / reindex | `fhir-sql-background-jobs` |
-| Resource create/update/delete/history | `fhir-sql-resource-crud-and-history` |
-| Slow FHIR search or query plan diagnosis | `fhir-sql-diagnose-query-perf` |
-| Search-to-SQL pipeline, CTE debugging | `fhir-sql-query-generation-pipeline` |
-| Hyperscale, read replicas, geo-replication | `fhir-sql-production-operations` |
 | Architecture decision (ADR) | `create-adr` |
-| Well-Architected review | `wa-full-review` (or focused variant) |
 
 ---
 
