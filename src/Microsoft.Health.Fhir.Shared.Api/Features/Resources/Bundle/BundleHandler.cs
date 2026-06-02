@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             // for deletes Entry.Resource is null. need to check in other way
-            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true))
+            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
             {
                 searchParamsInBundle = true;
             }
