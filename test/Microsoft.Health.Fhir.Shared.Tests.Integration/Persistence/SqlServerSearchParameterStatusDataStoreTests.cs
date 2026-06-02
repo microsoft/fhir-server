@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Modify and upsert again
                 status.Status = SearchParameterStatus.Enabled;
                 status.IsPartiallySupported = true;
-                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
@@ -136,21 +136,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = new Uri(testUri1),
                     Status = SearchParameterStatus.Disabled,
                     IsPartiallySupported = false,
-                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
                 new ResourceSearchParameterStatus
                 {
                     Uri = new Uri(testUri2),
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = true,
-                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
                 new ResourceSearchParameterStatus
                 {
                     Uri = new Uri(testUri3),
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = false,
-                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
             };
 
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Update the status
                 status.Status = SearchParameterStatus.Enabled;
-                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var countAfter = (await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).Count;
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -345,7 +345,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Enabled,
                 IsPartiallySupported = true,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Unsupported,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(existingUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = true,
-                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 };
 
                 var createNew = new ResourceSearchParameterStatus
@@ -446,7 +446,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = new Uri(newUri),
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = false,
-                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 };
 
                 // Act
@@ -486,7 +486,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -506,7 +506,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Transition to Enabled
                 status.Status = SearchParameterStatus.Enabled;
                 status.IsPartiallySupported = true;
-                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var statuses2 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -523,7 +523,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Transition to Supported
                 status.Status = SearchParameterStatus.Supported;
                 status.IsPartiallySupported = false;
-                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var statuses3 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -550,7 +550,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             using var cts = new CancellationTokenSource();

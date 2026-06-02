@@ -69,7 +69,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
 
-        public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
+        public DateTimeOffset SearchParamLastUpdated
+        {
+            get
+            {
+                if (!_searchParamLastUpdated.HasValue)
+                {
+                    throw new InvalidOperationException("Search param cache has not been updated yet.");
+                }
+
+                return _searchParamLastUpdated.Value;
+            }
+        }
 
         public string GetSearchParameterHash(string resourceType)
         {
@@ -109,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (!lastUpdated.HasValue)
                 {
                     await GetAndApplySearchParameterUpdates(cancellationToken);
-                    lastUpdated = SearchParamLastUpdated.Value;
+                    lastUpdated = SearchParamLastUpdated;
                 }
 
                 // verify the parameter is supported before continuing

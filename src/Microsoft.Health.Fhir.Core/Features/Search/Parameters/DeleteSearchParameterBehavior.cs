@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             if (!lastUpdated.HasValue)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
-                lastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value;
+                lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
             }
 
             if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||

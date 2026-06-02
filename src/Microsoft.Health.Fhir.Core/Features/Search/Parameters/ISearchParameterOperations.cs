@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
-        DateTimeOffset? SearchParamLastUpdated { get; }
+        DateTimeOffset SearchParamLastUpdated { get; }
 
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 

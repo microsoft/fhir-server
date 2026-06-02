@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken); // refresh search param cache
 
-                _fhirRequestContextAccessor.RequestContext.Properties[SearchParameterRequestContextPropertyNames.LastUpdated] = _searchParameterOperations.SearchParamLastUpdated.Value; // capture last updated
+                _fhirRequestContextAccessor.RequestContext.Properties[SearchParameterRequestContextPropertyNames.LastUpdated] = _searchParameterOperations.SearchParamLastUpdated; // capture last updated
             }
         }
 

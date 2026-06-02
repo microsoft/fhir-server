@@ -544,7 +544,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 #endif
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default, lastUpdated: _searchParameterOperations.SearchParamLastUpdated.Value);
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default, lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
@@ -1243,6 +1243,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterOperations,
                 _searchParameterStatusManager,
                 NullLogger<ReindexProcessingJob>.Instance);
+
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
             var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(resultJson);

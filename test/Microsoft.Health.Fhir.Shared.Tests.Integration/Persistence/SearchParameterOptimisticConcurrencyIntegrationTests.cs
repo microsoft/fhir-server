@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try

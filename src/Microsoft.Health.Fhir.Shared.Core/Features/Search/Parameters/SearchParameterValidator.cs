@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     if (!lastUpdated.HasValue)
                     {
                         await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
-                        lastUpdated = _searchParameterOperations.SearchParamLastUpdated.Value;
+                        lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
                     }
 
                     // If a search parameter with the same uri exists already

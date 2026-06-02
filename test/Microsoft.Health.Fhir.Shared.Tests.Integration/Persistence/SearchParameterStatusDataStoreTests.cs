@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var status1 = new ResourceSearchParameterStatus
             {
-                Uri = new Uri(statusName1), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                Uri = new Uri(statusName1), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             var status2 = new ResourceSearchParameterStatus
             {
-                Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value,
+                Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             expectedStatus2.IsPartiallySupported = !expectedStatus2.IsPartiallySupported;
 
             // set last updated on at least one so it will set correct max
-            expectedStatus1.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+            expectedStatus1.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
             var statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
-                expectedStatus2.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated.Value;
+                expectedStatus2.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
                 statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
