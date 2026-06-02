@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (activeReindexJob.found)
             {
-                throw new JobConflictException(Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
+                throw new JobConflictException(string.Format(Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing, activeReindexJob.id));
             }
         }
 
