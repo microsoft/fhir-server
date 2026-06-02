@@ -458,20 +458,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                // This throws AggrigateExceptions
+                // This throws AggregateExceptions
                 await Parallel.ForEachAsync(includedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
                 {
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
-
-                // with concurrency based on max last updated search params must be deleteted one-by-one
-                foreach (var item in includedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
-                {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                }
 
                 await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
                 {
@@ -479,7 +471,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                // with concurrency based on max last updated search params must be deleteted one-by-one
+                // With concurrency based on max last updated search params must be deleted one-by-one. Note: this is impossible to have search param as included resource.
                 foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
                 {
                     await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
