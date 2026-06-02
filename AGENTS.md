@@ -108,7 +108,6 @@ Beyond the SQL skills above, these cross-cutting skills are available:
 
 | Skill | Use when |
 |-------|---------|
-| `engineer-mode` | Need architect-level design trade-off thinking |
 | `create-adr` | Drafting an Architectural Decision Record |
 | `wa-full-review` | Full Well-Architected Framework review |
 | `wa-security-review` | Security-focused review |
