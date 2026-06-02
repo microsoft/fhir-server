@@ -17,6 +17,7 @@ using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             catch (FhirOperationException ex) when (ex.Message.Contains("is unknown", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(ex, "Failed to expand: ValueSet not found.");
-                return CreateOperationOutcome(ex);
+                throw new ResourceNotFoundException(ex.Message);
             }
             catch (Exception ex)
             {

@@ -18,6 +18,7 @@ using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
@@ -345,7 +346,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public async Task GivenUnknownValueSet_WhenExpanding_ThenLogsWarningAndReturnsOperationOutcome()
+        public async Task GivenUnknownValueSet_WhenExpanding_ThenLogsWarningAndThrowsResourceNotFoundException()
         {
             var exception = new FhirOperationException(
                 "ValueSet 'http://terminology.medigent.ca/fhir/ValueSet/123' is unknown",
@@ -362,11 +363,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Tuple.Create(TerminologyOperationParameterNames.Expand.Url, "http://terminology.medigent.ca/fhir/ValueSet/123"),
             };
 
-            var resourceElement = await _proxy.ExpandAsync(parameters, null, CancellationToken.None);
-            Assert.NotNull(resourceElement);
-
-            var resource = Assert.IsType<OperationOutcome>(resourceElement.ToPoco());
-            Assert.NotEmpty(resource.Issue);
+            var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => _proxy.ExpandAsync(parameters, null, CancellationToken.None));
+            Assert.Contains("is unknown", ex.Message, StringComparison.OrdinalIgnoreCase);
 
             _logger.Received(1).Log(
                 LogLevel.Warning,
