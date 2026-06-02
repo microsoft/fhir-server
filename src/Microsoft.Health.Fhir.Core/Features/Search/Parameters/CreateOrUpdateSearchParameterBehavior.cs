@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Before committing the SearchParameter resource to the data store, validate the parameter type
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated, cancellationToken);
+                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -97,15 +97,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, lastUpdated, cancellationToken);
+                        QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
                     }
 
-                    QueueStatusAsync(newUrl, SearchParameterStatus.Supported, lastUpdated, cancellationToken);
+                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
                 }
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    QueueStatusAsync(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated, cancellationToken);
+                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
                 }
             }
 
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return await next(cancellationToken);
         }
 
-        private void QueueStatusAsync(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, CancellationToken cancellationToken)
+        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
