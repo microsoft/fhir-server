@@ -20,7 +20,7 @@ The schema has strict invariants; generic SQL knowledge will produce incorrect c
 | Slow FHIR search or query plan diagnosis | `fhir-sql-diagnose-query-perf` |
 | Search-to-SQL pipeline, CTE debugging | `fhir-sql-query-generation-pipeline` |
 | Hyperscale, read replicas, geo-replication | `fhir-sql-production-operations` |
-| Architecture decision (ADR) | `create-adr` + `engineer-mode` |
+| Architecture decision (ADR) | `create-adr` |
 | Well-Architected review | `wa-full-review` (or focused variant) |
 
 ---

@@ -25,7 +25,7 @@ Skills live in `.github/skills/<skill-name>/SKILL.md`. Claude cannot discover th
 | Slow FHIR search or query plan diagnosis | `.github/skills/fhir-sql-diagnose-query-perf/SKILL.md` |
 | Search-to-SQL pipeline, CTE debugging | `.github/skills/fhir-sql-query-generation-pipeline/SKILL.md` |
 | Hyperscale, read replicas, geo-replication | `.github/skills/fhir-sql-production-operations/SKILL.md` |
-| Architecture decision (ADR) | `.github/skills/create-adr/SKILL.md` + `.github/skills/engineer-mode/SKILL.md` |
+| Architecture decision (ADR) | `.github/skills/create-adr/SKILL.md` |
 | Well-Architected review | `.github/skills/wa-full-review/SKILL.md` (or focused variant below) |
 | — Security focus | `.github/skills/wa-security-review/SKILL.md` |
 | — Performance focus | `.github/skills/wa-performance-review/SKILL.md` |
