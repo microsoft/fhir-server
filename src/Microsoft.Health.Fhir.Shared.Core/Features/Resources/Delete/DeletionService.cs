@@ -400,7 +400,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
 
-                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(_ => _.Resource), cancellationToken);
+                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match), cancellationToken);
 
                 await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
             }
@@ -466,7 +466,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                await DeleteSearchParametersAsync(matchedResources.Select(_ => _.Resource), cancellationToken);
+                await DeleteSearchParametersAsync(matchedResources, cancellationToken);
 
                 await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
                 {
@@ -639,14 +639,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return _configuration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        private async Task DeleteSearchParametersAsync(IEnumerable<ResourceWrapper> resources, CancellationToken cancellationToken)
+        private async Task DeleteSearchParametersAsync(IEnumerable<SearchResultEntry> resources, CancellationToken cancellationToken)
         {
-            foreach (var resource in resources.Where(_ => _.ResourceTypeName == KnownResourceTypes.SearchParameter))
+            foreach (var resource in resources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
             {
                 await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
                 try
                 {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
+                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.Resource.RawResource, cancellationToken, true);
                 }
                 finally
                 {
