@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
-        private readonly SemaphoreSlim _searchParameterDeletionSemaphore;
+        private readonly SemaphoreSlim _searchParamDeleteSemaphore;
         private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            _searchParameterDeletionSemaphore = new SemaphoreSlim(1, 1);
+            _searchParamDeleteSemaphore = new SemaphoreSlim(1, 1);
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -643,14 +643,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             foreach (var resource in resources.Where(_ => _.ResourceTypeName == KnownResourceTypes.SearchParameter))
             {
-                await _searchParameterDeletionSemaphore.WaitAsync(cancellationToken);
+                await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
                 }
                 finally
                 {
-                    _searchParameterDeletionSemaphore.Release();
+                    _searchParamDeleteSemaphore.Release();
                 }
             }
         }
@@ -667,7 +667,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 if (disposing)
                 {
-                    _searchParameterDeletionSemaphore?.Dispose();
+                    _searchParamDeleteSemaphore?.Dispose();
                 }
 
                 _disposed = true;
