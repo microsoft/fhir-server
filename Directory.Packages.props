@@ -98,7 +98,7 @@
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.1.1.3" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.1.1.3" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.14" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.15" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
