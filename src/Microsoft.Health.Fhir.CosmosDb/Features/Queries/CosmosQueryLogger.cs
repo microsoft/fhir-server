@@ -194,5 +194,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                         exception);
             }
         }
+
+        /// <inheritdoc />
+        public void LogMalformedContinuationToken(Exception exception)
+        {
+            _logger.LogWarning(exception, "Cosmos SDK threw MalformedContinuationTokenException during client-side continuation token parsing.");
+        }
     }
 }

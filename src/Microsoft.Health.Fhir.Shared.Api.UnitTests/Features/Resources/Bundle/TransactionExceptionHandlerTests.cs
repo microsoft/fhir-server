@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 message,
                 statusCode,
                 operationOutcome,
-                isCancelled: false));
+                isOperationCancelledByClient: false));
         }
 
         [Fact]
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 message,
                 statusCode,
                 operationOutcome,
-                isCancelled: true));
+                isOperationCancelledByClient: true));
 
             Assert.Equal(message, tce.Message);
             Assert.Equal(HttpStatusCode.RequestTimeout, tce.ResponseStatusCode);

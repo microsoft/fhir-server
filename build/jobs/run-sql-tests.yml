@@ -23,6 +23,8 @@ jobs:
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - checkout: self
     fetchDepth: 1
@@ -67,6 +69,9 @@ jobs:
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+      # Disable the task's built-in (non-retry-aware) result publishing so the
+      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      publishTestResults: false
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
@@ -82,8 +87,7 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
@@ -107,6 +111,8 @@ jobs:
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
@@ -123,6 +129,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml
@@ -140,6 +148,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml

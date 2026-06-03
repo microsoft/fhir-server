@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Diagnostics;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -19,6 +20,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Conflict,
                     string.Format(Core.Resources.ResourceVersionConflict, etag?.VersionId)));
+        }
+
+        public ResourceConflictException(string message)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
+            Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Conflict,
+                    message));
         }
     }
 }

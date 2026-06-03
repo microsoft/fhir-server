@@ -1804,7 +1804,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, gteExpression),
                 Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lteExpression));
             Expression searchExpression = sqlSearchOptions.Expression == null ? tokenExpression : Expression.And(tokenExpression, sqlSearchOptions.Expression);
-
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
@@ -2056,11 +2055,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
-            return (SqlRootExpression)rootExpression
+            // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
+            // fix in AB#191826 lands. When disabled, the original two-predicate equality form flows
+            // straight through to DateTimeEqualityRewriter and the rest of the pipeline.
+            Expression afterSmartCompartment = rootExpression
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
-                .AcceptVisitor(_smartCompartmentSearchRewriter)
-                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
+                .AcceptVisitor(_smartCompartmentSearchRewriter);
+
+            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
+                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
+                : afterSmartCompartment;
+
+            return (SqlRootExpression)afterScalarTemporal
+                ?.AcceptVisitor(DateTimeEqualityRewriter.Instance)
                 .AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)

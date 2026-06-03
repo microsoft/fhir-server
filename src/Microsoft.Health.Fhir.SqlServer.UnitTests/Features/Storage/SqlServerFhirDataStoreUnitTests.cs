@@ -197,11 +197,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         // This method is indirectly tested through integration tests (UpdateTests, FhirPathPatchTests)
 
         [Fact]
-        public async Task MergeAsync_OnSqlConflict_WithAtomicOptions_ThrowsPreconditionFailedException()
+        public async Task MergeAsync_OnSqlConflict_WhenEnlistedInAmbientTransaction_ThrowsResourceConflictExceptionWithoutRetry()
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
             var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
                 Arg.Any<SqlCommand>(),
@@ -212,12 +213,67 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Arg.Any<bool>())
             .Throws(sqlException);
 
+            sqlRetryService
+                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    // Tripwire: if the retry loop is incorrectly entered, cancellation makes the test fail fast rather than hang.
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
+
+            // An ambient C# transaction (as opened by a sequential transaction bundle) is the condition that
+            // zombies on a SQL conflict, so the data store must fail fast rather than retry within it.
+            var transactionHandler = new SqlTransactionHandler();
+            using var transactionScope = transactionHandler.BeginTransaction();
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, transactionHandler);
+            var resources = CreateResourceWrapperOperations();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), cts.Token));
+
+            await sqlRetryService.DidNotReceive()
+                .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnSqlConflict_WhenEnlistTransactionWithoutAmbientScope_RetriesBeforeThrowing()
+        {
+            // Arrange - a regular (non-bundle) upsert sets enlistTransaction: true but runs without an ambient
+            // C# transaction scope. There is nothing to zombie, so a SQL conflict must still be retried
+            // (last-write-wins), not converted into a fail-fast 409.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            sqlRetryService
+                .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
+
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations();
 
             // Act & Assert
-            await Assert.ThrowsAsync<PreconditionFailedException>(
-                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), CancellationToken.None));
+            await Assert.ThrowsAsync<TaskCanceledException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: false), cts.Token));
+
+            await sqlRetryService.Received(1)
+                .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -315,8 +371,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
         {
+            sqlTransactionHandler ??= new SqlTransactionHandler();
+
             ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
@@ -370,7 +428,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };
 
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
 
             var dataStore = new SqlServerFhirDataStore(
                 model,
@@ -381,7 +439,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                     NullLogger<BundleOrchestrator>.Instance),
                 sqlRetryService,
                 sqlConnectionWrapperFactory,
-                new SqlTransactionHandler(),
+                sqlTransactionHandler,
                 Substitute.For<ICompressedRawResourceConverter>(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
