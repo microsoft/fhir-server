@@ -21,6 +21,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -33,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly AsyncRetryPolicy _retryPolicy;
 
         public DeleteSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
@@ -55,41 +58,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterStatusManager = searchParameterStatusManager;
             _requestContextAccessor = requestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
+
+            _retryPolicy = Policy
+                .Handle<BadRequestException>(ex => ex.Message.Contains("concurrency", StringComparison.OrdinalIgnoreCase))
+                .WaitAndRetryAsync(
+                    retryCount: 3,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromMilliseconds(100 * retryAttempt),
+                    onRetry: (exception, timeSpan, retryCount, context) =>
+                    {
+                        // Clear the pending status updates and lastUpdated before retrying
+                        _requestContextAccessor.RequestContext?.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
+                        _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
+                    });
         }
 
         public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
-            ResourceWrapper searchParamResource = null;
 
             if (deleteRequest.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                // First check if this is a system-defined parameter by checking all parameters in the definition manager
-                var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
-                var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
-                    sp.IsSystemDefined &&
-                    sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
-
-                if (systemDefinedParam != null)
+                return await _retryPolicy.ExecuteAsync(async () =>
                 {
-                    throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, systemDefinedParam.Url));
-                }
+                    // Clear any previous lastUpdated value to force re-reading from database
+                    _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
 
-                // Now try to get the custom search parameter from the data store
-                searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
+                    // First check if this is a system-defined parameter by checking all parameters in the definition manager
+                    var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
+                    var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
+                        sp.IsSystemDefined &&
+                        sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
 
-                if (searchParamResource == null)
-                {
-                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, deleteRequest.ResourceKey.ResourceType, deleteRequest.ResourceKey.Id));
-                }
+                    if (systemDefinedParam != null)
+                    {
+                        throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, systemDefinedParam.Url));
+                    }
 
-                // If the search parameter exists and is not already deleted, delete it
-                if (!searchParamResource.IsDeleted)
-                {
-                    var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
-                    var url = typed.GetStringScalar("url");
-                    await QueuePendingDeleteStatusAsync(url, cancellationToken);
-                }
+                    // Now try to get the custom search parameter from the data store
+                    var searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
+
+                    if (searchParamResource == null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, deleteRequest.ResourceKey.ResourceType, deleteRequest.ResourceKey.Id));
+                    }
+
+                    // If the search parameter exists and is not already deleted, delete it
+                    if (!searchParamResource.IsDeleted)
+                    {
+                        var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
+                        var url = typed.GetStringScalar("url");
+                        await QueuePendingDeleteStatusAsync(url, cancellationToken);
+                    }
+
+                    return await next(cancellationToken);
+                });
             }
 
             return await next(cancellationToken);
