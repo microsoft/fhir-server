@@ -4,10 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,6 +45,48 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         /// <summary>
+        /// Given a list of exceptions raised during a bundle execution, prioritizes the exceptions of type <see cref="FhirTransactionFailedException"/>, based on their status code, to determine which exception should be returned to the customer.
+        /// </summary>
+        public static FhirTransactionFailedException GetPrioritizedClientException(Exception exception)
+        {
+            if (exception == null)
+            {
+                return null;
+            }
+
+            // Scenario 1 - When the exception is an AggregateException and there are inner exceptions to be analized.
+            if (exception is AggregateException aggregateException && aggregateException.InnerExceptions != null && aggregateException.InnerExceptions.Any())
+            {
+                IEnumerable<FhirTransactionFailedException> failedTransactionExceptions = aggregateException.Flatten().InnerExceptions.OfType<FhirTransactionFailedException>().ToList();
+
+                if (failedTransactionExceptions.Any())
+                {
+                    // Ensure that, if a transaction fails with a client error, then the exception with the customer error is prioritized.
+                    FhirTransactionFailedException customerException = failedTransactionExceptions
+                        .FirstOrDefault(e =>
+                            e.ResponseStatusCode != HttpStatusCode.FailedDependency &&
+                            e.ResponseStatusCode != HttpStatusCode.RequestTimeout);
+
+                    if (customerException != null)
+                    {
+                        return customerException;
+                    }
+
+                    // At this point, prioritize other types of client errors.
+                    return failedTransactionExceptions.FirstOrDefault();
+                }
+            }
+
+            // Scenario 2 - When the exception is not an AggregateException.
+            if (exception is FhirTransactionFailedException transactionFailedException)
+            {
+                return transactionFailedException;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Returns the Bundle Processing Logic to be used for the current request, based on the presence of the Bundle-Processing-Logic header and the validity of its value.
         /// </summary>
         public static BundleProcessingLogic GetBundleProcessingLogic(BundleConfiguration bundleConfiguration, HttpContext outerHttpContext, BundleType? bundleType)
@@ -70,7 +116,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// Determines whether a bundle has been cancelled by the client.
         /// If the cancellation is requested and the elapsed time is less than the max bundle execution time, it is assumed that the client cancelled the request.
         /// </summary>
-        public static bool IsBundleCancelledByClient(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
+        public static bool HasCancellationHappenedBeforeMaxExecutionTime(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
 

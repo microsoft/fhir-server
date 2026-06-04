@@ -143,6 +143,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Till = "till";
 
+        public const string IsTillExplicit = "isTillExplicit";
+
         public const string StartSurrogateId = "startSurrogateId";
 
         public const string EndSurrogateId = "endSurrogateId";

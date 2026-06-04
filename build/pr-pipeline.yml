@@ -42,6 +42,8 @@ stages:
       name: '$(DefaultWindowsPool)'
       demands:
         - ImageOverride -equals $(DefaultWindowsImage)
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -52,6 +54,8 @@ stages:
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: ./jobs/build.yml
       parameters:
