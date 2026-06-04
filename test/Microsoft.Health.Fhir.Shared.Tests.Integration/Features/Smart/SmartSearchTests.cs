@@ -1171,7 +1171,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("TestCreate").AndFamily("SmartV2") },
             };
 
-            var result = await _smartFixture.UpsertResource(newPatient);
+            var result = await _sharedContext.UpsertResource(newPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1249,7 +1249,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("UpdatedName").AndFamily("Updated") },
             };
 
-            var result = await _smartFixture.UpsertResource(updatedPatient);
+            var result = await _sharedContext.UpsertResource(updatedPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1284,7 +1284,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchCreate").AndFamily("SmartV2") },
             };
 
-            var createResult = await _smartFixture.UpsertResource(newPatient);
+            var createResult = await _sharedContext.UpsertResource(newPatient);
             Assert.NotNull(createResult);
         }
 
@@ -1323,7 +1323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchUpdate").AndFamily("SmartV2") },
             };
 
-            var updateResult = await _smartFixture.UpsertResource(updatedPatient);
+            var updateResult = await _sharedContext.UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal(patientId, updateResult.Wrapper.ResourceId);
         }
@@ -3978,6 +3978,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 return string.Join("&", queryParameters.Select(queryParameter => $"{queryParameter.Item1}={queryParameter.Item2}"));
             }
         }
-
     }
 }
