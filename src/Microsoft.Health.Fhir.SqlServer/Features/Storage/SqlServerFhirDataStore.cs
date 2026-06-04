@@ -432,8 +432,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var allSearchParameterStatuses = resources
-                .Where(r => r.PendingSearchParameterStatuses?.Count > 0)
-                .SelectMany(r => r.PendingSearchParameterStatuses)
+                .Where(r => r.PendingSearchParameterStatus != null)
+                .Select(r => r.PendingSearchParameterStatus)
                 .ToList();
 
             if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
@@ -851,37 +851,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger.LogInformation($"MergeResourcesWrapperAsync: transactionId={transactionId}, singleTransaction={singleTransaction}, resources={mergeWrappers.Count}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
-        private bool TryGetPendingSearchParameterStatusUpdates(out List<ResourceSearchParameterStatus> pendingStatuses)
+        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
         {
-            pendingStatuses = null;
-
             var context = _requestContextAccessor?.RequestContext;
-            if (context?.Properties == null)
+            if (context?.Properties == null
+                || !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value)
+                || value is not List<ResourceSearchParameterStatus> statuses)
             {
-                return false;
+                return null;
             }
 
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value) ||
-                value is not List<ResourceSearchParameterStatus> statuses ||
-                statuses.Count == 0)
-            {
-                return false;
-            }
-
-            lock (statuses)
-            {
-                if (statuses.Count == 0)
-                {
-                    return false;
-                }
-
-                pendingStatuses = statuses.ToList();
-            }
-
-            return true;
+            return statuses.FirstOrDefault();
         }
 
-        private void ClearPendingSearchParameterStatusUpdates()
+        private void ClearPendingSearchParameterStatus()
         {
             var context = _requestContextAccessor?.RequestContext;
             context?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
@@ -900,11 +883,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
-                TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);
-                if (pendingStatuses?.Count > 0)
+                resource.PendingSearchParameterStatus = GetPendingSearchParameterStatus();
+                if (resource.PendingSearchParameterStatus != null)
                 {
-                    resource.PendingSearchParameterStatuses = pendingStatuses;
-                    ClearPendingSearchParameterStatusUpdates();
+                    ClearPendingSearchParameterStatus();
                 }
 
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
@@ -917,11 +899,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
                 if (!isBundleTransaction)
                 {
-                    TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);
-                    if (pendingStatuses?.Count > 0)
+                    resource.PendingSearchParameterStatus = GetPendingSearchParameterStatus();
+                    if (resource.PendingSearchParameterStatus != null)
                     {
-                        resource.PendingSearchParameterStatuses = pendingStatuses;
-                        ClearPendingSearchParameterStatusUpdates();
+                        ClearPendingSearchParameterStatus();
                     }
                 }
 
