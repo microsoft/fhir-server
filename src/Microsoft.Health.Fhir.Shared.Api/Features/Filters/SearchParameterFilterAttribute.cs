@@ -12,6 +12,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Newtonsoft.Json.Linq;
@@ -43,12 +44,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 var fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
-                // Validate and capture/update LastUpdated
-                var lastUpdated = await _searchParameterValidator.ValidateSearchParameterInput(
-                    searchParameter,
-                    context.HttpContext.Request.Method,
-                    context.HttpContext.RequestAborted,
-                    fhirRequestContext.GetSearchParameterLastUpdated());
+                // Validate and capture/update LastUpdated with retry policy
+                var lastUpdated = await SearchParameterRetryPolicyFactory.ExecuteAsync(
+                    _fhirRequestContextAccessor,
+                    async () => await _searchParameterValidator.ValidateSearchParameterInput(
+                        searchParameter,
+                        context.HttpContext.Request.Method,
+                        context.HttpContext.RequestAborted,
+                        fhirRequestContext.GetSearchParameterLastUpdated()));
 
                 // Store the LastUpdated timestamp in context for use during the action
                 fhirRequestContext.SetSearchParameterLastUpdated(lastUpdated);

@@ -23,20 +23,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         /// <summary>
         /// Executes the provided function with retry logic if appropriate.
-        /// Only applies retry if lastUpdated is NOT in context (i.e., not part of a bundle with its own retry).
-        /// When lastUpdated is already in context, executes directly without retry.
-        /// </summary>
+       /// </summary>
         /// <typeparam name="TResult">The type of result returned by the action.</typeparam>
-        /// <param name="requestContextAccessor">The request context accessor to check for lastUpdated.</param>
+        /// <param name="requestContextAccessor">The request context accessor to check execution context.</param>
         /// <param name="action">The action to execute with optional retry.</param>
         /// <param name="onRetry">Optional callback invoked on each retry for custom logging or actions.</param>
         public static async Task<TResult> ExecuteAsync<TResult>(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, Func<Task<TResult>> action, Action<Exception, TimeSpan, int> onRetry = null)
         {
             // Check if we should apply retry policy BEFORE execution
-            // Only retry if lastUpdated is not in context (i.e., not part of bundle with its own retry)
-            if (!requestContextAccessor.RequestContext.GetSearchParameterLastUpdated().HasValue)
+            if (!requestContextAccessor.RequestContext.ExecutingBatchOrTransaction)
             {
-                // Apply retry policy - this operation is responsible for setting lastUpdated
+                // Apply retry policy for individual requests
                 var retryPolicy = Policy
                     .Handle<BadRequestException>(ex => ex.Message == Core.Resources.SearchParameterConcurrencyConflict)
                     .WaitAndRetryAsync(
@@ -63,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             else
             {
-                // LastUpdated already in context - bundle handler will handle retries
+                // Part of batch/transaction - bundle handler manages retries
                 // Execute directly without retry policy
                 return await action();
             }
