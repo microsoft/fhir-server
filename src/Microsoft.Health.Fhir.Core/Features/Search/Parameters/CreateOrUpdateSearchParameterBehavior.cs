@@ -21,8 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -34,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly AsyncRetryPolicy _retryPolicy;
 
         public CreateOrUpdateSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
@@ -54,29 +51,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _requestContextAccessor = requestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
-
-            _retryPolicy = Policy
-                .Handle<BadRequestException>(ex => ex.Message.Contains("concurrency", StringComparison.OrdinalIgnoreCase))
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromMilliseconds(100 * retryAttempt),
-                    onRetry: (exception, timeSpan, retryCount, context) =>
-                    {
-                        // Clear the pending status updates and lastUpdated before retrying
-                        _requestContextAccessor.RequestContext?.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
-                        _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
-                    });
         }
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                return await _retryPolicy.ExecuteAsync(async () =>
+                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
                 {
-                    // Clear any previous lastUpdated value to force re-reading from database
-                    _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
-
                     // Before committing the SearchParameter resource to the data store, validate the parameter type
                     var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
@@ -98,11 +80,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                return await _retryPolicy.ExecuteAsync(async () =>
+                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
                 {
-                    // Clear any previous lastUpdated value to force re-reading from database
-                    _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
-
                     var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                     ResourceWrapper prevSearchParamResource = null;
 

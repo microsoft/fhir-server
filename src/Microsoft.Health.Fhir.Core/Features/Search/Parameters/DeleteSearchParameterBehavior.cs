@@ -21,8 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
-using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -35,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly AsyncRetryPolicy _retryPolicy;
 
         public DeleteSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
@@ -58,18 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterStatusManager = searchParameterStatusManager;
             _requestContextAccessor = requestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
-
-            _retryPolicy = Policy
-                .Handle<BadRequestException>(ex => ex.Message.Contains("concurrency", StringComparison.OrdinalIgnoreCase))
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromMilliseconds(100 * retryAttempt),
-                    onRetry: (exception, timeSpan, retryCount, context) =>
-                    {
-                        // Clear the pending status updates and lastUpdated before retrying
-                        _requestContextAccessor.RequestContext?.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
-                        _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
-                    });
         }
 
         public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
@@ -78,11 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (deleteRequest.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                return await _retryPolicy.ExecuteAsync(async () =>
+                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
                 {
-                    // Clear any previous lastUpdated value to force re-reading from database
-                    _requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
-
                     // First check if this is a system-defined parameter by checking all parameters in the definition manager
                     var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
                     var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
