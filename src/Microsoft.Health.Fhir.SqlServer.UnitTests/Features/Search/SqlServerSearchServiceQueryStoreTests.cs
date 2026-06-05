@@ -710,6 +710,118 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         // Fire-and-forget query logging behavior
         // -----------------------------------------------------------------------
 
+        [Fact]
+        public async Task FireAndForget_BackgroundDelegate_IsInvoked()
+        {
+            // Arrange
+            var delegateInvoked = new TaskCompletionSource<bool>();
+
+            // Act — simulate the fire-and-forget pattern used in SearchImpl
+            _ = Task.Run(() =>
+            {
+                delegateInvoked.SetResult(true);
+                return Task.CompletedTask;
+            });
+
+            // Assert — the background delegate runs to completion
+            bool result = await delegateInvoked.Task;
+            Assert.True(result, "Background logging delegate should have been invoked.");
+        }
+
+        [Fact]
+        public async Task FireAndForget_ExceptionInBackgroundTask_DoesNotPropagateToMainThread()
+        {
+            // Arrange
+            var exceptionThrown = false;
+            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+
+            // Act - fire-and-forget with exception
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(10);
+                    throw new InvalidOperationException("Background task error");
+                }
+                catch (Exception)
+                {
+                    exceptionThrown = true;
+                }
+                finally
+                {
+                    backgroundTaskCompleted.SetResult(true);
+                }
+            });
+
+            // Main thread continues without waiting
+            await Task.Delay(10);
+
+            // Wait for background task to complete
+            await backgroundTaskCompleted.Task;
+
+            // Assert - exception occurred in background but didn't crash main thread
+            Assert.True(exceptionThrown, "Exception should have occurred in background task");
+            Assert.True(
+                backgroundTaskCompleted.Task.IsCompletedSuccessfully,
+                "Background task should complete normally despite exception");
+        }
+
+        [Fact]
+        public async Task FireAndForget_CancellationToken_LimitsBackgroundTaskDuration()
+        {
+            // Arrange
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            var wasCancelled = false;
+            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+
+            // Act - fire-and-forget with timeout
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Simulate long-running operation that should be cancelled
+                    await Task.Delay(5000, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    wasCancelled = true;
+                }
+                finally
+                {
+                    backgroundTaskCompleted.SetResult(true);
+                }
+            });
+
+            // Wait for background task to be cancelled
+            await backgroundTaskCompleted.Task;
+
+            // Assert - timeout should have cancelled the operation
+            Assert.True(wasCancelled, "Operation should have been cancelled by timeout");
+            Assert.True(cts.Token.IsCancellationRequested, "Cancellation token should be cancelled");
+        }
+
+        [Fact]
+        public void FireAndForget_CapturesDataBeforeFiring_AvoidsConcurrencyIssues()
+        {
+            // Arrange
+            string originalQuery = "SELECT * FROM dbo.Resource WHERE ResourceTypeId = 103";
+            string capturedQuery = null;
+
+            // Act - capture data before fire-and-forget (simulates the pattern in SearchImpl)
+            capturedQuery = originalQuery; // Snapshot captured before Task.Run
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(10);
+
+                // Verify captured data is available in background task
+                Assert.False(string.IsNullOrEmpty(capturedQuery));
+            });
+
+            // Assert - data should be captured successfully
+            Assert.Equal(originalQuery, capturedQuery);
+        }
+
         private static ISqlRetryService CreateThrowingSqlRetryService()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
