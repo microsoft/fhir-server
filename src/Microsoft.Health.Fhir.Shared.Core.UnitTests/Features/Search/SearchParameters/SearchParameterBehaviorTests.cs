@@ -145,11 +145,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
-            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatusUpdates));
-            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
-            Assert.Single(pendingStatuses);
-            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatuses[0].Status);
-            Assert.Equal("http://example.com/Id", pendingStatuses[0].Uri.OriginalString);
+            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
+            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
+            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatus.Status);
+            Assert.Equal("http://example.com/Id", pendingStatus.Uri.OriginalString);
         }
 
         [Fact]
@@ -284,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
-            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
+            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as List<ResourceSearchParameterStatus>;
             Assert.NotNull(pendingStatuses);
             Assert.Equal(2, pendingStatuses.Count);
             Assert.Contains(pendingStatuses, s => s.Uri.OriginalString == "http://example.com/old-url" && s.Status == SearchParameterStatus.Deleted);

@@ -126,13 +126,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
-                value is not List<ResourceSearchParameterStatus> pendingStatuses)
-            {
-                pendingStatuses = new List<ResourceSearchParameterStatus>();
-                context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
-            }
-
             _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
@@ -144,11 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
 
-            lock (pendingStatuses)
-            {
-                pendingStatuses.RemoveAll(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
-                pendingStatuses.Add(update);
-            }
+            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }

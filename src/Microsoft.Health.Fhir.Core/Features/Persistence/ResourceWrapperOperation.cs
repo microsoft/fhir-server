@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public BundleResourceContext BundleResourceContext { get; }
 
-        public ResourceSearchParameterStatus PendingSearchParameterStatus { get; internal set; } // this cannot be list, as there is ony one status per resource
+        public ResourceSearchParameterStatus PendingSearchParameterStatus { get; internal set; } // this cannot be list, as there is only one status per resource
 
 #pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()
