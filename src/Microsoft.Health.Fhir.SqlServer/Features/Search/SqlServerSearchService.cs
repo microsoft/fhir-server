@@ -86,6 +86,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
+
+        // Throttling for Query Store diagnostic lookups to prevent CPU stampede during incidents.
+        // Circuit breaker: consecutive failure tracking. After threshold, back off.
+        // Tracked via Interlocked — any thread's success resets the counter, any failure increments.
+        // During backoff, we still log "Long-running SQL" with the query text; we only skip
+        // the Query Store stats lookup, so no slow query goes unnoticed.
+        private static int _queryStoreConsecutiveFailures;
+        internal const int QueryStoreCircuitBreakerThreshold = 5;
+        private static long _queryStoreCircuitOpenUntilTicks;
+        internal const int QueryStoreCircuitOpenDurationMs = 10000;
+
+        // Hard cap for the diagnostic query command timeout (seconds). The CancellationToken
+        // timeout (2s) is the first line of defense; this is a backup in case cancellation
+        // doesn't terminate the SQL command promptly. Set on a NEW connection — does not
+        // affect search query connections.
+        internal const int QueryStoreLookupTimeoutSeconds = 5;
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
@@ -830,31 +846,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 string queryTextSnapshot = sqlCommand.CommandText;
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
-                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                                // Fire-and-forget: Log query details without blocking the response
-                                _ = Task.Run(async () =>
-                                {
-                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                                    try
-                                    {
-                                        await LogQueryStoreByTextAsync(
-                                            queryTextSnapshot,
-                                            isStoredProcSnapshot,
-                                            _logger,
-                                            timeoutSnapshot,
-                                            executionTimeSnapshot,
-                                            loggingCts.Token);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
-                                            executionTimeSnapshot,
-                                            queryTextSnapshot);
-                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                    }
-                                });
+                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot, _logger);
                             }
                         }
                     }
@@ -1140,6 +1133,97 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal static string StripDboSchemaPrefix(string procName) =>
             procName?.Replace("dbo.", string.Empty, StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Extracts the parameter hash value from a query text that contains a
+        /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
+        /// Returns <c>null</c> if no hash comment is found.
+        /// </summary>
+        internal static string ExtractParameterHash(string queryText)
+        {
+            if (string.IsNullOrEmpty(queryText))
+            {
+                return null;
+            }
+
+            int hashStart = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart, StringComparison.OrdinalIgnoreCase);
+            if (hashStart < 0)
+            {
+                return null;
+            }
+
+            int valueStart = hashStart + Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart.Length;
+            int hashEnd = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashEnd, valueStart, StringComparison.OrdinalIgnoreCase);
+            if (hashEnd < 0)
+            {
+                return null;
+            }
+
+            // Extract just the base64 hash, stopping at the space before "params="
+            string hashAndParams = queryText[valueStart..hashEnd];
+            int spaceIndex = hashAndParams.IndexOf(' ', StringComparison.Ordinal);
+            return spaceIndex >= 0 ? hashAndParams[..spaceIndex] : hashAndParams;
+        }
+
+        /// <summary>
+        /// Wraps <see cref="LogQueryStoreByTextAsync"/> with circuit breaker to prevent CPU
+        /// stampede during incidents. During normal operations, all slow queries are logged.
+        /// The circuit breaker only engages when lookups are consistently failing.
+        /// </summary>
+        private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime, ILogger logger)
+        {
+            // Circuit breaker: if open, skip the Query Store lookup but still log the slow query.
+            long circuitOpenUntil = Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
+            if (circuitOpenUntil > 0 && Environment.TickCount64 < circuitOpenUntil)
+            {
+                logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    queryText,
+                    "Skipped: circuit breaker open.");
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // CancellationToken fires at 2s; CommandTimeout at 5s is backup.
+                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+                    await LogQueryStoreByTextAsync(
+                        queryText,
+                        isStoredProcedure,
+                        logger,
+                        QueryStoreLookupTimeoutSeconds,
+                        executionTime,
+                        loggingCts.Token);
+
+                    // Success: reset circuit breaker.
+                    Interlocked.Exchange(ref _queryStoreConsecutiveFailures, 0);
+                    Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, 0);
+                }
+                catch (Exception ex)
+                {
+                    int failures = Interlocked.Increment(ref _queryStoreConsecutiveFailures);
+                    if (failures >= QueryStoreCircuitBreakerThreshold)
+                    {
+                        Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, Environment.TickCount64 + QueryStoreCircuitOpenDurationMs);
+                        logger.LogWarning(
+                            "Query Store circuit breaker opened after {Failures} consecutive failures. Backing off for {Duration}ms.",
+                            failures,
+                            QueryStoreCircuitOpenDurationMs);
+                    }
+
+                    logger.LogWarning(
+                        "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                        executionTime,
+                        queryText,
+                        "Query Store lookup failed.");
+                    logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                }
+            });
+        }
+
         private async Task LogQueryStoreByTextAsync(
             string queryText,
             bool isStoredProcedure,
@@ -1158,12 +1242,106 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     var sb = new StringBuilder();
 
-                    // Query Store records only the bare procedure name without the schema prefix.
-                    string effectiveQuery = isStoredProcedure ? StripDboSchemaPrefix(queryText) : queryText;
-                    var normalizedText = StripQueryPreambleLines(effectiveQuery);
-                    var searchFragments = SplitIntoSearchFragments(normalizedText);
+                    if (isStoredProcedure)
+                    {
+                        // For stored procedures, use OBJECT_ID to filter directly by the procedure's
+                        // hash/identity in Query Store. This avoids the expensive LIKE scan on
+                        // query_sql_text entirely, since Query Store records object_id for every
+                        // statement executed inside a stored procedure.
+                        string procName = StripDboSchemaPrefix(queryText);
 
-                    cmd.CommandText = @"
+                        cmd.CommandText = @"
+                DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
+
+                SELECT TOP (5)
+                    rs.count_executions,
+                    rs.avg_duration / 1000.0 AS avg_duration_ms,
+                    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
+                    rs.avg_logical_io_reads,
+                    rs.avg_physical_io_reads,
+                    rs.avg_logical_io_writes,
+                    rs.avg_rowcount,
+                    rs.max_duration / 1000.0 AS max_duration_ms,
+                    rs.last_execution_time,
+                    p.plan_id,
+                    q.query_id
+                FROM sys.query_store_query q
+                JOIN sys.query_store_plan p ON p.query_id = q.query_id
+                JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+                WHERE q.object_id = OBJECT_ID(@ProcName)
+                    AND rs.last_execution_time >= @CutoffTime
+                ORDER BY rs.last_execution_time DESC;";
+
+                        cmd.Parameters.AddWithValue("@ProcName", procName);
+
+                        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                        await AppendQueryStoreResults(reader, sb, 0, 1, "ObjectId", ct);
+                    }
+                    else
+                    {
+                        // For ad-hoc queries, split into fragments (include queries have 2 statements
+                        // split at INSERT INTO @FilteredData). For each fragment individually:
+                        //  - If it contains a parameter hash comment: use the hash for a fast LIKE lookup
+                        //  - If hash lookup returns nothing: fall back to the expensive REPLACE+LIKE
+                        //  - If it has no hash: filter OUT hash-bearing rows to reduce the LIKE scan set
+                        string effectiveQuery = queryText;
+                        var normalizedText = StripQueryPreambleLines(effectiveQuery);
+                        var searchFragments = SplitIntoSearchFragments(normalizedText);
+
+                        // SQL for the fast hash-based lookup (no REPLACE chain needed).
+                        const string HashLookupSql = @"
+                DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
+
+                SELECT TOP (5)
+                    rs.count_executions,
+                    rs.avg_duration / 1000.0 AS avg_duration_ms,
+                    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
+                    rs.avg_logical_io_reads,
+                    rs.avg_physical_io_reads,
+                    rs.avg_logical_io_writes,
+                    rs.avg_rowcount,
+                    rs.max_duration / 1000.0 AS max_duration_ms,
+                    rs.last_execution_time,
+                    p.plan_id,
+                    q.query_id
+                FROM sys.query_store_query_text qt
+                JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
+                JOIN sys.query_store_plan p ON p.query_id = q.query_id
+                JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+                WHERE qt.query_sql_text LIKE '%' + @HashFilter + '%'
+                    AND rs.last_execution_time >= @CutoffTime
+                ORDER BY rs.last_execution_time DESC;";
+
+                        // SQL for the expensive REPLACE+LIKE fallback.
+                        // For fragments without a hash, also filter OUT hash-bearing rows to reduce scan set.
+                        const string TextLookupWithHashExclusionSql = @"
+                DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
+
+                SELECT TOP (5)
+                    rs.count_executions,
+                    rs.avg_duration / 1000.0 AS avg_duration_ms,
+                    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
+                    rs.avg_logical_io_reads,
+                    rs.avg_physical_io_reads,
+                    rs.avg_logical_io_writes,
+                    rs.avg_rowcount,
+                    rs.max_duration / 1000.0 AS max_duration_ms,
+                    rs.last_execution_time,
+                    p.plan_id,
+                    q.query_id
+                FROM sys.query_store_query_text qt
+                JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
+                JOIN sys.query_store_plan p ON p.query_id = q.query_id
+                JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+                WHERE @NormalizedText <> ''
+                    AND qt.query_sql_text NOT LIKE '%/* HASH %'
+                    AND replace(replace(replace(replace(replace(replace(qt.query_sql_text, char(9), ''), char(10), ''), char(11), ''), char(12), ''), char(13), ''), char(32), '') LIKE '%' + @NormalizedText + '%'
+                    AND rs.last_execution_time >= @CutoffTime
+                ORDER BY rs.last_execution_time DESC;";
+
+                        // SQL for the expensive REPLACE+LIKE fallback (no hash exclusion,
+                        // used when hash lookup found nothing for a hash-bearing fragment).
+                        const string TextLookupSql = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
                 SELECT TOP (5)
@@ -1187,48 +1365,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
-                    for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
-                    {
-                        string searchFragment = searchFragments[segmentIndex];
-
-                        // Strip whitespace first so the 4000-char limit applies to stripped content,
-                        // maximising the amount of meaningful text sent to the LIKE comparison.
-                        string strippedFragment = StripAllWhitespace(searchFragment);
-
-                        if (strippedFragment.Length > 4000)
+                        for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
                         {
-                            strippedFragment = strippedFragment[..4000];
-                        }
+                            string searchFragment = searchFragments[segmentIndex];
 
-                        cmd.Parameters.Clear();
-                        cmd.Parameters.AddWithValue("@NormalizedText", strippedFragment);
+                            // Check each fragment individually for an embedded parameter hash.
+                            // Include queries split into 2 fragments: fragment 1 (before INSERT INTO @FilteredData)
+                            // typically has no hash, fragment 2 (after) has the hash comment.
+                            string fragmentHash = ExtractParameterHash(searchFragment);
+                            bool fragmentHasHash = fragmentHash != null;
+                            int matchCount = 0;
 
-                        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-                        int matchIndex = 0;
-                        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-                        {
-                            if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                            if (fragmentHasHash)
                             {
-                                continue;
+                                // Fast path: search by the embedded parameter hash string.
+                                cmd.CommandText = HashLookupSql;
+                                cmd.Parameters.Clear();
+                                string hashFilter = Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart + fragmentHash;
+                                cmd.Parameters.AddWithValue("@HashFilter", hashFilter);
+
+                                using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                                matchCount = await AppendQueryStoreResults(reader, sb, segmentIndex, searchFragments.Count, "Hash", ct);
                             }
 
-                            matchIndex++;
-                            long planId = reader.GetInt64(9);
-                            long queryId = reader.GetInt64(10);
+                            // Fall back to REPLACE+LIKE if hash lookup found nothing or fragment has no hash.
+                            if (matchCount == 0)
+                            {
+                                string strippedFragment = StripAllWhitespace(searchFragment);
 
-                            sb.AppendLine()
-                              .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
-                              .Append($" execs={reader.GetInt64(0)}")
-                              .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
-                              .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
-                              .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
-                              .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
-                              .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
-                              .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
-                              .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
-                              .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
-                              .Append($" queryId={queryId}")
-                              .Append($" planId={planId}");
+                                if (strippedFragment.Length > 4000)
+                                {
+                                    strippedFragment = strippedFragment[..4000];
+                                }
+
+                                // Fragments without a hash: exclude hash-bearing query store rows.
+                                // Fragments with a hash that had no hash match: search all rows as fallback.
+                                if (fragmentHasHash)
+                                {
+                                    cmd.CommandText = TextLookupSql;
+                                }
+                                else
+                                {
+                                    cmd.CommandText = TextLookupWithHashExclusionSql;
+                                }
+
+                                cmd.Parameters.Clear();
+                                cmd.Parameters.AddWithValue("@NormalizedText", strippedFragment);
+
+                                using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                                await AppendQueryStoreResults(reader, sb, segmentIndex, searchFragments.Count, fragmentHasHash ? "TextFallback" : "TextNoHash", ct);
+                            }
                         }
                     }
 
@@ -1252,6 +1438,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 logger,
                 ct,
                 isReadOnly: true);
+        }
+
+        /// <summary>
+        /// Reads Query Store results from a <see cref="SqlDataReader"/> and appends formatted
+        /// stats to the <paramref name="sb"/>. Returns the number of matches read.
+        /// </summary>
+        private static async Task<int> AppendQueryStoreResults(
+            SqlDataReader reader,
+            StringBuilder sb,
+            int segmentIndex,
+            int totalSegments,
+            string lookupMethod,
+            CancellationToken ct)
+        {
+            int matchIndex = 0;
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                matchIndex++;
+                long planId = reader.GetInt64(9);
+                long queryId = reader.GetInt64(10);
+
+                string prefix = totalSegments > 1
+                    ? $"  batch[{segmentIndex + 1}] match[{matchIndex}]"
+                    : $"  match[{matchIndex}]";
+
+                sb.AppendLine()
+                  .Append(prefix)
+                  .Append($" lookup={lookupMethod}")
+                  .Append($" execs={reader.GetInt64(0)}")
+                  .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
+                  .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
+                  .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
+                  .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
+                  .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
+                  .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
+                  .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
+                  .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
+                  .Append($" queryId={queryId}")
+                  .Append($" planId={planId}");
+            }
+
+            return matchIndex;
         }
 
         private static (long StartId, long EndId, int Count) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -2017,31 +2250,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 string queryTextSnapshot = sqlCommand.CommandText;
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
-                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                                // Fire-and-forget: Log query details without blocking the response
-                                _ = Task.Run(async () =>
-                                {
-                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                                    try
-                                    {
-                                        await LogQueryStoreByTextAsync(
-                                            queryTextSnapshot,
-                                            isStoredProcSnapshot,
-                                            _logger,
-                                            timeoutSnapshot,
-                                            executionTimeSnapshot,
-                                            loggingCts.Token);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
-                                            executionTimeSnapshot,
-                                            queryTextSnapshot);
-                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                    }
-                                });
+                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot, _logger);
                             }
                         }
                     }

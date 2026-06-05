@@ -1057,5 +1057,140 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Null(result);
         }
+
+        // -----------------------------------------------------------------------
+        // ExtractParameterHash
+        // -----------------------------------------------------------------------
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("SELECT * FROM dbo.Resource")]
+        [InlineData("WITH cte0 AS (SELECT 1) SELECT * FROM cte0")]
+        public void ExtractParameterHash_NoHashComment_ReturnsNull(string input)
+        {
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void ExtractParameterHash_StandardHashComment_ReturnsBase64Hash()
+        {
+            // Arrange
+            string input = @"WITH cte0 AS (SELECT 1)
+/* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */
+SELECT * FROM cte0";
+
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Equal("LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=", result);
+        }
+
+        [Fact]
+        public void ExtractParameterHash_SingleParam_ReturnsHash()
+        {
+            // Arrange
+            string input = @"SELECT 1 /* HASH Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0= params=@p0 */";
+
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Equal("Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0=", result);
+        }
+
+        [Fact]
+        public void ExtractParameterHash_HashOnlyNoParams_ReturnsHash()
+        {
+            // Arrange — edge case: hash comment without params= suffix
+            string input = @"SELECT 1 /* HASH abc123def456= */";
+
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Equal("abc123def456=", result);
+        }
+
+        [Fact]
+        public void ExtractParameterHash_RealisticChainedSearchQuery_ReturnsHash()
+        {
+            // Arrange — realistic multi-CTE chained search query
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 varchar(256) = 'active'
+                DECLARE @p1 varchar(256) = 'Smith%'
+                DECLARE @p8 int = 11
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+                    FROM dbo.TokenSearchParam
+                    WHERE SearchParamId = 1260 AND Code = @p0 AND ResourceTypeId = 124
+                )
+                ,cte7 AS
+                (
+                    SELECT DISTINCT TOP (@p8) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial
+                    FROM cte0
+                    ORDER BY T1 DESC, Sid1 DESC
+                )
+                /* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */
+                SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId FROM dbo.Resource r
+                     JOIN cte7 ON r.ResourceTypeId = cte7.T1 AND r.ResourceSurrogateId = cte7.Sid1
+                WHERE IsHistory = 0 AND IsDeleted = 0
+                ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC
+                option (recompile)";
+
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Equal("LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=", result);
+        }
+
+        [Fact]
+        public void ExtractParameterHash_MalformedNoClosingComment_ReturnsNull()
+        {
+            // Arrange — hash start present but no closing */
+            string input = @"SELECT 1 /* HASH abc123=";
+
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        // -----------------------------------------------------------------------
+        // Query Store throttling constants
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public void QueryStoreCircuitBreakerThreshold_IsReasonableValue()
+        {
+            // Should trip after a small number of consecutive failures (3-20).
+            Assert.InRange(SqlServerSearchService.QueryStoreCircuitBreakerThreshold, 3, 20);
+        }
+
+        [Fact]
+        public void QueryStoreCircuitOpenDurationMs_IsReasonableValue()
+        {
+            // Circuit should stay open for 5s-60s.
+            Assert.InRange(SqlServerSearchService.QueryStoreCircuitOpenDurationMs, 5000, 60000);
+        }
+
+        [Fact]
+        public void QueryStoreLookupTimeoutSeconds_IsCappedReasonably()
+        {
+            // The diagnostic query timeout should be short (1-10s), not inherit the main query timeout.
+            Assert.InRange(SqlServerSearchService.QueryStoreLookupTimeoutSeconds, 1, 10);
+        }
     }
 }
