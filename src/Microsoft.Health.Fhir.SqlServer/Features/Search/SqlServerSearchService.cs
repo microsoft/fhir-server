@@ -1179,8 +1179,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         executionTime,
                         loggingCts.Token);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is SqlException or OperationCanceledException or TimeoutException or InvalidOperationException or ObjectDisposedException)
                 {
+                    // The Query Store lookup is best-effort diagnostics. Swallow the expected failure
+                    // modes (transient SQL errors, the 2s/5s timeout, disposed connections) so the
+                    // fire-and-forget task never surfaces an unobserved exception.
                     logger.LogWarning(
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                         executionTime,
