@@ -1063,53 +1063,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         // -----------------------------------------------------------------------
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData("SELECT * FROM dbo.Resource")]
-        [InlineData("WITH cte0 AS (SELECT 1) SELECT * FROM cte0")]
-        public void ExtractParameterHash_NoHashComment_ReturnsNull(string input)
-        {
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
 
-            // Assert
-            Assert.Null(result);
-        }
+        // No hash comment -> null
+        [InlineData(null, null)]
+        [InlineData("", null)]
+        [InlineData("SELECT * FROM dbo.Resource", null)]
+        [InlineData("WITH cte0 AS (SELECT 1) SELECT * FROM cte0", null)]
 
-        [Theory]
+        // Hash comment with params= suffix -> returns just the base64 hash
         [InlineData(
             "WITH cte0 AS (SELECT 1)\r\n/* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */\r\nSELECT * FROM cte0",
             "LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=")]
         [InlineData(
             "SELECT 1 /* HASH Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0= params=@p0 */",
             "Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0=")]
-        public void ExtractParameterHash_WithParamsComment_ReturnsHash(string input, string expectedHash)
-        {
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
 
-            // Assert
-            Assert.Equal(expectedHash, result);
-        }
+        // Hash comment without params= suffix -> returns the hash
+        [InlineData("SELECT 1 /* HASH abc123def456= */", "abc123def456=")]
 
-        [Fact]
-        public void ExtractParameterHash_HashOnlyNoParams_ReturnsHash()
-        {
-            // Arrange — edge case: hash comment without params= suffix
-            string input = @"SELECT 1 /* HASH abc123def456= */";
-
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
-
-            // Assert
-            Assert.Equal("abc123def456=", result);
-        }
-
-        [Fact]
-        public void ExtractParameterHash_RealisticChainedSearchQuery_ReturnsHash()
-        {
-            // Arrange — realistic multi-CTE chained search query
-            string input = @"
+        // Realistic multi-CTE chained search query -> returns the embedded hash
+        [InlineData(
+            @"
                 SET STATISTICS IO ON;
                 SET STATISTICS TIME ON;
 
@@ -1134,39 +1108,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                      JOIN cte7 ON r.ResourceTypeId = cte7.T1 AND r.ResourceSurrogateId = cte7.Sid1
                 WHERE IsHistory = 0 AND IsDeleted = 0
                 ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC
-                option (recompile)";
+                option (recompile)",
+            "LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=")]
 
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
+        // Malformed: hash start present but no closing */ -> null
+        [InlineData("SELECT 1 /* HASH abc123=", null)]
 
-            // Assert
-            Assert.Equal("LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=", result);
-        }
-
-        [Fact]
-        public void ExtractParameterHash_MalformedNoClosingComment_ReturnsNull()
-        {
-            // Arrange — hash start present but no closing */
-            string input = @"SELECT 1 /* HASH abc123=";
-
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
-
-            // Assert
-            Assert.Null(result);
-        }
-
-        [Theory]
-        [InlineData("SELECT 1 /* HASH  params=@p0 */")] // empty hash before params=
-        [InlineData("SELECT 1 /* HASH  */")] // whitespace-only hash, no params
-        public void ExtractParameterHash_EmptyOrWhitespaceHash_ReturnsNull(string input)
+        // Empty / whitespace-only hash -> null (otherwise the downstream LIKE filter
+        // would match every hash-bearing Query Store row)
+        [InlineData("SELECT 1 /* HASH  params=@p0 */", null)] // empty hash before params=
+        [InlineData("SELECT 1 /* HASH  */", null)] // whitespace-only hash, no params
+        public void ExtractParameterHash_ReturnsExpectedHashOrNull(string input, string expectedHash)
         {
             // Act
             string result = SqlServerSearchService.ExtractParameterHash(input);
 
-            // Assert — an empty hash must not be returned, or the downstream LIKE filter
-            // would match every hash-bearing Query Store row.
-            Assert.Null(result);
+            // Assert
+            Assert.Equal(expectedHash, result);
         }
 
         // -----------------------------------------------------------------------
