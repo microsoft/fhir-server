@@ -1,4 +1,3 @@
-// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -24,12 +23,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-    public class SearchParameterOptimisticConcurrencyIntegrationTests : IClassFixture<FhirStorageTestsFixture>
+    public class SearchParameterOptimisticConcurrencyTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly IFhirStorageTestHelper _testHelper;
 
-        public SearchParameterOptimisticConcurrencyIntegrationTests(FhirStorageTestsFixture fixture)
+        public SearchParameterOptimisticConcurrencyTests(FhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
             _testHelper = fixture.TestHelper;
