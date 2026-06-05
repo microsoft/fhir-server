@@ -1242,7 +1242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         cmd.Parameters.AddWithValue("@ProcName", procName);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-                        await AppendQueryStoreResults(reader, sb, 0, 1, "ObjectId", ct);
+                        await AppendQueryStoreResults(reader, sb, 0, 1, "StoredProc", ct);
                     }
                     else
                     {
