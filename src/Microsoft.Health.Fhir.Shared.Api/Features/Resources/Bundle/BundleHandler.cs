@@ -264,14 +264,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
-
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.TransactionResponse,
                     };
 
-                    await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
+                    // Check if bundle contains SearchParameter resources to determine if retry logic is needed
+                    bool containsSearchParameters = bundleResource.Entry.Any(e => string.Equals(e.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal));
+
+                    if (containsSearchParameters && bundleProcessingLogic == BundleProcessingLogic.Parallel)
+                    {
+                        // Apply retry logic for SearchParameter bundles that use parallel processing
+                        // Bundle handler is always the entry point that sets lastUpdated, so it should handle retries
+                        // This includes both the cache refresh and the transaction execution
+                        await SearchParameterRetryPolicyFactory.ExecuteAsync(
+                            _fhirRequestContextAccessor,
+                            async () =>
+                            {
+                                await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
+                                await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
+                            },
+                            (exception, timeSpan, retryCount) =>
+                            {
+                                _logger.LogWarning(exception, "Search parameter concurrency conflict detected in bundle. Retry {RetryCount} after {Delay}ms.", retryCount, timeSpan.TotalMilliseconds);
+                            });
+                    }
+                    else
+                    {
+                        await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
+                        await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
+                    }
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),

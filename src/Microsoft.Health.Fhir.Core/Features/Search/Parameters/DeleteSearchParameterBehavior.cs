@@ -60,36 +60,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
-            ResourceWrapper searchParamResource = null;
 
             if (deleteRequest.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                // First check if this is a system-defined parameter by checking all parameters in the definition manager
-                var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
-                var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
-                    sp.IsSystemDefined &&
-                    sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
-
-                if (systemDefinedParam != null)
+                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
                 {
-                    throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, systemDefinedParam.Url));
-                }
+                    // First check if this is a system-defined parameter by checking all parameters in the definition manager
+                    var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
+                    var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
+                        sp.IsSystemDefined &&
+                        sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
 
-                // Now try to get the custom search parameter from the data store
-                searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
+                    if (systemDefinedParam != null)
+                    {
+                        throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, systemDefinedParam.Url));
+                    }
 
-                if (searchParamResource == null)
-                {
-                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, deleteRequest.ResourceKey.ResourceType, deleteRequest.ResourceKey.Id));
-                }
+                    // Now try to get the custom search parameter from the data store
+                    var searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
 
-                // If the search parameter exists and is not already deleted, delete it
-                if (!searchParamResource.IsDeleted)
-                {
-                    var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
-                    var url = typed.GetStringScalar("url");
-                    await QueuePendingDeleteStatusAsync(url, cancellationToken);
-                }
+                    if (searchParamResource == null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, deleteRequest.ResourceKey.ResourceType, deleteRequest.ResourceKey.Id));
+                    }
+
+                    // If the search parameter exists and is not already deleted, delete it
+                    if (!searchParamResource.IsDeleted)
+                    {
+                        var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
+                        var url = typed.GetStringScalar("url");
+                        await QueuePendingDeleteStatusAsync(url, cancellationToken);
+                    }
+
+                    return await next(cancellationToken);
+                });
             }
 
             return await next(cancellationToken);
