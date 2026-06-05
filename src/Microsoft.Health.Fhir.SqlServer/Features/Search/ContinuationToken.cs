@@ -22,6 +22,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _tokens = tokens;
         }
 
+        public ContinuationToken(string sort, long resourceSurrogateId, short resourceTypeId)
+        {
+            _tokens = new object[] { sort, resourceTypeId, resourceSurrogateId };
+        }
+
         public long ResourceSurrogateId
         {
             get

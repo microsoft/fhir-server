@@ -21,41 +21,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             var primaryKeyRange = (PrimaryKeyRange)expression.Value;
 
-            context.StringBuilder.AppendLine("(");
-            using (context.StringBuilder.Indent())
-            {
-                VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKeyRange.CurrentValue.ResourceTypeId, includeInParameterHash: false);
-                context.StringBuilder.Append(" AND ");
-                VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, primaryKeyRange.CurrentValue.ResourceSurrogateId, includeInParameterHash: false);
-
-                bool first = true;
-                for (short i = 0; i < primaryKeyRange.NextResourceTypeIds.Count; i++)
-                {
-                    if (primaryKeyRange.NextResourceTypeIds[i])
-                    {
-                        if (first)
-                        {
-                            context.StringBuilder.AppendLine();
-                            context.StringBuilder.Append("OR ");
-                            AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null).Append(" IN (");
-                            first = false;
-                        }
-                        else
-                        {
-                            context.StringBuilder.Append(", ");
-                        }
-
-                        context.StringBuilder.Append(context.Parameters.AddParameter(VLatest.Resource.ResourceTypeId, i, includeInHash: false));
-                    }
-                }
-
-                if (!first)
-                {
-                    context.StringBuilder.AppendLine(")");
-                }
-            }
-
-            context.StringBuilder.AppendLine(")");
+            VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKeyRange.CurrentValue.ResourceTypeId, includeInParameterHash: false);
+            context.StringBuilder.Append(" AND ");
+            VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, primaryKeyRange.CurrentValue.ResourceSurrogateId, includeInParameterHash: false);
 
             return context;
         }

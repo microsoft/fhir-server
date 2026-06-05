@@ -82,12 +82,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the continuation token.
         /// </summary>
-        public string ContinuationToken { get; }
+        public string ContinuationToken { get; set; }
 
         /// <summary>
         /// Gets the continuation token for $includes operation.
         /// </summary>
-        public string IncludesContinuationToken { get; }
+        public string IncludesContinuationToken { get; set; }
 
         /// <summary>
         /// A list of issues that will be returned inside a search result.
@@ -99,6 +99,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public static SearchResult Empty(IReadOnlyList<Tuple<string, string>> unsupportedSearchParams = null)
         {
             return new SearchResult(totalCount: 0, unsupportedSearchParams ?? new List<Tuple<string, string>>());
+        }
+
+        public static SearchResult Merge(SearchResult first, SearchResult second, string includesContinuationToken = null)
+        {
+            EnsureArg.IsNotNull(first, nameof(first));
+            EnsureArg.IsNotNull(second, nameof(second));
+            var mergedResults = first.Results.Concat(second.Results);
+
+            return new SearchResult(
+                results: mergedResults,
+                continuationToken: second.ContinuationToken,
+                sortOrder: first.SortOrder,
+                unsupportedSearchParameters: first.UnsupportedSearchParameters,
+                searchIssues: first.SearchIssues,
+                includesContinuationToken: includesContinuationToken);
         }
     }
 }

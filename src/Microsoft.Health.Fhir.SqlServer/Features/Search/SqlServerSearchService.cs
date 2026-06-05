@@ -378,46 +378,133 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
-            var fhirContext = _requestContextAccessor.RequestContext;
-            if (fhirContext != null
-                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
-                && useQueryCacheObj != null)
+            var typesToSearch = new List<short>();
+            (short? singleResourceType, BitArray allAllowedTypes) = TypeConstraintVisitor.Instance.Visit(sqlSearchOptions.Expression, _model);
+
+            if (singleResourceType.HasValue)
             {
-                var useQueryCache = Convert.ToString(useQueryCacheObj);
-                if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, true, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, false, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogInformation("Running search with and without query cache.");
-                    var stopwatch = Stopwatch.StartNew();
-
-                    using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    var token = tokenSource.Token;
-
-                    var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
-                    var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
-
-                    var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
-                    await tokenSource.CancelAsync();
-
-                    _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
-                    return await result;
-                }
-                else // equals default or an invalid value
-                {
-                    return await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
-                }
+                typesToSearch.Add(singleResourceType.Value);
             }
             else
             {
-                return await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
+                for (short i = 0; i < allAllowedTypes.Count; i++)
+                {
+                    if (allAllowedTypes.Get(i))
+                    {
+                        typesToSearch.Add(i);
+                    }
+                }
             }
+
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
+            {
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+                if (IsMultiTypeContinuationToken(continuationToken))
+                {
+                    typesToSearch.RemoveAll(type => type < continuationToken.ResourceTypeId);
+                }
+            }
+
+            var fhirContext = _requestContextAccessor.RequestContext;
+            SearchResult searchResult = null;
+            SearchResult mergedSearchResults = null;
+            int maxCount = sqlSearchOptions.MaxItemCount;
+            while (typesToSearch.Count > 0)
+            {
+                if (fhirContext != null
+                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
+                && useQueryCacheObj != null)
+                {
+                    var useQueryCache = Convert.ToString(useQueryCacheObj);
+                    if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
+                    {
+                        searchResult = await SearchImpl(sqlSearchOptions, true, cancellationToken);
+                    }
+                    else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
+                    {
+                        searchResult = await SearchImpl(sqlSearchOptions, false, cancellationToken);
+                    }
+                    else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("Running search with and without query cache.");
+                        var stopwatch = Stopwatch.StartNew();
+
+                        using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        var token = tokenSource.Token;
+
+                        var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
+                        var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
+
+                        var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
+                        await tokenSource.CancelAsync();
+
+                        _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
+                        searchResult = await result;
+                    }
+                    else // equals default or an invalid value
+                    {
+                        searchResult = await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
+                    }
+                }
+                else
+                {
+                    searchResult = await SearchImpl(sqlSearchOptions, _fhirSqlServerConfiguration.ReuseQueryPlans, cancellationToken);
+                }
+
+                if (mergedSearchResults == null)
+                {
+                    mergedSearchResults = searchResult;
+                }
+                else
+                {
+                    string includesContinuationToken = null;
+                    if (!string.IsNullOrEmpty(mergedSearchResults.IncludesContinuationToken) && !string.IsNullOrEmpty(searchResult.IncludesContinuationToken))
+                    {
+                        var firstToken = IncludesContinuationToken.FromString(mergedSearchResults.IncludesContinuationToken);
+                        var secondToken = IncludesContinuationToken.FromString(searchResult.IncludesContinuationToken);
+                        includesContinuationToken = new IncludesContinuationToken(new object[]
+                        {
+                                    firstToken.MatchResourceTypeId,
+                                    firstToken.MatchResourceSurrogateIdMin,
+                                    firstToken.MatchResourceSurrogateIdMax,
+                                    firstToken.IncludeResourceTypeId,
+                                    firstToken.IncludeResourceSurrogateId,
+                                    false,
+                                    secondToken,
+                        }).ToJson();
+                    }
+                    else if (!string.IsNullOrEmpty(mergedSearchResults.IncludesContinuationToken))
+                    {
+                        includesContinuationToken = mergedSearchResults.IncludesContinuationToken;
+                    }
+                    else if (!string.IsNullOrEmpty(searchResult.IncludesContinuationToken))
+                    {
+                        includesContinuationToken = searchResult.IncludesContinuationToken;
+                    }
+
+                    mergedSearchResults = SearchResult.Merge(mergedSearchResults, searchResult, includesContinuationToken);
+                }
+
+                if (searchResult.ContinuationToken != null)
+                {
+                    break;
+                }
+                else if (mergedSearchResults.Results.Count() < maxCount)
+                {
+                    typesToSearch.RemoveAt(0);
+                    var continuationToken = new ContinuationToken(string.Empty, 0, typesToSearch.First());
+                    sqlSearchOptions.ContinuationToken = continuationToken.ToString();
+                    sqlSearchOptions.MaxItemCount = maxCount - mergedSearchResults.Results.Count();
+                }
+                else if (mergedSearchResults.Results.Count() == maxCount)
+                {
+                    var continuationToken = new ContinuationToken(string.Empty, 0, typesToSearch.First());
+                    mergedSearchResults.ContinuationToken = continuationToken.ToString();
+                    break;
+                }
+            }
+
+            return mergedSearchResults;
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
@@ -428,60 +515,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            Expression searchExpression = sqlSearchOptions.Expression;
-
-            // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
-            {
-                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
-                if (continuationToken != null)
-                {
-                    if (string.IsNullOrEmpty(continuationToken.SortValue))
-                    {
-                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
-                        bool optimize = true;
-                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
-                        if (sqlSearchOptions.Sort.Count > 0)
-                        {
-                            if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
-                            {
-                                optimize = false;
-                            }
-                        }
-
-                        FieldName fieldName;
-                        object keyValue;
-                        SearchParameterInfo parameter;
-                        if (continuationToken.ResourceTypeId == null || _schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
-                        {
-                            // backwards compat
-                            parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
-                            fieldName = SqlFieldName.ResourceSurrogateId;
-                            keyValue = continuationToken.ResourceSurrogateId;
-                        }
-                        else
-                        {
-                            parameter = SqlSearchParameters.PrimaryKeyParameter;
-                            fieldName = SqlFieldName.PrimaryKey;
-                            keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
-                        }
-
-                        Expression lastUpdatedExpression = !optimize
-                            ? Expression.GreaterThan(fieldName, null, keyValue)
-                            : sortOrder == SortOrder.Ascending
-                                ? Expression.GreaterThan(fieldName, null, keyValue)
-                                : Expression.LessThan(fieldName, null, keyValue);
-
-                        var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
-                        searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("Bad Request (InvalidContinuationToken)");
-                    throw new BadRequestException(Resources.InvalidContinuationToken);
-                }
-            }
+            Expression searchExpression = ParseContinuationToken(sqlSearchOptions, sqlSearchOptions.Expression);
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
@@ -2291,6 +2325,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             cmd.Parameters.AddWithValue("@NumberOfRanges", numberOfRanges);
             cmd.Parameters.AddWithValue("@Up", up);
             cmd.Parameters.AddWithValue("@ActiveOnly", activeOnly);
+        }
+
+        private static bool IsMultiTypeContinuationToken(ContinuationToken token)
+        {
+            return token != null && token.ResourceTypeId != null;
+        }
+
+        private Expression ParseContinuationToken(SqlSearchOptions sqlSearchOptions, Expression searchExpression)
+        {
+            // AND in the continuation token
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
+            {
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+                if (continuationToken != null)
+                {
+                    if (string.IsNullOrEmpty(continuationToken.SortValue))
+                    {
+                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
+                        bool optimize = true;
+                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
+                        if (sqlSearchOptions.Sort.Count > 0)
+                        {
+                            if (searchParamInfo.Name != SearchParameterNames.LastUpdated && searchParamInfo.Name != SearchParameterNames.ResourceType)
+                            {
+                                optimize = false;
+                            }
+                        }
+
+                        FieldName fieldName;
+                        object keyValue;
+                        SearchParameterInfo parameter;
+                        if (continuationToken.ResourceTypeId == null)
+                        {
+                            // backwards compat
+                            parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
+                            fieldName = SqlFieldName.ResourceSurrogateId;
+                            keyValue = continuationToken.ResourceSurrogateId;
+                        }
+                        else
+                        {
+                            parameter = SqlSearchParameters.PrimaryKeyParameter;
+                            fieldName = SqlFieldName.PrimaryKey;
+                            keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
+                        }
+
+                        Expression lastUpdatedExpression = !optimize
+                            ? Expression.GreaterThan(fieldName, null, keyValue)
+                            : sortOrder == SortOrder.Ascending
+                                ? Expression.GreaterThan(fieldName, null, keyValue)
+                                : Expression.LessThan(fieldName, null, keyValue);
+
+                        var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
+                        return searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Bad Request (InvalidContinuationToken)");
+                    throw new BadRequestException(Resources.InvalidContinuationToken);
+                }
+            }
+
+            return searchExpression;
         }
 
         private class ResourceSearchParamStats
