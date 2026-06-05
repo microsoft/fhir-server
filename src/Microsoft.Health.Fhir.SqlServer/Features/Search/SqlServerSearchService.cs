@@ -170,6 +170,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
+            // Handle multi-resource-type pagination when continuation token HAS a resource type
+            // This optimization avoids large IN clauses by searching one resource type at a time
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) &&
+                !sqlSearchOptions.CountOnly &&
+                !sqlSearchOptions.IsIncludesOperation)
+            {
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+                if (continuationToken != null && continuationToken.ResourceTypeId != null)
+                {
+                    // Get list of resource types to search
+                    var (singleAllowedType, allAllowedTypes) = TypeConstraintVisitor.Instance.Visit(sqlSearchOptions.Expression, _model);
+
+                    if (allAllowedTypes != null && singleAllowedType == null)
+                    {
+                        // Multiple resource types are possible AND we have a resource type in the token
+                        // Use per-resource-type pagination to avoid IN clause
+                        return await SearchAcrossMultipleResourceTypesAsync(sqlSearchOptions, continuationToken, allAllowedTypes, cancellationToken);
+                    }
+                }
+            }
+
             if (sqlSearchOptions.IsIncludesOperation)
             {
                 var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
@@ -739,16 +760,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 // call NextResultAsync to get the info messages
                                 await reader.NextResultAsync(cancellationToken);
 
-                                ContinuationToken continuationToken = moreResults
-                                        ? new ContinuationToken(
+                                ContinuationToken continuationToken = null;
+                                if (moreResults)
+                                {
+                                    // Check if this is a multi-resource-type search
+                                    var (singleAllowedType, allAllowedTypes) = TypeConstraintVisitor.Instance.Visit(clonedSearchOptions.Expression, _model);
+                                    bool isMultiResourceTypeSearch = allAllowedTypes != null && singleAllowedType == null;
+
+                                    // For multi-resource-type searches, always include resource type in continuation token
+                                    // to avoid large IN clauses on subsequent pages
+                                    if (isMultiResourceTypeSearch && newContinuationType.HasValue)
+                                    {
+                                        // Create token with resource type to enable per-type pagination
+                                        continuationToken = new ContinuationToken(new object[] { newContinuationType.Value, newContinuationId });
+                                        _logger.LogInformation(
+                                            "Created continuation token with resource type {ResourceTypeId} for multi-resource-type search",
+                                            newContinuationType.Value);
+                                    }
+                                    else
+                                    {
+                                        // Use original token creation logic for single-resource-type or sorted searches
+                                        continuationToken = new ContinuationToken(
                                             clonedSearchOptions.Sort.Select(s =>
                                                 s.searchParameterInfo.Name switch
                                                 {
                                                     SearchParameterNames.ResourceType => (object)newContinuationType,
                                                     SearchParameterNames.LastUpdated => newContinuationId,
                                                     _ => sortValue,
-                                                }).ToArray())
-                                        : null;
+                                                }).ToArray());
+                                    }
+                                }
+
                                 string includesContinuationTokenString = null;
                                 if (clonedSearchOptions.IncludesOperationSupported
                                     && clonedSearchOptions.Expression is MultiaryExpression
@@ -1738,6 +1780,184 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             return resourceType;
+        }
+
+        /// <summary>
+        /// Searches across multiple resource types one at a time to avoid large IN clauses.
+        /// Chains queries until enough results are collected to fill a page.
+        /// This is called when we have a continuation token WITH a resource type ID.
+        /// </summary>
+        private async Task<SearchResult> SearchAcrossMultipleResourceTypesAsync(
+            SqlSearchOptions sqlSearchOptions,
+            ContinuationToken continuationToken,
+            BitArray allAllowedTypes,
+            CancellationToken cancellationToken)
+        {
+            var results = new List<SearchResultEntry>();
+            var maxItemCount = sqlSearchOptions.MaxItemCount;
+            short startResourceTypeId = continuationToken.ResourceTypeId.Value;
+            long currentResourceSurrogateId = continuationToken.ResourceSurrogateId;
+
+            // Get sorted list of allowed resource type IDs
+            var resourceTypeIds = new List<short>();
+            for (short i = 0; i < allAllowedTypes.Count; i++)
+            {
+                if (allAllowedTypes[i])
+                {
+                    resourceTypeIds.Add(i);
+                }
+            }
+
+            resourceTypeIds.Sort();
+
+            _logger.LogInformation(
+                "Multi-resource-type search: found {TypeCount} allowed types, starting from type {StartTypeId} at surrogate ID {SurrogateId}",
+                resourceTypeIds.Count,
+                startResourceTypeId,
+                currentResourceSurrogateId);
+
+            // Find the index of the starting resource type
+            int startIndex = resourceTypeIds.IndexOf(startResourceTypeId);
+            if (startIndex < 0)
+            {
+                // The resource type in the continuation token is not in the allowed list
+                // This shouldn't happen, but if it does, start from the beginning
+                _logger.LogWarning(
+                    "Continuation token has resource type {ResourceTypeId} which is not in the allowed list",
+                    startResourceTypeId);
+                startIndex = 0;
+            }
+
+            // Search through resource types one at a time, starting from the continuation point
+            for (int i = startIndex; i < resourceTypeIds.Count; i++)
+            {
+                if (results.Count >= maxItemCount)
+                {
+                    break;
+                }
+
+                var resourceTypeId = resourceTypeIds[i];
+                var resourceTypeName = _model.GetResourceTypeName(resourceTypeId);
+
+                // Create a resource type filter expression using the static ResourceTypeSearchParameter
+                var resourceTypeExpression = Expression.SearchParameter(
+                    SearchParameterInfo.ResourceTypeSearchParameter,
+                    Expression.StringEquals(FieldName.TokenCode, null, resourceTypeName, false));
+
+                // Combine with original expression
+                Expression modifiedExpression = sqlSearchOptions.Expression == null
+                    ? resourceTypeExpression
+                    : Expression.And(resourceTypeExpression, sqlSearchOptions.Expression);
+
+                // Create modified search options for this resource type
+                var modifiedSearchOptions = new SqlSearchOptions(sqlSearchOptions)
+                {
+                    Expression = modifiedExpression,
+                    MaxItemCount = maxItemCount - results.Count,
+                };
+
+                // Set continuation token for this resource type
+                if (i == startIndex && currentResourceSurrogateId > 0)
+                {
+                    // We're continuing from where we left off in this resource type
+                    var typeSpecificToken = new ContinuationToken(new object[] { resourceTypeId, currentResourceSurrogateId });
+                    modifiedSearchOptions.ContinuationToken = typeSpecificToken.ToJson();
+                }
+                else
+                {
+                    // Starting fresh with this resource type
+                    modifiedSearchOptions.ContinuationToken = null;
+                }
+
+                _logger.LogInformation(
+                    "Searching resource type {ResourceType} (ID: {ResourceTypeId}) with continuation {HasContinuation}",
+                    resourceTypeName,
+                    resourceTypeId,
+                    modifiedSearchOptions.ContinuationToken != null);
+
+                var typeResults = await RunSearch(modifiedSearchOptions, cancellationToken);
+
+                if (typeResults.Results.Any())
+                {
+                    results.AddRange(typeResults.Results);
+
+                    // If this resource type has more results, create a continuation token for it
+                    if (typeResults.ContinuationToken != null)
+                    {
+                        var typeContinuationToken = ContinuationToken.FromString(typeResults.ContinuationToken);
+                        if (typeContinuationToken != null)
+                        {
+                            // We have more results in this resource type - return with continuation
+                            // Always include the resource type in the token
+                            var finalToken = new ContinuationToken(new object[]
+                            {
+                                resourceTypeId,
+                                typeContinuationToken.ResourceSurrogateId,
+                            });
+
+                            _logger.LogInformation(
+                                "Returning {ResultCount} results with continuation for resource type {ResourceType} at surrogate ID {SurrogateId}",
+                                results.Count,
+                                resourceTypeName,
+                                typeContinuationToken.ResourceSurrogateId);
+
+                            return new SearchResult(
+                                results.Take(maxItemCount).ToList(),
+                                finalToken.ToJson(),
+                                sqlSearchOptions.Sort,
+                                typeResults.UnsupportedSearchParameters);
+                        }
+                    }
+                    else if (results.Count >= maxItemCount)
+                    {
+                        // Current resource type is exhausted but we have a full page
+                        // Check if there's a next resource type to continue with
+                        if (i + 1 < resourceTypeIds.Count)
+                        {
+                            var nextResourceTypeId = resourceTypeIds[i + 1];
+                            var nextToken = new ContinuationToken(new object[]
+                            {
+                                nextResourceTypeId,
+                                0L, // Start from the beginning of the next resource type
+                            });
+
+                            _logger.LogInformation(
+                                "Returning {ResultCount} results with continuation for next resource type {NextResourceTypeId} (current type {CurrentResourceType} exhausted)",
+                                results.Count,
+                                nextResourceTypeId,
+                                resourceTypeName);
+
+                            return new SearchResult(
+                                results.Take(maxItemCount).ToList(),
+                                nextToken.ToJson(),
+                                sqlSearchOptions.Sort,
+                                typeResults.UnsupportedSearchParameters);
+                        }
+
+                        // Last resource type and we have a full page - return without continuation
+                        break;
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "No results found for resource type {ResourceType}",
+                        resourceTypeName);
+                }
+
+                // This resource type is exhausted; continue to next type with no continuation token
+            }
+
+            // Return final results (potentially fewer than requested if we've exhausted all resource types)
+            _logger.LogInformation(
+                "Returning {ResultCount} results with no continuation (exhausted all resource types)",
+                results.Count);
+
+            return new SearchResult(
+                results,
+                null, // No more results
+                sqlSearchOptions.Sort,
+                sqlSearchOptions.UnsupportedSearchParams);
         }
 
         private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
