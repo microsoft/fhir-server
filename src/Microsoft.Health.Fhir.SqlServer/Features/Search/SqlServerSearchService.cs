@@ -87,16 +87,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
 
-        // Throttling for Query Store diagnostic lookups to prevent CPU stampede during incidents.
-        // Circuit breaker: consecutive failure tracking. After threshold, back off.
-        // Tracked via Interlocked — any thread's success resets the counter, any failure increments.
-        // During backoff, we still log "Long-running SQL" with the query text; we only skip
-        // the Query Store stats lookup, so no slow query goes unnoticed.
-        private static int _queryStoreConsecutiveFailures;
-        internal const int QueryStoreCircuitBreakerThreshold = 5;
-        private static long _queryStoreCircuitOpenUntilTicks;
-        internal const int QueryStoreCircuitOpenDurationMs = 10000;
-
         // Hard cap for the diagnostic query command timeout (seconds). The CancellationToken
         // timeout (2s) is the first line of defense; this is a backup in case cancellation
         // doesn't terminate the SQL command promptly. Set on a NEW connection — does not
@@ -1161,28 +1151,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Extract just the base64 hash, stopping at the space before "params="
             string hashAndParams = queryText[valueStart..hashEnd];
             int spaceIndex = hashAndParams.IndexOf(' ', StringComparison.Ordinal);
-            return spaceIndex >= 0 ? hashAndParams[..spaceIndex] : hashAndParams;
+            string hash = spaceIndex >= 0 ? hashAndParams[..spaceIndex] : hashAndParams;
+
+            // Guard against an empty/whitespace-only hash, which would make the downstream
+            // LIKE '%/* HASH {hash}%' filter match every hash-bearing row.
+            return string.IsNullOrWhiteSpace(hash) ? null : hash;
         }
 
         /// <summary>
-        /// Wraps <see cref="LogQueryStoreByTextAsync"/> with circuit breaker to prevent CPU
-        /// stampede during incidents. During normal operations, all slow queries are logged.
-        /// The circuit breaker only engages when lookups are consistently failing.
+        /// Runs <see cref="LogQueryStoreByTextAsync"/> as a fire-and-forget background task so the
+        /// diagnostic Query Store lookup never blocks or fails the originating search request.
         /// </summary>
         private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime, ILogger logger)
         {
-            // Circuit breaker: if open, skip the Query Store lookup but still log the slow query.
-            long circuitOpenUntil = Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
-            if (circuitOpenUntil > 0 && Environment.TickCount64 < circuitOpenUntil)
-            {
-                logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
-                    executionTime,
-                    queryText,
-                    "Skipped: circuit breaker open.");
-                return;
-            }
-
             _ = Task.Run(async () =>
             {
                 try
@@ -1197,23 +1178,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         QueryStoreLookupTimeoutSeconds,
                         executionTime,
                         loggingCts.Token);
-
-                    // Success: reset circuit breaker.
-                    Interlocked.Exchange(ref _queryStoreConsecutiveFailures, 0);
-                    Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, 0);
                 }
                 catch (Exception ex)
                 {
-                    int failures = Interlocked.Increment(ref _queryStoreConsecutiveFailures);
-                    if (failures >= QueryStoreCircuitBreakerThreshold)
-                    {
-                        Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, Environment.TickCount64 + QueryStoreCircuitOpenDurationMs);
-                        logger.LogWarning(
-                            "Query Store circuit breaker opened after {Failures} consecutive failures. Backing off for {Duration}ms.",
-                            failures,
-                            QueryStoreCircuitOpenDurationMs);
-                    }
-
                     logger.LogWarning(
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                         executionTime,

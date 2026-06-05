@@ -710,118 +710,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         // Fire-and-forget query logging behavior
         // -----------------------------------------------------------------------
 
-        [Fact]
-        public async Task FireAndForget_BackgroundDelegate_IsInvoked()
-        {
-            // Arrange
-            var delegateInvoked = new TaskCompletionSource<bool>();
-
-            // Act — simulate the fire-and-forget pattern used in SearchImpl
-            _ = Task.Run(() =>
-            {
-                delegateInvoked.SetResult(true);
-                return Task.CompletedTask;
-            });
-
-            // Assert — the background delegate runs to completion
-            bool result = await delegateInvoked.Task;
-            Assert.True(result, "Background logging delegate should have been invoked.");
-        }
-
-        [Fact]
-        public async Task FireAndForget_ExceptionInBackgroundTask_DoesNotPropagateToMainThread()
-        {
-            // Arrange
-            var exceptionThrown = false;
-            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
-
-            // Act - fire-and-forget with exception
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(10);
-                    throw new InvalidOperationException("Background task error");
-                }
-                catch (Exception)
-                {
-                    exceptionThrown = true;
-                }
-                finally
-                {
-                    backgroundTaskCompleted.SetResult(true);
-                }
-            });
-
-            // Main thread continues without waiting
-            await Task.Delay(10);
-
-            // Wait for background task to complete
-            await backgroundTaskCompleted.Task;
-
-            // Assert - exception occurred in background but didn't crash main thread
-            Assert.True(exceptionThrown, "Exception should have occurred in background task");
-            Assert.True(
-                backgroundTaskCompleted.Task.IsCompletedSuccessfully,
-                "Background task should complete normally despite exception");
-        }
-
-        [Fact]
-        public async Task FireAndForget_CancellationToken_LimitsBackgroundTaskDuration()
-        {
-            // Arrange
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            var wasCancelled = false;
-            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
-
-            // Act - fire-and-forget with timeout
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    // Simulate long-running operation that should be cancelled
-                    await Task.Delay(5000, cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    wasCancelled = true;
-                }
-                finally
-                {
-                    backgroundTaskCompleted.SetResult(true);
-                }
-            });
-
-            // Wait for background task to be cancelled
-            await backgroundTaskCompleted.Task;
-
-            // Assert - timeout should have cancelled the operation
-            Assert.True(wasCancelled, "Operation should have been cancelled by timeout");
-            Assert.True(cts.Token.IsCancellationRequested, "Cancellation token should be cancelled");
-        }
-
-        [Fact]
-        public void FireAndForget_CapturesDataBeforeFiring_AvoidsConcurrencyIssues()
-        {
-            // Arrange
-            string originalQuery = "SELECT * FROM dbo.Resource WHERE ResourceTypeId = 103";
-            string capturedQuery = null;
-
-            // Act - capture data before fire-and-forget (simulates the pattern in SearchImpl)
-            capturedQuery = originalQuery; // Snapshot captured before Task.Run
-
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(10);
-
-                // Verify captured data is available in background task
-                Assert.False(string.IsNullOrEmpty(capturedQuery));
-            });
-
-            // Assert - data should be captured successfully
-            Assert.Equal(originalQuery, capturedQuery);
-        }
-
         private static ISqlRetryService CreateThrowingSqlRetryService()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -1076,32 +964,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Null(result);
         }
 
-        [Fact]
-        public void ExtractParameterHash_StandardHashComment_ReturnsBase64Hash()
+        [Theory]
+        [InlineData(
+            "WITH cte0 AS (SELECT 1)\r\n/* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */\r\nSELECT * FROM cte0",
+            "LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=")]
+        [InlineData(
+            "SELECT 1 /* HASH Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0= params=@p0 */",
+            "Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0=")]
+        public void ExtractParameterHash_WithParamsComment_ReturnsHash(string input, string expectedHash)
         {
-            // Arrange
-            string input = @"WITH cte0 AS (SELECT 1)
-/* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */
-SELECT * FROM cte0";
-
             // Act
             string result = SqlServerSearchService.ExtractParameterHash(input);
 
             // Assert
-            Assert.Equal("LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=", result);
-        }
-
-        [Fact]
-        public void ExtractParameterHash_SingleParam_ReturnsHash()
-        {
-            // Arrange
-            string input = @"SELECT 1 /* HASH Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0= params=@p0 */";
-
-            // Act
-            string result = SqlServerSearchService.ExtractParameterHash(input);
-
-            // Assert
-            Assert.Equal("Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0=", result);
+            Assert.Equal(expectedHash, result);
         }
 
         [Fact]
@@ -1168,23 +1044,22 @@ SELECT * FROM cte0";
             Assert.Null(result);
         }
 
+        [Theory]
+        [InlineData("SELECT 1 /* HASH  params=@p0 */")] // empty hash before params=
+        [InlineData("SELECT 1 /* HASH  */")] // whitespace-only hash, no params
+        public void ExtractParameterHash_EmptyOrWhitespaceHash_ReturnsNull(string input)
+        {
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert — an empty hash must not be returned, or the downstream LIKE filter
+            // would match every hash-bearing Query Store row.
+            Assert.Null(result);
+        }
+
         // -----------------------------------------------------------------------
         // Query Store throttling constants
         // -----------------------------------------------------------------------
-
-        [Fact]
-        public void QueryStoreCircuitBreakerThreshold_IsReasonableValue()
-        {
-            // Should trip after a small number of consecutive failures (3-20).
-            Assert.InRange(SqlServerSearchService.QueryStoreCircuitBreakerThreshold, 3, 20);
-        }
-
-        [Fact]
-        public void QueryStoreCircuitOpenDurationMs_IsReasonableValue()
-        {
-            // Circuit should stay open for 5s-60s.
-            Assert.InRange(SqlServerSearchService.QueryStoreCircuitOpenDurationMs, 5000, 60000);
-        }
 
         [Fact]
         public void QueryStoreLookupTimeoutSeconds_IsCappedReasonably()
