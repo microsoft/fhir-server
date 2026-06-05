@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SearchParameterRetryIntegrationTests
+    public class SearchParameterRetryTests
     {
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IFhirDataStore _fhirDataStore;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
         private readonly IFhirRequestContext _fhirRequestContext;
         private readonly IModelInfoProvider _modelInfoProvider;
 
-        public SearchParameterRetryIntegrationTests()
+        public SearchParameterRetryTests()
         {
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
