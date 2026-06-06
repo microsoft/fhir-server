@@ -94,6 +94,9 @@ ipch/
 # Visual Studio Code C# Dev Kit cache files
 *.lscache
 
+# Local git worktrees
+.worktrees/
+
 # TFS 2012 Local Workspace
 $tf/
 
