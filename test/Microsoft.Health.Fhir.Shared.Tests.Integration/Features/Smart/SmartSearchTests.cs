@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -41,7 +40,6 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
@@ -50,64 +48,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
 
-    public class SmartSearchTests : IClassFixture<SmartSearchSharedFixture>, IAsyncLifetime
+    public class SmartSearchTests : IClassFixture<SmartSearchSharedFixture>
     {
         private readonly SmartSearchSharedFixture _smartFixture;
-        private FhirStorageTestsFixture _fixture;
-        private IFhirStorageTestHelper _testHelper;
-        private IFhirOperationDataStore _fhirOperationDataStore;
-        private IScoped<IFhirDataStore> _scopedDataStore;
-        private IFhirStorageTestHelper _fhirStorageTestHelper;
-        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private ITypedElementToSearchValueConverterManager _typedElementToSearchValueConverterManager;
-        private ISearchIndexer _searchIndexer;
-        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-        private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ITestOutputHelper _output;
+        private readonly FhirStorageTestsFixture _fixture;
 
         private IScoped<ISearchService> _searchService;
 
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
-        private SmartSearchSharedContext _sharedContext;
 
-        public SmartSearchTests(SmartSearchSharedFixture smartFixture, ITestOutputHelper output)
+        public SmartSearchTests(SmartSearchSharedFixture smartFixture)
         {
             _smartFixture = smartFixture;
-            _output = output;
-        }
-
-        public async Task InitializeAsync()
-        {
-            Stopwatch initializeStopwatch = Stopwatch.StartNew();
-            LogTiming("InitializeAsync starting.");
 
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
             {
-                _sharedContext = await _smartFixture.GetContextAsync(_output);
-                _fixture = _sharedContext.Fixture;
-                _testHelper = _fixture.TestHelper;
-                _fhirOperationDataStore = _sharedContext.FhirOperationDataStore;
-                _fhirStorageTestHelper = _sharedContext.FhirStorageTestHelper;
-                _scopedDataStore = _sharedContext.ScopedDataStore;
-                _searchParameterDefinitionManager = _sharedContext.SearchParameterDefinitionManager;
-                _supportedSearchParameterDefinitionManager = _sharedContext.SupportedSearchParameterDefinitionManager;
-                _typedElementToSearchValueConverterManager = _sharedContext.TypedElementToSearchValueConverterManager;
-                _searchIndexer = _sharedContext.SearchIndexer;
-                _searchParameterStatusManager = _sharedContext.SearchParameterStatusManager;
+                _fixture = _smartFixture.Fixture;
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
-                _searchService = ((ISearchService)new TimedSearchService(
-                    _fixture.SearchService,
-                    _output,
-                    $"{ModelInfoProvider.Instance.Version}/{_fixture.DataStore.GetType().Name}")).CreateMockScope();
+                _searchService = _fixture.SearchService.CreateMockScope();
             }
-
-            LogTiming($"InitializeAsync completed in {initializeStopwatch.Elapsed.TotalSeconds:F3}s.");
         }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [SkippableFact]
         public async Task GivenScopesWithReadForAllResources_WhenRevIncludeObservations_PatientAndObservationReturned()
@@ -1069,64 +1030,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Observation);
         }
 
-        private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
-        {
-            return await _sharedContext.UpsertResource(resource, httpMethod);
-        }
-
-        private async Task<UpsertOutcome> UpsertResourceWithTiming(Resource resource, string operationName)
-        {
-            return await MeasureAsync($"Upsert {operationName}", () => UpsertResource(resource));
-        }
-
-        private async Task<T> MeasureAsync<T>(string operationName, Func<Task<T>> action)
-        {
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            try
-            {
-                return await action();
-            }
-            finally
-            {
-                LogTiming($"{operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s.");
-            }
-        }
-
-        private void LogTiming(string message)
-        {
-            string dataStoreName = _fixture?.DataStore.GetType().Name ?? _smartFixture.DataStore.ToString();
-            _output.WriteLine($"[SmartSearchTiming] {ModelInfoProvider.Instance.Version}/{dataStoreName}: {message}");
-        }
-
         private static string CreateSmartV2TestResourceId(string scenario)
         {
             return $"smart-v2-{scenario}-{Guid.NewGuid():N}";
-        }
-
-        private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()
-        {
-            var types = typeof(ITypedElementToSearchValueConverter)
-                .Assembly
-                .GetTypes()
-                .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
-
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration());
-            var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
-            await codeSystemResolver.StartAsync(CancellationToken.None);
-
-            var fhirElementToSearchValueConverters = new List<ITypedElementToSearchValueConverter>();
-
-            foreach (Type type in types)
-            {
-                // Filter out the extension converter because it will be added to the converter dictionary in the converter manager's constructor
-                if (type.Name != nameof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter))
-                {
-                    var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
-                    fhirElementToSearchValueConverters.Add(x);
-                }
-            }
-
-            return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }
 
         private void ConfigureFhirRequestContext(
@@ -1171,7 +1077,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("TestCreate").AndFamily("SmartV2") },
             };
 
-            var result = await _sharedContext.UpsertResource(newPatient);
+            var result = await _smartFixture.UpsertResource(newPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1232,7 +1138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Update, "patient");
             var patientId = CreateSmartV2TestResourceId("update");
 
-            await UpsertResource(new Patient
+            await _smartFixture.UpsertResource(new Patient
             {
                 Id = patientId,
                 Name = new List<HumanName> { new HumanName().WithGiven("InitialName").AndFamily("SmartV2") },
@@ -1249,7 +1155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("UpdatedName").AndFamily("Updated") },
             };
 
-            var result = await _sharedContext.UpsertResource(updatedPatient);
+            var result = await _smartFixture.UpsertResource(updatedPatient);
             Assert.NotNull(result);
             Assert.Equal(patientId, result.Wrapper.ResourceId);
         }
@@ -1284,7 +1190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchCreate").AndFamily("SmartV2") },
             };
 
-            var createResult = await _sharedContext.UpsertResource(newPatient);
+            var createResult = await _smartFixture.UpsertResource(newPatient);
             Assert.NotNull(createResult);
         }
 
@@ -1300,7 +1206,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Update, "patient");
             var patientId = CreateSmartV2TestResourceId("search-update");
 
-            await UpsertResource(new Patient
+            await _smartFixture.UpsertResource(new Patient
             {
                 Id = patientId,
                 Name = new List<HumanName> { new HumanName().WithGiven("InitialSearchUpdate").AndFamily("SmartV2") },
@@ -1323,7 +1229,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchUpdate").AndFamily("SmartV2") },
             };
 
-            var updateResult = await _sharedContext.UpsertResource(updatedPatient);
+            var updateResult = await _smartFixture.UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal(patientId, updateResult.Wrapper.ResourceId);
         }
@@ -3834,149 +3740,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Appointment");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "MedicationRequest");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
-        }
-
-        private sealed class TimedSearchService : ISearchService
-        {
-            private readonly ISearchService _innerSearchService;
-            private readonly ITestOutputHelper _output;
-            private readonly string _context;
-
-            public TimedSearchService(ISearchService innerSearchService, ITestOutputHelper output, string context)
-            {
-                _innerSearchService = innerSearchService;
-                _output = output;
-                _context = context;
-            }
-
-            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-            {
-                return _innerSearchService.TryLogEvent(process, status, text, startDate, cancellationToken);
-            }
-
-            public Task<SearchResult> SearchAsync(
-                string resourceType,
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false,
-                ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-                bool onlyIds = false,
-                bool isIncludesOperation = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchAsync resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, version={resourceVersionTypes}, onlyIds={onlyIds}, includes={isIncludesOperation}",
-                    () => _innerSearchService.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation));
-            }
-
-            public Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
-            {
-                return MeasureSearchAsync(
-                    $"SearchAsync options countOnly={searchOptions?.CountOnly}, onlyIds={searchOptions?.OnlyIds}, expression={searchOptions?.Expression?.GetType().Name ?? "<none>"}",
-                    () => _innerSearchService.SearchAsync(searchOptions, cancellationToken));
-            }
-
-            public Task<SearchResult> SearchCompartmentAsync(
-                string compartmentType,
-                string compartmentId,
-                string resourceType,
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false,
-                bool useSmartCompartmentDefinition = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchCompartmentAsync compartment={compartmentType}/{compartmentId}, resourceType={resourceType ?? "<all>"}, query={FormatQuery(queryParameters)}, smartCompartment={useSmartCompartmentDefinition}",
-                    () => _innerSearchService.SearchCompartmentAsync(compartmentType, compartmentId, resourceType, queryParameters, cancellationToken, isAsyncOperation, useSmartCompartmentDefinition));
-            }
-
-            public Task<SearchResult> SearchHistoryAsync(
-                string resourceType,
-                string resourceId,
-                PartialDateTime at,
-                PartialDateTime since,
-                PartialDateTime before,
-                int? count,
-                string summary,
-                string continuationToken,
-                string sort,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchHistoryAsync resourceType={resourceType}, resourceId={resourceId}, count={count}, summary={summary}, sort={sort}",
-                    () => _innerSearchService.SearchHistoryAsync(resourceType, resourceId, at, since, before, count, summary, continuationToken, sort, cancellationToken, isAsyncOperation));
-            }
-
-            public Task<SearchResult> SearchForReindexAsync(
-                IReadOnlyList<Tuple<string, string>> queryParameters,
-                string searchParameterHash,
-                bool countOnly,
-                CancellationToken cancellationToken,
-                bool isAsyncOperation = false)
-            {
-                return MeasureSearchAsync(
-                    $"SearchForReindexAsync query={FormatQuery(queryParameters)}, countOnly={countOnly}",
-                    () => _innerSearchService.SearchForReindexAsync(queryParameters, searchParameterHash, countOnly, cancellationToken, isAsyncOperation));
-            }
-
-            public Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
-                string resourceType,
-                long startId,
-                long endId,
-                int rangeSize,
-                int numberOfRanges,
-                bool up,
-                CancellationToken cancellationToken,
-                bool activeOnly = false)
-            {
-                return _innerSearchService.GetSurrogateIdRanges(resourceType, startId, endId, rangeSize, numberOfRanges, up, cancellationToken, activeOnly);
-            }
-
-            public Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
-            {
-                return _innerSearchService.GetUsedResourceTypes(cancellationToken);
-            }
-
-            public Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
-            {
-                return _innerSearchService.GetFeedRanges(cancellationToken);
-            }
-
-            private async Task<SearchResult> MeasureSearchAsync(string operationName, Func<Task<SearchResult>> action)
-            {
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                try
-                {
-                    SearchResult result = await action();
-                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} completed in {stopwatch.Elapsed.TotalSeconds:F3}s. results={GetResultCount(result)}, total={result.TotalCount?.ToString() ?? "<null>"}.");
-                    return result;
-                }
-                catch (Exception exception)
-                {
-                    _output.WriteLine($"[SmartSearchTiming] {_context}: {operationName} failed in {stopwatch.Elapsed.TotalSeconds:F3}s. exception={exception.GetType().Name}: {exception.Message}");
-                    throw;
-                }
-            }
-
-            private static string GetResultCount(SearchResult result)
-            {
-                if (result.Results == null)
-                {
-                    return "<null>";
-                }
-
-                return result.Results.TryGetNonEnumeratedCount(out int count) ? count.ToString() : "<deferred>";
-            }
-
-            private static string FormatQuery(IReadOnlyList<Tuple<string, string>> queryParameters)
-            {
-                if (queryParameters == null || queryParameters.Count == 0)
-                {
-                    return "<none>";
-                }
-
-                return string.Join("&", queryParameters.Select(queryParameter => $"{queryParameter.Item1}={queryParameter.Item2}"));
-            }
         }
     }
 }
