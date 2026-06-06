@@ -30,39 +30,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <param name="onRetry">Optional callback invoked on each retry for custom logging or actions.</param>
         public static async Task<TResult> ExecuteAsync<TResult>(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, Func<Task<TResult>> action, Action<Exception, TimeSpan, int> onRetry = null)
         {
-            // Check if we should apply retry policy BEFORE execution
-            if (!requestContextAccessor.RequestContext.ExecutingBatchOrTransaction)
-            {
-                // Apply retry policy for individual requests
-                var retryPolicy = Policy
-                    .Handle<BadRequestException>(ex => ex.Message == Core.Resources.SearchParameterConcurrencyConflict)
-                    .WaitAndRetryAsync(
-                        retryCount: MaxRetryCount,
-                        sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(1),
-                        onRetry: (exception, timeSpan, retryCount, context) =>
-                        {
-                            // Clear the lastUpdated before retrying
-                            requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
+            var isParallelBundle = requestContextAccessor.RequestContext.Properties.TryGetValue("BundleProcessingLogic", out var value) && value?.ToString() == "Parallel";
 
-                            // Allow caller to provide custom logging or actions
-                            onRetry?.Invoke(exception, timeSpan, retryCount);
-                        });
-
-                try
-                {
-                    return await retryPolicy.ExecuteAsync(action);
-                }
-                catch (BadRequestException ex) when (ex.Message == Core.Resources.SearchParameterConcurrencyConflict)
-                {
-                    // All retries exhausted - enhance the exception message
-                    throw new BadRequestException($"{ex.Message} Retries={MaxRetryCount}");
-                }
-            }
-            else
+            if (isParallelBundle)
             {
-                // Part of batch/transaction - bundle handler manages retries
-                // Execute directly without retry policy
                 return await action();
+            }
+
+            // Apply retry policy for individual requests and sequential bundle entries
+            var retryPolicy = Policy
+                .Handle<BadRequestException>(ex => ex.Message == Core.Resources.SearchParameterConcurrencyConflict)
+                .WaitAndRetryAsync(
+                    retryCount: MaxRetryCount,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(1),
+                    onRetry: (exception, timeSpan, retryCount, context) =>
+                    {
+                        // Clear the lastUpdated before retrying
+                        requestContextAccessor.RequestContext?.ClearSearchParameterLastUpdated();
+
+                        // Allow caller to provide custom logging or actions
+                        onRetry?.Invoke(exception, timeSpan, retryCount);
+                    });
+
+            try
+            {
+                return await retryPolicy.ExecuteAsync(action);
+            }
+            catch (BadRequestException ex) when (ex.Message == Core.Resources.SearchParameterConcurrencyConflict)
+            {
+                // All retries exhausted - enhance the exception message
+                throw new BadRequestException($"{ex.Message} Retries={MaxRetryCount}");
             }
         }
 
