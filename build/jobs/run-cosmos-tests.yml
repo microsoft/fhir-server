@@ -39,16 +39,12 @@ parameters:
   default:
     - name: General
       categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
-      testFilter: ''
     - name: Search
       categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
-      testFilter: ''
     - name: Mutation
       categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
-      testFilter: ''
     - name: History
       categoryFilter: 'Category=History'
-      testFilter: ''
 - name: e2eParallelizeTestCollections
   type: boolean
   default: false
@@ -380,7 +376,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        categoryFilter: '${{ parameters.mainCategoryFilter }}'
+        testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
@@ -400,8 +396,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'CosmosDb'
-          categoryFilter: '${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
-          testFilter: '${{ shard.testFilter }}'
+          testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -424,7 +419,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        categoryFilter: 'Category=RequiresIsolation&Category!=ExportLongRunning'
+        testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
         testRunTitleSuffix: ' RequiresIsolation'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -444,6 +439,6 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        categoryFilter: 'Category=IndexAndReindex'
+        testFilter: 'FullyQualifiedName~CosmosDb&Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}

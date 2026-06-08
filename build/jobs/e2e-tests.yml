@@ -5,9 +5,6 @@ parameters:
   type: string
 - name: appServiceType
   type: string
-- name: categoryFilter
-  type: string
-  default: 'Category!=ExportLongRunning'
 - name: testFilter
   type: string
   default: ''
@@ -64,7 +61,7 @@ steps:
 
         $filter = "${{ parameters.testFilter }}"
         if ([string]::IsNullOrWhiteSpace($filter)) {
-          $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+          throw "testFilter is required and must not be empty."
         }
 
         $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')

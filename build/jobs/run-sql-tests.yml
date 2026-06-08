@@ -37,22 +37,16 @@ parameters:
   default:
     - name: General
       categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
-      testFilter: ''
     - name: Search
       categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
-      testFilter: ''
     - name: Import
       categoryFilter: 'Category=Import'
-      testFilter: ''
     - name: Mutation
       categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
-      testFilter: ''
     - name: CustomSearch
-      categoryFilter: 'Category=CustomSearch'
-      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests&Category!=RequiresIsolation'
+      categoryFilter: 'Category=CustomSearch&FullyQualifiedName~CustomSearchParamTests&Category!=RequiresIsolation'
     - name: History
       categoryFilter: 'Category=History'
-      testFilter: ''
 - name: runReindexJob
   type: boolean
   default: true
@@ -357,7 +351,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: '${{ parameters.mainCategoryFilter }}'
+        testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
@@ -377,8 +371,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'SqlServer'
-          categoryFilter: '${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
-          testFilter: '${{ shard.testFilter }}'
+          testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -398,7 +391,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=BulkUpdate'
+        testFilter: 'FullyQualifiedName~SqlServer&Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -416,7 +409,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
+        testFilter: 'FullyQualifiedName~SqlServer&Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
         testRunTitleSuffix: ' Reindex'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -439,6 +432,6 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+        testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
         testRunTitleSuffix: ' RequiresIsolation'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
