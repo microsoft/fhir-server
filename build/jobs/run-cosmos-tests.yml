@@ -371,6 +371,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml
@@ -389,6 +391,8 @@ jobs:
       pool:
         name: '$(SharedLinuxPool)'
         vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
       steps:
       - template: e2e-setup.yml
       - template: e2e-tests.yml
@@ -411,6 +415,8 @@ jobs:
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml
