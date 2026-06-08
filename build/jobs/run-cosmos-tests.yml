@@ -38,13 +38,13 @@ parameters:
   type: object
   default:
     - name: General
-      categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
     - name: Search
-      categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
     - name: Mutation
-      categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: History
-      categoryFilter: 'Category=History'
+      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&Category=History'
 - name: e2eParallelizeTestCollections
   type: boolean
   default: false
@@ -396,7 +396,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'CosmosDb'
-          testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
+          testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 

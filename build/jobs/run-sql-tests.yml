@@ -36,17 +36,17 @@ parameters:
   # Shard names must be valid Azure Pipelines job identifiers. Tests tagged RequiresIsolation run in a terminal lane below.
   default:
     - name: General
-      categoryFilter: 'Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
     - name: Search
-      categoryFilter: '(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
     - name: Import
-      categoryFilter: 'Category=Import'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&Category=Import'
     - name: Mutation
-      categoryFilter: '(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: CustomSearch
-      categoryFilter: 'Category=CustomSearch&FullyQualifiedName~CustomSearchParamTests&Category!=RequiresIsolation'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&Category=CustomSearch&FullyQualifiedName~CustomSearchParamTests&Category!=RequiresIsolation'
     - name: History
-      categoryFilter: 'Category=History'
+      testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&Category=History'
 - name: runReindexJob
   type: boolean
   default: true
@@ -371,7 +371,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'SqlServer'
-          testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}&${{ shard.categoryFilter }}'
+          testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
