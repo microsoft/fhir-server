@@ -659,16 +659,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
             try
             {
-                await SearchParameterRetryPolicyFactory.ExecuteAsync(
-                    _contextAccessor,
+                await SearchParameterRetry.ExecuteAsync(
                     async () =>
                     {
                         await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
                     },
-                    (exception, timeSpan, retryCount) =>
-                    {
-                        _logger.LogWarning(exception, "Search parameter concurrency conflict detected in deletion service. Retry {RetryCount} after {Delay}s.", retryCount, timeSpan.TotalSeconds);
-                    });
+                    "Deletion");
             }
             finally
             {

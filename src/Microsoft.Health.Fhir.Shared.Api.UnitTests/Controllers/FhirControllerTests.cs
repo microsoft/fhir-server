@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -67,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly IOptions<FeatureConfiguration> _configuration;
         private readonly IAuthorizationService _authorizationService;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public FhirControllerTests()
         {
@@ -76,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _configuration = Substitute.For<IOptions<FeatureConfiguration>>();
             _configuration.Value.Returns(new FeatureConfiguration());
             _authorizationService = Substitute.For<IAuthorizationService>();
+            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
             _mediator.Send(
                 Arg.Any<DeleteResourceRequest>(),
@@ -90,7 +93,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _requestContextAccessor,
                 _urlResolver,
                 _configuration,
-                _authorizationService);
+                _authorizationService,
+                _searchParameterOperations);
             _fhirController.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),

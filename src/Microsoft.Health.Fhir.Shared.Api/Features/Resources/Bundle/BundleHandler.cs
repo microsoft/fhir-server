@@ -219,40 +219,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
-                    var responseBundle = new Hl7.Fhir.Model.Bundle
-                    {
-                        Type = BundleType.BatchResponse,
-                    };
+                    var responseBundle = new Hl7.Fhir.Model.Bundle { Type = BundleType.BatchResponse };
 
-                    // Check if bundle contains SearchParameter resources to determine if retry logic is needed
-                    bool containsSearchParameters = bundleResource.Entry.Any(e => string.Equals(e.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal));
-
-                    if (containsSearchParameters && bundleProcessingLogic == BundleProcessingLogic.Parallel)
+                    if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
                     {
-                        // Apply retry logic for SearchParameter bundles that use parallel processing
-                        // Bundle handler manages retries for parallel batches to avoid nested retries at entry level
-                        // For sequential batches, entry-level retries are used instead
-                        await SearchParameterRetryPolicyFactory.ExecuteAsync(
-                            _fhirRequestContextAccessor,
-                            async () =>
-                            {
-                                await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
-                                await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
-                            },
-                            (exception, timeSpan, retryCount) =>
-                            {
-                                _logger.LogWarning(exception, "Search parameter concurrency conflict detected in parallel batch bundle. Retry {RetryCount} after {Delay}ms.", retryCount, timeSpan.TotalMilliseconds);
-                            });
+                        await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
                     }
-                    else
-                    {
-                        if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
-                        {
-                            await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
-                        }
 
-                        await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
-                    }
+                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
@@ -287,36 +261,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    var responseBundle = new Hl7.Fhir.Model.Bundle
-                    {
-                        Type = BundleType.TransactionResponse,
-                    };
+                    var responseBundle = new Hl7.Fhir.Model.Bundle { Type = BundleType.TransactionResponse };
 
-                    // Check if bundle contains SearchParameter resources to determine if retry logic is needed
-                    bool containsSearchParameters = bundleResource.Entry.Any(e => string.Equals(e.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal));
+                    await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
 
-                    if (containsSearchParameters && bundleProcessingLogic == BundleProcessingLogic.Parallel)
-                    {
-                        // Apply retry logic for SearchParameter bundles that use parallel processing
-                        // Bundle handler is always the entry point that sets lastUpdated, so it should handle retries
-                        // This includes both the cache refresh and the transaction execution
-                        await SearchParameterRetryPolicyFactory.ExecuteAsync(
-                            _fhirRequestContextAccessor,
-                            async () =>
-                            {
-                                await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
-                                await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
-                            },
-                            (exception, timeSpan, retryCount) =>
-                            {
-                                _logger.LogWarning(exception, "Search parameter concurrency conflict detected in bundle. Retry {RetryCount} after {Delay}ms.", retryCount, timeSpan.TotalMilliseconds);
-                            });
-                    }
-                    else
-                    {
-                        await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
-                        await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
-                    }
+                    await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
@@ -1018,14 +967,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         newFhirRequestContext.Properties.Add(propertyName, value);
                     }
                 }
-            }
-
-            // Store bundle processing logic in context to enable retry policy decisions
-            // For parallel bundles, entry-level retries are skipped (bundle-level retry handles it)
-            // For sequential bundles, entry-level retries are enabled
-            if (processingLogic == BundleProcessingLogic.Parallel)
-            {
-                newFhirRequestContext.Properties["BundleProcessingLogic"] = processingLogic.ToString();
             }
 
             // Propagate Fine Grained Access Control to the new FHIR Request Context.

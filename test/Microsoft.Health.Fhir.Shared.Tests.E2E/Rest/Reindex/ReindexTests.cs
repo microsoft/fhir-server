@@ -14,9 +14,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.CodeAnalysis;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -25,6 +27,7 @@ using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Bundle;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -130,9 +133,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenConcurrentSearchParamCreates_SomeShouldFail(bool isBundle)
+        [InlineData(false, false)] // single creats
+        [InlineData(true, false)] // batch bundle
+        [InlineData(true, true)] // parallel batch bundle
+        public async Task GivenConcurrentSearchParamCreates_SomeShouldFail(bool isBundle, bool isParallel)
         {
             const string urlPrefix = "http://my.org/";
             var codes = new List<string>();
@@ -149,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     try
                     {
-                        var result = await CreatePersonSearchParamAsync(code, isBundle);
+                        var result = await CreatePersonSearchParamAsync(code, isBundle, isParallel);
                         if (isBundle && result is FhirResponse<Bundle> bundleResponse)
                         {
                             Assert.Single(bundleResponse.Resource.Entry);
@@ -160,8 +164,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                 if (entry.Response.Outcome is OperationOutcome outcome)
                                 {
                                     var diagnostics = outcome.Issue?.FirstOrDefault()?.Diagnostics;
-                                    Assert.True(diagnostics?.Contains(Core.Resources.SearchParameterConcurrencyConflict) == true, $"Expected={Core.Resources.SearchParameterConcurrencyConflict}, Actual={diagnostics}");
-                                    Assert.True(diagnostics?.Contains("Retries=3") == true, $"Did not find 'Retries=3' in diagnostics: {diagnostics}");
+                                    _output.WriteLine($"Param={code}. Diagnostics={diagnostics}");
+                                    var expected = $"{Core.Resources.SearchParameterConcurrencyConflict}{(isParallel ? string.Empty : " Update.3")}";
+                                    Assert.True(diagnostics == expected, $"Expected={expected} Actual={diagnostics}");
                                     threw = true;
 
                                     lock (codes)
@@ -169,7 +174,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                         codes.Remove(code);
                                     }
 
-                                    _output.WriteLine($"Bundle entry for search param {code} failed with concurrency conflict");
                                     return;
                                 }
                             }
@@ -179,12 +183,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     }
                     catch (FhirClientException ex)
                     {
-                        _output.WriteLine($"Error creating search param = {code}. Error={ex.Message}");
+                        _output.WriteLine($"Param={code}. StatusCode={ex.StatusCode}, Error={ex.Message}");
+
                         if (ex.StatusCode != HttpStatusCode.InternalServerError) // this can happen because of short wait limit to accquire "lock" in "get and apply" code. testing only.
                         {
-                            Assert.True(ex.Message.Contains(Core.Resources.SearchParameterConcurrencyConflict), $"Expected={Core.Resources.SearchParameterConcurrencyConflict}, Actual={ex.Message}");
-                            Assert.True(ex.Message.Contains("Retries=3"), $"Did not find 'Retries=3'");
                             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                            var expected = $"BadRequest: {Core.Resources.SearchParameterConcurrencyConflict} {(isBundle ? "Update.3" : "Create.3")}";
+                            Assert.True(ex.Message.StartsWith(expected), $"Expected={expected} Actual={ex.Message}");
                             threw = true;
                         }
 
@@ -202,7 +207,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await DeleteSearchParamsAsync(codes);
             }
 
-            async Task<FhirResponse> CreatePersonSearchParamAsync(string code, bool isBundle)
+            async Task<FhirResponse> CreatePersonSearchParamAsync(string code, bool isBundle, bool isParal)
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 #if R5
@@ -227,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 if (isBundle)
                 {
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
-                    var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+                    var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = isParal ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential });
                     return result;
                 }
                 else
@@ -389,6 +394,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
                 Assert.Contains($"Input search parameters have duplicate codes [(Person, {code})]", ex.Message);
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync(ids);
+            }
+        }
+
+        [Fact]
+        public async Task GivenTwoSearchParamsInSequentialBatchBundle_ThenBothCreated()
+        {
+#if R5
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.SupplyDelivery };
+#else
+            var personTypes = new List<ResourceType?>() { ResourceType.Person };
+            var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
+#endif
+            const string urlPrefix = "http://my.org/";
+            var ids = new List<string> { "c-id-1", "c-id-2" };
+            try
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
+
+                var id = ids[0];
+                var searchParam = new SearchParameter
+                {
+                    Id = id,
+                    Url = $"{urlPrefix}c-1",
+                    Name = id,
+                    Code = id,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "Person.id",
+                    Description = "any",
+                    Base = personTypes,
+                };
+
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+                id = ids[1];
+                searchParam = new SearchParameter
+                {
+                    Id = id,
+                    Url = $"{urlPrefix}c-2",
+                    Name = id,
+                    Code = id,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "SupplyDelivery.id",
+                    Description = "any",
+                    Base = supplyDeliveryTypes,
+                };
+
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+                var response = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+                Assert.Equal(2, response.Resource.Entry.Count);
+                Assert.All(response.Resource.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
             }
             finally
             {

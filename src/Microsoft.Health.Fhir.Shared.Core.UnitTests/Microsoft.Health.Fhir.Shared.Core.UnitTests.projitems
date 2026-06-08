@@ -64,7 +64,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterComparerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterRetryTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterRetryPolicyFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />

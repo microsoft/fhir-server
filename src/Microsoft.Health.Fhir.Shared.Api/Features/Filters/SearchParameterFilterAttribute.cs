@@ -43,34 +43,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (searchParameter != null)
             {
                 var fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+                var lastUpdated = fhirRequestContext.GetSearchParameterLastUpdated();
+                var hasLastUpdated = lastUpdated.HasValue;
 
-                // Validate and capture/update LastUpdated with retry policy
-                var lastUpdated = await SearchParameterRetryPolicyFactory.ExecuteAsync(
-                    _fhirRequestContextAccessor,
-                    async () => await _searchParameterValidator.ValidateSearchParameterInput(
-                        searchParameter,
-                        context.HttpContext.Request.Method,
-                        context.HttpContext.RequestAborted,
-                        fhirRequestContext.GetSearchParameterLastUpdated()));
+                lastUpdated = await _searchParameterValidator.ValidateSearchParameterInput(
+                    searchParameter,
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.RequestAborted,
+                    lastUpdated);
 
-                // Store the LastUpdated timestamp in context for use during the action
-                fhirRequestContext.SetSearchParameterLastUpdated(lastUpdated);
-
-                try
+                if (!hasLastUpdated)
                 {
-                    // Execute the controller action
-                    await next();
-                }
-                finally
-                {
-                    // Clear the LastUpdated after the operation completes to ensure each SearchParameter in a sequential bundle gets a fresh validation
-                    fhirRequestContext.ClearSearchParameterLastUpdated();
+                    fhirRequestContext.SetSearchParameterLastUpdated(lastUpdated);
                 }
             }
-            else
-            {
-                await next();
-            }
+
+            await next();
         }
 
         private static SearchParameter ExtractSearchParameter(ActionExecutingContext context)

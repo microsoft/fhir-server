@@ -57,16 +57,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
-                {
-                    // Before committing the SearchParameter resource to the data store, validate the parameter type
-                    var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
+                // Before committing the SearchParameter resource to the data store, validate the parameter type
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
 
-                    // Allow the resource to be updated with the normal handler
-                    return await next(cancellationToken);
-                });
+                // Allow the resource to be updated with the normal handler
+                return await next(cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -80,45 +77,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                return await SearchParameterRetryPolicyFactory.ExecuteAsync(_requestContextAccessor, async () =>
+                var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
+                ResourceWrapper prevSearchParamResource = null;
+
+                try
                 {
-                    var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
-                    ResourceWrapper prevSearchParamResource = null;
+                    prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                }
+                catch (ResourceNotFoundException)
+                {
+                    // Resource doesn't exist yet, which is valid for PUT operations (upsert behavior)
+                    // We'll treat this as a create operation
+                    prevSearchParamResource = null;
+                }
 
-                    try
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
+
+                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
+                {
+                    var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
+                    var newUrl = request.Resource.Instance.GetStringScalar("url");
+
+                    if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-                    }
-                    catch (ResourceNotFoundException)
-                    {
-                        // Resource doesn't exist yet, which is valid for PUT operations (upsert behavior)
-                        // We'll treat this as a create operation
-                        prevSearchParamResource = null;
-                    }
-
-                    var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
-
-                    if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
-                    {
-                        var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
-                        var newUrl = request.Resource.Instance.GetStringScalar("url");
-
-                        if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
-                        {
-                            QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
-                        }
-
-                        QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
-                    }
-                    else
-                    {
-                        // No previous version exists or it was deleted, so add it as a new SearchParameter
-                        QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                        QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
                     }
 
-                    // Now allow the resource to updated per the normal behavior
-                    return await next(cancellationToken);
-                });
+                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
+                }
+                else
+                {
+                    // No previous version exists or it was deleted, so add it as a new SearchParameter
+                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                }
+
+                // Now allow the resource to updated per the normal behavior
+                return await next(cancellationToken);
             }
 
             // Now allow the resource to updated per the normal behavior
