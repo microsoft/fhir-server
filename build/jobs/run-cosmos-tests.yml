@@ -36,15 +36,16 @@ parameters:
   default: false
 - name: e2eTestShards
   type: object
+  # mainCategoryFilter default is inlined here because ADO does not allow ${{ parameters.x }} in object parameter defaults.
   default:
     - name: General
-      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
     - name: Search
-      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
     - name: Mutation
-      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: History
-      testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}&Category=History'
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
 - name: e2eParallelizeTestCollections
   type: boolean
   default: false
