@@ -133,6 +133,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenOverflowTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTestFixture.cs" />
