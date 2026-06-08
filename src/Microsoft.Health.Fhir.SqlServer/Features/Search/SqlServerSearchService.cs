@@ -489,18 +489,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     break;
                 }
-                else if (mergedSearchResults.Results.Count() < maxCount)
+                else
                 {
                     typesToSearch.RemoveAt(0);
+
+                    if (typesToSearch.Count == 0)
+                    {
+                        break;
+                    }
+
                     var continuationToken = new ContinuationToken(string.Empty, 0, typesToSearch.First());
-                    sqlSearchOptions.ContinuationToken = continuationToken.ToString();
-                    sqlSearchOptions.MaxItemCount = maxCount - mergedSearchResults.Results.Count();
-                }
-                else if (mergedSearchResults.Results.Count() == maxCount)
-                {
-                    var continuationToken = new ContinuationToken(string.Empty, 0, typesToSearch.First());
-                    mergedSearchResults.ContinuationToken = continuationToken.ToString();
-                    break;
+
+                    if (mergedSearchResults.Results.Count() < maxCount)
+                    {
+                        sqlSearchOptions.ContinuationToken = continuationToken.ToString();
+                        sqlSearchOptions.MaxItemCount = maxCount - mergedSearchResults.Results.Count();
+                    }
+                    else if (mergedSearchResults.Results.Count() == maxCount)
+                    {
+                        mergedSearchResults.ContinuationToken = continuationToken.ToString();
+                        break;
+                    }
                 }
             }
 
