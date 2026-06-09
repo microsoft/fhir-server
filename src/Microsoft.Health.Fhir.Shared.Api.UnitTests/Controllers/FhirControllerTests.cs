@@ -1524,7 +1524,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenSearchParameterDelete_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
         {
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
             var key = new ResourceKey("SearchParameter", "test");
 
             var attemptCount = 0;
