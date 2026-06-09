@@ -29,7 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
         public static bool IsSearchParameterConcurrencyConflict(this Exception e)
         {
             var sqlEx = e as SqlException;
-            return sqlEx != null && sqlEx.Number == 50001 && e.Message.StartsWith("optimistic concurrency conflict", StringComparison.OrdinalIgnoreCase);
+            return sqlEx != null
+                         && sqlEx.Number == 50001
+                         && e.Message.StartsWith("optimistic concurrency conflict", StringComparison.OrdinalIgnoreCase)
+                         && e.Message.Contains("expected last updated", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasDeadlockErrorPattern(string str)
