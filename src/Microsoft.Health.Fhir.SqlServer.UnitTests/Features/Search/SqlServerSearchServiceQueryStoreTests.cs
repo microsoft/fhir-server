@@ -1134,7 +1134,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Fact]
         public void QueryStoreLookupTimeoutSeconds_IsCappedReasonably()
         {
-            // The diagnostic query timeout should be short (1-10s), not inherit the main query timeout.
+            // The diagnostic query timeout must stay short so it never inherits the (much longer)
+            // main query timeout. It also acts only as a backup to the 2s CancellationToken, so it
+            // must be at least 1s and comfortably above the CTS deadline. The 10s upper bound is a
+            // sanity guard, not a hard requirement: if a future change intentionally raises the
+            // constant past 10s, update both this bound and the rationale comment on
+            // SqlServerSearchService.QueryStoreLookupTimeoutSeconds.
             Assert.InRange(SqlServerSearchService.QueryStoreLookupTimeoutSeconds, 1, 10);
         }
     }

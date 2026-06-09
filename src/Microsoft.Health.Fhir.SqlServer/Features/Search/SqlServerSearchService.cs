@@ -1135,14 +1135,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return null;
             }
 
-            int hashStart = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart, StringComparison.OrdinalIgnoreCase);
+            // ParametersHashStart/End are always emitted in fixed uppercase by SqlQueryGenerator,
+            // so use Ordinal (not OrdinalIgnoreCase) to avoid matching arbitrary user-authored
+            // lowercase comments such as "/* hash ... */".
+            int hashStart = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal);
             if (hashStart < 0)
             {
                 return null;
             }
 
             int valueStart = hashStart + Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart.Length;
-            int hashEnd = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashEnd, valueStart, StringComparison.OrdinalIgnoreCase);
+            int hashEnd = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashEnd, valueStart, StringComparison.Ordinal);
             if (hashEnd < 0)
             {
                 return null;
@@ -1182,13 +1185,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 catch (Exception ex)
                 {
                     // The Query Store lookup is best-effort diagnostics. Swallow any failure so the
-                    // fire-and-forget task never surfaces an unobserved exception.
+                    // fire-and-forget task never surfaces an unobserved exception. Include the exception
+                    // type/message in the Warning so operators can distinguish a timeout, a permission
+                    // error, or a misconfigured Query Store even when Debug logging is disabled.
                     logger.LogWarning(
+                        ex,
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                         executionTime,
                         queryText,
-                        "Query Store lookup failed.");
-                    logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                        $"Query Store lookup failed: {ex.GetType().Name}: {ex.Message}");
                 }
             });
         }
@@ -1257,6 +1262,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var normalizedText = StripQueryPreambleLines(effectiveQuery);
                         var searchFragments = SplitIntoSearchFragments(normalizedText);
 
+                        // NOTE: The three lookup SQL strings below (HashLookupSql,
+                        // TextLookupWithHashExclusionSql, TextLookupSql) share an identical
+                        // SELECT / FROM / JOIN / ORDER BY structure and only differ in their WHERE
+                        // clause. Any column, cutoff-window, or index-hint change must be applied to
+                        // all three to avoid drift.
+                        //
                         // SQL for the fast hash-based lookup (no REPLACE chain needed).
                         const string HashLookupSql = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
@@ -1303,6 +1314,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
+                    -- The '/* HASH ' literal below must stay in sync with
+                    -- SqlQueryGenerator.ParametersHashStart (SQL const strings cannot reference the C# constant).
                     AND qt.query_sql_text NOT LIKE '%/* HASH %'
                     AND replace(replace(replace(replace(replace(replace(qt.query_sql_text, char(9), ''), char(10), ''), char(11), ''), char(12), ''), char(13), ''), char(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
