@@ -526,6 +526,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [InlineData(true, false, true, true)]
         [InlineData(true, false, false, true)]
         [InlineData(false, true, true, true)]
+        //// https://microsofthealth.visualstudio.com/Health/_workitems/edit/187119
         ////[InlineData(false, true, false, true)] // this creates 2 resources for the same url. after fixing this bug - uncomment.
         ////[InlineData(true, true, false, true)] // this creates 2 resources for the same url. after fixing this bug - uncomment.
         [InlineData(true, true, false, false)]
