@@ -1,0 +1,27 @@
+name: Branch Workflow Demo
+
+on:
+  push:
+    branches:
+      - mikaelweave/branch-workflow-demo
+    paths:
+      - .github/workflows/branch-workflow-demo.yml
+  workflow_dispatch:
+
+jobs:
+  show-branch-context:
+    permissions:
+      contents: read
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Show execution context
+        run: |
+          echo "workflow=${{ github.workflow }}"
+          echo "event=${{ github.event_name }}"
+          echo "repository=${{ github.repository }}"
+          echo "ref=${{ github.ref }}"
+          echo "ref_name=${{ github.ref_name }}"
+          echo "sha=${{ github.sha }}"
+
+      - name: Verify branch target
+        run: test "${{ github.ref_name }}" = "mikaelweave/branch-workflow-demo"
