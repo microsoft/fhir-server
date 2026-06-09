@@ -44,6 +44,8 @@ parameters:
       testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category=Import'
     - name: Mutation
       testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+    - name: BulkDelete
+      testFilter: 'FullyQualifiedName~SqlServer&Category=BulkDelete'
     - name: CustomSearch
       testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
     - name: History
