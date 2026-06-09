@@ -200,25 +200,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
-            UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.Send<UpsertResourceResponse>(
                 new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalCreate");
 
-            if (createResponse?.Outcome == null)
+            if (response?.Outcome == null)
             {
                 return Ok();
             }
 
             var statusCode = HttpStatusCode.Created;
             var message = Resources.ConditionalCreateResourceCreated;
-            if (createResponse.Outcome.Outcome != SaveOutcomeType.Created)
+            if (response.Outcome.Outcome != SaveOutcomeType.Created)
             {
                 statusCode = HttpStatusCode.OK;
                 message = Resources.ConditionalCreateResourceAlreadyExists;
             }
 
             return FhirResult.Create(
-                createResponse.Outcome.RawResourceElement,
+                response.Outcome.RawResourceElement,
                 statusCode,
                 true,
                 true,
@@ -266,9 +269,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.Send<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalUpdate");
 
             SaveOutcome saveOutcome = response.Outcome;
 
@@ -484,14 +490,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
-            DeleteResourceResponse response = await _mediator.Send(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                typeParameter,
+                () => _mediator.Send(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
                     conditionalParameters,
                     hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
                     GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalDelete");
 
             if (maxDeleteCount.HasValue)
             {
