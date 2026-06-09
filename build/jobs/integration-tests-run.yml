@@ -25,17 +25,24 @@ steps:
     targetType: inline
     pwsh: true
     script: |
+      $ErrorActionPreference = 'Stop'
+      # Enable collection-level parallelism for normal integration tests while preserving
+      # collection definitions that explicitly set DisableParallelization = true.
       $runnerConfig = @{
         '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
         parallelizeAssembly = $true
         parallelizeTestCollections = $true
       } | ConvertTo-Json
-      Get-ChildItem -Path '$(Agent.TempDirectory)/IntegrationTests' -Filter 'Microsoft.Health.Fhir.*.Tests.Integration.dll' -Recurse |
-        ForEach-Object {
-          $configPath = Join-Path $_.DirectoryName 'xunit.runner.json'
-          Set-Content -Path $configPath -Value $runnerConfig
-          Write-Host "Wrote $configPath"
-        }
+      $testDlls = @(Get-ChildItem -Path '$(Agent.TempDirectory)/IntegrationTests' -Filter 'Microsoft.Health.Fhir.*.Tests.Integration.dll' -Recurse)
+      if ($testDlls.Count -eq 0) {
+        throw "No integration test DLLs found under '$(Agent.TempDirectory)/IntegrationTests'."
+      }
+
+      foreach ($testDll in $testDlls) {
+        $configPath = Join-Path $testDll.DirectoryName 'xunit.runner.json'
+        Set-Content -Path $configPath -Value $runnerConfig
+        Write-Host "Wrote $configPath"
+      }
 
 - task: AzureKeyVault@1
   displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -131,7 +138,8 @@ steps:
     testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
     mergeTestResults: true
     testRunTitle: '${{ parameters.testRunTitle }}'
-    # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+    # TODO: Re-enable when testfx issue #7167 is fixed. MTP retries can make PublishTestResults
+    # fail even when retried tests pass; the preceding dotnet step still fails the job on test failures.
     failTaskOnFailedTests: false
   condition: succeededOrFailed()
 

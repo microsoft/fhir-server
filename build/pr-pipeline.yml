@@ -87,8 +87,10 @@ stages:
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
-  # Security analysis consumes only the deploy + nuget artifacts from BuildArtifacts and runs its
-  # own RoslynAnalyzers build; it does not use unit-test output, so it does not depend on BuildUnitTests.
+  # Security analysis consumes deploy + nuget artifacts from BuildArtifacts only.
+  # It runs independent security tools: RoslynAnalyzers (own build), BinSkim, CredScan,
+  # SBOM validation, AntiMalware, ARM template checks, and CSRF validation. Unit-test
+  # output is not consumed, so BuildUnitTests is not a dependency.
   dependsOn:
   - BuildArtifacts
   jobs:

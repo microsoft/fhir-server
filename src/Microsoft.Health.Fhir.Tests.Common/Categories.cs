@@ -71,10 +71,16 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Import = nameof(Import);
 
+        /// <summary>
+        /// Marks long-running import stress tests that are excluded from PR validation and run only in longer CI validation.
+        /// </summary>
         public const string ImportLongRunning = nameof(ImportLongRunning);
 
         public const string IndexAndReindex = nameof(IndexAndReindex);
 
+        /// <summary>
+        /// Marks tests that must run in an isolated pipeline lane because they mutate shared async or global service state.
+        /// </summary>
         public const string RequiresIsolation = nameof(RequiresIsolation);
 
         /// <summary>
