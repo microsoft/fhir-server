@@ -45,7 +45,7 @@ parameters:
     - name: Mutation
       testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: CustomSearch
-      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category=CustomSearch'
+      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
     - name: History
       testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category=History'
 - name: runReindexJob
