@@ -108,30 +108,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
-                value is not List<ResourceSearchParameterStatus> pendingStatuses)
+            var lastUpdated = _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated();
+            if (!lastUpdated.HasValue)
             {
-                pendingStatuses = new List<ResourceSearchParameterStatus>();
-                context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
             }
 
-            var currentStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var existing = currentStatuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = SearchParameterStatus.PendingDelete,
-                LastUpdated = existing?.LastUpdated ?? DateTimeOffset.UtcNow,
+                LastUpdated = lastUpdated.Value,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
 
-            lock (pendingStatuses)
-            {
-                pendingStatuses.RemoveAll(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
-                pendingStatuses.Add(update);
-            }
+            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }

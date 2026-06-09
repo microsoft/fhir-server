@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
+using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -17,13 +22,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Method)]
     internal sealed class SearchParameterFilterAttribute : ActionFilterAttribute
     {
-        private ISearchParameterValidator _searchParameterValidator;
+        private readonly ISearchParameterValidator _searchParameterValidator;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
-        public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator)
+        public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(searchParamValidator, nameof(searchParamValidator));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _searchParameterValidator = searchParamValidator;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -33,14 +41,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             var searchParameter = ExtractSearchParameter(context);
             if (searchParameter != null)
             {
-                // wait for the validation checks to pass before allowing the FHIRController action to continue
-                await _searchParameterValidator.ValidateSearchParameterInput(
+                var fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+
+                // Validate and capture/update LastUpdated
+                var lastUpdated = await _searchParameterValidator.ValidateSearchParameterInput(
                     searchParameter,
                     context.HttpContext.Request.Method,
-                    context.HttpContext.RequestAborted);
-            }
+                    context.HttpContext.RequestAborted,
+                    fhirRequestContext.GetSearchParameterLastUpdated());
 
-            await next();
+                // Store the LastUpdated timestamp in context for use during the action
+                fhirRequestContext.SetSearchParameterLastUpdated(lastUpdated);
+
+                try
+                {
+                    // Execute the controller action
+                    await next();
+                }
+                finally
+                {
+                    // Clear the LastUpdated after the operation completes to ensure each SearchParameter in a sequential bundle gets a fresh validation
+                    fhirRequestContext.ClearSearchParameterLastUpdated();
+                }
+            }
+            else
+            {
+                await next();
+            }
         }
 
         private static SearchParameter ExtractSearchParameter(ActionExecutingContext context)

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
             IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
-            ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
+            ValidateSearchParameterStatuses(expectedStatuses, actualStatuses, true);
         }
 
         [Fact]
@@ -45,14 +45,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string statusName1 = "http://hl7.org/fhir/SearchParameter/Test-1";
             string statusName2 = "http://hl7.org/fhir/SearchParameter/Test-2";
 
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             var status1 = new ResourceSearchParameterStatus
             {
-                Uri = new Uri(statusName1), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false,
+                Uri = new Uri(statusName1), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             var status2 = new ResourceSearchParameterStatus
             {
-                Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false,
+                Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false, LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -80,15 +82,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheExistingStatusesAreUpdated()
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            var statusesBeforeUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
             // Get two existing statuses.
-            ResourceSearchParameterStatus expectedStatus1 = statusesBeforeUpdate.First();
-            ResourceSearchParameterStatus expectedStatus2 = statusesBeforeUpdate.Last();
+            var expectedStatus1 = statusesBeforeUpdate.First();
+            var expectedStatus2 = statusesBeforeUpdate.Last();
 
             // Modify them in some way.
             expectedStatus1.IsPartiallySupported = !expectedStatus1.IsPartiallySupported;
             expectedStatus2.IsPartiallySupported = !expectedStatus2.IsPartiallySupported;
+
+            // set last updated on at least one so it will set correct max
+            expectedStatus1.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
             var statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
@@ -97,8 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Upsert the two existing, modified statuses.
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert, CancellationToken.None);
 
-                IReadOnlyCollection<ResourceSearchParameterStatus> statusesAfterUpdate =
-                    await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                var statusesAfterUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
                 Assert.Equal(statusesBeforeUpdate.Count, statusesAfterUpdate.Count);
 
@@ -120,20 +126,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 expectedStatus1.IsPartiallySupported = !expectedStatus1.IsPartiallySupported;
                 expectedStatus2.IsPartiallySupported = !expectedStatus2.IsPartiallySupported;
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+                expectedStatus2.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
+
                 statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert, CancellationToken.None);
             }
         }
 
-        private static void ValidateSearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses, IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses)
+        private static void ValidateSearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses, IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses, bool allowMore = false)
         {
             Assert.NotEmpty(expectedStatuses);
 
             var sortedExpected = expectedStatuses.OrderBy(status => status.Uri.ToString()).ToList();
             var sortedActual = actualStatuses.OrderBy(status => status.Uri.ToString()).ToList();
 
-            Assert.Equal(sortedExpected.Count, sortedActual.Count);
+            if (allowMore)
+            {
+                Assert.True(sortedExpected.Count <= sortedActual.Count); // we are not deleting so main store can accumulate more items than in file based
+
+                // remove extra
+                foreach (var status in sortedActual.ToList())
+                {
+                    if (!sortedExpected.Any(_ => _.Uri == status.Uri))
+                    {
+                        sortedActual.Remove(status);
+                    }
+                }
+            }
+            else
+            {
+                Assert.Equal(sortedExpected.Count, sortedActual.Count);
+            }
 
             for (int i = 0; i < sortedExpected.Count; i++)
             {
