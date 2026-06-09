@@ -149,7 +149,8 @@ stages:
           # Handle re-run scenario: remove existing RG for this build if it exists
           try
           {
-            Get-AzResourceGroup -Name $(UniqueResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+            $resourceGroupName = "$(UniqueResourceGroupName)"
+            Get-AzResourceGroup -Name $resourceGroupName | Remove-AzResourceGroup -Verbose -Force
           }
           catch
           {}
