@@ -54,9 +54,6 @@ parameters:
 - name: runBulkUpdateJob
   type: boolean
   default: true
-- name: e2eParallelizeTestCollections
-  type: boolean
-  default: false
 jobs:
 
 - ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
@@ -136,7 +133,6 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - ${{ each shard in parameters.e2eTestShards }}:
@@ -157,7 +153,6 @@ jobs:
           appServiceType: 'SqlServer'
           testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
-          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runBulkUpdateJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -177,7 +172,6 @@ jobs:
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -195,7 +189,6 @@ jobs:
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
         testRunTitleSuffix: ' Reindex'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - job: 'sqlE2eTests_RequiresIsolation'
@@ -218,4 +211,3 @@ jobs:
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
         testRunTitleSuffix: ' RequiresIsolation'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
