@@ -1,3 +1,21 @@
+<#
+.SYNOPSIS
+Generates a test class duration report from TRX files.
+
+.DESCRIPTION
+Parses TRX files under a results directory, aggregates execution time and
+outcome counts by test class, writes a CSV report, and prints the slowest
+classes to the pipeline log.
+
+.PARAMETER ResultsDirectory
+The root directory containing TRX files to parse recursively.
+
+.PARAMETER OutputDirectory
+The directory where the CSV report will be written.
+
+.PARAMETER ReportName
+The output CSV file name without the .csv extension.
+#>
 param(
     [Parameter(Mandatory = $true)]
     [string]$ResultsDirectory,
@@ -20,7 +38,13 @@ if (-not $trxFiles) {
 }
 
 $records = foreach ($trxFile in $trxFiles) {
-    [xml]$trx = Get-Content -Path $trxFile.FullName -Raw
+    try {
+        [xml]$trx = Get-Content -Path $trxFile.FullName -Raw
+    }
+    catch {
+        Write-Error "Failed to parse TRX file '$($trxFile.FullName)': $_" -ErrorAction Stop
+    }
+
     $namespaceManager = New-Object System.Xml.XmlNamespaceManager($trx.NameTable)
     $namespaceManager.AddNamespace('trx', $trx.DocumentElement.NamespaceURI)
 

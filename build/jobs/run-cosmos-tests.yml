@@ -46,6 +46,8 @@ parameters:
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: BulkDelete
       testFilter: 'FullyQualifiedName~CosmosDb&Category=BulkDelete'
+    - name: CustomSearch
+      testFilter: 'FullyQualifiedName~CosmosDb&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
     - name: History
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
 
@@ -162,7 +164,7 @@ jobs:
     dependsOn:
     - ${{ each shard in parameters.e2eTestShards }}:
       - 'cosmosE2eTests_${{ shard.name }}'
-    condition: succeededOrFailed()
+    condition: not(canceled())
     pool:
       name: '$(InternalPool)'
       demands:
