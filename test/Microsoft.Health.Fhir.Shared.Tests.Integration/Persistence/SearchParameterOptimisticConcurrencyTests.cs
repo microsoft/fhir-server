@@ -160,6 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 try
                 {
                     await _fixture.SearchParameterStatusDataStore.UpsertStatuses([staleUpdate], CancellationToken.None);
+                    Assert.Fail("This point should not be reached");
                 }
                 catch (BadRequestException ex)
                 {
