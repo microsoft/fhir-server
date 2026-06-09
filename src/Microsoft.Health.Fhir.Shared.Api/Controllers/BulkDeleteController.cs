@@ -11,7 +11,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -41,7 +40,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IUrlResolver _urlResolver;
 
         private readonly HashSet<string> _excludedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
@@ -56,12 +54,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public BulkDeleteController(
             IMediator mediator,
             ISearchParameterOperations searchParameterOperations,
-            Func<IScoped<ISearchService>> searchService,
             IUrlResolver urlResolver)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
-            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
 
@@ -158,7 +154,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 excludedResourceTypesList = excludedResourceTypes.Split(',').ToList();
             }
 
-            if (await CanAffectSearchParametersAsync(typeParameter, excludedResourceTypesList))
+            if (WillAffectSearchParameters(typeParameter, excludedResourceTypesList))
             {
                 await _searchParameterOperations.EnsureNoActiveReindexJobAsync(HttpContext.RequestAborted);
             }
@@ -170,21 +166,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return response;
         }
 
-        private async Task<bool> CanAffectSearchParametersAsync(string resourceType, IList<string> excludedResourceTypes)
+        // Determines whether the request will deterministically affect SearchParameter resources.
+        // Only the explicit-type case is checked here (e.g. _type=SearchParameter); for system-wide
+        // requests the precise check is deferred to the orchestrator/processing job, which evaluates
+        // the user's search filters against actual record counts. This avoids false-positive
+        // conflicts on system-wide deletes that are filtered (e.g. by _tag) and would not actually
+        // touch any SearchParameter resources.
+        private static bool WillAffectSearchParameters(string resourceType, IList<string> excludedResourceTypes)
         {
             if (excludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) == true)
             {
                 return false;
             }
 
-            if (!string.IsNullOrWhiteSpace(resourceType))
+            if (string.IsNullOrWhiteSpace(resourceType))
             {
-                return resourceType.SplitByOrSeparator().Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
+                return false;
             }
 
-            using IScoped<ISearchService> searchService = _searchService.Invoke();
-            IReadOnlyList<string> usedResourceTypes = await searchService.Value.GetUsedResourceTypes(HttpContext.RequestAborted);
-            return usedResourceTypes.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
+            return resourceType.SplitByOrSeparator().Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
