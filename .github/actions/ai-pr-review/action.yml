@@ -1,0 +1,111 @@
+name: AI PR Review
+description: Run code-review-agent for a pull request from GitHub Actions.
+
+inputs:
+  trigger:
+    description: 'Review trigger type: automatic, on-request, or local.'
+    required: true
+  pr-number:
+    description: Pull request number to review.
+    required: true
+  base-ref:
+    description: Pull request base ref.
+    required: true
+  head-ref:
+    description: Pull request head ref.
+    required: true
+  head-sha:
+    description: Pull request head SHA used for inline comment anchoring.
+    required: true
+  review-level:
+    description: 'Review level: low, medium, or high.'
+    required: false
+    default: medium
+  output-mode:
+    description: 'Output mode: report-only or pr-comments.'
+    required: false
+    default: report-only
+  user-context:
+    description: Requester-supplied focus text from /review.
+    required: false
+    default: ''
+  agent-name:
+    description: Copilot agent name to invoke.
+    required: false
+    default: code-review-agent
+  gh-token:
+    description: GitHub token used only for publishing review output.
+    required: true
+  copilot-github-token:
+    description: Token used only for Copilot CLI authentication.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Copilot CLI
+      shell: bash
+      run: npm install -g @github-copilot/cli
+
+    - name: Run review agent call
+      shell: pwsh
+      env:
+        COPILOT_GITHUB_TOKEN: ${{ inputs.copilot-github-token }}
+        REVIEW_TRIGGER: ${{ inputs.trigger }}
+        REVIEW_PR_NUMBER: ${{ inputs.pr-number }}
+        REVIEW_BASE_REF: ${{ inputs.base-ref }}
+        REVIEW_HEAD_REF: ${{ inputs.head-ref }}
+        REVIEW_HEAD_SHA: ${{ inputs.head-sha }}
+        REVIEW_LEVEL: ${{ inputs.review-level }}
+        REVIEW_OUTPUT_MODE: ${{ inputs.output-mode }}
+        REVIEW_USER_CONTEXT: ${{ inputs.user-context }}
+        REVIEW_AGENT_NAME: ${{ inputs.agent-name }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        New-Item -ItemType Directory -Force -Path .ai-pr-review | Out-Null
+        $templatePath = Resolve-Path (Join-Path $env:GITHUB_ACTION_PATH '../../../scripts/ai-pr-review/prompts/review-prompt.md')
+        $requesterFocus = ''
+        if (-not [string]::IsNullOrWhiteSpace($env:REVIEW_USER_CONTEXT)) {
+          $cleanContext = $env:REVIEW_USER_CONTEXT -replace '</?requester-focus>', ''
+          $requesterFocus = "- Requester focus: $cleanContext"
+        }
+        $prompt = (Get-Content $templatePath -Raw).
+          Replace('{{agentName}}', $env:REVIEW_AGENT_NAME).
+          Replace('{{target}}', "Review pull request #$($env:REVIEW_PR_NUMBER) in $($env:GITHUB_REPOSITORY).").
+          Replace('{{trigger}}', $env:REVIEW_TRIGGER).
+          Replace('{{baseRef}}', $env:REVIEW_BASE_REF).
+          Replace('{{headRef}}', $env:REVIEW_HEAD_REF).
+          Replace('{{headSha}}', $env:REVIEW_HEAD_SHA).
+          Replace('{{reviewLevel}}', $env:REVIEW_LEVEL).
+          Replace('{{outputMode}}', $env:REVIEW_OUTPUT_MODE).
+          Replace('{{requesterFocus}}', $requesterFocus)
+        $report = & copilot -p $prompt --agent $env:REVIEW_AGENT_NAME
+        if ($LASTEXITCODE -ne 0) { throw "copilot review call failed with exit code $LASTEXITCODE" }
+        $reportText = ($report | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($reportText)) { throw 'copilot review call returned empty output' }
+        $prompt | Out-File -FilePath .ai-pr-review/prompt.txt -Encoding utf8
+        $reportText | Out-File -FilePath .ai-pr-review/report.md -Encoding utf8
+
+    - name: Run publish agent call
+      if: ${{ inputs.output-mode == 'pr-comments' }}
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ inputs.gh-token }}
+        COPILOT_GITHUB_TOKEN: ${{ inputs.copilot-github-token }}
+        REVIEW_PR_NUMBER: ${{ inputs.pr-number }}
+        REVIEW_HEAD_SHA: ${{ inputs.head-sha }}
+        REVIEW_USER_CONTEXT: ${{ inputs.user-context }}
+        REVIEW_AGENT_NAME: ${{ inputs.agent-name }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $templatePath = Resolve-Path (Join-Path $env:GITHUB_ACTION_PATH '../../../scripts/ai-pr-review/prompts/publish-prompt.md')
+        $body = (Get-Content $templatePath -Raw).
+          Replace('{{repository}}', $env:GITHUB_REPOSITORY).
+          Replace('{{prNumber}}', $env:REVIEW_PR_NUMBER).
+          Replace('{{headSha}}', $env:REVIEW_HEAD_SHA).
+          Replace('{{reportPath}}', '.ai-pr-review/report.md').
+          Replace('{{userContext}}', $env:REVIEW_USER_CONTEXT)
+        $report = Get-Content .ai-pr-review/report.md -Raw
+        $publishPrompt = "$body`n`nSaved report:`n`n$report"
+        $null = & copilot -p $publishPrompt --agent $env:REVIEW_AGENT_NAME
+        if ($LASTEXITCODE -ne 0) { throw "copilot publish call failed with exit code $LASTEXITCODE" }

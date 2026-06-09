@@ -1,0 +1,167 @@
+name: AI PR Review
+
+# Parked secondary automation path.
+# Keep this workflow runnable for later automation work,
+# but do not treat it as the primary human-facing review path.
+# See docs/automation-status.md for current status and fix backlog.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  issue_comment:
+    types: [created]
+
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: string
+      review_level:
+        description: Review level to use
+        required: false
+        default: medium
+        type: string
+      output_mode:
+        description: Output mode to use
+        required: false
+        default: pr-comments
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: AI code review
+    # Override with repo/org variable PR_REVIEW_RUNNER_LABELS_JSON when needed
+    # Example: ["self-hosted","linux","x64"]
+    runs-on: ${{ fromJSON(vars.PR_REVIEW_RUNNER_LABELS_JSON || '["ubuntu-latest"]') }}
+
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != '' &&
+        startsWith(github.event.comment.body, '/review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
+
+    steps:
+      - name: Set review parameters
+        id: params
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          DISPATCH_OUTPUT_MODE: ${{ inputs.output_mode }}
+          DISPATCH_PR_NUMBER: ${{ inputs.pr_number }}
+          DISPATCH_REVIEW_LEVEL: ${{ inputs.review_level }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            "trigger=automatic" >> $env:GITHUB_OUTPUT
+            "pr_number=$($env:PR_NUMBER)" >> $env:GITHUB_OUTPUT
+            "base_ref=$($env:PR_BASE_REF)" >> $env:GITHUB_OUTPUT
+            "head_ref=$($env:PR_HEAD_REF)" >> $env:GITHUB_OUTPUT
+            "head_sha=$($env:PR_HEAD_SHA)" >> $env:GITHUB_OUTPUT
+            "trusted_ref=$($env:PR_BASE_SHA)" >> $env:GITHUB_OUTPUT
+            "level=low" >> $env:GITHUB_OUTPUT
+            "output_mode=report-only" >> $env:GITHUB_OUTPUT
+            "user_context=" >> $env:GITHUB_OUTPUT
+          } elseif ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            $prJson = gh pr view $env:DISPATCH_PR_NUMBER --repo $env:GITHUB_REPOSITORY --json baseRefName,baseRefOid,headRefName,headRefOid | ConvertFrom-Json
+            "trigger=on-request" >> $env:GITHUB_OUTPUT
+            "pr_number=$($env:DISPATCH_PR_NUMBER)" >> $env:GITHUB_OUTPUT
+            "base_ref=$($prJson.baseRefName)" >> $env:GITHUB_OUTPUT
+            "head_ref=$($prJson.headRefName)" >> $env:GITHUB_OUTPUT
+            "head_sha=$($prJson.headRefOid)" >> $env:GITHUB_OUTPUT
+            "trusted_ref=$($env:GITHUB_SHA)" >> $env:GITHUB_OUTPUT
+            "level=$($env:DISPATCH_REVIEW_LEVEL)" >> $env:GITHUB_OUTPUT
+            "output_mode=$($env:DISPATCH_OUTPUT_MODE)" >> $env:GITHUB_OUTPUT
+            "user_context=" >> $env:GITHUB_OUTPUT
+          } else {
+            $userContext = ($env:COMMENT_BODY -replace '^/review', '').Trim()
+            $prJson = gh pr view $env:ISSUE_NUMBER --repo $env:GITHUB_REPOSITORY --json baseRefName,baseRefOid,headRefName,headRefOid | ConvertFrom-Json
+            "trigger=on-request" >> $env:GITHUB_OUTPUT
+            "pr_number=$($env:ISSUE_NUMBER)" >> $env:GITHUB_OUTPUT
+            "base_ref=$($prJson.baseRefName)" >> $env:GITHUB_OUTPUT
+            "head_ref=$($prJson.headRefName)" >> $env:GITHUB_OUTPUT
+            "head_sha=$($prJson.headRefOid)" >> $env:GITHUB_OUTPUT
+            "trusted_ref=$($prJson.baseRefOid)" >> $env:GITHUB_OUTPUT
+            "level=medium" >> $env:GITHUB_OUTPUT
+            "output_mode=pr-comments" >> $env:GITHUB_OUTPUT
+            $delimiter = "context_$([guid]::NewGuid().ToString('N'))"
+            "user_context<<$delimiter" >> $env:GITHUB_OUTPUT
+            $userContext >> $env:GITHUB_OUTPUT
+            "$delimiter" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Checkout review target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.params.outputs.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout trusted action
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.params.outputs.trusted_ref }}
+          path: .ai-pr-review-trusted
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect trusted action interface
+        id: trusted-action
+        shell: bash
+        run: |
+          action_yml=.ai-pr-review-trusted/.github/actions/ai-pr-review/action.yml
+          if grep -q '^  gh-token:' "$action_yml" && grep -q '^  copilot-github-token:' "$action_yml"; then
+            echo "supports_token_inputs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supports_token_inputs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require trusted action token inputs
+        if: steps.trusted-action.outputs.supports_token_inputs != 'true'
+        shell: bash
+        run: |
+          echo "::error::Trusted action checkout does not support token inputs. Use a two-stage rollout: merge the action interface first, then enable this workflow caller."
+          exit 1
+
+      - name: Run AI PR review action
+        if: steps.trusted-action.outputs.supports_token_inputs == 'true'
+        uses: ./.ai-pr-review-trusted/.github/actions/ai-pr-review
+        with:
+          trigger: ${{ steps.params.outputs.trigger }}
+          pr-number: ${{ steps.params.outputs.pr_number }}
+          base-ref: ${{ steps.params.outputs.base_ref }}
+          head-ref: ${{ steps.params.outputs.head_ref }}
+          head-sha: ${{ steps.params.outputs.head_sha }}
+          review-level: ${{ steps.params.outputs.level }}
+          output-mode: ${{ steps.params.outputs.output_mode }}
+          user-context: ${{ steps.params.outputs.user_context }}
+          agent-name: code-review-agent
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          copilot-github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: Upload review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-pr-review-report
+          path: .ai-pr-review/report.md
+          if-no-files-found: error
