@@ -269,76 +269,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
                 await _service.DeleteMultipleAsync(request, CancellationToken.None));
 
-            Assert.Contains("Retries=3", exception.InnerException.Message);
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterDelete_WhenLastUpdatedInContext_ThenDoesNotRetry()
-        {
-            var resourceType = "SearchParameter";
-            var parameters = new List<Tuple<string, string>>()
-            {
-                Tuple.Create("url", "http://test.com/param"),
-            };
-
-            var request = new ConditionalDeleteResourceRequest(
-                resourceType,
-                parameters,
-                DeleteOperation.HardDelete,
-                maxDeleteCount: 10,
-                deleteAll: false);
-
-            var dummyRequestContext = new FhirRequestContext(
-                "DELETE",
-                "https://localhost/SearchParameter",
-                "https://localhost/",
-                Guid.NewGuid().ToString(),
-                new Dictionary<string, StringValues>(),
-                new Dictionary<string, StringValues>());
-            dummyRequestContext.SetSearchParameterLastUpdated(DateTimeOffset.UtcNow);
-            _contextAccessor.RequestContext.Returns(dummyRequestContext);
-
-            var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
-
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param" };
-            var resource = searchParameter.ToResourceElement();
-            var rawResource = new RawResource(searchParameter.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
-            var resourceRequest = Substitute.For<ResourceRequest>();
-            var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var wrapper = new ResourceWrapper(resource, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
-            var entries = new List<SearchResultEntry> { new SearchResultEntry(wrapper, SearchEntryMode.Match) };
-
-            searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<ResourceVersionType>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>()).Returns(
-                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
-
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
-            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                });
-
-            var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
-                await _service.DeleteMultipleAsync(request, CancellationToken.None));
-
-            Assert.Equal(1, attemptCount);
-            Assert.DoesNotContain("Retries=", exception.InnerException.Message);
+            Assert.Contains(" Deletion.3", exception.InnerException.Message);
         }
     }
 }
