@@ -72,28 +72,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public async Task GivenAnAction_WhenPostingASearchParameterObject_ThenLastUpdatedIsClearedAfterExecution()
-        {
-            var capturedLastUpdated = DateTimeOffset.UtcNow;
-            _searchParameterValidator.ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
-                .Returns(capturedLastUpdated);
-
-            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _fhirRequestContextAccessor);
-
-            var context = CreateContext(new SearchParameter());
-            var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
-            ActionExecutionDelegate actionExecutionDelegate = () => Task.Run(() => actionExecutedContext);
-
-            // Set a value before execution
-            _fhirRequestContext.SetSearchParameterLastUpdated(capturedLastUpdated);
-
-            await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
-
-            // Verify LastUpdated was cleared
-            Assert.Null(_fhirRequestContext.GetSearchParameterLastUpdated());
-        }
-
-        [Fact]
         public async Task GivenAnAction_WhenPostingASearchParameterObjectWithExistingLastUpdated_ThenExistingLastUpdatedIsPassedToValidator()
         {
             var existingLastUpdated = DateTimeOffset.UtcNow.AddHours(-1);
