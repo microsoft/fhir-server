@@ -87,10 +87,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
 
-        // Hard cap for the diagnostic query command timeout (seconds). The CancellationToken
-        // timeout (2s) is the first line of defense; this is a backup in case cancellation
-        // doesn't terminate the SQL command promptly. Set on a NEW connection — does not
-        // affect search query connections.
+        /// <summary>
+        /// Hard cap for the diagnostic query command timeout (seconds). The CancellationToken
+        /// timeout (2s) is the first line of defense; this is a backup in case cancellation
+        /// doesn't terminate the SQL command promptly. Set on a NEW connection — does not
+        /// affect search query connections.
+        /// </summary>
         internal const int QueryStoreLookupTimeoutSeconds = 5;
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
@@ -837,7 +839,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
-                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot, _logger);
+                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
                     }
@@ -1165,7 +1167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Runs <see cref="LogQueryStoreByTextAsync"/> as a fire-and-forget background task so the
         /// diagnostic Query Store lookup never blocks or fails the originating search request.
         /// </summary>
-        private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime, ILogger logger)
+        private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime)
         {
             _ = Task.Run(async () =>
             {
@@ -1177,7 +1179,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     await LogQueryStoreByTextAsync(
                         queryText,
                         isStoredProcedure,
-                        logger,
                         QueryStoreLookupTimeoutSeconds,
                         executionTime,
                         loggingCts.Token);
@@ -1185,15 +1186,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 catch (Exception ex)
                 {
                     // The Query Store lookup is best-effort diagnostics. Swallow any failure so the
-                    // fire-and-forget task never surfaces an unobserved exception. Include the exception
-                    // type/message in the Warning so operators can distinguish a timeout, a permission
-                    // error, or a misconfigured Query Store even when Debug logging is disabled.
-                    logger.LogWarning(
+                    // fire-and-forget task never surfaces an unobserved exception. The exception is
+                    // passed to the logger (queryable via env_ex_* columns), so it isn't repeated in the message.
+                    _logger.LogWarning(
                         ex,
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                         executionTime,
                         queryText,
-                        $"Query Store lookup failed: {ex.GetType().Name}: {ex.Message}");
+                        "Query Store lookup failed.");
                 }
             });
         }
@@ -1201,7 +1201,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private async Task LogQueryStoreByTextAsync(
             string queryText,
             bool isStoredProcedure,
-            ILogger logger,
             int timeoutSeconds,
             long executionTime,
             CancellationToken ct)
@@ -1258,8 +1257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         //  - If it contains a parameter hash comment: use the hash for a fast LIKE lookup
                         //  - If hash lookup returns nothing: fall back to the expensive REPLACE+LIKE
                         //  - If it has no hash: filter OUT hash-bearing rows to reduce the LIKE scan set
-                        string effectiveQuery = queryText;
-                        var normalizedText = StripQueryPreambleLines(effectiveQuery);
+                        var normalizedText = StripQueryPreambleLines(queryText);
                         var searchFragments = SplitIntoSearchFragments(normalizedText);
 
                         // NOTE: The three lookup SQL strings below (HashLookupSql,
@@ -1402,7 +1400,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     if (sb.Length > 0)
                     {
-                        logger.LogWarning(
+                        _logger.LogWarning(
                             "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                             executionTime,
                             queryText,
@@ -1410,14 +1408,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                     else
                     {
-                        logger.LogWarning(
+                        _logger.LogWarning(
                             "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                             executionTime,
                             queryText,
                             "No Query Store matches found.");
                     }
                 },
-                logger,
+                _logger,
                 ct,
                 isReadOnly: true);
         }
@@ -2233,7 +2231,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
-                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot, _logger);
+                                FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
                     }
