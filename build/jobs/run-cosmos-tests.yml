@@ -44,6 +44,8 @@ parameters:
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
     - name: Mutation
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+    - name: BulkDelete
+      testFilter: 'FullyQualifiedName~CosmosDb&Category=BulkDelete'
     - name: History
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
 
