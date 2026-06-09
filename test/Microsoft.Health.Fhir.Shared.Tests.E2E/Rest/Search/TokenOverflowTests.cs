@@ -450,9 +450,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     // Start a reindex job
                     (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                    await Client.WaitForReindexStatus(reindexJobUri, "Completed");
+                    FhirResponse<Parameters> reindexJobResult = await Client.WaitForReindexStatus(reindexJobUri, "Completed");
 
-                    FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                     Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
                     _output.WriteLine("ReindexJobDocument:");
                     var serializer = new FhirJsonSerializer();
