@@ -46,9 +46,6 @@ parameters:
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
     - name: History
       testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
-- name: e2eParallelizeTestCollections
-  type: boolean
-  default: false
 
 jobs:
 
@@ -135,7 +132,6 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
         testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - ${{ each shard in parameters.e2eTestShards }}:
@@ -157,7 +153,6 @@ jobs:
           appServiceType: 'CosmosDb'
           testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
-          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - job: 'cosmosE2eTests_RequiresIsolation'
@@ -181,7 +176,6 @@ jobs:
         appServiceType: 'CosmosDb'
         testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
         testRunTitleSuffix: ' RequiresIsolation'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'cosmosE2eTests_Reindex'
@@ -202,4 +196,3 @@ jobs:
         appServiceType: 'CosmosDb'
         testFilter: 'FullyQualifiedName~CosmosDb&Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
-        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}

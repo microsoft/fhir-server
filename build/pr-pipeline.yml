@@ -408,7 +408,6 @@ stages:
       containerAppName: $(DeploymentEnvironmentName)
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
-      e2eParallelizeTestCollections: true
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -429,7 +428,6 @@ stages:
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
-      e2eParallelizeTestCollections: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -449,7 +447,6 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4)
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
-      e2eParallelizeTestCollections: true
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -470,7 +467,6 @@ stages:
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
-      e2eParallelizeTestCollections: true
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -491,7 +487,6 @@ stages:
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
-      e2eParallelizeTestCollections: true
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
