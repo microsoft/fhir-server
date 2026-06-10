@@ -96,12 +96,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private bool TryGetSearchParamTableExpressionQueryGenerator(Expression expression, out SearchParamTableExpressionQueryGenerator searchParamTableExpressionGenerator, out SearchParamTableExpressionKind kind)
         {
             searchParamTableExpressionGenerator = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory);
-            if (expression is UnionExpression)
-            {
-                kind = SearchParamTableExpressionKind.Union;
-                return searchParamTableExpressionGenerator != null;
-            }
-
             switch (searchParamTableExpressionGenerator)
             {
                 case ChainLinkQueryGenerator _:
