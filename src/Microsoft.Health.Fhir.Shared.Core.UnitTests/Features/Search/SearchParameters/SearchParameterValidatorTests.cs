@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
             _searchParameterOperations.EnsureNoActiveReindexJobAsync(CancellationToken.None).Returns(Task.CompletedTask);
+            _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
         }
 
         [Theory]

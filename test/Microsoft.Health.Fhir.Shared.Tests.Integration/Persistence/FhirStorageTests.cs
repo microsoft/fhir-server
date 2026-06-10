@@ -1201,10 +1201,12 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Code = searchParamName,
             };
 
-            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+            _searchParameterDefinitionManager.AddNewSearchParameters([searchParam.ToTypedElement()]);
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
             // Add the search parameter to the datastore
-            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported, CancellationToken.None);
+            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None, lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
             await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
@@ -1218,12 +1220,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             json = json.Replace("\"id\": \"example\"", "\"id\": \"" + id + "\"");
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
             return Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
-        }
-
-        private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
-            where TException : Exception
-        {
-            await Assert.ThrowsAsync<TException>(action);
         }
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)

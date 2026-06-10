@@ -60,7 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
-            ResourceWrapper searchParamResource = null;
 
             if (deleteRequest.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
@@ -76,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 // Now try to get the custom search parameter from the data store
-                searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
+                var searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
 
                 if (searchParamResource == null)
                 {
@@ -90,6 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     var url = typed.GetStringScalar("url");
                     await QueuePendingDeleteStatusAsync(url, cancellationToken);
                 }
+
+                return await next(cancellationToken);
             }
 
             return await next(cancellationToken);
@@ -108,6 +109,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
+            var lastUpdated = _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated();
+            if (!lastUpdated.HasValue)
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
+            }
+
             if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
                 value is not List<ResourceSearchParameterStatus> pendingStatuses)
             {
@@ -115,14 +123,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
             }
 
-            var currentStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var existing = currentStatuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = SearchParameterStatus.PendingDelete,
-                LastUpdated = existing?.LastUpdated ?? DateTimeOffset.UtcNow,
+                LastUpdated = lastUpdated.Value,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };

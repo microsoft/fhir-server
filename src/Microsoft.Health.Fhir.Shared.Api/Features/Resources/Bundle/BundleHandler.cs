@@ -114,12 +114,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
-        private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
+        private static readonly string[] HeadersToAccumulate = [KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge"];
 
         /// <summary>
         /// Properties to propagate from the outer HTTP requests to the inner actions.
         /// </summary>
-        private static readonly string[] PropertiesToAccumulate = new[] { KnownQueryParameterNames.OptimizeConcurrency };
+        private static readonly string[] PropertiesToAccumulate = [KnownQueryParameterNames.OptimizeConcurrency, SearchParameterRequestContextPropertyNames.LastUpdated];
 
         private static readonly Uri LocalHost = new("http://localhost/");
 
@@ -219,10 +219,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
-                    var responseBundle = new Hl7.Fhir.Model.Bundle
-                    {
-                        Type = BundleType.BatchResponse,
-                    };
+                    var responseBundle = new Hl7.Fhir.Model.Bundle { Type = BundleType.BatchResponse };
 
                     if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
                     {
@@ -264,12 +261,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
+                    var responseBundle = new Hl7.Fhir.Model.Bundle { Type = BundleType.TransactionResponse };
 
-                    var responseBundle = new Hl7.Fhir.Model.Bundle
-                    {
-                        Type = BundleType.TransactionResponse,
-                    };
+                    await CheckSearchParamInputConflictsAndUpdateCache(bundleResource, cancellationToken);
 
                     await ExecuteTransactionForAllRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
 
@@ -332,9 +326,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
 
+            // for deletes Entry.Resource is null. need to check in other way
+            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
+            {
+                searchParamsInBundle = true;
+            }
+
             if (searchParamsInBundle)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken); // refresh search param cache
+                _fhirRequestContextAccessor.RequestContext.SetSearchParameterLastUpdated(_searchParameterOperations.SearchParamLastUpdated); // capture last updated
             }
         }
 
@@ -1109,19 +1110,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 },
             };
-        }
-
-        private static string SanitizeString(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return string.Empty;
-            }
-
-            return input
-                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)
-                .Replace("\n", " ", StringComparison.OrdinalIgnoreCase);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)

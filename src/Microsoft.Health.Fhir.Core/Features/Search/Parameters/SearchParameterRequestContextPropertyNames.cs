@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public static class SearchParameterRequestContextPropertyNames
     {
         public const string PendingStatusUpdates = "SearchParameter.PendingStatusUpdates";
+        public const string LastUpdated = "SearchParameter.LastUpdated";
     }
 }
