@@ -441,10 +441,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            var allSearchParameterStatuses = resources
-                .Where(r => r.PendingSearchParameterStatus != null)
-                .Select(r => r.PendingSearchParameterStatus)
-                .ToList();
+            var pendingStatuses = resources.Where(r => r.PendingSearchParameterStatus != null).Select(r => r.PendingSearchParameterStatus).ToList();
 
             if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
@@ -456,7 +453,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, allSearchParameterStatuses, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -810,12 +807,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
-            bool hasPendingStatuses = pendingStatuses?.Count > 0;
 
-            if (hasPendingStatuses)
+            if (pendingStatuses?.Count > 0)
             {
                 cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
-                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses.ToList()));
+                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
                 cmd.Parameters.AddWithValue("@ReindexId", 0);
             }
             else
@@ -858,7 +854,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
             }
 
-            _logger.LogInformation($"MergeResourcesWrapperAsync: resources={mergeWrappers.Count}, searchParams={(hasPendingStatuses ? pendingStatuses.Count : 0)} transactionId={transactionId}, singleTransaction={singleTransaction}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
+            _logger.LogInformation($"MergeResourcesWrapperAsync: resources={mergeWrappers.Count}, searchParams={pendingStatuses?.Count ?? 0} transactionId={transactionId}, singleTransaction={singleTransaction}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
         private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
