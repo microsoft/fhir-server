@@ -28,6 +28,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
+        public ScalarTemporalEqualityRewriterTests()
+        {
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes("DiagnosticReport").Build());
+        }
+
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
             { StartOfDay, EndOfDay },
@@ -78,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(start, end));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, false);
 
             AssertDaySplitUnion(result, start, end);
         }
@@ -91,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
             var expr = new SearchParameterExpression(BuildBirthdateParam(), reversedPattern);
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, false);
 
             AssertDaySplitUnion(result, StartOfDay, EndOfDay);
         }
@@ -102,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), inner);
 
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, false));
 
             Assert.Same(expr, result);
         }
@@ -113,9 +118,26 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(param, EqualityPattern(StartOfDay, EndOfDay));
 
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, false));
 
             Assert.Same(expr, result);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInsideChainedExpression_WhenRewritten_ThenPassThrough()
+        {
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var chained = new ChainedExpression(
+                resourceTypes: new[] { "DiagnosticReport" },
+                referenceSearchParameter: BuildReferenceParam(),
+                targetResourceTypes: new[] { "Patient" },
+                reversed: false,
+                expression: inner);
+
+            var result = Assert.IsType<ChainedExpression>(chained.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, false));
+
+            Assert.Same(chained, result);
+            Assert.Same(inner, result.Expression);
         }
 
         private static void AssertDaySplitUnion(Expression result, DateTimeOffset expectedStart, DateTimeOffset expectedEnd)
@@ -161,6 +183,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                                 Assert.Equal(expectedEnd, binary.Value);
                             });
                     }));
+        }
+
+        private static SearchParameterInfo BuildReferenceParam()
+        {
+            return new SearchParameterInfo(
+                "subject",
+                "subject",
+                SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject"),
+                expression: "DiagnosticReport.subject",
+                baseResourceTypes: new[] { "DiagnosticReport" },
+                targetResourceTypes: new[] { "Patient" });
         }
 
         private static void AssertSearchParameterAnd(Expression branch, Action<MultiaryExpression> assertAnd)

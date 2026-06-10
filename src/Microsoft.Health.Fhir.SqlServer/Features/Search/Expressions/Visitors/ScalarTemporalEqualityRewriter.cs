@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// This rewriter must run BEFORE <see cref="DateTimeEqualityRewriter"/> so the input pattern still has only two
     /// predicates. Composite parameters and range operators are out of scope and pass through unchanged.
     /// </summary>
-    internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<object>
+    internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
         internal static readonly ScalarTemporalEqualityRewriter Instance = new ScalarTemporalEqualityRewriter();
 
@@ -50,8 +50,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, bool insideChainedExpression)
         {
+            if (insideChainedExpression)
+            {
+                return expression;
+            }
+
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {
@@ -80,6 +85,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 Precision.ExactDay => BuildDaySplitUnion(expression.Parameter, startPredicate, endPredicate),
                 _ => expression,
             };
+        }
+
+        public override Expression VisitChained(ChainedExpression expression, bool context)
+        {
+            Expression visitedExpression = expression.Expression.AcceptVisitor(visitor: this, context: true);
+            if (ReferenceEquals(visitedExpression, expression.Expression))
+            {
+                return expression;
+            }
+
+            return new ChainedExpression(
+                resourceTypes: expression.ResourceTypes,
+                referenceSearchParameter: expression.ReferenceSearchParameter,
+                targetResourceTypes: expression.TargetResourceTypes,
+                reversed: expression.Reversed,
+                expression: visitedExpression);
         }
 
         internal static bool IsActivatedScalarTemporalParameter(SearchParameterExpression expression)
