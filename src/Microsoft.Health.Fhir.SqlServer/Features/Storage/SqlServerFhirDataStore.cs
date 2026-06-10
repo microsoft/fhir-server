@@ -857,16 +857,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger.LogInformation($"MergeResourcesWrapperAsync: resources={mergeWrappers.Count}, searchParams={pendingStatuses?.Count ?? 0} transactionId={transactionId}, singleTransaction={singleTransaction}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
-        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
+        private void SetAndClearPendingSearchParameterStatus(ResourceWrapperOperation resource)
         {
-            return _requestContextAccessor?.RequestContext?.Properties?.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object value) == true
-                ? (ResourceSearchParameterStatus)value
-                : null;
-        }
-
-        private void ClearPendingSearchParameterStatus()
-        {
-            _requestContextAccessor?.RequestContext?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+            if (_requestContextAccessor?.RequestContext?.Properties?.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object value) == true)
+            {
+                resource.PendingSearchParameterStatus = (ResourceSearchParameterStatus)value;
+                _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+            }
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
@@ -882,8 +879,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
-                resource.PendingSearchParameterStatus = GetPendingSearchParameterStatus();
-                ClearPendingSearchParameterStatus();
+                SetAndClearPendingSearchParameterStatus(resource);
 
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
@@ -895,8 +891,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
                 if (!isBundleTransaction)
                 {
-                    resource.PendingSearchParameterStatus = GetPendingSearchParameterStatus();
-                    ClearPendingSearchParameterStatus();
+                    SetAndClearPendingSearchParameterStatus(resource);
                 }
 
                 // For regular upserts and sequential bundle operations, enlistTransaction is set to true.
