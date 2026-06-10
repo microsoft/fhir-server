@@ -197,6 +197,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(new Bundle { Entry = resources }, completeBundle.Entry.Select(e => e.Resource).ToArray());
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedBirthdateEqualitySearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string patientIdentifier = $"{Fixture.BirthdatePatientIdentifierSystem}|{Fixture.BirthdatePatientIdentifierValue}";
+
+            Bundle directPatientBundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&birthdate={Fixture.Birthdate}");
+            ValidateBundle(directPatientBundle, Fixture.SmithPatient);
+
+            Bundle medicationDispenseBundle = await Client.SearchAsync(
+                ResourceType.MedicationDispense,
+                $"_tag={Fixture.Tag}&patient:Patient.birthdate={Fixture.Birthdate}&_count=10&_sort=_lastUpdated");
+            ValidateBundle(medicationDispenseBundle, Fixture.SmithMedicationDispense);
+
+            Bundle medicationRequestBundle = await Client.SearchAsync(
+                ResourceType.MedicationRequest,
+                $"_tag={Fixture.Tag}&patient:Patient.birthdate={Fixture.Birthdate}&patient:Patient.identifier={patientIdentifier}&_count=10");
+            ValidateBundle(medicationRequestBundle, Fixture.SmithMedicationRequest);
+        }
+
         [Fact]
         public async Task GivenAReverseChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -387,11 +407,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public string OrganizationIdentifier { get; } = Guid.NewGuid().ToString();
 
+            public string Birthdate { get; } = "1990-05-15";
+
+            public string BirthdatePatientIdentifierSystem { get; } = "http://fhir-server-test/chained-birthdate";
+
+            public string BirthdatePatientIdentifierValue { get; } = Guid.NewGuid().ToString();
+
             public Patient SmithPatient { get; private set; }
 
             public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
 
             public DiagnosticReport SmithLoincDiagnosticReport { get; private set; }
+
+            public MedicationDispense SmithMedicationDispense { get; private set; }
+
+            public MedicationRequest SmithMedicationRequest { get; private set; }
 
             public Device DeviceLoincSubject { get; private set; }
 
@@ -426,7 +456,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
                 AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Female, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
-                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
+                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, BirthDate = Birthdate, Identifier = new List<Identifier> { new Identifier(BirthdatePatientIdentifierSystem, BirthdatePatientIdentifierValue) }, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
                 TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
@@ -444,6 +474,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanSnomedObservation, snomedCode);
                 SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, smithLoincObservation, loincCode);
                 TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanLoincObservation, loincCode);
+                SmithMedicationRequest = await CreateMedicationRequest(SmithPatient);
+                SmithMedicationDispense = await CreateMedicationDispense(SmithPatient, SmithMedicationRequest);
 
                 var deletedPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { "Delete" }, Family = "Delete" } } })).Resource;
                 await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{AdamsPatient.Id}") });
@@ -494,6 +526,56 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             Status = ObservationStatus.Final,
                             Code = code,
                             Subject = new ResourceReference($"{subject.TypeName}/{subject.Id}"),
+                        })).Resource;
+                }
+
+                async Task<MedicationRequest> CreateMedicationRequest(Patient patient)
+                {
+                    var medicationCode = new CodeableConcept("http://snomed.info/sct", "108505002");
+
+                    return (await TestFhirClient.CreateAsync(
+                        new MedicationRequest
+                        {
+                            Meta = meta,
+                            Subject = new ResourceReference($"Patient/{patient.Id}"),
+#if Stu3
+                            Intent = MedicationRequest.MedicationRequestIntent.Order,
+                            Status = MedicationRequest.MedicationRequestStatus.Active,
+#else
+                            IntentElement = new Code<MedicationRequest.MedicationRequestIntent> { Value = MedicationRequest.MedicationRequestIntent.Order },
+                            StatusElement = new Code<MedicationRequest.MedicationrequestStatus> { Value = MedicationRequest.MedicationrequestStatus.Active },
+#endif
+#if Stu3 || R4 || R4B
+                            Medication = medicationCode,
+#else
+                            Medication = new CodeableReference { Concept = medicationCode },
+#endif
+                        })).Resource;
+                }
+
+                async Task<MedicationDispense> CreateMedicationDispense(Patient patient, MedicationRequest medicationRequest)
+                {
+                    var medicationCode = new CodeableConcept("http://snomed.info/sct", "108505002");
+
+                    return (await TestFhirClient.CreateAsync(
+                        new MedicationDispense
+                        {
+                            Meta = meta,
+                            Subject = new ResourceReference($"Patient/{patient.Id}"),
+                            AuthorizingPrescription = new List<ResourceReference>
+                            {
+                                new ResourceReference($"MedicationRequest/{medicationRequest.Id}"),
+                            },
+#if Stu3 || R4 || R4B
+                            Medication = medicationCode,
+#else
+                            Medication = new CodeableReference { Concept = medicationCode },
+#endif
+#if Stu3
+                            Status = MedicationDispense.MedicationDispenseStatus.InProgress,
+#else
+                            Status = MedicationDispense.MedicationDispenseStatusCodes.InProgress,
+#endif
                         })).Resource;
                 }
             }
