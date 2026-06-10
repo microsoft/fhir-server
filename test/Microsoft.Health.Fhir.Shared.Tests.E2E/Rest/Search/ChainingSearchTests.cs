@@ -206,10 +206,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle directPatientBundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&birthdate={Fixture.Birthdate}");
             ValidateBundle(directPatientBundle, Fixture.SmithPatient);
 
+            Bundle diagnosticReportBundle = await Client.SearchAsync(
+                ResourceType.DiagnosticReport,
+                $"_tag={Fixture.Tag}&subject:Patient.birthdate={Fixture.Birthdate}&_count=10&_sort=_lastUpdated");
+            ValidateBundle(diagnosticReportBundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+
+#if !Stu3
             Bundle medicationDispenseBundle = await Client.SearchAsync(
                 ResourceType.MedicationDispense,
                 $"_tag={Fixture.Tag}&patient:Patient.birthdate={Fixture.Birthdate}&_count=10&_sort=_lastUpdated");
             ValidateBundle(medicationDispenseBundle, Fixture.SmithMedicationDispense);
+#endif
 
             Bundle medicationRequestBundle = await Client.SearchAsync(
                 ResourceType.MedicationRequest,
