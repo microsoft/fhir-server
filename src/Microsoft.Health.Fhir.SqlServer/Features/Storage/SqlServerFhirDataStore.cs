@@ -441,10 +441,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            var pendingStatuses = resources.Where(r => r.PendingSearchParameterStatus != null).Select(r => r.PendingSearchParameterStatus).ToList();
-
             if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
+                var pendingStatuses = resources.Where(_ => _.PendingSearchParameterStatus != null).Select(_ => _.PendingSearchParameterStatus).ToList();
+
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
                     var retries = 0;
