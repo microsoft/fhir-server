@@ -138,9 +138,7 @@ steps:
     testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
     mergeTestResults: true
     testRunTitle: '${{ parameters.testRunTitle }}'
-    # TODO: Re-enable when testfx issue #7167 is fixed. MTP retries can make PublishTestResults
-    # fail even when retried tests pass; the preceding dotnet step still fails the job on test failures.
-    failTaskOnFailedTests: false
+    failTaskOnFailedTests: true
   condition: succeededOrFailed()
 
 - task: PowerShell@2
