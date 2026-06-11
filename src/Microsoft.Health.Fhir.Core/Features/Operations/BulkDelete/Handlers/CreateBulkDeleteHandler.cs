@@ -64,6 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
 
+            // Temporarily add _lastUpdated to the search parameters to mimic the behavior of the processing job. Conditional search will also fail if there are no search criteria.
+            var dateCurrent = new PartialDateTime(Clock.UtcNow);
+            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
+
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
@@ -75,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 JobType.BulkDeleteOrchestrator,
                 request.DeleteOperation,
                 request.ResourceType,
-                searchParameters,
+                request.ConditionalParameters,
                 request.ExcludedResourceTypes,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
