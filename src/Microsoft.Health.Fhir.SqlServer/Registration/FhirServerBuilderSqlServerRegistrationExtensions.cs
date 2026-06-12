@@ -30,8 +30,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -116,25 +115,21 @@ namespace Microsoft.Extensions.DependencyInjection
 
             AddSqlServerTableRowParameterGenerators(services);
 
-            services.Add<SearchParamTableExpressionQueryGeneratorFactory>()
+            // Add new sql search parser here
+            services.Add<SearchParameterCollection>()
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SqlRootExpressionRewriter>()
+            services.Add<SearchParameterCollectionSyncService>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>()
+                .AsService<INotificationHandler<SearchParametersUpdatedNotification>>();
 
-            services.Add<ChainFlatteningRewriter>()
+            services.Add<SearchParameterSqlParser>()
                 .Singleton()
-                .AsSelf();
-
-            services.Add<SortRewriter>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<PartitionEliminationRewriter>()
-                .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.Add<SqlServerSortingValidator>()
                 .Singleton()

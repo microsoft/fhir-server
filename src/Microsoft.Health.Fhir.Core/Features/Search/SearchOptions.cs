@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            QueryParams = new Dictionary<string, IList<string>>(other.QueryParams);
         }
 
         /// <summary>
@@ -185,6 +186,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+#pragma warning disable CA2227 // Collection properties should be read only
+        public IDictionary<string, IList<string>> QueryParams { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
 
         /// <summary>
         /// Performs a shallow clone of this instance

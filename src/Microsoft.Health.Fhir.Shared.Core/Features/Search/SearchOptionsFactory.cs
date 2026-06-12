@@ -130,10 +130,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool setDefaultBundleTotal = true;
             var notReferencedSearches = new List<string>();
 
+            searchOptions.QueryParams = new Dictionary<string, IList<string>>();
+
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
             foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
+                if (searchOptions.QueryParams.TryGetValue(query.Item1, out var values))
+                {
+                    values.Add(query.Item2);
+                }
+                else
+                {
+                    searchOptions.QueryParams[query.Item1] = new List<string>() { query.Item2 };
+                }
+
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
                     // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.

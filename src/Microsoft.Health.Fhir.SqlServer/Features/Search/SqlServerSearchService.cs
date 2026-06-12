@@ -34,9 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -61,13 +59,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SortValueColumnName = "SortValue";
 
         private readonly ISqlServerFhirModel _model;
-        private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
-        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
-        private readonly SortRewriter _sortRewriter;
-        private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
         private readonly SmartCompartmentSearchRewriter _smartCompartmentSearchRewriter;
-        private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
@@ -77,14 +70,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly SearchParameterSqlParser _searchParameterSqlParser;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
-        private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
 
         /// <summary>
@@ -101,13 +93,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
             ISqlServerFhirModel model,
-            SqlRootExpressionRewriter sqlRootExpressionRewriter,
-            ChainFlatteningRewriter chainFlatteningRewriter,
-            SortRewriter sortRewriter,
-            PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
-            SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             FhirSqlServerConfiguration fhirSqlServerConfiguration,
@@ -116,35 +103,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
+            SearchParameterSqlParser searchParameterSqlParser,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
-            EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
-            EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
-            EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(queryPlanReuseChecker, nameof(queryPlanReuseChecker));
+            EnsureArg.IsNotNull(searchParameterSqlParser, nameof(searchParameterSqlParser));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _fhirSqlServerConfiguration = EnsureArg.IsNotNull(fhirSqlServerConfiguration, nameof(fhirSqlServerConfiguration));
             _fhirDataStore = fhirDataStore;
             _model = model;
-            _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
-            _sortRewriter = sortRewriter;
-            _queryGeneratorFactory = queryGeneratorFactory;
-            _partitionEliminationRewriter = partitionEliminationRewriter;
             _compartmentSearchRewriter = compartmentSearchRewriter;
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
-            _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
+            _searchParameterSqlParser = searchParameterSqlParser;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -436,55 +417,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            Expression searchExpression = sqlSearchOptions.Expression;
 
             // AND in the continuation token
+            ContinuationToken continuationToken = null;
             if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
             {
-                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
-                if (continuationToken != null)
-                {
-                    if (string.IsNullOrEmpty(continuationToken.SortValue))
-                    {
-                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
-                        bool optimize = true;
-                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
-                        if (sqlSearchOptions.Sort.Count > 0)
-                        {
-                            if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
-                            {
-                                optimize = false;
-                            }
-                        }
-
-                        FieldName fieldName;
-                        object keyValue;
-                        SearchParameterInfo parameter;
-                        if (continuationToken.ResourceTypeId == null || _schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
-                        {
-                            // backwards compat
-                            parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
-                            fieldName = SqlFieldName.ResourceSurrogateId;
-                            keyValue = continuationToken.ResourceSurrogateId;
-                        }
-                        else
-                        {
-                            parameter = SqlSearchParameters.PrimaryKeyParameter;
-                            fieldName = SqlFieldName.PrimaryKey;
-                            keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
-                        }
-
-                        Expression lastUpdatedExpression = !optimize
-                            ? Expression.GreaterThan(fieldName, null, keyValue)
-                            : sortOrder == SortOrder.Ascending
-                                ? Expression.GreaterThan(fieldName, null, keyValue)
-                                : Expression.LessThan(fieldName, null, keyValue);
-
-                        var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
-                        searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
-                    }
-                }
-                else
+                continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+                if (continuationToken == null)
                 {
                     _logger.LogWarning("Bad Request (InvalidContinuationToken)");
                     throw new BadRequestException(Resources.InvalidContinuationToken);
@@ -492,21 +431,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
-            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
+            var clonedSearchOptions = new SqlSearchOptions(sqlSearchOptions);
 
-            if (clonedSearchOptions.CountOnly)
-            {
-                // if we're only returning a count, discard any _include parameters since included resources are not counted.
-                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
-            }
-
-            // ! - Trace
-            SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
-                ?.AcceptVisitor(IncludeRewriter.Instance)
-                ?? SqlRootExpression.WithResourceTableExpressions();
-
-            await CreateStats(expression, cancellationToken);
-
+            /*
             // Reads by resource ids is handled directly via GetAsync().
             // Search result is set only on success, otherwise it is null.
             // SqlServerFhirDataStore uses the same retry class, so it is not needed to call this inside _sqlRetryService.ExecuteSql down below.
@@ -515,6 +442,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger.LogInformation("Get resources by ids was handled via GetAsync()");
                 return result;
             }
+            */
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
@@ -530,17 +458,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
-                        }
+                        }/*
                         else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
                             PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
-                        }
+                        }*/
                         else
                         {
-                            var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                            // var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                            // EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
-                            EnableTimeAndIoMessageLogging(stringBuilder, connection);
-
+                            /*
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
@@ -555,8 +483,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+                            */
 
-                            var queryText = stringBuilder.ToString();
+                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, continuationToken?.ResourceSurrogateId);
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
@@ -573,7 +502,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
-                            _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
+                            // _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
                         LogSqlCommand(sqlCommand);
@@ -1140,14 +1069,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // ParametersHashStart/End are always emitted in fixed uppercase by SqlQueryGenerator,
             // so use Ordinal (not OrdinalIgnoreCase) to avoid matching arbitrary user-authored
             // lowercase comments such as "/* hash ... */".
-            int hashStart = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal);
+            int hashStart = queryText.IndexOf(SqlSearchConstants.ParametersHashStart, StringComparison.Ordinal);
             if (hashStart < 0)
             {
                 return null;
             }
 
-            int valueStart = hashStart + Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart.Length;
-            int hashEnd = queryText.IndexOf(Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashEnd, valueStart, StringComparison.Ordinal);
+            int valueStart = hashStart + SqlSearchConstants.ParametersHashStart.Length;
+            int hashEnd = queryText.IndexOf(SqlSearchConstants.ParametersHashEnd, valueStart, StringComparison.Ordinal);
             if (hashEnd < 0)
             {
                 return null;
@@ -1361,7 +1290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 // Fast path: search by the embedded parameter hash string.
                                 cmd.CommandText = HashLookupSql;
                                 cmd.Parameters.Clear();
-                                string hashFilter = Expressions.Visitors.QueryGenerators.SqlQueryGenerator.ParametersHashStart + fragmentHash;
+                                string hashFilter = SqlSearchConstants.ParametersHashStart + fragmentHash;
                                 cmd.Parameters.AddWithValue("@HashFilter", hashFilter);
 
                                 using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
@@ -1497,101 +1426,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
             LogSqlCommand(sqlCommand);
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken);
-        }
-
-        /// <summary>
-        /// If no sorting fields are specified, sets the sorting fields to the primary key. (This is either ResourceSurrogateId or ResourceTypeId, ResourceSurrogateId).
-        /// If sorting only by ResourceTypeId, adds in ResourceSurrogateId as the second sort column.
-        /// If sorting by ResourceSurrogateId and using partitioned tables and searching over a single type, sets the sort to ResourceTypeId, ResourceSurrogateId
-        /// </summary>
-        /// <param name="searchOptions">The input SearchOptions</param>
-        /// <param name="searchExpression">The searchExpression</param>
-        /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression)
-        {
-            SqlSearchOptions newSearchOptions = searchOptions;
-            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && searchOptions.Sort.Any())
-            {
-                // history is always sorted by _lastUpdated (except for export).
-                newSearchOptions = searchOptions.CloneSqlSearchOptions();
-
-                return newSearchOptions;
-            }
-
-            if (searchOptions.Sort.Count == 0)
-            {
-                newSearchOptions = searchOptions.CloneSqlSearchOptions();
-
-                if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
-                {
-                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
-                    {
-                        (_fakeLastUpdate, SortOrder.Ascending),
-                    };
-                }
-                else
-                {
-                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
-                    {
-                        (SearchParameterInfo.ResourceTypeSearchParameter, SortOrder.Ascending),
-                        (_fakeLastUpdate, SortOrder.Ascending),
-                    };
-                }
-
-                return newSearchOptions;
-            }
-
-            if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.ResourceType)
-            {
-                // We will not get here unless the schema version is at least SchemaVersionConstants.PartitionedTables.
-
-                // Add _lastUpdated to the sort list so that there is a deterministic key to sort on
-
-                newSearchOptions = searchOptions.CloneSqlSearchOptions();
-
-                newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
-                {
-                    (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
-                    (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
-                };
-
-                return newSearchOptions;
-            }
-
-            if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.LastUpdated && _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
-            {
-                (short? singleAllowedTypeId, BitArray allowedTypes) = TypeConstraintVisitor.Instance.Visit(searchExpression, _model);
-
-                if (singleAllowedTypeId != null && allowedTypes != null)
-                {
-                    // this means that this search is over a single type.
-                    newSearchOptions = searchOptions.CloneSqlSearchOptions();
-
-                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
-                    {
-                        (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
-                        (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
-                    };
-                }
-
-                return newSearchOptions;
-            }
-
-            if (searchOptions.Sort[^1].searchParameterInfo.Name != SearchParameterNames.LastUpdated)
-            {
-                // Make sure custom sort has _lastUpdated as the last sort parameter.
-
-                newSearchOptions = searchOptions.CloneSqlSearchOptions();
-
-                newSearchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
-                {
-                    (_fakeLastUpdate, SortOrder.Ascending),
-                };
-
-                return newSearchOptions;
-            }
-
-            return newSearchOptions;
         }
 
         private void ReadWrapper(
@@ -1953,6 +1787,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return resourceType;
         }
 
+        /*
         private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
         {
             if (_resourceSearchParamStats == null)
@@ -1970,6 +1805,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             return _resourceSearchParamStats.GetStatsFromCache();
         }
+        */
 
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(CancellationToken cancel)
         {
@@ -1998,6 +1834,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
+            throw new NotImplementedException();
+
+            /*
             var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
             if (includesContinuationToken == null)
             {
@@ -2241,8 +2080,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 true); // this enables reads from replicas
 
             return searchResult;
+            */
         }
 
+        /*
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
             // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
@@ -2477,6 +2318,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             return resourceKeys.Count > 0 && resourceKeys.Count <= searchOptions.MaxItemCount; // second condition guarantees absence of continuation token
         }
+        */
 
         private static void PopulateGetResourceSurrogateIdRangesCommand(SqlCommand cmd, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool up, bool activeOnly)
         {
@@ -2491,6 +2333,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             cmd.Parameters.AddWithValue("@ActiveOnly", activeOnly);
         }
 
+        /*
         private class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
@@ -2858,5 +2701,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
         }
+        */
     }
 }
