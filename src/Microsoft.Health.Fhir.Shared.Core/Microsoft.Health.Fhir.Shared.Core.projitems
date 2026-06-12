@@ -90,6 +90,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ServerProvideProfileValidation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)\Features\Search\RawBundleEntryComponent.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameterValueSetExpander.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
