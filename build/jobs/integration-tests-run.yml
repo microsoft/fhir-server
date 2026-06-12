@@ -19,30 +19,16 @@ parameters:
   default: ''
 
 steps:
-- task: PowerShell@2
-  displayName: 'Enable integration test class parallelism'
+# Keep integration tests on the project-based dotnet test path used by main. Directly invoking
+# prebuilt test DLLs works for execution, but coverage + retry TRX files are not merged correctly
+# by PublishTestResults. When the pipeline moves to .NET 10, revisit prebuilt execution with
+# `dotnet test --test-modules`.
+- task: DotNetCoreCLI@2
+  displayName: 'Build Integration Test Projects'
   inputs:
-    targetType: inline
-    pwsh: true
-    script: |
-      $ErrorActionPreference = 'Stop'
-      # Enable collection-level parallelism for normal integration tests while preserving
-      # collection definitions that explicitly set DisableParallelization = true.
-      $runnerConfig = @{
-        '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
-        parallelizeAssembly = $true
-        parallelizeTestCollections = $true
-      } | ConvertTo-Json
-      $testDlls = @(Get-ChildItem -Path '$(Agent.TempDirectory)/IntegrationTests' -Filter 'Microsoft.Health.Fhir.*.Tests.Integration.dll' -Recurse)
-      if ($testDlls.Count -eq 0) {
-        throw "No integration test DLLs found under '$(Agent.TempDirectory)/IntegrationTests'."
-      }
-
-      foreach ($testDll in $testDlls) {
-        $configPath = Join-Path $testDll.DirectoryName 'xunit.runner.json'
-        Set-Content -Path $configPath -Value $runnerConfig
-        Write-Host "Wrote $configPath"
-      }
+    command: build
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
 - task: AzureKeyVault@1
   displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -89,35 +75,16 @@ steps:
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
-- task: PowerShell@2
+- task: DotNetCoreCLI@2
   displayName: 'Run ${{ parameters.dataStore }} Integration Tests ${{ parameters.testRunTitle }} with coverage'
   inputs:
-    targetType: inline
-    pwsh: true
-    script: |
-      $ErrorActionPreference = 'Stop'
-      $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
-      $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
-      $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
-      if (-not $dll) {
-        throw "Could not find $testName.dll under $testRoot"
-      }
-
-      $testArgs = @(
-        '--filter', '${{ parameters.testFilter }}',
-        '--retry-failed-tests', '3',
-        '--coverage',
-        '--coverage-output-format', 'cobertura',
-        '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",
-        '--report-trx'
-      )
-
-      Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
-      & dotnet $dll.FullName @testArgs
-
-      if ($LASTEXITCODE -ne 0) {
-        throw "${{ parameters.dataStore }} integration tests failed with exit code $LASTEXITCODE"
-      }
+    command: test
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "${{ parameters.testFilter }}" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+    testRunTitle: '${{ parameters.testRunTitle }}'
+    # Disable the task's built-in (non-retry-aware) result publishing so the
+    # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+    publishTestResults: false
   env:
     platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
     'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
