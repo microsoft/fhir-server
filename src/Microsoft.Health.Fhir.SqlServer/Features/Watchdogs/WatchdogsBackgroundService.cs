@@ -71,13 +71,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _jobMonitorWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
             if (_coreFeatureConfiguration.EnableGeoRedundancy)
             {
                 tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
+            }
+
+            // Only add JobMonitorWatchdog if the feature is enabled (enabled by default)
+            if (_coreFeatureConfiguration.EnableJobMonitor)
+            {
+                tasks.Add(_jobMonitorWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }
 
             if (_watchdogConfiguration.ExpiredResource.Enabled)

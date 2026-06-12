@@ -716,20 +716,100 @@ RAISERROR('Test',18,127)
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+            foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
+            {
+                Assert.True(captured.QueueAges.TryGetValue(queueType, out var age), $"Missing queue type in QueueAges: {queueType}");
+                Assert.Equal(0, age);
+
+                Assert.True(captured.QueueDepths.TryGetValue(queueType, out var depth), $"Missing queue type in QueueDepths: {queueType}");
+                Assert.Equal(0, depth.Pending);
+                Assert.Equal(0, depth.Running);
+            }
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_WhenQueueHasPendingJob_ReportsDepthAndAgeForThatQueueOnly()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
             var sqlQueueClient = new SqlQueueClient(
                 _fixture.SchemaInformation,
                 _fixture.SqlRetryService,
                 XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "job1" }, null, false, CancellationToken.None);
 
             var mediator = Substitute.For<IMediator>();
             JobMonitorMetricsNotification captured = null;
             mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
                     .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
 
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // The Export queue has one pending (Created) job.
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Export].Running);
+            var exportAge = captured.QueueAges[QueueType.Export];
+            Assert.True(exportAge >= 0 && exportAge < 600, $"Export age out of expected bound: {exportAge}");
+
+            // Another queue type must still report empty.
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Running);
+            Assert.Equal(0, captured.QueueAges[QueueType.Import]);
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_RunningJobInOneQueue_DoesNotZeroStaleCreatedJobInAnotherQueue()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            // Queue A (Export): a Running job that is recent.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "running-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET Status = 1 WHERE QueueType = {(byte)QueueType.Export}");
+
+            // Queue B (Import): a Created job stamped 900 seconds in the past.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Import, new[] { "stale-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET CreateDate = DATEADD(SECOND, -900, SYSUTCDATETIME()) WHERE QueueType = {(byte)QueueType.Import}");
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // Running job in Export ⇒ age 0 there.
+            Assert.Equal(0, captured.QueueAges[QueueType.Export]);
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Running);
+
+            // The stale Created job in Import must still surface a non-trivial age (cross-queue isolation).
+            var importAge = captured.QueueAges[QueueType.Import];
+            Assert.True(importAge >= 800, $"Stale Import job age was suppressed: {importAge}");
+            Assert.Equal(1, captured.QueueDepths[QueueType.Import].Pending);
+        }
+
+        private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
+        {
             var wd = new JobMonitorWatchdog(
                 _fixture.SqlRetryService,
                 XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
-                sqlQueueClient,
                 mediator)
             {
                 PeriodSec = 1,
@@ -746,24 +826,13 @@ RAISERROR('Test',18,127)
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
-            while (captured == null && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(500), cts.Token);
             }
 
             await cts.CancelAsync();
             await wdTask;
-
-            Assert.NotNull(captured);
-            foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
-            {
-                Assert.True(captured.QueueAges.TryGetValue(queueType, out var age), $"Missing queue type in QueueAges: {queueType}");
-                Assert.True(age >= 0, $"Negative age for {queueType}");
-
-                Assert.True(captured.QueueDepths.TryGetValue(queueType, out var depth), $"Missing queue type in QueueDepths: {queueType}");
-                Assert.Equal(0, depth.Pending);
-                Assert.Equal(0, depth.Running);
-            }
         }
     }
 }
