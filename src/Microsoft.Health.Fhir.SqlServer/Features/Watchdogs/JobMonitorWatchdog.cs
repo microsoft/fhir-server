@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -22,9 +23,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     internal sealed class JobMonitorWatchdog : Watchdog<JobMonitorWatchdog>
     {
         /// <summary>
-        /// Queue age (in seconds) at or above which a queue is considered stale and logged as a warning.
-        /// Below this threshold the age is logged at debug level only. Matches the alerting guidance in
-        /// docs/arch/adr-2605-stale-job-monitor.md.
+        /// Queue age (in seconds) at or above which a queue with zero Running jobs is considered stale
+        /// and logged as a warning. Queues below the threshold, or with running jobs, are logged at debug
+        /// level only. Matches the alerting guidance in docs/arch/adr-2605-stale-job-monitor.md.
         /// </summary>
         internal const int StaleQueueWarningThresholdSeconds = 600;
 
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 IReadOnlyList<QueueStatusAggregate> aggregates = await GetQueueStatusAggregatesAsync(cancellationToken);
 
-                var utcNow = DateTime.UtcNow;
+                var utcNow = ClockResolver.TimeProvider.GetUtcNow().UtcDateTime;
                 var ages = ComputeQueueAges(aggregates, utcNow);
                 var depths = ComputeQueueDepths(aggregates);
 
@@ -73,14 +74,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     if (age >= StaleQueueWarningThresholdSeconds && hasNoRunning)
                     {
                         _logger.LogWarning(
-                            "Stale job queue detected. QueueType={QueueType} OldestJobAgeSecs={Age}",
+                            "Stale job queue detected. QueueType={QueueType} OldestJobAgeSecs={OldestJobAgeSecs}",
                             queueType,
                             age);
                     }
                     else
                     {
                         _logger.LogDebug(
-                            "Job queue has pending jobs but is not stalled. QueueType={QueueType} OldestJobAgeSecs={Age}",
+                            "Job queue has pending jobs but is not stalled. QueueType={QueueType} OldestJobAgeSecs={OldestJobAgeSecs}",
                             queueType,
                             age);
                     }
@@ -88,10 +89,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                 await _mediator.Publish(new JobMonitorMetricsNotification(ages, depths), cancellationToken);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Shutdown or sibling-watchdog cancellation, not a monitor failure; FhirTimer handles it.
+                throw;
+            }
             catch (Exception ex)
             {
-                // Rethrow so the FhirTimer base loop keeps running on the next tick but no partial metric
-                // data is published this cycle (all-or-nothing publish, per ADR 2605).
+                // Publish is the last statement of the try, so a failure publishes nothing this cycle
+                // (all-or-nothing, per ADR 2605). Rethrow so FhirTimer records the failing state.
                 _logger.LogError(ex, "JobMonitorWatchdog: queue metrics were not refreshed this cycle.");
                 throw;
             }

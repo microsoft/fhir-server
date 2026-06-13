@@ -313,7 +313,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using var listener = new MeterListener();
             listener.InstrumentPublished = (instrument, l) =>
             {
-                if (instrument.Name == "Jobs.QueueDepth")
+                // Scope to this test's meter: every handler registers same-named instruments on the
+                // process-global "FhirServer" meter name, so name-only filtering leaks across parallel tests.
+                if (instrument.Name == "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
                 {
                     l.EnableMeasurementEvents(instrument);
                 }
@@ -363,7 +365,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using var listener = new MeterListener();
                 listener.InstrumentPublished = (instrument, l) =>
                 {
-                    if (instrument.Name == "Jobs.OldestQueuedAge")
+                    if (instrument.Name == "Jobs.OldestQueuedAge" && ReferenceEquals(instrument.Meter.Scope, factory))
                     {
                         l.EnableMeasurementEvents(instrument);
                     }
@@ -415,7 +417,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using var listenerStale = new MeterListener();
                 listenerStale.InstrumentPublished = (instrument, l) =>
                 {
-                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth")
+                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
                     {
                         l.EnableMeasurementEvents(instrument);
                     }
@@ -452,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using var listenerFresh = new MeterListener();
                 listenerFresh.InstrumentPublished = (instrument, l) =>
                 {
-                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth")
+                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
                     {
                         l.EnableMeasurementEvents(instrument);
                     }
@@ -497,7 +499,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using var listener = new MeterListener();
                 listener.InstrumentPublished = (instrument, l) =>
                 {
-                    if (instrument.Name == "Jobs.OldestQueuedAge")
+                    if (instrument.Name == "Jobs.OldestQueuedAge" && ReferenceEquals(instrument.Meter.Scope, factory))
                     {
                         l.EnableMeasurementEvents(instrument);
                     }

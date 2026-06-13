@@ -25,7 +25,7 @@ The queue age calculation is per queue and reports the raw queue-lag signal:
 - A running job in one queue does not hide staleness in another queue.
 - The computed age is clamped to a minimum of `0` (`Math.Max(0, ...)`). Because the age is `utcNow - CreateDate` where `CreateDate` is SQL-stamped and `utcNow` is the app server clock, clock skew can otherwise produce a small negative value.
 
-The watchdog will publish the computed values through `JobMonitorMetricsNotification`. `JobMonitorMetricHandler` will keep the latest snapshot and expose it as an `ObservableGauge<double>` named `Jobs.OldestQueuedAge` on the `FhirServer` meter, with unit `s` and a `queue_type` tag containing the `QueueType` name. Operators detect a stalled queue by composing the two instruments, for example: `Jobs.OldestQueuedAge > 600` AND `Jobs.QueueDepth{state="running"} == 0` for the same `queue_type`.
+The watchdog will publish the computed values through `JobMonitorMetricsNotification`. `JobMonitorMetricHandler` will keep the latest snapshot and expose it as an `ObservableGauge<double>` named `Jobs.OldestQueuedAge` on the `FhirServer` meter, with unit `s` and a `queue_type` tag containing the `QueueType` name. Operators detect a stalled queue by composing the two instruments, for example: `Jobs.OldestQueuedAge >= 600` AND `Jobs.QueueDepth{state="running"} == 0` for the same `queue_type`.
 
 The handler suppresses stale snapshots: if no notification has been handled within `SnapshotStaleCutoffSeconds` (300 seconds, 5× the publish period), both gauges emit no measurements rather than re-reporting the last snapshot. Absent data lets "no data" alerts fire; a frozen value would read as healthy exactly when the monitor itself is broken (SQL outage, lease moved to another instance, shutdown).
 
@@ -65,7 +65,7 @@ Accepted
 - The metric reports detection state only; it does not automatically repair stuck queues or restart workers.
 
 ### Neutral Effects
-- Age is based on application `DateTime.UtcNow` and job `CreateDate`. This is sufficient for minute-scale stale queue detection, but should not be used for precise cross-node event ordering.
+- Age is based on the application clock (`ClockResolver.TimeProvider`, the same time source the metric handler uses for staleness) and job `CreateDate`. This is sufficient for minute-scale stale queue detection, but should not be used for precise cross-node event ordering.
 - `QueueType.Unknown` is intentionally excluded because it is not an actionable job queue.
 - Exported metric names may be transformed by the configured metrics exporter, but the source instruments remain `Jobs.OldestQueuedAge` and `Jobs.QueueDepth` on the `FhirServer` meter.
 - The `state` tag values for `Jobs.QueueDepth` are the stable strings `pending` and `running`. Other `JobStatus` values (`Completed`, `Failed`, `Cancelled`, `Archived`, `CancelledByUser`) are excluded by the aggregate query's `WHERE Status IN (0, 1)` clause.

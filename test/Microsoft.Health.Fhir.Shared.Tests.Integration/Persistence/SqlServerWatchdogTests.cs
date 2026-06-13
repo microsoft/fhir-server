@@ -760,7 +760,7 @@ RAISERROR('Test',18,127)
             Assert.Equal(1, captured.QueueDepths[QueueType.Export].Pending);
             Assert.Equal(0, captured.QueueDepths[QueueType.Export].Running);
             var exportAge = captured.QueueAges[QueueType.Export];
-            Assert.True(exportAge >= 0 && exportAge < 600, $"Export age out of expected bound: {exportAge}");
+            Assert.InRange(exportAge, 0, 120); // enqueued moments ago, so the age must be near zero
 
             // Another queue type must still report empty.
             Assert.Equal(0, captured.QueueDepths[QueueType.Import].Pending);
@@ -795,7 +795,7 @@ RAISERROR('Test',18,127)
 
             Assert.NotNull(captured);
 
-            // Running job in Export ⇒ age 0 there.
+            // Export has no Created jobs (its only job is Running) ⇒ age 0.
             Assert.Equal(0, captured.QueueAges[QueueType.Export]);
             Assert.Equal(1, captured.QueueDepths[QueueType.Export].Running);
 
