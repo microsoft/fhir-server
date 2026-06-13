@@ -25,7 +25,10 @@ variables:
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
   KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
-  KeyVaultNameR4SqlIso: '$(KeyVaultNameR4Sql)-iso'
+  # Key Vault names must be <= 24 chars. KeyVaultNameR4Sql is already 'f<buildNumber>-r4-sql' (21 chars at the
+  # proven-safe max), so a '-iso' suffix would overflow. Use a compact 'sqi' (sql-iso) token to stay the same
+  # length as the main R4 SQL vault while remaining distinct (each ACA app provisions its own vault).
+  KeyVaultNameR4SqlIso: '$(KeyVaultNameR4)-sqi'
   KeyVaultNameR4B: '$(KeyVaultBaseName)-r4b'
   KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
   KeyVaultNameR5: '$(KeyVaultBaseName)-r5'
