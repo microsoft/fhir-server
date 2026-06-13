@@ -12,6 +12,10 @@ variables:
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
+  # Isolation endpoint for R4 SQL: dedicated container app + dedicated database on the SAME app SQL
+  # server, so RequiresIsolation E2E tests (reindex, bulk delete/update, custom search params) run
+  # concurrently with the parallel shards instead of in a serialized terminal lane.
+  DeploymentEnvironmentNameR4SqlIso: '$(DeploymentEnvironmentNameR4Sql)-iso'
   DeploymentEnvironmentNameR4B: '$(DeploymentEnvironmentName)-r4b'
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
@@ -21,6 +25,10 @@ variables:
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
   KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
+  # Key Vault names must be <= 24 chars. KeyVaultNameR4Sql is already 'f<buildNumber>-r4-sql' (21 chars at the
+  # proven-safe max), so a '-iso' suffix would overflow. Use a compact 'sqi' (sql-iso) token to stay the same
+  # length as the main R4 SQL vault while remaining distinct (each ACA app provisions its own vault).
+  KeyVaultNameR4SqlIso: '$(KeyVaultNameR4)-sqi'
   KeyVaultNameR4B: '$(KeyVaultBaseName)-r4b'
   KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
   KeyVaultNameR5: '$(KeyVaultBaseName)-r5'

@@ -5,11 +5,54 @@ parameters:
   type: string
 - name: containerAppName
   type: string
+- name: isolationContainerAppName
+  type: string
+  default: ''
 - name: integrationSqlServerName
   type: string
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+  default: 'Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate'
+- name: runShardedIntegrationTests
+  type: boolean
+  default: false
+- name: integrationTestShards
+  type: object
+  # Keep category shards before class-name shards. New SQL-heavy integration test classes may need to be added to SqlSpecific.
+  # Recheck local discovery counts when changing integration test categories or shard filters.
+  default:
+    - name: General
+      testFilter: 'Category!=SmartOnFhir&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&FullyQualifiedName!~SqlServer&FullyQualifiedName!~SqlComplex&FullyQualifiedName!~SqlDataReader&FullyQualifiedName!~SqlRetry&FullyQualifiedName!~QueryPlanReuseChecker&FullyQualifiedName!~QueueClient&FullyQualifiedName!~ExpiredResourceCleanupWatchdog&FullyQualifiedName!~SearchParameterOptimisticConcurrency'
+    - name: SmartSearch
+      testFilter: 'Category=SmartOnFhir'
+    - name: Search
+      testFilter: '(Category=Search|Category=SearchParameterStatus)&Category!=SmartOnFhir'
+    - name: Reindex
+      testFilter: 'Category=IndexAndReindex'
+    - name: SqlSpecific
+      testFilter: '(FullyQualifiedName~SqlServer|FullyQualifiedName~SqlComplex|FullyQualifiedName~SqlDataReader|FullyQualifiedName~SqlRetry|FullyQualifiedName~QueryPlanReuseChecker|FullyQualifiedName~QueueClient|FullyQualifiedName~ExpiredResourceCleanupWatchdog|FullyQualifiedName~SearchParameterOptimisticConcurrency)&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&Category!=SmartOnFhir'
+- name: runShardedE2eJobs
+  type: boolean
+  default: false
+- name: e2eTestShards
+  type: object
+  # Shard names must be valid Azure Pipelines job identifiers. Tests tagged RequiresIsolation run in a terminal lane below.
+  # mainCategoryFilter default is inlined here because ADO does not allow ${{ parameters.x }} in object parameter defaults.
+  default:
+    - name: General
+      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+    - name: Search
+      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+    - name: Import
+      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category=Import'
+    - name: Mutation
+      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+    - name: BulkDelete
+      testFilter: 'FullyQualifiedName~SqlServer&Category=BulkDelete'
+    - name: CustomSearch
+      testFilter: 'FullyQualifiedName~SqlServer&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
+    - name: History
+      testFilter: 'FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=ImportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkUpdate&Category=History'
 - name: runReindexJob
   type: boolean
   default: true
@@ -18,112 +61,68 @@ parameters:
   default: true
 jobs:
 
-- job: "SqlIntegrationTests"
-  timeoutInMinutes: 75
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    fetchTags: false
-    path: source
+- ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
+  - job: "SqlIntegrationTests"
+    timeoutInMinutes: 75
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
+    steps:
+    - checkout: self
+      fetchDepth: 1
+      fetchTags: false
+      path: source
 
-  - template: integration-setup.yml
+    - template: integration-setup.yml
 
-  - template: integration-tests-extract.yml
-    parameters:
-      version: ${{ parameters.version }}
+    - template: integration-tests-extract.yml
+      parameters:
+        version: ${{ parameters.version }}
 
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}'
+    - template: integration-tests-run.yml
+      parameters:
+        version: ${{ parameters.version }}
+        dataStore: 'Sql'
+        keyVaultName: '${{ parameters.keyVaultName }}'
+        testFilter: 'FullyQualifiedName!~CosmosDb'
+        testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+        artifactSuffix: 'Sql_${{ parameters.version }}'
+        integrationSqlServerName: '${{ parameters.integrationSqlServerName }}'
 
-  - task: AzurePowerShell@5
-    displayName: 'Set Workload Identity Variables'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      pwsh: true
-      ScriptType: inlineScript
-      Inline: |
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+- ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
+  - ${{ each shard in parameters.integrationTestShards }}:
+    - ${{ if or(ne(shard.name, 'SmartSearch'), or(eq(parameters.version, 'R4'), eq(parameters.version, 'R4B'))) }}:
+      - job: 'SqlIntegrationTests_${{ shard.name }}'
+        timeoutInMinutes: 75
+        pool:
+          name: '$(SharedLinuxPool)'
+          vmImage: '$(LinuxVmImage)'
+        steps:
+        - checkout: self
+          fetchDepth: 1
+          fetchTags: false
+          path: source
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Build Integration Test Projects'
-    inputs:
-      command: build
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+        - template: integration-setup.yml
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Run SQL Integration Tests with coverage'
-    inputs:
-      command: test
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
-      publishTestResults: false
-    env:
-      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
-      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+        - template: integration-tests-extract.yml
+          parameters:
+            version: ${{ parameters.version }}
 
-  - task: PublishTestResults@2
-    displayName: 'Publish integration test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
+        - template: integration-tests-run.yml
+          parameters:
+            version: ${{ parameters.version }}
+            dataStore: 'Sql'
+            keyVaultName: '${{ parameters.keyVaultName }}'
+            testFilter: 'FullyQualifiedName!~CosmosDb&${{ shard.testFilter }}'
+            testRunTitle: '${{ parameters.version }} SQL Integration Tests ${{ shard.name }}'
+            artifactSuffix: 'Sql_${{ parameters.version }}_${{ shard.name }}'
+            integrationSqlServerName: '${{ parameters.integrationSqlServerName }}'
 
-  - task: reportgenerator@5
-    displayName: 'Aggregate SQL integration test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish SQL integration test coverage'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
-      artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
-      artifactType: 'container'
-
-- job: 'sqlE2eTests'
-  timeoutInMinutes: 120
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      containerAppName: '${{ parameters.containerAppName }}'
-      appServiceType: 'SqlServer'
-      categoryFilter: '${{ parameters.mainCategoryFilter }}'
-
-- ${{ if eq(parameters.runReindexJob, true) }}:
-  - job: 'sqlE2eTests_Reindex'
+- ${{ if eq(parameters.runShardedE2eJobs, false) }}:
+  - job: 'sqlE2eTests'
     timeoutInMinutes: 120
     dependsOn: []
     pool:
@@ -138,10 +137,29 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=IndexAndReindex'
-        testRunTitleSuffix: ' Reindex'
+        testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}'
 
-- ${{ if eq(parameters.runBulkUpdateJob, true) }}:
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  - ${{ each shard in parameters.e2eTestShards }}:
+    - job: 'sqlE2eTests_${{ shard.name }}'
+      timeoutInMinutes: 120
+      dependsOn: []
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'SqlServer'
+          testFilter: '${{ shard.testFilter }}'
+          testRunTitleSuffix: ' ${{ shard.name }}'
+
+- ${{ if and(eq(parameters.runBulkUpdateJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_BulkUpdate'
     timeoutInMinutes: 120
     dependsOn: []
@@ -157,5 +175,68 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
-        categoryFilter: 'Category=BulkUpdate'
+        testFilter: 'FullyQualifiedName~SqlServer&Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
+
+- ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
+  - job: 'sqlE2eTests_Reindex'
+    timeoutInMinutes: 120
+    dependsOn: []
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: e2e-setup.yml
+    - template: e2e-tests.yml
+      parameters:
+        version: ${{ parameters.version }}
+        containerAppName: '${{ parameters.containerAppName }}'
+        appServiceType: 'SqlServer'
+        testFilter: 'FullyQualifiedName~SqlServer&Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
+        testRunTitleSuffix: ' Reindex'
+
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  # RequiresIsolation tests (reindex, bulk update, and anything mutating global/server state) must not
+  # overlap the parallel shards on the SAME endpoint. When a dedicated isolation endpoint is supplied
+  # (isolationContainerAppName), this lane targets that endpoint + its own database and runs CONCURRENTLY
+  # with the shards (dependsOn: []). Otherwise it falls back to the serialized terminal lane on the main
+  # endpoint, waiting for every shard to finish first.
+  - ${{ if ne(parameters.isolationContainerAppName, '') }}:
+    - job: 'sqlE2eTests_RequiresIsolation'
+      timeoutInMinutes: 120
+      dependsOn: []
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.isolationContainerAppName }}'
+          appServiceType: 'SqlServer'
+          testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
+  - ${{ else }}:
+    - job: 'sqlE2eTests_RequiresIsolation'
+      timeoutInMinutes: 120
+      dependsOn:
+      - ${{ each shard in parameters.e2eTestShards }}:
+        - 'sqlE2eTests_${{ shard.name }}'
+      condition: not(canceled())
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'SqlServer'
+          testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'

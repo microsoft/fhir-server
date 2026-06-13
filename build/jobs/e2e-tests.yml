@@ -5,9 +5,9 @@ parameters:
   type: string
 - name: appServiceType
   type: string
-- name: categoryFilter
+- name: testFilter
   type: string
-  default: 'Category!=ExportLongRunning'
+  default: ''
 - name: testRunTitleSuffix
   type: string
   default: ''
@@ -37,7 +37,11 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+        $filter = "${{ parameters.testFilter }}"
+        if ([string]::IsNullOrWhiteSpace($filter)) {
+          throw "testFilter is required and must not be empty."
+        }
+
         $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName)"
@@ -95,3 +99,23 @@ steps:
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
       failTaskOnFailedTests: true
     condition: succeededOrFailed()
+
+  - task: PowerShell@2
+    displayName: 'Report E2E duration by class'
+    condition: succeededOrFailed()
+    inputs:
+      targetType: filePath
+      filePath: '$(System.DefaultWorkingDirectory)/build/scripts/Write-TestClassDurationReport.ps1'
+      pwsh: true
+      arguments: >-
+        -ResultsDirectory "$(Agent.TempDirectory)/testresults"
+        -OutputDirectory "$(Agent.TempDirectory)/test-class-duration"
+        -ReportName "E2E_${{ parameters.appServiceType }}_${{ parameters.version }}${{ replace(parameters.testRunTitleSuffix, ' ', '_') }}_ByClass"
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish E2E class duration report'
+    condition: succeededOrFailed()
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/test-class-duration'
+      artifactName: "TestClassDuration_E2E_${{ parameters.appServiceType }}_${{ parameters.version }}${{ replace(parameters.testRunTitleSuffix, ' ', '_') }}"
+      artifactType: 'container'
