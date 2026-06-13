@@ -5,6 +5,9 @@ parameters:
   type: string
 - name: containerAppName
   type: string
+- name: isolationContainerAppName
+  type: string
+  default: ''
 - name: integrationSqlServerName
   type: string
 - name: mainCategoryFilter
@@ -193,23 +196,47 @@ jobs:
         testRunTitleSuffix: ' Reindex'
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
-  - job: 'sqlE2eTests_RequiresIsolation'
-    timeoutInMinutes: 120
-    dependsOn:
-    - ${{ each shard in parameters.e2eTestShards }}:
-      - 'sqlE2eTests_${{ shard.name }}'
-    condition: not(canceled())
-    pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
-    steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
-      parameters:
-        version: ${{ parameters.version }}
-        containerAppName: '${{ parameters.containerAppName }}'
-        appServiceType: 'SqlServer'
-        testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
-        testRunTitleSuffix: ' RequiresIsolation'
+  # RequiresIsolation tests (reindex, bulk update, and anything mutating global/server state) must not
+  # overlap the parallel shards on the SAME endpoint. When a dedicated isolation endpoint is supplied
+  # (isolationContainerAppName), this lane targets that endpoint + its own database and runs CONCURRENTLY
+  # with the shards (dependsOn: []). Otherwise it falls back to the serialized terminal lane on the main
+  # endpoint, waiting for every shard to finish first.
+  - ${{ if ne(parameters.isolationContainerAppName, '') }}:
+    - job: 'sqlE2eTests_RequiresIsolation'
+      timeoutInMinutes: 120
+      dependsOn: []
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.isolationContainerAppName }}'
+          appServiceType: 'SqlServer'
+          testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
+  - ${{ else }}:
+    - job: 'sqlE2eTests_RequiresIsolation'
+      timeoutInMinutes: 120
+      dependsOn:
+      - ${{ each shard in parameters.e2eTestShards }}:
+        - 'sqlE2eTests_${{ shard.name }}'
+      condition: not(canceled())
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'SqlServer'
+          testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'

@@ -12,6 +12,10 @@ variables:
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
+  # Isolation endpoint for R4 SQL: dedicated container app + dedicated database on the SAME app SQL
+  # server, so RequiresIsolation E2E tests (reindex, bulk delete/update, custom search params) run
+  # concurrently with the parallel shards instead of in a serialized terminal lane.
+  DeploymentEnvironmentNameR4SqlIso: '$(DeploymentEnvironmentNameR4Sql)-iso'
   DeploymentEnvironmentNameR4B: '$(DeploymentEnvironmentName)-r4b'
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
@@ -21,6 +25,7 @@ variables:
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
   KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
+  KeyVaultNameR4SqlIso: '$(KeyVaultNameR4Sql)-iso'
   KeyVaultNameR4B: '$(KeyVaultBaseName)-r4b'
   KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
   KeyVaultNameR5: '$(KeyVaultBaseName)-r5'

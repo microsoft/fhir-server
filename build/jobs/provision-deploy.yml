@@ -22,6 +22,9 @@ parameters:
 - name: sqlServerName
   type: string
   default: ''
+- name: sqlDatabaseName
+  type: string
+  default: ''
 - name: sqlComputeTier
   type: string
   default: ''
@@ -69,6 +72,7 @@ jobs:
         -AzureContainerRegistry "$(azureContainerRegistry)"
         -TenantIdGuid "$(tenant-id-guid)"
         -SqlServerName "${{ parameters.sqlServerName }}"
+        -SqlDatabaseName "${{ parameters.sqlDatabaseName }}"
         -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
         -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
         -ReindexEnabled "${{ parameters.reindexEnabled }}"

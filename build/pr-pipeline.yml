@@ -362,6 +362,29 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployR4SqlIso
+  displayName: 'Deploy R4 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4SqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4SqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRR4Iso
+      reindexEnabled: true
+
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
@@ -449,6 +472,7 @@ stages:
   - setupEnvironment
   - setupAad
   - deployR4Sql
+  - deployR4SqlIso
   variables:
     TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -458,6 +482,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR4SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
