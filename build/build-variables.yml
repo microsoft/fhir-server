@@ -10,6 +10,9 @@ variables:
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+  # Isolation endpoint for Stu3 SQL (mirrors the R4 SQL isolation endpoint): dedicated container app +
+  # dedicated database on the SAME app SQL server so RequiresIsolation E2E tests run concurrently with shards.
+  DeploymentEnvironmentNameSqlIso: '$(DeploymentEnvironmentNameSql)-iso'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
   # Isolation endpoint for R4 SQL: dedicated container app + dedicated database on the SAME app SQL
@@ -20,9 +23,14 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
+  # Isolation endpoint for R5 SQL (mirrors R4): dedicated container app + dedicated database on the shared server.
+  DeploymentEnvironmentNameR5SqlIso: '$(DeploymentEnvironmentNameR5Sql)-iso'
   AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
   # Key Vault names (shorter due to 24 character limit)
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
+  # Stu3 SQL isolation vault. Must be <= 24 chars. Use compact 'sqi' (sql-iso) token: '$(KeyVaultBaseName)-sqi'
+  # (base + 4 chars), well under the limit and distinct from the main Stu3 SQL vault.
+  KeyVaultNameSqlIso: '$(KeyVaultBaseName)-sqi'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
   KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
   # Key Vault names must be <= 24 chars. KeyVaultNameR4Sql is already 'f<buildNumber>-r4-sql' (21 chars at the
@@ -33,6 +41,9 @@ variables:
   KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
   KeyVaultNameR5: '$(KeyVaultBaseName)-r5'
   KeyVaultNameR5Sql: '$(KeyVaultNameR5)-sql'
+  # R5 SQL isolation vault. '$(KeyVaultNameR5)-sqi' = '<base>-r5-sqi' (base + 7 chars), same length as the
+  # proven-safe R4 SQL iso vault and under the 24-char limit.
+  KeyVaultNameR5SqlIso: '$(KeyVaultNameR5)-sqi'
   TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
   TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'

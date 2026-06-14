@@ -320,6 +320,29 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployStu3SqlIso
+  displayName: 'Deploy STU3 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameSqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRStu3Iso
+      reindexEnabled: true
+
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
@@ -407,6 +430,29 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployR5SqlIso
+  displayName: 'Deploy R5 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5SqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5SqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRR5Iso
+      reindexEnabled: true
+
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
@@ -433,6 +479,7 @@ stages:
   - setupEnvironment
   - setupAad
   - deployStu3Sql
+  - deployStu3SqlIso
   variables:
     TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -442,6 +489,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameSqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
@@ -494,6 +542,7 @@ stages:
   - setupEnvironment
   - setupAad
   - deployR5Sql
+  - deployR5SqlIso
   variables:
     TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -503,6 +552,7 @@ stages:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR5SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
