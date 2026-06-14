@@ -25,6 +25,13 @@ variables:
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
   # Isolation endpoint for R5 SQL (mirrors R4): dedicated container app + dedicated database on the shared server.
   DeploymentEnvironmentNameR5SqlIso: '$(DeploymentEnvironmentNameR5Sql)-iso'
+  # Cosmos isolation endpoints (mirror the SQL isolation endpoints): each gets its OWN dedicated Cosmos
+  # account (the deploy script names the Cosmos account after the container app), so RequiresIsolation
+  # Cosmos E2E tests run concurrently with the parallel shards instead of in a serialized terminal lane.
+  # Use a compact '-ciso' (cosmos-iso) suffix; it is shorter than the proven-safe SQL '-sql-iso' suffix,
+  # so it stays within the ACA container-app (32 char) and Cosmos account (44 char) name limits.
+  DeploymentEnvironmentNameCosmosIso: '$(DeploymentEnvironmentName)-ciso'
+  DeploymentEnvironmentNameR4CosmosIso: '$(DeploymentEnvironmentNameR4)-ciso'
   AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
   # Key Vault names (shorter due to 24 character limit)
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
@@ -44,6 +51,12 @@ variables:
   # R5 SQL isolation vault. '$(KeyVaultNameR5)-sqi' = '<base>-r5-sqi' (base + 7 chars), same length as the
   # proven-safe R4 SQL iso vault and under the 24-char limit.
   KeyVaultNameR5SqlIso: '$(KeyVaultNameR5)-sqi'
+  # Cosmos isolation vaults. Each iso ACA app provisions its own vault. Use a compact 'csi' (cosmos-iso)
+  # token to stay <= 24 chars: '$(KeyVaultBaseName)-csi' = '<base>-csi' (base + 4 = 20 chars) for Stu3,
+  # and '$(KeyVaultNameR4)-csi' = '<base>-r4-csi' (base + 7 = 23 chars) for R4 — same lengths as the
+  # proven-safe SQL iso vaults.
+  KeyVaultNameCosmosIso: '$(KeyVaultBaseName)-csi'
+  KeyVaultNameR4CosmosIso: '$(KeyVaultNameR4)-csi'
   TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
   TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'

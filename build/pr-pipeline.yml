@@ -298,6 +298,26 @@ stages:
       imageTag: $(ImageTag)
       reindexEnabled: true
 
+- stage: deployStu3IsoCosmos
+  displayName: 'Deploy STU3 Cosmos Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: cosmos
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameCosmosIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameCosmosIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
@@ -357,6 +377,26 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4IsoCosmos
+  displayName: 'Deploy R4 Cosmos Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: cosmos
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4CosmosIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4CosmosIso)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
@@ -460,6 +500,7 @@ stages:
   - setupEnvironment
   - setupAad
   - deployStu3
+  - deployStu3IsoCosmos
   variables:
     TestEnvironmentUrl_Stu3: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3']]
     TestEnvironmentUrl: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
@@ -469,6 +510,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      isolationContainerAppName: $(DeploymentEnvironmentNameCosmosIso)
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 
@@ -501,6 +543,7 @@ stages:
   - setupEnvironment
   - setupAad
   - deployR4
+  - deployR4IsoCosmos
   variables:
     TestEnvironmentUrl_R4: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4']]
     TestEnvironmentUrl: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
@@ -510,6 +553,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR4CosmosIso)
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 

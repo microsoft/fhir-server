@@ -5,6 +5,9 @@ parameters:
   type: string
 - name: containerAppName
   type: string
+- name: isolationContainerAppName
+  type: string
+  default: ''
 - name: mainCategoryFilter
   type: string
   default: 'Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex'
@@ -153,26 +156,50 @@ jobs:
           testRunTitleSuffix: ' ${{ shard.name }}'
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
-  - job: 'cosmosE2eTests_RequiresIsolation'
-    timeoutInMinutes: 75
-    dependsOn:
-    - ${{ each shard in parameters.e2eTestShards }}:
-      - 'cosmosE2eTests_${{ shard.name }}'
-    condition: not(canceled())
-    pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
-    steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
-      parameters:
-        version: ${{ parameters.version }}
-        containerAppName: '${{ parameters.containerAppName }}'
-        appServiceType: 'CosmosDb'
-        testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
-        testRunTitleSuffix: ' RequiresIsolation'
+  # RequiresIsolation tests (reindex, bulk delete, custom search params, and anything mutating
+  # global/server state) must not overlap the parallel shards on the SAME endpoint. When a dedicated
+  # isolation endpoint is supplied (isolationContainerAppName -> its own Cosmos account), this lane
+  # targets that endpoint and runs CONCURRENTLY with the shards (dependsOn: []). Otherwise it falls back
+  # to the serialized terminal lane on the main endpoint, waiting for every shard to finish first.
+  - ${{ if ne(parameters.isolationContainerAppName, '') }}:
+    - job: 'cosmosE2eTests_RequiresIsolation'
+      timeoutInMinutes: 75
+      dependsOn: []
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.isolationContainerAppName }}'
+          appServiceType: 'CosmosDb'
+          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
+  - ${{ else }}:
+    - job: 'cosmosE2eTests_RequiresIsolation'
+      timeoutInMinutes: 75
+      dependsOn:
+      - ${{ each shard in parameters.e2eTestShards }}:
+        - 'cosmosE2eTests_${{ shard.name }}'
+      condition: not(canceled())
+      pool:
+        name: '$(SharedLinuxPool)'
+        vmImage: '$(LinuxVmImage)'
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'CosmosDb'
+          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
 
 - ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'cosmosE2eTests_Reindex'
