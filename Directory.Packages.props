@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>10.0.68</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>10.0.101</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.15</DotNetSdkPackageVersion>
@@ -34,7 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.2.0" />
-    <PackageVersion Include="Azure.Identity" Version="1.16.0" />
+    <PackageVersion Include="Azure.Identity" Version="1.17.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
@@ -72,7 +72,7 @@
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
-    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.1" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(DotNetSdkPackageVersion)" />
