@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -155,6 +156,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     includesCount.Value,
                     pages);
             }
+        }
+
+        [Fact]
+        public async Task GivenIterativeIncludes_WhenThereAreMultiplePagesOfIncludedResources_ThenAllResourcesAreReturned()
+        {
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+            var query = TagQuery("_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:subject&_count=2&_includesCount=2");
+            var searchUrl = $"{Server.BaseAddress}{KnownResourceTypes.MedicationDispense}?{query}";
+            var basePages = 0;
+            var includedPages = 0;
+            var matchedResources = new List<Resource>();
+            var relatedResources = new List<Resource>();
+
+            while (!string.IsNullOrEmpty(searchUrl))
+            {
+                var response = await Client.SearchAsync(searchUrl);
+                basePages++;
+                searchUrl = response.Resource.NextLink?.AbsoluteUri;
+
+                var relatedLink = response.Resource.Link?
+                        .Where(x => x.Relation.Equals("related", StringComparison.Ordinal))
+                        .Select(x => x.Url)
+                        .FirstOrDefault();
+
+                matchedResources.AddRange(response.Resource.Entry
+                        .Where(x => x.Search.Mode == SearchEntryMode.Match)
+                        .Select(x => x.Resource)
+                        .ToList());
+
+                relatedResources.AddRange(response.Resource.Entry
+                    .Where(x => x.Search.Mode == SearchEntryMode.Include)
+                    .Select(x => x.Resource)
+                    .ToList());
+
+                while (!string.IsNullOrEmpty(relatedLink))
+                {
+                    response = await Client.SearchAsync(relatedLink);
+                    relatedResources.AddRange(response.Resource.Entry.Select(x => x.Resource));
+                    relatedLink = response.Resource.NextLink?.AbsoluteUri;
+                    includedPages++;
+
+                    ValidateRelatedLinks(
+                        response,
+                        KnownResourceTypes.MedicationDispense,
+                        query);
+                }
+            }
+
+            Assert.Equal(5, basePages);
+            Assert.Equal(5, includedPages);
+            Assert.Equal(20, relatedResources.Count); // There are only 16 resources, but the includes pages have duplicates
+            Assert.Equal(10, matchedResources.Count);
         }
 
         private void ValidateRelatedResources(

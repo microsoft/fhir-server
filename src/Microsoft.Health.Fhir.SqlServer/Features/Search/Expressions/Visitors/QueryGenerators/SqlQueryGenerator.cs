@@ -1134,24 +1134,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
                     }
                 }
-                else
-                {
-                    var tableAlias = includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
-                    delimited.BeginDelimitedElement()
-                        .Append("(")
-                        .Append(VLatest.Resource.ResourceTypeId, tableAlias)
-                        .Append(" > ")
-                        .Append(includesContinuationToken.IncludeResourceTypeId)
-                        .Append(" OR (")
-                        .Append(VLatest.Resource.ResourceTypeId, tableAlias)
-                        .Append(" = ")
-                        .Append(includesContinuationToken.IncludeResourceTypeId)
-                        .Append(" AND ")
-                        .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, tableAlias)
-                        .Append(" > ")
-                        .Append(includesContinuationToken.IncludeResourceSurrogateId)
-                        .Append("))");
-                }
 
                 var scope = delimited.BeginDelimitedElement();
                 scope.Append("EXISTS (");
@@ -1201,10 +1183,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
+            var curLimitCte = string.Empty;
             if (context.IsIncludesOperation)
             {
                 StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
                 _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
+                curLimitCte = TableExpressionName(_tableExpressionCounter);
+            }
+            else
+            {
+                // Update target reference cte dictionary
+                curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
             }
 
             if (includeExpression.Reversed)
@@ -1213,9 +1202,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // cte on top of it
                 _cteToLimit.Add(_tableExpressionCounter);
             }
-
-            // Update target reference cte dictionary
-            var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
             // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
             int count = _includeFromCteIds?.Count ?? 0;
@@ -1311,6 +1297,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" WHERE NOT EXISTS (SELECT * FROM ").Append(_cteMainSelect)
                     .Append(" WHERE ").Append(_cteMainSelect).Append(".Sid1 = ").Append(includeCte).Append(".Sid1")
                     .Append(" AND ").Append(_cteMainSelect).Append(".T1 = ").Append(includeCte).AppendLine(".T1)");
+
+                var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
+                if (!context.IsIncludesOperation || includesContinuationToken?.IncludeResourceTypeId == null || includesContinuationToken?.IncludeResourceSurrogateId == null)
+                {
+                    /*
+                    if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
+                    }
+                    */
+                }
+                else
+                {
+                    StringBuilder.Append("AND (")
+                        .Append("T1 > ")
+                        .Append(includesContinuationToken.IncludeResourceTypeId)
+                        .Append(" OR (")
+                        .Append("T1 = ")
+                        .Append(includesContinuationToken.IncludeResourceTypeId)
+                        .Append(" AND ")
+                        .Append("Sid1 > ")
+                        .Append(includesContinuationToken.IncludeResourceSurrogateId)
+                        .Append("))");
+                }
             }
         }
 
