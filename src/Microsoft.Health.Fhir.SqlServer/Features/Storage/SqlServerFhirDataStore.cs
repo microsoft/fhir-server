@@ -229,6 +229,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool ensureAtomicOperations, CancellationToken cancellationToken)
         {
+            enlistInTransaction = ensureAtomicOperations;
+
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
             {
