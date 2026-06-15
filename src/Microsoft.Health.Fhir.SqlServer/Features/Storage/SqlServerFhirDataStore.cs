@@ -878,6 +878,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (isBundleParallelOperation)
             {
+                // Parallel operations:
+                // - EnlistTransaction: should be always false, and rely on SQL transactions.
+
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
                 SetAndClearPendingSearchParameterStatus(resource);
 
@@ -885,9 +888,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                // For non-parallel bundle operations:
-                // - EnlistTransaction is set to true only in sequential transaction bundles (as they rely on C# transactions).
-                // - Standalone operations should not enlist transactions (as they rely on SQL transactions).
+                // Sequential operations:
+                // - EnlistTransaction: set to true only in sequential transaction bundles (as they rely on C# transactions).
+                // - Standalone operations should not enlist transactions (as they should rely on SQL transactions).
                 bool enlistTransaction = isBundleTransaction;
 
                 // For non-transaction operations, extract pending statuses now so they are merged with the resource.
