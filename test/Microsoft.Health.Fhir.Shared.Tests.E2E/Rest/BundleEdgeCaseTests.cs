@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenABundle_WhenAnInvalidBundleTypeIsUsed_ThenHttp400IsReturned()
         {
-            var id = Guid.NewGuid().ToString();
             var bundleAsString = Samples.GetJson("Bundle-InvalidBundleType");
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostAsync(string.Empty, bundleAsString));

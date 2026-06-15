@@ -73,11 +73,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             return;
                         }
 
-                        Hl7.Fhir.Model.Bundle.BundleType? bundleType = Hl7.Fhir.Model.Bundle.BundleType.Batch;
-
                         try
                         {
-                            bundleType = bundle.Type;
+                            // bundle.Type can raise InvalidCastException if the incoming value is not a valid BundleType.
+                            switch (bundle.Type)
+                            {
+                                case Hl7.Fhir.Model.Bundle.BundleType.Batch:
+                                    fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
+                                    break;
+                                case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
+                                    fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
+                                    break;
+                            }
                         }
                         catch (InvalidCastException)
                         {
@@ -102,16 +109,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 },
                                 HttpStatusCode.BadRequest);
                             return;
-                        }
-
-                        switch (bundleType)
-                        {
-                            case Hl7.Fhir.Model.Bundle.BundleType.Batch:
-                                fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
-                                break;
-                            case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
-                                fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
-                                break;
                         }
                     }
                 }
