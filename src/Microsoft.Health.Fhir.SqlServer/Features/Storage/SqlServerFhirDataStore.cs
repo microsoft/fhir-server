@@ -885,6 +885,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
+                // For non-parallel bundle operations:
+                // - EnlistTransaction is set to true only in sequential transaction bundles (as they rely on C# transactions).
+                // - Standalone operations should not enlist transactions (as they rely on SQL transactions).
+                bool enlistTransaction = isBundleTransaction;
+
                 // For non-transaction operations, extract pending statuses now so they are merged with the resource.
                 // Transaction bundles never reach this branch with pending statuses: any transaction bundle that
                 // contains a SearchParameter resource is forced to the parallel path (handled above), where the
@@ -894,8 +899,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SetAndClearPendingSearchParameterStatus(resource);
                 }
 
-                // For regular upserts and sequential bundle operations, enlistTransaction is set to true.
-                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true, ensureAtomicOperations: isBundleTransaction);
+                MergeOptions mergeOptions = new MergeOptions(
+                    enlistTransaction: enlistTransaction,
+                    ensureAtomicOperations: isBundleTransaction);
                 var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.Results.First().Value;
 
