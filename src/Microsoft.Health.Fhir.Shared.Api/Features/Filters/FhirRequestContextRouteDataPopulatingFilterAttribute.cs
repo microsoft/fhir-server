@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         {
                             // I had to add the 'timer' to the Http context, as the filter Microsoft.Health.Api.Features.Audit.AuditLoggingFilterAttribute expected it to be there.
                             // This change avoid a null reference exception to happen.
-                            // The correct implementation would be handling the ausence of the 'timer' in AuditLoggingFilterAttribute.
+                            // The correct implementation would be handling the absence of the 'timer' in AuditLoggingFilterAttribute.
                             context.HttpContext.Items["timer"] = Stopwatch.StartNew();
 
                             context.Result = new OperationOutcomeResult(
