@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using FluentValidation;
 using FluentValidation.Results;
 using Medino;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -37,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
+                return Task.FromResult<UpsertResourceResponse>(null);
             };
 
             await upsertValidationHandler.HandleAsync(upsertResourceRequest, next, CancellationToken.None);
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
+                return Task.FromResult<UpsertResourceResponse>(null);
             };
 
             await Assert.ThrowsAsync<ResourceNotValidException>(
@@ -109,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
+                return Task.FromResult<UpsertResourceResponse>(null);
             };
 
             var exception = await Assert.ThrowsAsync<ResourceNotValidException>(

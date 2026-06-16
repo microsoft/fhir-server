@@ -626,7 +626,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
         }
 
-        // Configures mocks so the controller can dispatch through MediatR without throwing.
+        // Configures mocks so the controller can dispatch through the mediator without throwing.
         // Required for positive-path tests that verify validation allows the request through.
         private void ConfigureControllerForSuccessfulExport(ExportController exportController)
         {

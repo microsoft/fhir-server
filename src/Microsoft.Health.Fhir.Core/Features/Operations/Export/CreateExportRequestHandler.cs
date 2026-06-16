@@ -34,7 +34,7 @@ using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// MediatR request handler. Called when the ExportController creates an export job.
+    /// Mediator request handler. Called when the ExportController creates an export job.
     /// </summary>
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
