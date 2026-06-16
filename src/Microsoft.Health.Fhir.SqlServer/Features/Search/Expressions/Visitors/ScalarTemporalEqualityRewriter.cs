@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -36,13 +35,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
         internal static readonly ScalarTemporalEqualityRewriter Instance = new ScalarTemporalEqualityRewriter();
-
-        // NOTE: This list is only for parameters that are the same across all FHIR versions. Before adding parameters
-        // this approach may need to be revisited to support version-specific allow lists.
-        private static readonly HashSet<string> _allowList = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "http://hl7.org/fhir/SearchParameter/individual-birthdate",
-        };
 
         private enum Precision
         {
@@ -100,10 +92,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return false;
             }
 
-            bool isScalarDate = p.Type == SearchParamType.Date && (p.Component == null || p.Component.Count == 0);
-            bool isAllowListed = p.Url != null && _allowList.Contains(p.Url.OriginalString);
-
-            return isScalarDate && isAllowListed;
+            // EXPERIMENT: allow-list removed — rewrite now applies to every scalar date parameter.
+            return p.Type == SearchParamType.Date && (p.Component == null || p.Component.Count == 0);
         }
 
         /// <summary>
