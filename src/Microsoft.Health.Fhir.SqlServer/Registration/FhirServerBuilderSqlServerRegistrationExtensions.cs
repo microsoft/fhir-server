@@ -209,7 +209,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
-            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Handler registrations are Transient by default; this extension ensures any prior transient registration is removed before re-registering as Singleton
                     .Add<WatchdogsBackgroundService>()
                     .Singleton()
                     .AsSelf() // this is needed to create the instance the delegates resolve
