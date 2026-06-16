@@ -141,6 +141,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inner, result.Expression);
         }
 
+        [Fact]
+        public void GivenAllowListedBirthdateExactMonthInChainedExpression_WhenRewritten_ThenPassThrough()
+        {
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth));
+            var expr = BuildChainedExpression(inner);
+
+            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.Same(inner, result.Expression);
+        }
+
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
         public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
