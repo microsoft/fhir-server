@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
@@ -63,14 +63,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
 
                 // Allow the resource to be updated with the normal handler
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next(cancellationToken);
+            return await next();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
@@ -112,11 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 // Now allow the resource to updated per the normal behavior
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next(cancellationToken);
+            return await next();
         }
 
         private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)
