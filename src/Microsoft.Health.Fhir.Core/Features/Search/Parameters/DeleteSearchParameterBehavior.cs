@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<TDeleteResourceResponse> HandleAsync(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
 
@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     await QueuePendingDeleteStatusAsync(url, cancellationToken);
                 }
 
-                return await next(cancellationToken);
+                return await next();
             }
 
-            return await next(cancellationToken);
+            return await next();
         }
 
         private async Task QueuePendingDeleteStatusAsync(string url, CancellationToken cancellationToken)
