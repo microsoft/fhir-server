@@ -111,11 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverBirthdateDayWithAdditionalCriteriaOnTheSameTarget_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Mirrors the dominant production shape "X?patient:Patient.birthdate=<day>&patient:Patient.identifier=..."
-            // where an exact-day birthdate is chained alongside a second predicate on the same target resource.
-            // birthdate inside a chain is intentionally NOT collapsed by ScalarTemporalEqualityRewriter
-            // (VisitChained passes through), so this guards that the un-rewritten chained day-equality still
-            // returns correct results when combined with another criterion on the chained Patient.
+            // Covers chained exact-day birthdate with another predicate on the same Patient.
             string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate={Fixture.SmithPatientBirthDate}&subject:Patient.family=Smith";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
@@ -172,32 +168,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
-        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned(bool includeAccurateTotal)
         {
-            // Smith and Truman both have a SNOMED observation, but only Smith was born on 1990-05-15.
-            // The top-level birthdate is an exact UTC day, so ScalarTemporalEqualityRewriter collapses it into a
-            // day-split UNION ALL. This guards that the rewritten birthdate predicate composes correctly with a
-            // _has reverse-chain EXISTS sub-query - the most common bug-affected production shape for Patient.
             string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}";
+            if (includeAccurateTotal)
+            {
+                query += "&_total=accurate";
+            }
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
-            ValidateBundle(bundle, Fixture.SmithPatient);
-        }
+            if (includeAccurateTotal)
+            {
+                Assert.Equal(1, bundle.Total.GetValueOrDefault());
+            }
 
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
-        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearchedWithAccurateTotal_ThenCountAndBundleAreCorrect()
-        {
-            // Same composition as above but exercises the COUNT path: the day-split UNION ALL produced for the
-            // exact-day birthdate must not double-count when combined with a _has reverse-chain. Production
-            // _has+birthdate shapes frequently request _total=accurate.
-            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}&_total=accurate";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            Assert.Equal(1, bundle.Total.GetValueOrDefault());
             ValidateBundle(bundle, Fixture.SmithPatient);
         }
 

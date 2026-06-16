@@ -45,10 +45,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             EqualityPattern(StartOfDay.AddDays(-30), EndOfDay.AddDays(30)), // approximate / multi-day window
             Expression.Or(
                 Expression.LessThan(FieldName.DateTimeStart, null, StartOfDay),
-                Expression.GreaterThan(FieldName.DateTimeEnd, null, EndOfDay)), // not-equals (ne): Core emits an Or of single-sided predicates, never an And of two
+                Expression.GreaterThan(FieldName.DateTimeEnd, null, EndOfDay)), // not-equals emits Or
             Expression.Or(
                 EqualityPattern(StartOfDay, EndOfDay),
-                EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth)), // multi-value OR (birthdate=dayA,dayB): the top-level Or is not the And pattern, so it passes through
+                EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth)), // multi-value OR
+        };
+
+        public static TheoryData<Expression, bool> ChainedPassThroughExpressions => new()
+        {
+            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay)), false },
+            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay)), true },
+            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth)), false },
         };
 
         public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()
@@ -134,27 +141,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough(bool reversed)
+        [MemberData(nameof(ChainedPassThroughExpressions))]
+        public void GivenAllowListedBirthdateInChainedExpression_WhenRewritten_ThenPassThrough(Expression inner, bool reversed)
         {
-            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner, reversed);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(expr, result);
-            Assert.Same(inner, result.Expression);
-        }
-
-        [Fact]
-        public void GivenAllowListedBirthdateExactMonthInChainedExpression_WhenRewritten_ThenPassThrough()
-        {
-            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth));
-            var expr = BuildChainedExpression(inner);
-
-            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
-
             Assert.Same(inner, result.Expression);
         }
 
