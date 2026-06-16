@@ -1,18 +1,15 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using EnsureThat;
 using Medino;
-using Medino;
+using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -26,15 +23,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddMediatR(cfg =>
-            {
-                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
-                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>));
-                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateRequestPreProcessor<>));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<BundleRequest>), typeof(ValidateBundlePreProcessor));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateCapabilityPreProcessor<>));
-            });
+            services.AddMedino(KnownAssemblies.All);
+
+            // Medino has no IRequestPreProcessor. The two closed validation behaviors
+            // (ValidateBundlePreProcessor) are auto-registered by AddMedino's assembly scan.
+            // The open-generic validation behaviors are skipped by the scan and must be
+            // registered manually as open-generic IPipelineBehavior<,>.
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateCapabilityPreProcessor<,>));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
