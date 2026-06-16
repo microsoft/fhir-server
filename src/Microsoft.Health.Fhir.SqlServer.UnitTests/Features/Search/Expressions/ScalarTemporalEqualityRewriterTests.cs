@@ -81,13 +81,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 targetResourceTypes: new[] { "Patient" });
         }
 
-        private static ChainedExpression BuildChainedExpression(Expression inner)
+        private static ChainedExpression BuildChainedExpression(Expression inner, bool reversed = false)
         {
             var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
             SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
             SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
             SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
-            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), reversed);
             SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
             return expression;
         }
@@ -127,14 +127,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertDaySplitUnion(result, StartOfDay, EndOfDay);
         }
 
-        [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough(bool reversed)
         {
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
-            var expr = BuildChainedExpression(inner);
+            var expr = BuildChainedExpression(inner, reversed);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
+            Assert.Same(expr, result);
             Assert.Same(inner, result.Expression);
         }
 
