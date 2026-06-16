@@ -45,11 +45,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [Fact]
         public async Task GivenARequest_WhenValidatingCapability_ThenAllValidationRulesShouldRun()
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest, object>(_conformanceProvider);
 
             var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleResourceContext: null);
+            var nextCalled = false;
+            Task<object> Next()
+            {
+                nextCalled = true;
+                return Task.FromResult<object>(null);
+            }
 
-            await preProcessor.Process(getResourceRequest, CancellationToken.None);
+            await preProcessor.HandleAsync(getResourceRequest, Next, CancellationToken.None);
+
+            Assert.True(nextCalled, "Next handler should be called for allowed capability");
         }
 
         [Theory]
@@ -57,11 +65,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [InlineData(DeleteOperation.HardDelete)]
         public async Task GivenARequestNotAllowed_WhenValidatingCapability_ThenMethodNotAllowedExceptionShouldThrow(DeleteOperation deleteOperation)
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest, object>(_conformanceProvider);
 
             var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
+            var nextCalled = false;
+            Task<object> Next()
+            {
+                nextCalled = true;
+                return Task.FromResult<object>(null);
+            }
 
-            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(deleteResourceRequest, CancellationToken.None));
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.HandleAsync(deleteResourceRequest, Next, CancellationToken.None));
+            Assert.False(nextCalled, "Next handler should not be called for disallowed capability");
         }
 
         [Theory]
@@ -69,14 +84,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [InlineData(DeleteOperation.HardDelete)]
         public async Task GivenCaseMismatchedRequestValidatedFirst_WhenValidatingCorrectCasing_ThenCapabilityLookupShouldNotBePoisoned(DeleteOperation deleteOperation)
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest, object>(_conformanceProvider);
 
             var invalidDeleteRequest = new DeleteResourceRequest("patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
             var validDeleteRequest = new DeleteResourceRequest("Patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
-            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(invalidDeleteRequest, CancellationToken.None));
+            var nextCalled = false;
+            Task<object> Next()
+            {
+                nextCalled = true;
+                return Task.FromResult<object>(null);
+            }
 
-            await preProcessor.Process(validDeleteRequest, CancellationToken.None);
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.HandleAsync(invalidDeleteRequest, Next, CancellationToken.None));
+
+            nextCalled = false;
+            await preProcessor.HandleAsync(validDeleteRequest, Next, CancellationToken.None);
+            Assert.True(nextCalled, "Next handler should be called for allowed capability");
         }
     }
 }
