@@ -19,6 +19,7 @@ using Microsoft.Health.SqlServer.Features.Storage;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
+        where TRequest : notnull
         where TException : Exception
     {
         private readonly ILogger<SqlExceptionActionProcessor<TRequest, TException>> _logger;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
+        public Task ExecuteAsync(TRequest request, TException exception, CancellationToken cancellationToken)
         {
             if (exception is SqlException sqlException)
             {
