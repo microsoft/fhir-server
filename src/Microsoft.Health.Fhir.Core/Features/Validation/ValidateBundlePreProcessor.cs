@@ -12,16 +12,16 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ValidateBundlePreProcessor : IRequestPreProcessor<BundleRequest>
+    public class ValidateBundlePreProcessor : IPipelineBehavior<BundleRequest, BundleResponse>
     {
-        public Task Process(BundleRequest request, CancellationToken cancellationToken)
+        public Task<BundleResponse> HandleAsync(BundleRequest request, RequestHandlerDelegate<BundleResponse> next, CancellationToken cancellationToken)
         {
             if (request.Bundle.InstanceType != KnownResourceTypes.Bundle)
             {
                 throw new RequestNotValidException(Core.Resources.BundleRequiredForBatchOrTransaction);
             }
 
-            return Task.CompletedTask;
+            return next();
         }
     }
 }
