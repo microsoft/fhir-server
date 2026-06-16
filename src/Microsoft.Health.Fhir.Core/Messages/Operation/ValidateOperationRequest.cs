@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public class ValidateOperationRequest : IRequest<ValidateOperationResponse>, IRequest
+    public class ValidateOperationRequest : IRequest<ValidateOperationResponse>
     {
         public ValidateOperationRequest(ResourceElement resourceElement, Uri profile)
         {

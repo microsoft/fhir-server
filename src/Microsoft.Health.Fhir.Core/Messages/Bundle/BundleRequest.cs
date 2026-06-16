@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
-    public class BundleRequest : IRequest<BundleResponse>, IRequest, IRequireCapability
+    public class BundleRequest : IRequest<BundleResponse>, IRequireCapability
     {
         public BundleRequest(ResourceElement bundle)
         {

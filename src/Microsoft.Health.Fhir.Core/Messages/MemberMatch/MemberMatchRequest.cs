@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.MemberMatch
 {
-    public sealed class MemberMatchRequest : IRequest<MemberMatchResponse>, IRequest
+    public sealed class MemberMatchRequest : IRequest<MemberMatchResponse>
     {
         public MemberMatchRequest(ResourceElement coverage, ResourceElement patient)
         {
