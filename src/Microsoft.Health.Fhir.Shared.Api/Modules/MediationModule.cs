@@ -9,6 +9,7 @@ using Medino;
 using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -25,8 +26,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddMedino(KnownAssemblies.All);
 
-            // Medino has no IRequestPreProcessor. The two closed validation behaviors
-            // (ValidateBundlePreProcessor) are auto-registered by AddMedino's assembly scan.
+            // Medino has no IRequestPreProcessor. The closed validation behavior
+            // (ValidateBundlePreProcessor) is auto-registered by AddMedino's assembly scan.
             // The open-generic validation behaviors are skipped by the scan and must be
             // registered manually as open-generic IPipelineBehavior<,>.
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
