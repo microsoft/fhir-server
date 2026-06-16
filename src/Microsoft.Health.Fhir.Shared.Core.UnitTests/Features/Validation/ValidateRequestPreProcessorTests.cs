@@ -34,10 +34,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
             var nextCalled = false;
 
-            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
             };
 
             await upsertValidationHandler.HandleAsync(upsertResourceRequest, next, CancellationToken.None);
@@ -70,10 +70,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(validationError);
 
-            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
             };
 
             await Assert.ThrowsAsync<ResourceNotValidException>(
@@ -106,10 +106,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(Task.FromResult(validationError));
 
-            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 nextCalled = true;
-                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+                return Task.FromResult(new UpsertResourceResponse(Substitute.For<SaveOutcome>()));
             };
 
             var exception = await Assert.ThrowsAsync<ResourceNotValidException>(

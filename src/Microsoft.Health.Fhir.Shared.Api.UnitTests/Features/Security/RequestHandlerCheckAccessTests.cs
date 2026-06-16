@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             {
                 var typedHandler = (IRequestHandler<TRequest, TResponse>)handler;
                 var request = (TRequest)CreateObject(typeof(TRequest));
-                await typedHandler.Handle(request, CancellationToken.None);
+                await typedHandler.HandleAsync(request, CancellationToken.None);
             }
 
             static IEnumerable<FieldInfo> GetFieldsIncludingFromBaseTypes(Type t)

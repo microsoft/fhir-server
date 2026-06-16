@@ -434,7 +434,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var request = callInfo.Arg<CreateExportRequest>();
@@ -536,7 +536,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<GetExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<GetExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
@@ -553,7 +553,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<GetExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>
@@ -580,12 +580,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<CancelExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CancelExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CancelExportResponse(HttpStatusCode.OK));
 
             var request = default(CancelExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CancelExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>
@@ -646,7 +646,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateExportResponse("ExportTestJobId"));
         }
 
@@ -701,12 +701,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateExportResponse("ExportTestJobId"));
 
             var request = default(CreateExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CreateExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>

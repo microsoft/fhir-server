@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid && !unsupported ? 1 : 0).Send(
+            await _mediator.Received(valid && !unsupported ? 1 : 0).SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _bundleFactory.Received(unsupported ? 1 : 0).CreateSearchBundle(

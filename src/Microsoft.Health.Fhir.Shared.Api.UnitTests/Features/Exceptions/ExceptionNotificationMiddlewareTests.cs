@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             }
             catch (Exception e)
             {
-                await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
+                await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
                 Assert.Equal(exceptionMessage, e.Message);
             }
         }
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
 
             await exceptionNotificationMiddleware.Invoke(_context);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             var mediatorExceptionMessage = "Mediator Failure";
 
             var exceptionNotificationMiddleware = CreateExceptionNotificationMiddleware(innerHttpContext => throw new Exception(exceptionMessage));
-            _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ExceptionNotificationMiddleware>(), Arg.Any<CancellationToken>())).Throw(new System.Exception(mediatorExceptionMessage));
+            _mediator.WhenForAnyArgs(async x => await x.PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception(mediatorExceptionMessage));
 
             try
             {
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             }
             catch (Exception e)
             {
-                await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+                await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
                 Assert.Equal(exceptionMessage, e.Message);
             }
         }

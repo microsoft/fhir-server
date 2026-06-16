@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
 
             await localController.ConvertData(body);
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
                 && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var treatDatesAsStrings = body.GetSingleValue<FhirBoolean>(ConvertDataProperties.JsonDeserializationTreatDatesAsStrings) ?? new FhirBoolean();
             _mediator.SendAsync(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataEnabledController.ConvertData(body);
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
                 && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)

@@ -90,11 +90,11 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalCreateHandler.Handle(request, CancellationToken.None);
+        await _conditionalCreateHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -110,11 +110,11 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalCreateHandler.Handle(request, CancellationToken.None);
+        await _conditionalCreateHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -178,6 +178,6 @@ public class ConditionalCreateResourceHandlerTests
         var request = new ConditionalCreateResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.HandleAsync(request, CancellationToken.None));
     }
 }

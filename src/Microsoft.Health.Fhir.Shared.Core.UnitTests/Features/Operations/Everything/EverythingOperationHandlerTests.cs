@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            EverythingOperationResponse actualResponse = await _everythingOperationHandler.Handle(request, CancellationToken.None);
+            EverythingOperationResponse actualResponse = await _everythingOperationHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);

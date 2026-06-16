@@ -49,10 +49,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleResourceContext: null);
             var nextCalled = false;
-            Task<object> Next()
+            System.Threading.Tasks.Task<object> Next()
             {
                 nextCalled = true;
-                return Task.FromResult<object>(null);
+                return System.Threading.Tasks.Task.FromResult<object>(null);
             }
 
             await preProcessor.HandleAsync(getResourceRequest, Next, CancellationToken.None);
@@ -69,10 +69,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
             var nextCalled = false;
-            Task<object> Next()
+            System.Threading.Tasks.Task<object> Next()
             {
                 nextCalled = true;
-                return Task.FromResult<object>(null);
+                return System.Threading.Tasks.Task.FromResult<object>(null);
             }
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.HandleAsync(deleteResourceRequest, Next, CancellationToken.None));
@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var validDeleteRequest = new DeleteResourceRequest("Patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
             var nextCalled = false;
-            Task<object> Next()
+            System.Threading.Tasks.Task<object> Next()
             {
                 nextCalled = true;
-                return Task.FromResult<object>(null);
+                return System.Threading.Tasks.Task.FromResult<object>(null);
             }
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.HandleAsync(invalidDeleteRequest, Next, CancellationToken.None));

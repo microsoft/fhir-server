@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 NullLogger<CancelExportRequestHandler>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                handler.Handle(new CancelExportRequest(JobId), _cancellationToken));
+                handler.HandleAsync(new CancelExportRequest(JobId), _cancellationToken));
         }
 
         /// <summary>

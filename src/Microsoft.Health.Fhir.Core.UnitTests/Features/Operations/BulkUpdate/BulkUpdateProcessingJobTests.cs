@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(2, result.ResourcesIgnored["CarePlan"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Is<bool>(b => !b), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
         }
 
         [Theory]
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
         }
 
         [Theory]
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.Received(1).Refresh();
         }
 
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(3, result.ResourcesUpdated["StructureDefinition"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.Received(1).Refresh();
         }
 
@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
@@ -406,7 +406,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(3, result.ResourcesUpdated["StructureDefinition"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Contains(exceptionMessage, errorResult.Issues);
             Assert.Equal(1, errorResult.ResourcesPatchFailed["Patient"]);
 
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(2, errorResult.ResourcesIgnored["StructureDefinition"]);
             Assert.Equal(1, errorResult.ResourcesPatchFailed["Patient"]);
 
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Empty(result.ResourcesPatchFailed);
             Assert.Empty(result.Issues);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             // Act & Assert
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Equal("Unexpected error", ex.Message);
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]

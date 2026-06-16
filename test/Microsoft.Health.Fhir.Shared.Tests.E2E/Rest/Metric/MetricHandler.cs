@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             NotificationMapping.Clear();
         }
 
-        public Task Handle(INotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(INotification notification, CancellationToken cancellationToken)
         {
             Type notificationType = notification.GetType();
             if (NotificationMapping.TryGetValue(notificationType, out List<INotification> foundNotifications))

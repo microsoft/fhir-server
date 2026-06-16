@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
             await _mediator.GetOperationDefinitionAsync(operationName, CancellationToken.None);
 
             // Assert
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<OperationDefinitionRequest>(r => r.OperationName == operationName),
                 Arg.Any<CancellationToken>());
         }
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
             await _mediator.GetOperationDefinitionAsync(operationName, cancellationToken);
 
             // Assert
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Is<CancellationToken>(ct => ct == cancellationToken));
         }
@@ -168,10 +168,10 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
             // Assert
             Assert.NotNull(result1);
             Assert.NotNull(result2);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<OperationDefinitionRequest>(r => r.OperationName == operationName1),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<OperationDefinitionRequest>(r => r.OperationName == operationName2),
                 Arg.Any<CancellationToken>());
         }

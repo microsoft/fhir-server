@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
 
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
 
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -71,19 +71,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             _httpContext.Request.Path = "/Observation";
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenRequestPath_WhenMediatRFails_NoExceptionIsThrown()
         {
             await Task.CompletedTask;
-            _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
+            _mediator.WhenForAnyArgs(async x => await x.PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
 
             _httpContext.Request.Path = "/Observation";
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
     }
 }

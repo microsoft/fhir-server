@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 type: ResourceType.Observation.ToString(),
                 ct: null) as FhirResult;
 
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<EverythingOperationRequest>(
                     r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
                          && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(EverythingOperationRequest);
             _mediator.When(
-                x => x.Send<EverythingOperationResponse>(
+                x => x.SendAsync<EverythingOperationResponse>(
                     Arg.Any<EverythingOperationRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<EverythingOperationRequest>());
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 type: ResourceType.Observation.ToString(),
                 ct: null) as FhirResult;
 
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<EverythingOperationRequest>(
                     r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
                          && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)

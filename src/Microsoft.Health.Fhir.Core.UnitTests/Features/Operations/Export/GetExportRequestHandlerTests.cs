@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 authorizationService);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                handler.Handle(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                handler.HandleAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         /// <summary>

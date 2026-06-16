@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 mockResultEntry1,
                 mockResultEntry2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<DeleteResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
         }
 
         [Fact]

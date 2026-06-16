@@ -386,7 +386,7 @@ UPDATE dbo.SearchParam
             collection.AddScoped(schemaManagerDataStoreFactory);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
-            return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<MediatR.IMediator>(), NullLogger<SchemaInitializer>.Instance);
         }
 
         public async Task<SqlConnection> GetSqlConnectionAsync()

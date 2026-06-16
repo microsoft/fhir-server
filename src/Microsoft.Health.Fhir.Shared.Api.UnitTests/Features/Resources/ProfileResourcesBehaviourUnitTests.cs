@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: null),
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: bundleResourceContext),
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new ConditionalUpsertResourceRequest(
                             new ResourceElement(new ValueSet().ToTypedElement()),
                             new List<Tuple<string, string>>()),
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new ConditionalCreateResourceRequest(
                             new ResourceElement(new ValueSet().ToTypedElement()),
                             new List<Tuple<string, string>>()),
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new UpsertResourceRequest(new ResourceElement(new ValueSet().ToTypedElement())),
                         x,
                         default);
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<DeleteResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new DeleteResourceRequest(
                             new ResourceKey(KnownResourceTypes.ValueSet, Guid.NewGuid().ToString()),
                             DeleteOperation.SoftDelete),
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: null),

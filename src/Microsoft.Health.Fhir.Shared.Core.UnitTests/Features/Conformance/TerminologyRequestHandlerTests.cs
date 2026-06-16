@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     });
             try
             {
-                await _handler.Handle(
+                await _handler.HandleAsync(
                     request,
                     CancellationToken.None);
                 Assert.Null(exception);
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Assert.NotNull(exception);
             }
 
-            await _mediator.Received(string.IsNullOrEmpty(request.ResourceId) ? 0 : 1).Send(
+            await _mediator.Received(string.IsNullOrEmpty(request.ResourceId) ? 0 : 1).SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }

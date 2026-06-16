@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             await _mediator
                 .Received()
-                .Publish(
+                .PublishAsync(
                     Arg.Is<SearchParametersUpdatedNotification>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
                     Arg.Any<CancellationToken>());
         }
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Assert - Mediator was NOT called (no SearchParametersUpdatedNotification)
             await _mediator
                 .DidNotReceive()
-                .Publish(
+                .PublishAsync(
                     Arg.Any<SearchParametersUpdatedNotification>(),
                     Arg.Any<CancellationToken>());
         }
