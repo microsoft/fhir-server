@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAnEverythingOperationRequest_WhenValid_ThenProperResponseShouldBeReturned()
         {
-            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+            _mediator.SendAsync(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
             var result = await _everythingController.PatientEverythingById(
                 idParameter: "123",
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _everythingController.ControllerContext.HttpContext.Request.QueryString = new QueryString(query);
 
-            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+            _mediator.SendAsync(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
             var request = default(EverythingOperationRequest);
             _mediator.When(

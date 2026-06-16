@@ -4,11 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using System.Threading.Tasks;
 using Medino;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {

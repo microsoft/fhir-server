@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             var request = new CreateBulkUpdateRequest(resourceType, searchParameters, parameters, isParallel, maxCount, metaHistory);
-            CreateBulkUpdateResponse response = await mediator.Send(request, cancellationToken);
+            CreateBulkUpdateResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
             var request = new GetBulkUpdateRequest(jobId);
 
-            GetBulkUpdateResponse response = await mediator.Send(request, cancellationToken);
+            GetBulkUpdateResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
             var request = new CancelBulkUpdateRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

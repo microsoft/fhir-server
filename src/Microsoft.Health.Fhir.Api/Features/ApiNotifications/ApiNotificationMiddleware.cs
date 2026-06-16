@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                         apiNotification.ResourceType = fhirRequestContext.ResourceType;
                         apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
-                        await _mediator.Publish(apiNotification, CancellationToken.None);
+                        await _mediator.PublishAsync(apiNotification, CancellationToken.None);
                     }
                 }
                 catch (Exception e)

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (newHash != oldHash)
                 {
                     _logger.LogDebug("Profiles: New Profiles found.");
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
                 _logger.LogInformation("Profiles: Profiles are updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);

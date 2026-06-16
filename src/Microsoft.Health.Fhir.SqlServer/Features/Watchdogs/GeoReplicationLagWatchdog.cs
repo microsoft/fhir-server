@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         }
                     }
 
-                    await _mediator.Publish(
+                    await _mediator.PublishAsync(
                         new GeoReplicationLagNotification
                         {
                             ReplicationState = info.ReplicationState,

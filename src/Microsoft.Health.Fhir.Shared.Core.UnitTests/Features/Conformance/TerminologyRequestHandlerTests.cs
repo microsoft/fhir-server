@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 .Returns(Task.FromResult(CreateValueSet(Guid.NewGuid().ToString()).ToResourceElement()));
 
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(CreateGetResourceResponse(CreateValueSet(Guid.NewGuid().ToString()))));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             ExpandRequest request,
             Exception exception)
         {
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(

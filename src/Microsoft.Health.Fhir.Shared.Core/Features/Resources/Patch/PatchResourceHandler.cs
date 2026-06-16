@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             _logger = logger;
         }
 
-        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(PatchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             ResourceElement patchedResource = request.Payload.Patch(currentDoc);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
         }
     }
 }

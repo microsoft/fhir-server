@@ -1090,7 +1090,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             // When SearchParameterDefinitionManagerInitialized is published, simulate a status-stage failure
-            mediator.Publish(
+            mediator.PublishAsync(
                 Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
                 Arg.Any<CancellationToken>())
                 .Returns(_ => throw new InvalidOperationException("Simulated status-stage failure"));

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             _logger = logger;
         }
 
-        public async Task<ExpandResponse> Handle(
+        public async Task<ExpandResponse> HandleAsync(
             ExpandRequest request,
             CancellationToken cancellationToken)
         {

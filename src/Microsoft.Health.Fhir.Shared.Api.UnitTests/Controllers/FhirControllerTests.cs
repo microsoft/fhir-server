@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -80,11 +80,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _authorizationService = Substitute.For<IAuthorizationService>();
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<DeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<ConditionalDeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<OperationDefinitionResponse> Handle(OperationDefinitionRequest request, CancellationToken cancellationToken)
+        public async Task<OperationDefinitionResponse> HandleAsync(OperationDefinitionRequest request, CancellationToken cancellationToken)
         {
             using Stream stream = DataLoader.OpenOperationDefinitionFileStream($"{request.OperationName}.json");
             using TextReader reader = new StreamReader(stream);

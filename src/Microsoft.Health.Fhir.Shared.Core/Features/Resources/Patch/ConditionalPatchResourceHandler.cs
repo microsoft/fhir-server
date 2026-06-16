@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var patchedResource = request.Payload.Patch(match.Resource);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
         }
 
         public override Task<bool> CheckAccess(CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -611,7 +611,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
-            _mediator.Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>())
+            _mediator.PublishAsync(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>())
                 .Throws(new InvalidOperationException("Mediator error"));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));

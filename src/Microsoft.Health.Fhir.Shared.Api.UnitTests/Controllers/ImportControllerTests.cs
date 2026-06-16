@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             importRequest.ProcessingUnitBytesToRead = int.MaxValue;
 
             var id = Guid.NewGuid().ToString();
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(id));
 
             var request = default(CreateImportRequest);
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(baseUri);
 
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
 
             var importRequest = GetValidBulkImportRequestConfiguration();
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(baseUri);
 
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
 
             var importRequest = GetValidBulkImportRequestConfiguration();

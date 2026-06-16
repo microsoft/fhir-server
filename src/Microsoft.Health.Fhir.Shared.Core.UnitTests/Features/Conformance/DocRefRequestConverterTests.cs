@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         public DocRefRequestConverterTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new SearchResourceResponse(new Bundle().ToResourceElement())));
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             var unsupported = parametersToValidate.ContainsKey(DocRefRequestConverter.OnDemandParameterName)
                 || parametersToValidate.ContainsKey(DocRefRequestConverter.ProfileParameterName);
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(

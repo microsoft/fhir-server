@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
-        public async Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
+        public async Task<ValidateOperationResponse> HandleAsync(ValidateOperationRequest request, CancellationToken cancellationToken)
         {
             await _authorizationService.CheckAccess(DataActions.ResourceValidate, true, cancellationToken);
 

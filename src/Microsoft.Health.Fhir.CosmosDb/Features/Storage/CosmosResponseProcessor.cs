@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                await _mediator.Publish(cosmosMetrics, cancellationToken);
+                await _mediator.PublishAsync(cosmosMetrics, cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                 exceptionNotification.BaseException = exception;
 
-                await _mediator.Publish(exceptionNotification, cancellationToken);
+                await _mediator.PublishAsync(exceptionNotification, cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {

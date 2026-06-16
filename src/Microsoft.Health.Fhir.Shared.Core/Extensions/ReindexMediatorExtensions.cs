@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, maxResourcesPerQuery, maxResourcesPerWrite, queryDelay, targetDataStoreResourcePercentage);
 
-            CreateReindexResponse response = await mediator.Send(request, cancellationToken);
+            CreateReindexResponse response = await mediator.SendAsync(request, cancellationToken);
             return response.Job.ToParametersResourceElement();
         }
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
 
-            ReindexSingleResourceResponse response = await mediator.Send(request, cancellationToken);
+            ReindexSingleResourceResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new GetReindexRequest(jobId);
 
-            GetReindexResponse response = await mediator.Send(request, cancellationToken);
+            GetReindexResponse response = await mediator.SendAsync(request, cancellationToken);
             return response.Job.ToParametersResourceElement();
         }
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CancelReindexRequest(jobId);
 
-            var response = await mediator.Send(request, cancellationToken);
+            var response = await mediator.SendAsync(request, cancellationToken);
 
             return response.Job.ToParametersResourceElement();
         }

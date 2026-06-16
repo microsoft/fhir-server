@@ -24,8 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _provider = provider;
         }
 
-        Task<GetOperationVersionsResponse> IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>.
-            Handle(GetOperationVersionsRequest request, CancellationToken cancellationToken)
+        public Task<GetOperationVersionsResponse> HandleAsync(GetOperationVersionsRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult(Handle(request));
         }

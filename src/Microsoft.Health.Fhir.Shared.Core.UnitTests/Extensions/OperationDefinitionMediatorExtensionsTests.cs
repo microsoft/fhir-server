@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             var operationDefinition = CreateTestOperationDefinition(operationName);
             var response = new OperationDefinitionResponse(operationDefinition.ToResourceElement());
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(response);
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             var response = new OperationDefinitionResponse(operationDefinition.ToResourceElement());
             var cancellationToken = new CancellationToken(false);
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(response);
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         {
             // Arrange
             const string operationName = "export";
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns<OperationDefinitionResponse>(x => throw new InvalidOperationException("Test exception"));
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns<OperationDefinitionResponse>(x => throw new OperationCanceledException());
@@ -151,12 +151,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             var operationDefinition1 = CreateTestOperationDefinition(operationName1);
             var operationDefinition2 = CreateTestOperationDefinition(operationName2);
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Is<OperationDefinitionRequest>(r => r.OperationName == operationName1),
                 Arg.Any<CancellationToken>())
                 .Returns(new OperationDefinitionResponse(operationDefinition1.ToResourceElement()));
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Is<OperationDefinitionRequest>(r => r.OperationName == operationName2),
                 Arg.Any<CancellationToken>())
                 .Returns(new OperationDefinitionResponse(operationDefinition2.ToResourceElement()));

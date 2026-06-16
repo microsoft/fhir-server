@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameters);
 
             var request = new ExpandRequest(parameters);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
             return FhirResult.Create(response.Resource);
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameters, idParameter);
 
             var request = new ExpandRequest(parameters, idParameter);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
             return FhirResult.Create(response.Resource);
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameterList);
 
             var request = new ExpandRequest(parameterList);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
             return FhirResult.Create(response.Resource);

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -50,8 +50,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
-            _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
-            _mediator.Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration),

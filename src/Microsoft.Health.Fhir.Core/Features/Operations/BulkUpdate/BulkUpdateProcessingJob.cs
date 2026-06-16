@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 if (result.ResourcesUpdated.Any())
                 {
-                    await _mediator.Publish(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                    await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
                 }
 
                 if (exception != null)

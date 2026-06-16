@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, includeSoftDeleted, excludedResourceTypes, removeReferences);
 
-            CreateBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
+            CreateBulkDeleteResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new GetBulkDeleteRequest(jobId);
 
-            GetBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
+            GetBulkDeleteResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new CancelBulkDeleteRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

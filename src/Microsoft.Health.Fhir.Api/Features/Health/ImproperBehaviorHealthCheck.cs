@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, "Improper server behavior has been detected." + _message));
         }
 
-        public Task Handle(ImproperBehaviorNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(ImproperBehaviorNotification notification, CancellationToken cancellationToken)
         {
             _isHealthy = false;
             _message += " " + notification.Message;

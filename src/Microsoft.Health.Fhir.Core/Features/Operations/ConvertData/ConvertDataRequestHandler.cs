@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             _convertDataConfiguration = convertDataConfiguration.Value;
         }
 
-        public async Task<ConvertDataResponse> Handle(ConvertDataRequest request, CancellationToken cancellationToken)
+        public async Task<ConvertDataResponse> HandleAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request);
 

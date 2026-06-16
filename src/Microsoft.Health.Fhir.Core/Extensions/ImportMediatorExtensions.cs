@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
 
-            CreateImportResponse response = await mediator.Send(request, cancellationToken);
+            CreateImportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new GetImportRequest(jobId, returnDetails);
 
-            GetImportResponse response = await mediator.Send(request, cancellationToken);
+            GetImportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CancelImportRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

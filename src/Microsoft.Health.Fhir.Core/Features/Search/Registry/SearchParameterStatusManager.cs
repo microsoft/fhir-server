@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -126,11 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogError("SearchParameterStatusManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
-            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
+            await _mediator.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.PublishAsync(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
-        public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
             _logger.LogInformation("SearchParameterStatusManager: Search parameter definition manager initialized");
             await EnsureInitializedAsync(cancellationToken);
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)

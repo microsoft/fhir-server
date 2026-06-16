@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
 
-            return await mediator.Send(new OperationDefinitionRequest(operationName), cancellationToken);
+            return await mediator.SendAsync(new OperationDefinitionRequest(operationName), cancellationToken);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             _searchParameterStatusManager = searchParameterStatusManager;
         }
 
-        public async Task<SearchParameterStateResponse> Handle(SearchParameterStateRequest request, CancellationToken cancellationToken)
+        public async Task<SearchParameterStateResponse> HandleAsync(SearchParameterStateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

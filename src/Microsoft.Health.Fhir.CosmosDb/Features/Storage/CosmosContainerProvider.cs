@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized()
                 .AsTask()
-                .ContinueWith(_ => _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
+                .ContinueWith(_ => _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
 #pragma warning restore CS4014
 
             return Task.CompletedTask;

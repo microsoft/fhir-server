@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _initialized = true;
                 await LoadSearchParamsFromDataStore(cancellationToken);
 
-                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+                await _mediator.PublishAsync(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
             }
             catch
             {
@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
                     CalculateSearchParameterHash();
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -344,10 +344,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
-        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)

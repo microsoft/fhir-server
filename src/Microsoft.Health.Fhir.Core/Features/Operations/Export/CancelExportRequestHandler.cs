@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
-        public async Task<CancelExportResponse> Handle(CancelExportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelExportResponse> HandleAsync(CancelExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _logger.LogInformation("SystemConformanceProvider: DisposeAsync completed.");
         }
 
-        public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
             if (_disposed)
             {

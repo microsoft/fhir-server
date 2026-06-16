@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);
-            ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
+            ConvertDataResponse response = await _mediator.SendAsync(convertDataRequest, cancellationToken: default);
 
             return new ContentResult
             {

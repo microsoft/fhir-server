@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                     exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                     exceptionNotification.BaseException = exception;
 
-                    await _mediator.Publish(exceptionNotification, CancellationToken.None);
+                    await _mediator.PublishAsync(exceptionNotification, CancellationToken.None);
                 }
                 catch (Exception e)
                 {

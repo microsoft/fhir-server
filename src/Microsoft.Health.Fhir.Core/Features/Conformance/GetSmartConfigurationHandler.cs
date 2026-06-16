@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _oidcDiscoveryService = oidcDiscoveryService;
         }
 
-        public async Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
+        public async Task<GetSmartConfigurationResponse> HandleAsync(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
