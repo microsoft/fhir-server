@@ -13,7 +13,7 @@ using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ValidateRequestPreProcessor<TRequest> : IRequestPreProcessor<TRequest>
+    public class ValidateRequestPreProcessor<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : class
     {
         private readonly IEnumerable<IValidator<TRequest>> _validators;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _validators = validators;
         }
 
-        public async Task Process(TRequest request, CancellationToken cancellationToken)
+        public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -35,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 throw new ResourceNotValidException(allResults.SelectMany(x => x.Errors).ToList());
             }
+
+            return await next();
         }
     }
 }
