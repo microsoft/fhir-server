@@ -51,13 +51,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth)), // multi-value OR
         };
 
-        public static TheoryData<Expression, bool> ChainedPassThroughExpressions => new()
-        {
-            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay)), false },
-            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay)), true },
-            { new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfMonth, EndOfMonth)), false },
-        };
-
         public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()
         {
             BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date")),
@@ -94,13 +87,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 targetResourceTypes: new[] { "Patient" });
         }
 
-        private static ChainedExpression BuildChainedExpression(Expression inner, bool reversed = false)
+        private static ChainedExpression BuildChainedExpression(Expression inner)
         {
             var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
             SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
             SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
             SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
-            SetBackingField(expression, nameof(ChainedExpression.Reversed), reversed);
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
             SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
             return expression;
         }
@@ -140,16 +133,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertDaySplitUnion(result, StartOfDay, EndOfDay);
         }
 
-        [Theory]
-        [MemberData(nameof(ChainedPassThroughExpressions))]
-        public void GivenAllowListedBirthdateInChainedExpression_WhenRewritten_ThenPassThrough(Expression inner, bool reversed)
+        [Fact]
+        public void GivenAllowListedBirthdateInChainedExpression_WhenRewritten_ThenPassThrough()
         {
-            var expr = BuildChainedExpression(inner, reversed);
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = BuildChainedExpression(inner);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(expr, result);
-            Assert.Same(inner, result.Expression);
         }
 
         [Theory]

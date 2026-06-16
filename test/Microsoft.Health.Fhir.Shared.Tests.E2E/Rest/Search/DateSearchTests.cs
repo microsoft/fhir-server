@@ -244,32 +244,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenCurrentOverlapBehaviorIsPreserved()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
-            Patient patient2000 = patients[0];
-            Patient patient2000March = patients[1];
-            Patient patient2000March03 = patients[2];
-            Patient patient2000April01 = patients[4];
-            Patient patient2000December = patients[5];
-            Patient patient2000March31 = patients[6];
-            Patient patient2001 = patients[7];
-            Patient patient2001December = patients[9];
-            Patient patient2001December31 = patients[10];
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
 
             // Existing partial-birthdate equality is overlap-based; AB#191826 tracks FHIR containment.
             Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
-            ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
+            ValidateBundle(yearBundle, matrix.Year2000, matrix.March2000, matrix.March03, matrix.April01_2000, matrix.December2000, matrix.March31_2000);
 
             Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
-            ValidateBundle(monthBundle, patient2000, patient2000March, patient2000March03, patient2000March31);
+            ValidateBundle(monthBundle, matrix.Year2000, matrix.March2000, matrix.March03, matrix.March31_2000);
 
             Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
-            ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
+            ValidateBundle(dayBundle, matrix.Year2000, matrix.March2000, matrix.March03);
 
             Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}");
-            ValidateBundle(decemberEdgeBundle, patient2001, patient2001December, patient2001December31);
+            ValidateBundle(decemberEdgeBundle, matrix.Year2001, matrix.December2001, matrix.December31_2001);
 
             Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
-            ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
+            ValidateBundle(lastDayBundle, matrix.Year2000, matrix.March2000, matrix.March31_2000);
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -278,17 +269,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByMultiValueOr_ThenUnionOfPerValueOverlapSetsIsReturned()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
-            Patient patient2000 = patients[0];
-            Patient patient2000March = patients[1];
-            Patient patient2000March03 = patients[2];
-            Patient patient2001 = patients[7];
-            Patient patient2001December = patients[9];
-            Patient patient2001December31 = patients[10];
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03,2001-12-31&_tag={tag}");
 
-            ValidateBundle(bundle, patient2000, patient2000March, patient2000March03, patient2001, patient2001December, patient2001December31);
+            ValidateBundle(bundle, matrix.Year2000, matrix.March2000, matrix.March03, matrix.Year2001, matrix.December2001, matrix.December31_2001);
             AssertNoDuplicateEntries(bundle);
         }
 
@@ -298,35 +283,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByNotEquals_ThenOnlyTheExactDayValueIsExcluded()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
-            Patient patient2000 = patients[0];
-            Patient patient2000March = patients[1];
-            Patient patient1999December31 = patients[3];
-            Patient patient2000April01 = patients[4];
-            Patient patient2000December = patients[5];
-            Patient patient2000March31 = patients[6];
-            Patient patient2001 = patients[7];
-            Patient patient2001November30 = patients[8];
-            Patient patient2001December = patients[9];
-            Patient patient2001December31 = patients[10];
-            Patient patient2002January01 = patients[11];
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=ne2000-03-03&_tag={tag}&_total=accurate&_count=100");
 
-            Assert.Equal(patients.Length - 1, bundle.Total.GetValueOrDefault());
+            // Every matrix value except the exact-day 2000-03-03 should remain.
+            Assert.Equal(11, bundle.Total.GetValueOrDefault());
             ValidateBundle(
                 bundle,
-                patient2000,
-                patient2000March,
-                patient1999December31,
-                patient2000April01,
-                patient2000December,
-                patient2000March31,
-                patient2001,
-                patient2001November30,
-                patient2001December,
-                patient2001December31,
-                patient2002January01);
+                matrix.Year2000,
+                matrix.March2000,
+                matrix.December31_1999,
+                matrix.April01_2000,
+                matrix.December2000,
+                matrix.March31_2000,
+                matrix.Year2001,
+                matrix.November30_2001,
+                matrix.December2001,
+                matrix.December31_2001,
+                matrix.January01_2002);
             AssertNoDuplicateEntries(bundle);
         }
 
@@ -336,15 +311,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithTotal_ThenCountIsAccurateAndEntriesAreNotDuplicated()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
-            Patient patient2000 = patients[0];
-            Patient patient2000March = patients[1];
-            Patient patient2000March03 = patients[2];
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}&_total=accurate");
 
             Assert.Equal(3, bundle.Total.GetValueOrDefault());
-            ValidateBundle(bundle, patient2000, patient2000March, patient2000March03);
+            ValidateBundle(bundle, matrix.Year2000, matrix.March2000, matrix.March03);
             AssertNoDuplicateEntries(bundle);
         }
 
@@ -354,16 +326,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithSort_ThenResultsAreOrderedByBirthdateWithoutDuplicates()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
-            Patient patient2000 = patients[0];
-            Patient patient2000March = patients[1];
-            Patient patient2000March03 = patients[2];
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_sort=birthdate&_tag={tag}");
 
             AssertNoDuplicateEntries(bundle);
             Assert.Equal(
-                new[] { patient2000.Id, patient2000March.Id, patient2000March03.Id },
+                new[] { matrix.Year2000.Id, matrix.March2000.Id, matrix.March03.Id },
                 bundle.Entry.Select(e => e.Resource.Id).ToArray());
         }
 
@@ -395,9 +364,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(march01Bundle, year2020, march01);
         }
 
-        private async Task<Patient[]> CreatePartialBirthdateMatrixAsync(string tag)
+        private async System.Threading.Tasks.Task<PartialBirthdateMatrix> CreatePartialBirthdateMatrixAsync(string tag)
         {
-            return await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
                 p => SetPatientBirthDate(p, "2000", tag),
                 p => SetPatientBirthDate(p, "2000-03", tag),
                 p => SetPatientBirthDate(p, "2000-03-03", tag),
@@ -410,6 +379,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientBirthDate(p, "2001-12", tag),
                 p => SetPatientBirthDate(p, "2001-12-31", tag),
                 p => SetPatientBirthDate(p, "2002-01-01", tag));
+
+            return new PartialBirthdateMatrix(
+                Year2000: patients[0],
+                March2000: patients[1],
+                March03: patients[2],
+                December31_1999: patients[3],
+                April01_2000: patients[4],
+                December2000: patients[5],
+                March31_2000: patients[6],
+                Year2001: patients[7],
+                November30_2001: patients[8],
+                December2001: patients[9],
+                December31_2001: patients[10],
+                January01_2002: patients[11]);
         }
 
         private static void AssertNoDuplicateEntries(Bundle bundle)
@@ -423,5 +406,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
             patient.BirthDate = birthDate;
         }
+
+        private sealed record PartialBirthdateMatrix(
+            Patient Year2000,
+            Patient March2000,
+            Patient March03,
+            Patient December31_1999,
+            Patient April01_2000,
+            Patient December2000,
+            Patient March31_2000,
+            Patient Year2001,
+            Patient November30_2001,
+            Patient December2001,
+            Patient December31_2001,
+            Patient January01_2002);
     }
 }
