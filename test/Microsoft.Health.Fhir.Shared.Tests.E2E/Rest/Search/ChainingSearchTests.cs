@@ -189,6 +189,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient);
         }
 
+#if !Stu3
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAReverseChainSearchExpressionOverImagingStudyStartedCombinedWithAnExactDayBirthdateAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchPostAsync(
+                ResourceType.Patient.ToString(),
+                null,
+                default,
+                ("_has:ImagingStudy:patient:started", Fixture.ImagingStudyStarted),
+                ("birthdate", Fixture.ImagingStudyPatientBirthDate),
+                ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
+
+            ValidateBundle(bundle, Fixture.ImagingStudyPatient);
+        }
+#endif
+
         [Fact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -445,6 +462,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public string OrganizationIdentifier { get; } = Guid.NewGuid().ToString();
 
+#if !Stu3
+            public string TenantTagSystem { get; } = "urn:tenantId";
+
+            public string TenantTagCode { get; } = "1016";
+
+            public string ImagingStudyPatientBirthDate { get; } = "2018-06-06";
+
+            public string ImagingStudyStarted { get; } = "2018-02-02T05:00:00.000";
+
+            public Patient ImagingStudyPatient { get; private set; }
+#endif
+
             public Patient SmithPatient { get; private set; }
 
             public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
@@ -486,6 +515,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Female, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
                 SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, BirthDate = SmithPatientBirthDate, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
                 TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, BirthDate = "1990-05-16", Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
+
+#if !Stu3
+                var tenantMeta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding(TenantTagSystem, TenantTagCode),
+                    },
+                };
+
+                ImagingStudyPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = tenantMeta, Gender = AdministrativeGender.Male, BirthDate = ImagingStudyPatientBirthDate, Name = new List<HumanName> { new HumanName { Family = "ImagingStudyPatient" } } })).Resource;
+
+                await TestFhirClient.CreateAsync(new ImagingStudy { Meta = tenantMeta, Status = ImagingStudy.ImagingStudyStatus.Available, Subject = new ResourceReference($"Patient/{ImagingStudyPatient.Id}"), Started = ImagingStudyStarted });
+#endif
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
                 DeviceSnomedSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
