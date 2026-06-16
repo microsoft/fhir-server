@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace MediatR 12.5.0 with the MIT-licensed Medino 3.0.2 across the FHIR Server repository, with zero behavioral change, on the current `net9.0;net8.0` toolchain.
+**Goal:** Replace MediatR 12.5.0 with the MIT-licensed Medino 3.0.3 across the FHIR Server repository, with zero behavioral change, on the current `net9.0;net8.0` toolchain.
 
 **Architecture:** Compiler-driven big-bang. Swap the NuGet package, swap the `using` namespace, then let the compiler flag every call/handler/method site that needs a deterministic rename (`Send`→`SendAsync`, `Publish`→`PublishAsync`, `Handle`→`HandleAsync`, `Execute`→`ExecuteAsync`, `next(ct)`→`next()`). Medino has no `IRequestPreProcessor`, so the three FHIR validators are re-expressed as `IPipelineBehavior<TRequest, TResponse>` that run their check then call `await next()`. Medino runs exception actions natively, so the two explicit exception-processor behavior registrations are deleted, not migrated.
 
-**Tech Stack:** C# / .NET (net9.0;net8.0), Medino 3.0.2 + Medino.Extensions.DependencyInjection 3.0.2, FluentValidation, Microsoft.Testing.Platform (MTP) xUnit, Central Package Management (`Directory.Packages.props`).
+**Tech Stack:** C# / .NET (net9.0;net8.0), Medino 3.0.3 + Medino.Extensions.DependencyInjection 3.0.3, FluentValidation, Microsoft.Testing.Platform (MTP) xUnit, Central Package Management (`Directory.Packages.props`).
 
 **Source of truth:** `docs/superpowers/specs/2026-06-15-dotnet10-upgrade-design.md` §4. ADO Task #195647.
 
@@ -37,7 +37,7 @@ Read this once before starting; every task below depends on it.
 
 | File | Change |
 |------|--------|
-| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.2 |
+| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3 |
 | ~230 `*.cs` with `using MediatR…` | Namespace swap to `using Medino;` (scripted) |
 | `src/Microsoft.Health.Fhir.Core/Messages/Bundle/BundleRequest.cs` | Remove redundant non-generic `, IRequest` |
 | `src/Microsoft.Health.Fhir.Core/Messages/Create/CreateResourceRequest.cs` | Remove redundant non-generic `, IRequest` |
@@ -106,10 +106,10 @@ Delete this line (currently line 64):
 
 - [ ] **Step 2: Add the two Medino package versions in its place**
 
-Insert (alphabetical order is not enforced in this file, but keep the two together):
+Insert (alphabetical order is not enforced in this file, but keep the two together). `3.0.3` is the latest stable on nuget.org (verified via `dotnet package search Medino`; owner `brendankowitz`) and is routed to the public `nuget.org` feed by the `*` `packageSourceMapping` rule in `nuget.config`:
 ```xml
-    <PackageVersion Include="Medino" Version="3.0.2" />
-    <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.2" />
+    <PackageVersion Include="Medino" Version="3.0.3" />
+    <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.3" />
 ```
 
 - [ ] **Step 3: Update the `<PackageReference>` entries**

@@ -36,7 +36,7 @@ Performed on the **current `net9.0;net8.0`** toolchain. No framework change.
 
 ### 4.1 Package swap (`Directory.Packages.props`)
 - Remove `MediatR` `12.5.0`.
-- Add `Medino` `3.0.2` and `Medino.Extensions.DependencyInjection` `3.0.2`.
+- Add `Medino` `3.0.3` and `Medino.Extensions.DependencyInjection` `3.0.3` (latest stable on nuget.org, verified).
 
 ### 4.2 Mechanical renames (~210 files, compiler-verified)
 - `using MediatR;` / `using MediatR.Pipeline;` → `using Medino;`.
