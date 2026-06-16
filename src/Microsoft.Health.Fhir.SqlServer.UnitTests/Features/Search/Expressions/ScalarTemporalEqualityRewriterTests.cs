@@ -43,6 +43,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), // single-sided predicate
             Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), // range operator
             EqualityPattern(StartOfDay.AddDays(-30), EndOfDay.AddDays(30)), // approximate / multi-day window
+            Expression.Or(
+                Expression.LessThan(FieldName.DateTimeStart, null, StartOfDay),
+                Expression.GreaterThan(FieldName.DateTimeEnd, null, EndOfDay)), // not-equals (ne): Core emits an Or of single-sided predicates, never an And of two
+            Expression.Or(
+                EqualityPattern(StartOfDay, EndOfDay),
+                EqualityPattern(StartOfLastDayOfMonth, EndOfLastDayOfMonth)), // multi-value OR (birthdate=dayA,dayB): the top-level Or is not the And pattern, so it passes through
         };
 
         public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()

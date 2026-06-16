@@ -243,19 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenCurrentOverlapBehaviorIsPreserved()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientBirthDate(p, "2000", tag),
-                p => SetPatientBirthDate(p, "2000-03", tag),
-                p => SetPatientBirthDate(p, "2000-03-03", tag),
-                p => SetPatientBirthDate(p, "1999-12-31", tag),
-                p => SetPatientBirthDate(p, "2000-04-01", tag),
-                p => SetPatientBirthDate(p, "2000-12", tag),
-                p => SetPatientBirthDate(p, "2000-03-31", tag),
-                p => SetPatientBirthDate(p, "2001", tag),
-                p => SetPatientBirthDate(p, "2001-11-30", tag),
-                p => SetPatientBirthDate(p, "2001-12", tag),
-                p => SetPatientBirthDate(p, "2001-12-31", tag),
-                p => SetPatientBirthDate(p, "2002-01-01", tag));
+            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
             Patient patient2000 = patients[0];
             Patient patient2000March = patients[1];
             Patient patient2000March03 = patients[2];
@@ -296,6 +284,207 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByMultiValueOr_ThenUnionOfPerValueOverlapSetsIsReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+            Patient patient2001 = patients[7];
+            Patient patient2001December = patients[9];
+            Patient patient2001December31 = patients[10];
+
+            try
+            {
+                // birthdate=A,B is an OR of two equality searches. Core emits a single SearchParameterExpression
+                // whose inner is Or(containment(A), containment(B)), so the day-split rewrite passes it through and
+                // each value keeps the current overlap behavior. The result must be the union of both per-value
+                // overlap sets, with every match present exactly once.
+                Bundle orBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03,2001-12-31&_tag={tag}");
+                ValidateBundle(orBundle, patient2000, patient2000March, patient2000March03, patient2001, patient2001December, patient2001December31);
+                AssertNoDuplicateEntries(orBundle);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByNotEquals_ThenOnlyTheExactDayValueIsExcluded()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
+            Patient patient2000 = patients[0];
+            Patient patient2000March03 = patients[2];
+            Patient patient2000April01 = patients[4];
+            Patient patient2001December31 = patients[10];
+            Patient patient2002January01 = patients[11];
+
+            try
+            {
+                // 'ne' is emitted by Core as an Or of single-sided predicates (start < lo OR end > hi), which the
+                // day-split rewrite never matches (it requires an And of exactly two predicates) and therefore
+                // passes through. A row matches 'ne' when its stored range is NOT fully contained in the searched
+                // day, so under the current overlap implementation only the exact-day Patient is excluded; the
+                // year/month Patients that merely overlap the day are not contained and still match 'ne'.
+                Bundle neBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=ne2000-03-03&_tag={tag}&_total=accurate&_count=100");
+
+                Assert.Equal(patients.Length - 1, neBundle.Total.GetValueOrDefault());
+                List<string> returnedIds = neBundle.Entry.Select(e => e.Resource.Id).ToList();
+                Assert.DoesNotContain(patient2000March03.Id, returnedIds);
+                Assert.Contains(patient2000.Id, returnedIds); // year range is not fully contained, so it still matches ne
+                Assert.Contains(patient2000April01.Id, returnedIds);
+                Assert.Contains(patient2001December31.Id, returnedIds);
+                Assert.Contains(patient2002January01.Id, returnedIds);
+                AssertNoDuplicateEntries(neBundle);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithTotal_ThenCountIsAccurateAndEntriesAreNotDuplicated()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+
+            try
+            {
+                // The day-split rewrite lowers to a SQL UNION ALL whose two branches are mutually exclusive on
+                // IsLongerThanADay, so neither the accurate _total nor the returned entries may double-count a
+                // resource.
+                Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}&_total=accurate");
+
+                Assert.Equal(3, dayBundle.Total.GetValueOrDefault());
+                ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
+                AssertNoDuplicateEntries(dayBundle);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithSort_ThenResultsAreOrderedByBirthdateWithoutDuplicates()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePartialBirthdateMatrixAsync(tag);
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+
+            try
+            {
+                // Combining the day-split UNION ALL rewrite with _sort=birthdate must preserve ascending birthdate
+                // ordering by the low boundary (2000 < 2000-03 < 2000-03-03) and must not surface duplicate entries.
+                Bundle sortedBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_sort=birthdate&_tag={tag}");
+
+                AssertNoDuplicateEntries(sortedBundle);
+                Assert.Equal(
+                    new[] { patient2000.Id, patient2000March.Id, patient2000March03.Id },
+                    sortedBundle.Entry.Select(e => e.Resource.Id).ToArray());
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithLeapDayBirthdates_WhenSearchedByDay_ThenCorrectBundleShouldBeReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2020", tag),
+                p => SetPatientBirthDate(p, "2020-02", tag),
+                p => SetPatientBirthDate(p, "2020-02-28", tag),
+                p => SetPatientBirthDate(p, "2020-02-29", tag),
+                p => SetPatientBirthDate(p, "2020-03-01", tag));
+            Patient year2020 = patients[0];
+            Patient february2020 = patients[1];
+            Patient february28 = patients[2];
+            Patient february29 = patients[3];
+            Patient march01 = patients[4];
+
+            try
+            {
+                // 2020 is a leap year, so 2020-02-29 is a valid calendar day. The day-split rewrite derives the
+                // day's end boundary as start.AddDays(1).AddTicks(-1); verify the leap day collapses correctly.
+                // The leap day overlaps the whole year and the February month (which ends on the 29th in 2020).
+                Bundle leapDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-02-29&_tag={tag}");
+                ValidateBundle(leapDayBundle, year2020, february2020, february29);
+
+                // The neighbouring day (Feb 28) must not pull in the leap day, and vice versa.
+                Bundle feb28Bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-02-28&_tag={tag}");
+                ValidateBundle(feb28Bundle, year2020, february2020, february28);
+
+                // March 1st overlaps only the whole year; the February month range ends on the 29th.
+                Bundle march01Bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-03-01&_tag={tag}");
+                ValidateBundle(march01Bundle, year2020, march01);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task<Patient[]> CreatePartialBirthdateMatrixAsync(string tag)
+        {
+            return await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag),
+                p => SetPatientBirthDate(p, "2001", tag),
+                p => SetPatientBirthDate(p, "2001-11-30", tag),
+                p => SetPatientBirthDate(p, "2001-12", tag),
+                p => SetPatientBirthDate(p, "2001-12-31", tag),
+                p => SetPatientBirthDate(p, "2002-01-01", tag));
+        }
+
+        private static void AssertNoDuplicateEntries(Bundle bundle)
+        {
+            List<string> ids = bundle.Entry.Select(e => e.Resource.Id).ToList();
+            Assert.Equal(ids.Count, ids.Distinct().Count());
         }
 
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
