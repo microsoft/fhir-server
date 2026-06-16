@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
 using FluentValidation.Results;
+using Medino;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -28,11 +30,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var mockValidator2 = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
 
             var validators = new[] { mockValidator1, mockValidator2 };
-            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
+            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+            var nextCalled = false;
 
-            await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None);
+            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            {
+                nextCalled = true;
+                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+            };
 
+            await upsertValidationHandler.HandleAsync(upsertResourceRequest, next, CancellationToken.None);
+
+            Assert.True(nextCalled, "Next delegate should have been called after validation succeeds");
             await mockValidator1.Received().ValidateAsync(
                 Arg.Is<ValidationContext<UpsertResourceRequest>>(ctx => ctx.InstanceToValidate == upsertResourceRequest),
                 Arg.Is<CancellationToken>(ct => ct == CancellationToken.None));
@@ -48,8 +58,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var mockValidator2 = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
 
             var validators = new[] { mockValidator1, mockValidator2 };
-            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
+            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+            var nextCalled = false;
 
             var validationError = Task.FromResult(new ValidationResult(new[] { new ValidationFailure("Id", "Id should not be null") }));
 
@@ -59,8 +70,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(validationError);
 
+            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            {
+                nextCalled = true;
+                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+            };
+
             await Assert.ThrowsAsync<ResourceNotValidException>(
-                async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+                async () => await upsertValidationHandler.HandleAsync(upsertResourceRequest, next, CancellationToken.None));
+
+            Assert.False(nextCalled, "Next delegate should NOT have been called when validation fails");
         }
 
         [Fact]
@@ -69,8 +88,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var mockValidator = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
 
             var validators = new[] { mockValidator };
-            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
+            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+            var nextCalled = false;
 
             var operationOutcomeIssue = new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
@@ -86,9 +106,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     Arg.Is<CancellationToken>(ct => ct == CancellationToken.None))
                 .Returns(Task.FromResult(validationError));
 
-            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(
-                async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+            RequestHandlerDelegate<UpsertResourceResponse> next = async () =>
+            {
+                nextCalled = true;
+                return new UpsertResourceResponse(Substitute.For<SaveOutcome>());
+            };
 
+            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(
+                async () => await upsertValidationHandler.HandleAsync(upsertResourceRequest, next, CancellationToken.None));
+
+            Assert.False(nextCalled, "Next delegate should NOT have been called when validation fails");
             Assert.Contains(operationOutcomeIssue, exception.Issues);
         }
     }
