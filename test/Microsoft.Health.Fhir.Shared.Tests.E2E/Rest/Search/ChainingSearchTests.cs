@@ -171,31 +171,56 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAReverseChainSearchExpressionOverImagingStudyStartedCombinedWithAnExactDayBirthdateAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
+            string tenantTagCode = Guid.NewGuid().ToString("N");
+            var tenantMeta = new Meta
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding(Fixture.TenantTagSystem, tenantTagCode),
+                },
+            };
+
+            Patient imagingStudyExactDayPatient = (await Client.CreateAsync(
+                new Patient
+                {
+                    Meta = tenantMeta,
+                    BirthDate = Fixture.ImagingStudyPatientBirthDate,
+                })).Resource;
+
+            Patient imagingStudyMonthPrecisionPatient = (await Client.CreateAsync(
+                new Patient
+                {
+                    Meta = tenantMeta,
+                    BirthDate = Fixture.ImagingStudyMonthPrecisionPatientBirthDate,
+                })).Resource;
+
+            await Client.CreateAsync(
+                new ImagingStudy
+                {
+                    Meta = tenantMeta,
+                    Status = ImagingStudy.ImagingStudyStatus.Available,
+                    Subject = new ResourceReference($"Patient/{imagingStudyExactDayPatient.Id}"),
+                    Started = Fixture.ImagingStudyStarted,
+                });
+
+            await Client.CreateAsync(
+                new ImagingStudy
+                {
+                    Meta = tenantMeta,
+                    Status = ImagingStudy.ImagingStudyStatus.Available,
+                    Subject = new ResourceReference($"Patient/{imagingStudyMonthPrecisionPatient.Id}"),
+                    Started = Fixture.ImagingStudyStarted,
+                });
+
             Bundle bundle = await Client.SearchPostAsync(
                 ResourceType.Patient.ToString(),
                 null,
                 default,
                 ("_has:ImagingStudy:patient:started", Fixture.ImagingStudyStarted),
                 ("birthdate", Fixture.ImagingStudyPatientBirthDate),
-                ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
+                ("_tag", $"{Fixture.TenantTagSystem}|{tenantTagCode}"));
 
-            ValidateBundle(bundle, Fixture.ImagingStudyExactDayPatient, Fixture.ImagingStudyMonthPrecisionPatient);
-        }
-
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
-        public async Task GivenAForwardChainSearchExpressionOverPatientBirthdateCombinedWithImagingStudyStartedAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
-        {
-            Bundle bundle = await Client.SearchPostAsync(
-                ResourceType.ImagingStudy.ToString(),
-                null,
-                default,
-                ("started", Fixture.ImagingStudyStarted),
-                ("patient:Patient.birthdate", Fixture.ImagingStudyPatientBirthDate),
-                ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
-
-            Assert.Equal(2, bundle.Entry.Count);
-            Assert.All(bundle.Entry, entry => Assert.IsType<ImagingStudy>(entry.Resource));
+            ValidateBundle(bundle, imagingStudyExactDayPatient, imagingStudyMonthPrecisionPatient);
         }
 #endif
 
@@ -458,17 +483,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #if !Stu3
             public string TenantTagSystem { get; } = "urn:tenantId";
 
-            public string TenantTagCode { get; } = "1016";
-
             public string ImagingStudyPatientBirthDate { get; } = "2018-06-06";
 
             public string ImagingStudyMonthPrecisionPatientBirthDate { get; } = "2018-06";
 
             public string ImagingStudyStarted { get; } = "2018-02-02T05:00:00.000";
-
-            public Patient ImagingStudyExactDayPatient { get; private set; }
-
-            public Patient ImagingStudyMonthPrecisionPatient { get; private set; }
 #endif
 
             public Patient SmithPatient { get; private set; }
