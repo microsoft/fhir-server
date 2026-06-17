@@ -177,10 +177,25 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
             services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+
+            // Explicitly register all closed generic IPipelineBehavior interfaces for ProvenanceHeaderBehavior
+            // to ensure Medino's DI container properly resolves them.
+            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
+            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
+            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
+            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
+
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+
+            // Explicitly register all closed generic IPipelineBehavior interfaces for ProfileResourcesBehaviour
+            // to ensure Medino's DI container properly resolves them.
+            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
+            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
+            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
+            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();
