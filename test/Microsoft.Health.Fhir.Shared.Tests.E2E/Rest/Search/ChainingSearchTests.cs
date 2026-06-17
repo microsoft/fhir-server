@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
-            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport);
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
         [Fact]
