@@ -196,6 +196,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
             services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
             services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
+            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();
