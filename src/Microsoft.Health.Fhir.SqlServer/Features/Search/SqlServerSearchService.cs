@@ -2253,8 +2253,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
-                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
+            // The rewrite replaces the matched birthdate equality predicate with a UnionExpression
+            // (lowered to SQL UNION ALL). That shape is only safe for "simple" queries:
+            //   * If the query sorts on the same allow-listed parameter, SortRewriter rewrites the
+            //     matching SearchParameterExpression to null to convert it into a sort-with-filter. The
+            //     parameter now lives inside both union branches, so both branches collapse to null and
+            //     the reconstructed union becomes empty, producing invalid SQL (HTTP 500).
+            //   * If the query contains a chained/reverse-chained (_has) expression, the union table
+            //     expression does not compose correctly with the chain's table expression and the query
+            //     returns no results.
+            // In both cases we skip the rewrite so the original (correct) two-predicate form is used.
+            bool scalarTemporalRewriteSafe = afterSmartCompartment != null &&
+                !SortsOnScalarTemporalParameter(searchOptions) &&
+                !afterSmartCompartment.AcceptVisitor(ContainsChainedExpressionVisitor.Instance, null);
+
+            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter && scalarTemporalRewriteSafe
+                ? afterSmartCompartment.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
                 : afterSmartCompartment;
 
             return (SqlRootExpression)afterScalarTemporal
@@ -2278,6 +2292,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        private static bool SortsOnScalarTemporalParameter(SqlSearchOptions searchOptions)
+        {
+            IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sort = searchOptions?.Sort;
+            if (sort == null || sort.Count == 0)
+            {
+                return false;
+            }
+
+            foreach ((SearchParameterInfo searchParameterInfo, SortOrder _) in sort)
+            {
+                if (ScalarTemporalEqualityRewriter.IsAllowListedScalarTemporalParameter(searchParameterInfo))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)

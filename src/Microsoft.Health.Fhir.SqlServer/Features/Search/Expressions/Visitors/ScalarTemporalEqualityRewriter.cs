@@ -89,14 +89,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         internal static bool IsActivatedScalarTemporalParameter(SearchParameterExpression expression)
         {
-            var p = expression?.Parameter;
-            if (p == null)
+            return IsAllowListedScalarTemporalParameter(expression?.Parameter);
+        }
+
+        /// <summary>
+        /// Returns true when <paramref name="parameter"/> is an allow-listed scalar (non-composite) date
+        /// search parameter that this rewriter is eligible to collapse. Exposed so callers (for example the
+        /// SQL search pipeline) can detect when a query sorts on a parameter the rewrite would otherwise
+        /// touch and skip the rewrite for safety.
+        /// </summary>
+        internal static bool IsAllowListedScalarTemporalParameter(SearchParameterInfo parameter)
+        {
+            if (parameter == null)
             {
                 return false;
             }
 
-            bool isScalarDate = p.Type == SearchParamType.Date && (p.Component == null || p.Component.Count == 0);
-            bool isAllowListed = p.Url != null && _allowList.Contains(p.Url.OriginalString);
+            bool isScalarDate = parameter.Type == SearchParamType.Date && (parameter.Component == null || parameter.Component.Count == 0);
+            bool isAllowListed = parameter.Url != null && _allowList.Contains(parameter.Url.OriginalString);
 
             return isScalarDate && isAllowListed;
         }
