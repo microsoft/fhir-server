@@ -256,6 +256,40 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                     _logger.LogWarning(ex, "Failed to refresh ViewDefinition '{ViewDefName}'", name);
                 }
             }
+            else if (existing.Status != status
+                     || !existing.SubscriptionIds.SequenceEqual(subscriptionIds, StringComparer.OrdinalIgnoreCase))
+            {
+                // The ViewDefinition JSON is unchanged, but its persisted materialization state
+                // (status and/or auto-created subscriptions) in the Library has moved on. The
+                // Library resource is the source of truth: the node that ran the population job
+                // flips the status to Active and records subscription IDs in the DB, but that
+                // transition is delivered as an in-process notification that other nodes — and
+                // even this node after a restart/re-adopt — never receive. Reconcile in place
+                // (no evict/re-adopt, to avoid disrupting the live materializer/target) so the
+                // status reported by GET ViewDefinition/{name} matches the Library.
+                _logger.LogInformation(
+                    "ViewDefinition '{ViewDefName}' status changed in Library ('{OldStatus}' -> '{NewStatus}'). Reconciling in-memory cache",
+                    name,
+                    existing.Status,
+                    status);
+
+                existing.Status = status;
+
+                // Clear any stale error message once the view is no longer in an error state.
+                if (status != ViewDefinitionStatus.Error)
+                {
+                    existing.ErrorMessage = null;
+                }
+
+                if (!existing.SubscriptionIds.SequenceEqual(subscriptionIds, StringComparer.OrdinalIgnoreCase))
+                {
+                    existing.SubscriptionIds.Clear();
+                    foreach (string subId in subscriptionIds)
+                    {
+                        existing.SubscriptionIds.Add(subId);
+                    }
+                }
+            }
         }
 
         // Evict in-memory registrations whose Library resource was deleted by another node
