@@ -68,5 +68,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
                 Assert.Equal($"{storedProcedureMetadata.Name}_{storedProcedureHash}", storedProcedureMetadata.FullName);
             }
         }
+
+        [Fact]
+        public void IntentionalFailure_ForPipelineValidation()
+        {
+            Assert.True(false, "Intentional failure to validate PR pipeline test reporting.");
+        }
     }
 }
