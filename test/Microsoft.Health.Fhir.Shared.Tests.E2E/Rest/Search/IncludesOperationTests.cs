@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -155,6 +156,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     includesCount.Value,
                     pages);
             }
+        }
+
+        [Fact]
+        public async Task GivenIterativeIncludes_WhenThereAreMultiplePagesOfIncludedResources_ThenWarningIsReturned()
+        {
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+            var query = TagQuery("_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:subject&_includesCount=2");
+            var searchUrl = $"{Server.BaseAddress}{KnownResourceTypes.MedicationDispense}?{query}";
+            var matchedResources = new List<Resource>();
+            var relatedResources = new List<Resource>();
+
+            var response = await Client.SearchAsync(searchUrl);
+            searchUrl = response.Resource.NextLink?.AbsoluteUri;
+
+            matchedResources.AddRange(response.Resource.Entry
+                    .Where(x => x.Search.Mode == SearchEntryMode.Match)
+                    .Select(x => x.Resource)
+                    .ToList());
+
+            relatedResources.AddRange(response.Resource.Entry
+                .Where(x => x.Search.Mode == SearchEntryMode.Include)
+                .Select(x => x.Resource)
+                .ToList());
+
+            var operationOutcome = response.Resource.Entry
+                .Where(x => x.Resource.TypeName.Equals(KnownResourceTypes.OperationOutcome, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Resource)
+                .Cast<OperationOutcome>()
+                .FirstOrDefault();
+
+            Assert.False(response.Resource.Link?.Any(x => x.Relation.Equals("related", StringComparison.Ordinal)));
+            Assert.Equal(6, relatedResources.Count); // includes has a bug where it returns _includesCount + 1 resources instead of _includesCount resources and it counts iterative includes seperately
+            Assert.Equal(10, matchedResources.Count);
+            Assert.NotNull(operationOutcome);
         }
 
         private void ValidateRelatedResources(
