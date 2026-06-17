@@ -110,18 +110,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         /// </summary>
         /// <typeparam name="T">Generic data type being copied.</typeparam>
         /// <param name="origin">Origin.</param>
-        /// <param name="destiny">Destiny.</param>
-        private static void SafeCopyTo<T>(ICollection<T> origin, ICollection<T> destiny)
+        /// <param name="destination">Destination.</param>
+        private static void SafeCopyTo<T>(ICollection<T> origin, ICollection<T> destination)
         {
             if (origin == null)
             {
-                destiny = null;
+                destination = null;
                 return;
             }
 
             foreach (T item in origin)
             {
-                destiny.Add(item);
+                destination.Add(item);
             }
         }
     }
