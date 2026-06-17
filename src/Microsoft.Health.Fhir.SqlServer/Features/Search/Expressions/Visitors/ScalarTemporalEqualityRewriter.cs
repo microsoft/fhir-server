@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // In that layout, predecessor resolution may bind joins to a UNION branch CTE instead of the aggregate CTE.
             // Until UNION predecessor selection is chain-aware, skip this rewrite when the root query contains any
             // chain so the downstream CTE ordering remains the expected single-CTE-per-term shape.
+            // This is intentionally scoped to DOB rewrite safety; SMART-scope union paths are documented in
+            // SqlQueryGenerator.FindRestrictingPredecessorTableExpressionIndex and remain a broader follow-up.
             if (!context && ContainsChain(expression))
             {
                 return expression;
