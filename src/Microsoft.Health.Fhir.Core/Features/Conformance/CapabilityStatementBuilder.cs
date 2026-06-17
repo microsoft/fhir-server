@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     restComponent.Resource.Remove(resource);
                 }
             }
-            
+
             // To build a CapabilityStatement we use a custom JsonConverter that serializes
             // the ListedCapabilityStatement into a CapabilityStatement poco
             var json = JsonConvert.SerializeObject(_statement, new JsonSerializerSettings
