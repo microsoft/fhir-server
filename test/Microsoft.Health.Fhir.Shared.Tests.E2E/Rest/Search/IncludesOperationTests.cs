@@ -168,7 +168,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var relatedResources = new List<Resource>();
 
             var response = await Client.SearchAsync(searchUrl);
-            searchUrl = response.Resource.NextLink?.AbsoluteUri;
 
             matchedResources.AddRange(response.Resource.Entry
                     .Where(x => x.Search.Mode == SearchEntryMode.Match)

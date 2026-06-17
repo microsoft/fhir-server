@@ -1944,7 +1944,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Include result was truncated. Iterative include results can not be paged though, please narrow your search..
+        ///   Looks up a localized string similar to Include result was truncated. Iterative include results cannot be paged though, please narrow your search..
         /// </summary>
         internal static string TruncatedIncludeMessageForIterativeInclude {
             get {
