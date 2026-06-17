@@ -493,10 +493,32 @@ public class FhirDemoService
     }
 
     /// <summary>
+    /// Resource types kept when slimming Synthea bundles. Synthea emits a large amount of
+    /// data the demo's three ViewDefinitions never touch (Claim, ExplanationOfBenefit,
+    /// Provenance, DiagnosticReport, DocumentReference, CarePlan, ImagingStudy, etc.).
+    /// Dropping these dramatically reduces bundle size and load time. We keep the clinical
+    /// resources the views read (Patient, Condition, Observation) plus Encounter and the
+    /// provider/organization resources that come from the prerequisite bundles.
+    /// </summary>
+    private static readonly HashSet<string> EssentialResourceTypes = new(StringComparer.Ordinal)
+    {
+        "Patient",
+        "Encounter",
+        "Condition",
+        "Observation",
+        "Organization",
+        "Location",
+        "Practitioner",
+        "PractitionerRole",
+    };
+
+    /// <summary>
     /// Sanitizes a Synthea-generated FHIR Bundle by:
     /// 1. Converting from transaction to batch (entries processed independently, partial failures OK)
-    /// 2. Rewriting urn:uuid request URLs to PUT with resource type/id
-    /// 3. Injecting demo tag for targeted bulk delete
+    /// 2. Dropping resource types not needed by the demo ViewDefinitions (see <see cref="EssentialResourceTypes"/>)
+    /// 3. Forcing every entry to an idempotent PUT keyed on the resource's own id (Synthea
+    ///    emits POST, which would make the server assign new ids and break rewritten references)
+    /// 4. Injecting demo tag for targeted bulk delete
     /// References are kept intact — in batch mode, entries that fail (e.g., dangling Practitioner
     /// references) simply return individual errors without affecting other entries.
     /// </summary>
@@ -546,20 +568,25 @@ public class FhirDemoService
             string? resourceType = resource["resourceType"]?.GetValue<string>();
             if (resourceType == null) continue;
 
-            // Rewrite urn:uuid request URLs to PUT with explicit resource type/id
+            // Drop resource types the demo ViewDefinitions never read — this is the bulk of a
+            // Synthea bundle (Claim, ExplanationOfBenefit, Provenance, DiagnosticReport, etc.).
+            if (!EssentialResourceTypes.Contains(resourceType)) continue;
+
+            // Force every entry to an idempotent PUT keyed on the resource's own id.
+            // Synthea emits POST with request.url = "<ResourceType>" (e.g. "Patient"), which
+            // makes the FHIR server ignore the body id and assign a NEW server-generated id on
+            // create. Because we rewrite intra-bundle references to "<ResourceType>/<bundle-id>"
+            // (see RewriteUrnUuidReferences), a POST leaves every cross-resource reference
+            // dangling — the stored Patient lands under a different id than the one Conditions
+            // and Observations point at. Using PUT "<ResourceType>/<id>" preserves the bundle
+            // ids so references resolve and the ViewDefinitions key every resource consistently.
+            // It also makes re-loading the same data idempotent (update instead of duplicate).
+            string? resourceId = resource["id"]?.GetValue<string>();
             var request = entry?["request"];
-            if (request != null)
+            if (request != null && !string.IsNullOrEmpty(resourceId))
             {
-                string? url = request["url"]?.GetValue<string>();
-                if (url != null && url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
-                {
-                    string? id = resource["id"]?.GetValue<string>();
-                    if (id != null)
-                    {
-                        request["method"] = "PUT";
-                        request["url"] = $"{resourceType}/{id}";
-                    }
-                }
+                request["method"] = "PUT";
+                request["url"] = $"{resourceType}/{resourceId}";
             }
 
             // Inject demo tag into resource meta for targeted bulk delete

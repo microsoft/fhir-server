@@ -51,6 +51,17 @@ To regenerate data:
 java -jar synthea-with-dependencies.jar -m hedis_cbp -p 50 --exporter.fhir.export=true
 ```
 
+> **Bundle slimming:** On load, the app keeps only the resource types the ViewDefinitions need
+> (Patient, Encounter, Condition, Observation, plus provider/organization resources) and drops
+> the rest of Synthea's output (Claim, ExplanationOfBenefit, Provenance, DiagnosticReport,
+> DocumentReference, CarePlan, ImagingStudy, etc.). This greatly reduces bundle size and load
+> time. See `EssentialResourceTypes` in `Services/FhirDemoService.cs`.
+
+> **CBP counts are per-patient:** HEDIS CBP classifies each member by their *most recent* BP
+> reading. The dashboard collapses the `us_core_blood_pressures` rows to the latest reading per
+> patient before counting, so the Controlled + Uncontrolled totals equal the patient population
+> (not the total number of BP observations).
+
 ## Architecture
 ```
 Blazor Demo App ──► FHIR Server ──► SQL Server (sqlfhir.*)

@@ -67,7 +67,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var row in BpRows.Take(20))
+                            @foreach (var row in BpRows
+                                .OrderByDescending(r => r.TryGetValue("effective_date_time", out var d) ? d?.ToString() ?? "" : "", StringComparer.Ordinal)
+                                .Take(20))
                             {
                                 string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
                                 string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
@@ -423,7 +425,7 @@
     private string SubscriptionsJson = "";
 
     // Data loading
-    private string SyntheaPath = @"C:\repos\synthea\output\fhir";
+    private string SyntheaPath = @"C:\repos\synthea\output\hedis_cbp\fhir";
     private int MaxSyntheaFiles = 100;
     private int SyntheaFilesLoaded = 0; // cumulative count for display
     private int CrisisPatientCount = 500;
@@ -437,7 +439,7 @@
     // ViewDefinition registration
     private List<ViewDefRegState> ViewDefRegistrations = new();
     private bool IsRegistering = false;
-    private string DefaultMaterializationTarget = "SqlServer";
+    private string DefaultMaterializationTarget = "Fabric";
 
     // Reset demo
     private bool IsResetting = false;
@@ -562,18 +564,49 @@
         ControlledCount = 0;
         UncontrolledCount = 0;
 
+        // HEDIS CBP is a PER-PATIENT measure: a member is classified by their MOST RECENT
+        // blood pressure reading, not by every observation. The us_core_blood_pressures view
+        // returns one row per BP observation, and the Synthea module emits many readings per
+        // patient over time — so we must collapse to the latest reading per patient before
+        // counting. Without this, the counts reflect total observations (e.g. ~1700 for 100
+        // patients) instead of the patient population.
+        var latestByPatient = new Dictionary<string, (string Effective, double Sys, double Dia, bool Valid)>();
+
         foreach (var row in BpRows)
         {
+            string patientId = row.TryGetValue("patient_id", out var pid) ? pid?.ToString() ?? "" : "";
+            if (string.IsNullOrEmpty(patientId))
+            {
+                continue;
+            }
+
+            string effective = row.TryGetValue("effective_date_time", out var dt) ? dt?.ToString() ?? "" : "";
             string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
             string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
 
-            if (double.TryParse(systolicStr, out double sys) && double.TryParse(diastolicStr, out double dia))
+            bool sysOk = double.TryParse(systolicStr, out double sys);
+            bool diaOk = double.TryParse(diastolicStr, out double dia);
+            bool valid = sysOk && diaOk;
+
+            // ISO 8601 effective dates sort correctly with ordinal string comparison.
+            if (!latestByPatient.TryGetValue(patientId, out var existing)
+                || string.Compare(effective, existing.Effective, StringComparison.Ordinal) > 0)
             {
-                if (sys < 140 && dia < 90)
-                    ControlledCount++;
-                else
-                    UncontrolledCount++;
+                latestByPatient[patientId] = (effective, valid ? sys : 0, valid ? dia : 0, valid);
             }
+        }
+
+        foreach (var reading in latestByPatient.Values)
+        {
+            if (!reading.Valid)
+            {
+                continue;
+            }
+
+            if (reading.Sys < 140 && reading.Dia < 90)
+                ControlledCount++;
+            else
+                UncontrolledCount++;
         }
 
         int total = ControlledCount + UncontrolledCount;
