@@ -50,6 +50,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
+        public override Expression VisitMultiary(MultiaryExpression expression, bool context)
+        {
+            // Top-level chain queries can introduce chain CTEs that are generated after a scalar temporal UNION.
+            // In that layout, predecessor resolution may bind joins to a UNION branch CTE instead of the aggregate CTE.
+            // Until UNION predecessor selection is chain-aware, skip this rewrite when the root query contains any
+            // chain so the downstream CTE ordering remains the expected single-CTE-per-term shape.
+            if (!context && ContainsChain(expression))
+            {
+                return expression;
+            }
+
+            return base.VisitMultiary(expression, context);
+        }
+
         public override Expression VisitChained(ChainedExpression expression, bool context)
         {
             Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
@@ -208,5 +222,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private static bool IsUtc(DateTimeOffset value) => value.Offset == TimeSpan.Zero;
 
         private static bool IsUtcMidnight(DateTimeOffset value) => IsUtc(value) && value.TimeOfDay == TimeSpan.Zero;
+
+        private static bool ContainsChain(Expression expression)
+        {
+            if (expression is ChainedExpression chained)
+            {
+                return true;
+            }
+
+            if (expression is MultiaryExpression multiary)
+            {
+                foreach (Expression child in multiary.Expressions)
+                {
+                    if (ContainsChain(child))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            if (expression is UnionExpression union)
+            {
+                foreach (Expression child in union.Expressions)
+                {
+                    if (ContainsChain(child))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }

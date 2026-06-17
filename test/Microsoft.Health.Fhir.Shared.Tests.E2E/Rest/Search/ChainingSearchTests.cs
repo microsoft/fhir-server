@@ -144,6 +144,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanPatient);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned(bool includeAccurateTotal)
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}";
+            if (includeAccurateTotal)
+            {
+                query += "&_total=accurate";
+            }
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            if (includeAccurateTotal)
+            {
+                Assert.Equal(1, bundle.Total.GetValueOrDefault());
+            }
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+#if !Stu3
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAReverseChainSearchExpressionOverImagingStudyStartedCombinedWithAnExactDayBirthdateAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchPostAsync(
+                ResourceType.Patient.ToString(),
+                null,
+                default,
+                ("_has:ImagingStudy:patient:started", Fixture.ImagingStudyStarted),
+                ("birthdate", Fixture.ImagingStudyPatientBirthDate),
+                ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
+
+            ValidateBundle(bundle, Fixture.ImagingStudyExactDayPatient, Fixture.ImagingStudyMonthPrecisionPatient);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAForwardChainSearchExpressionOverPatientBirthdateCombinedWithImagingStudyStartedAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchPostAsync(
+                ResourceType.ImagingStudy.ToString(),
+                null,
+                default,
+                ("started", Fixture.ImagingStudyStarted),
+                ("patient:Patient.birthdate", Fixture.ImagingStudyPatientBirthDate),
+                ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
+
+            Assert.Equal(2, bundle.Entry.Count);
+            Assert.All(bundle.Entry, entry => Assert.IsType<ImagingStudy>(entry.Resource));
+        }
+#endif
+
         [Fact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -399,6 +454,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             public string OrganizationCity { get; } = Guid.NewGuid().ToString();
 
             public string OrganizationIdentifier { get; } = Guid.NewGuid().ToString();
+
+#if !Stu3
+            public string TenantTagSystem { get; } = "urn:tenantId";
+
+            public string TenantTagCode { get; } = "1016";
+
+            public string ImagingStudyPatientBirthDate { get; } = "2018-06-06";
+
+            public string ImagingStudyMonthPrecisionPatientBirthDate { get; } = "2018-06";
+
+            public string ImagingStudyStarted { get; } = "2018-02-02T05:00:00.000";
+
+            public Patient ImagingStudyExactDayPatient { get; private set; }
+
+            public Patient ImagingStudyMonthPrecisionPatient { get; private set; }
+#endif
 
             public Patient SmithPatient { get; private set; }
 
