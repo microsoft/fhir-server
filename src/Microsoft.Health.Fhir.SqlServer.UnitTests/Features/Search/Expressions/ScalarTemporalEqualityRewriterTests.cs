@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class ScalarTemporalEqualityRewriterTests
+    public class ScalarTemporalEqualityRewriterTests : IClassFixture<ScalarTemporalEqualityRewriterTests.ModelInfoProviderFixture>
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
@@ -237,6 +237,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
             Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
             Assert.Equal(expected, binary.Value);
+        }
+
+        /// <summary>
+        /// Initializes the static <see cref="ModelInfoProvider"/> so that rewriting a
+        /// <see cref="ChainedExpression"/> can reconstruct it through its real constructor,
+        /// which validates resource types via <see cref="ModelInfoProvider.IsKnownResource"/>.
+        /// </summary>
+        public sealed class ModelInfoProviderFixture
+        {
+            public ModelInfoProviderFixture()
+            {
+                ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
+            }
         }
     }
 }
