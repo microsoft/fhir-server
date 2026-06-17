@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -50,8 +51,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
+        public override Expression VisitMultiary(MultiaryExpression expression, bool context)
+        {
+            // Don't run rewriter for chained or reverse chained expression. Once we remove the union in this rewriter below and
+            // adhere to the FHIR spec for dates, we can remove this method. Our current SQL generator has difficulty with unions
+            // emitted by this rewriter due to FindRestrictingPredecessorTableExpressionIndex() has a catch all that returns
+            // currentIndex - 1 for unions.
+            if (!context && ContainsChain(expression))
+            {
+                return expression;
+            }
+
+            return base.VisitMultiary(expression, context);
+        }
+
         public override Expression VisitChained(ChainedExpression expression, bool context)
         {
+            // Logic here is the same as VisitMultiary.
             Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
             if (ReferenceEquals(visitedExpression, expression.Expression))
             {
@@ -208,5 +224,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private static bool IsUtc(DateTimeOffset value) => value.Offset == TimeSpan.Zero;
 
         private static bool IsUtcMidnight(DateTimeOffset value) => IsUtc(value) && value.TimeOfDay == TimeSpan.Zero;
+
+        private static bool ContainsChain(Expression expression)
+        {
+            if (expression is ChainedExpression)
+            {
+                return true;
+            }
+
+            if (expression is MultiaryExpression multiary)
+            {
+                return multiary.Expressions.Any(ContainsChain);
+            }
+
+            if (expression is UnionExpression union)
+            {
+                return union.Expressions.Any(ContainsChain);
+            }
+
+            return false;
+        }
     }
 }

@@ -81,13 +81,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 targetResourceTypes: new[] { "Patient" });
         }
 
-        private static ChainedExpression BuildChainedExpression(Expression inner)
+        private static ChainedExpression BuildChainedExpression(Expression inner, bool reversed = false)
         {
             var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
             SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
             SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
             SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
-            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), reversed);
             SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
             return expression;
         }
@@ -136,6 +136,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(inner, result.Expression);
+        }
+
+        [Fact]
+        public void GivenRootExpressionContainsReverseChainAndAllowListedBirthdateExactDay_WhenRewritten_ThenPassThroughBirthdate()
+        {
+            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var reverseChain = BuildChainedExpression(Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), reversed: true);
+            var root = Expression.And(reverseChain, birthdate);
+
+            var result = Assert.IsType<MultiaryExpression>(root.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+            var rewrittenBirthdate = Assert.IsType<SearchParameterExpression>(result.Expressions[1]);
+
+            Assert.Same(birthdate, rewrittenBirthdate);
+        }
+
+        [Fact]
+        public void GivenRootExpressionContainsForwardChainAndAllowListedBirthdateExactDay_WhenRewritten_ThenPassThroughBirthdate()
+        {
+            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var forwardChain = BuildChainedExpression(Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), reversed: false);
+            var root = Expression.And(forwardChain, birthdate);
+
+            var result = Assert.IsType<MultiaryExpression>(root.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+            var rewrittenBirthdate = Assert.IsType<SearchParameterExpression>(result.Expressions[1]);
+
+            Assert.Same(birthdate, rewrittenBirthdate);
         }
 
         [Theory]
