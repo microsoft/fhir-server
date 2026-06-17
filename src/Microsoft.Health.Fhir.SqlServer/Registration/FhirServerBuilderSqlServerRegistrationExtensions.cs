@@ -18,6 +18,10 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -223,12 +227,18 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+            // Register all IJob implementations from both SqlServer and Core assemblies
+            IEnumerable<TypeRegistrationBuilder> sqlServerJobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
 
-            foreach (TypeRegistrationBuilder job in jobs)
+            IEnumerable<TypeRegistrationBuilder> coreJobs = services.TypesInSameAssemblyAs<BulkUpdateOrchestratorJob>()
+                .AssignableTo<IJob>()
+                .Transient()
+                .AsSelf();
+
+            foreach (TypeRegistrationBuilder job in sqlServerJobs.Concat(coreJobs))
             {
                 job.AsDelegate<Func<IJob>>();
             }

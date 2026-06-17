@@ -1,0 +1,27 @@
+{
+    "FhirServer": {
+        "Cors": {
+            "Origins": [ "https://localhost:6001" ],
+            "Methods": [ "*" ],
+            "Headers": [ "*" ],
+            "MaxAge": 1440
+        },
+        "CoreFeatures": {
+            "SystemConformanceProviderRefreshIntervalSeconds": 5,
+            "SystemConformanceProviderRebuildIntervalSeconds": 120
+        },
+        "Operations": {
+            "Validate": {
+                "CacheDurationInSeconds": 0,
+                "BackgroundProfileStatusDelayedStartInSeconds": 5,
+                "BackgroundProfileStatusCheckIntervalInSeconds": 5
+            },
+            "Import": {
+                "PollingFrequencyInSeconds": 1
+            },
+            "Export": {
+                "PollingFrequencyInSeconds": 1
+            }
+        }
+    }
+}

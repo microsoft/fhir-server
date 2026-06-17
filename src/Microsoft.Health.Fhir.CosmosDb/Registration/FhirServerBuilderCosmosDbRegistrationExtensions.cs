@@ -17,7 +17,10 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -276,12 +279,18 @@ namespace Microsoft.Extensions.DependencyInjection
                .Transient()
                .AsSelf();
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<CosmosExportOrchestratorJob>()
+            // Register all IJob implementations from both CosmosDb and Core assemblies
+            IEnumerable<TypeRegistrationBuilder> cosmosJobs = services.TypesInSameAssemblyAs<CosmosExportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
 
-            foreach (TypeRegistrationBuilder job in jobs)
+            IEnumerable<TypeRegistrationBuilder> coreJobs = services.TypesInSameAssemblyAs<BulkUpdateOrchestratorJob>()
+                .AssignableTo<IJob>()
+                .Transient()
+                .AsSelf();
+
+            foreach (TypeRegistrationBuilder job in cosmosJobs.Concat(coreJobs))
             {
                 job.AsDelegate<Func<IJob>>();
             }
