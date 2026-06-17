@@ -1682,15 +1682,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int FindImpl(int currentIndex)
             {
-                // Due to UNION ALL expansion (including SMART scope unions), the number of generated CTEs can be greater
-                // than the number of table expressions in '_rootExpression.SearchParamTableExpressions'.
-                //
-                // NOTE:
-                // Returning currentIndex - 1 here is a best-effort fallback that assumes the immediately previous CTE
-                // is the correct restricting predecessor. That assumption is known to be fragile when a query shape
-                // introduces additional UNION fan-out CTEs (for example, DOB scalar-temporal day-split UNION or SMART
-                // union aggregation). For now, DOB rewrite is guarded for chain-containing roots; this predecessor
-                // resolver still needs a union-aware mapping for the general SMART/union case.
+                // Due to the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
+                // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
                 if (currentIndex >= _rootExpression.SearchParamTableExpressions.Count)
                 {
                     return currentIndex - 1;
