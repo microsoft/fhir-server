@@ -52,12 +52,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, bool context)
         {
-            // Top-level chain queries can introduce chain CTEs that are generated after a scalar temporal UNION.
-            // In that layout, predecessor resolution may bind joins to a UNION branch CTE instead of the aggregate CTE.
-            // Until UNION predecessor selection is chain-aware, skip this rewrite when the root query contains any
-            // chain so the downstream CTE ordering remains the expected single-CTE-per-term shape.
-            // This is intentionally scoped to DOB rewrite safety; SMART-scope union paths are documented in
-            // SqlQueryGenerator.FindRestrictingPredecessorTableExpressionIndex and remain a broader follow-up.
+            // Don't run rewriter for chained or reverse chained expression. Once we remove the union in this rewriter below and 
+            // adhere to the FHIR spec for dates, we can remove this method. Our current SQL generator has difficulty with unions 
+            // emitted by this rewriter due to FindRestrictingPredecessorTableExpressionIndex() has a catch all that returns 
+            // currentIndex - 1 for unions.
             if (!context && ContainsChain(expression))
             {
                 return expression;
@@ -68,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitChained(ChainedExpression expression, bool context)
         {
+            // Logic here is the same as VisitMultiary.
             Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
             if (ReferenceEquals(visitedExpression, expression.Expression))
             {
