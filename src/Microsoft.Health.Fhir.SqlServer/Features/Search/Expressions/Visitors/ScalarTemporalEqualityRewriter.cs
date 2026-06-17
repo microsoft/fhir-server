@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -233,26 +234,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (expression is MultiaryExpression multiary)
             {
-                foreach (Expression child in multiary.Expressions)
-                {
-                    if (ContainsChain(child))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
+                return multiary.Expressions.Any(ContainsChain);
             }
 
             if (expression is UnionExpression union)
             {
-                foreach (Expression child in union.Expressions)
-                {
-                    if (ContainsChain(child))
-                    {
-                        return true;
-                    }
-                }
+                return union.Expressions.Any(ContainsChain);
             }
 
             return false;
