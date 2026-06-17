@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
+        public async Task<DateTimeOffset?> ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null)
         {
             await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (string.IsNullOrEmpty(searchParam.Url) && (method.Equals(HttpDeleteName, StringComparison.Ordinal) || method.Equals(HttpPatchName, StringComparison.Ordinal)))
             {
                 // Return out if this is delete OR patch call and no Url so FHIRController can move to next action
-                return;
+                return null;
             }
 
             var validationFailures = new List<ValidationFailure>();
@@ -108,7 +109,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    if (!lastUpdated.HasValue)
+                    {
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
+                    }
 
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
@@ -159,6 +164,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 throw new ResourceNotValidException(validationFailures);
             }
+
+            return lastUpdated.Value; // value should not be null here.
         }
 
         private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)

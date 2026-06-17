@@ -163,7 +163,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Same(birthdate, rewrittenBirthdate);
         }
-
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
         public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
