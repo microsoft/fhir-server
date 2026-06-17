@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
         [Fact]
         public void IntentionalFailure_ForUnitTestPublicationValidation()
         {
-            Assert.True(false, "Intentional unit test failure to validate PR pipeline test publication.");
+            Assert.Fail("Intentional unit test failure to validate PR pipeline test publication.");
         }
     }
 }
