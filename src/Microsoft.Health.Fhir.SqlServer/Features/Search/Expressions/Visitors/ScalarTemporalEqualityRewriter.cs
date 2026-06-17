@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, bool context)
         {
-            // Don't run rewriter for chained or reverse chained expression. Once we remove the union in this rewriter below and 
-            // adhere to the FHIR spec for dates, we can remove this method. Our current SQL generator has difficulty with unions 
-            // emitted by this rewriter due to FindRestrictingPredecessorTableExpressionIndex() has a catch all that returns 
+            // Don't run rewriter for chained or reverse chained expression. Once we remove the union in this rewriter below and
+            // adhere to the FHIR spec for dates, we can remove this method. Our current SQL generator has difficulty with unions
+            // emitted by this rewriter due to FindRestrictingPredecessorTableExpressionIndex() has a catch all that returns
             // currentIndex - 1 for unions.
             if (!context && ContainsChain(expression))
             {
