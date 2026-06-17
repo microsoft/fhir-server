@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
                 },
                 Date = Date,
                 FhirVersion = FhirVersion,
+                Instantiates = Instantiates == null ? null : new ThreadSafeHashSet<string>(StringComparer.Ordinal),
             };
 
             SafeCopyTo(Status, clone.Status);
@@ -118,10 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
                 return;
             }
 
-            T[] temp = new T[origin.Count];
-            origin.CopyTo(temp, 0);
-
-            foreach (T item in temp)
+            foreach (T item in origin)
             {
                 destiny.Add(item);
             }

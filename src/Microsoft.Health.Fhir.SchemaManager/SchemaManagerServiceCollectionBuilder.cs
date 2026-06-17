@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Medino.Extensions.DependencyInjection;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -50,7 +50,7 @@ public static class SchemaManagerServiceCollectionBuilder
         services.AddSingleton<BaseSchemaRunner>();
         services.AddSingleton<IBaseSchemaRunner, FhirBaseSchemaRunner>();
 
-        services.AddMedino(typeof(SchemaUpgradedNotification).Assembly);
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SchemaUpgradedNotification).Assembly));
 
         services.AddSingleton<ISchemaClient, FhirSchemaClient>();
         services.AddSingleton<ISchemaManager, SqlSchemaManager>();

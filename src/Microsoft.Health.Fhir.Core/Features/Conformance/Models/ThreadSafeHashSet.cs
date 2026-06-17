@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -68,7 +70,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         /// <inheritdoc />
         public void CopyTo(T[] array, int arrayIndex)
         {
-            _set.Keys.CopyTo(array, arrayIndex);
+            ArgumentNullException.ThrowIfNull(array);
+
+            if ((uint)arrayIndex > (uint)array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+            }
+
+            T[] snapshot = _set.Keys.ToArray();
+            if (array.Length - arrayIndex < snapshot.Length)
+            {
+                throw new ArgumentException("The destination array is not long enough to copy all the items in the collection.", nameof(array));
+            }
+
+            Array.Copy(snapshot, 0, array, arrayIndex, snapshot.Length);
         }
 
         /// <inheritdoc />

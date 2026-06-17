@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -374,6 +376,68 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
 
             // Assert
             Assert.Empty(exceptions);
+        }
+
+        [Fact]
+        public void GivenAStatementWithCollectionThatChangesDuringCopy_WhenCloned_ThenNoExceptionShouldBeThrown()
+        {
+            // Arrange
+            var statement = new ListedCapabilityStatement
+            {
+                Instantiates = new CollectionThatAddsDuringCopy(),
+            };
+
+            // Act
+            var clone = statement.Clone();
+
+            // Assert
+            Assert.NotNull(clone);
+            Assert.Contains("first", clone.Instantiates);
+        }
+
+        private sealed class CollectionThatAddsDuringCopy : ICollection<string>
+        {
+            private readonly List<string> _items = new() { "first" };
+
+            public int Count => _items.Count;
+
+            public bool IsReadOnly => false;
+
+            public void Add(string item)
+            {
+                _items.Add(item);
+            }
+
+            public void Clear()
+            {
+                _items.Clear();
+            }
+
+            public bool Contains(string item)
+            {
+                return _items.Contains(item);
+            }
+
+            public void CopyTo(string[] array, int arrayIndex)
+            {
+                _items.Add("second");
+                _items.CopyTo(array, arrayIndex);
+            }
+
+            public IEnumerator<string> GetEnumerator()
+            {
+                return _items.GetEnumerator();
+            }
+
+            public bool Remove(string item)
+            {
+                return _items.Remove(item);
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
     }
 }

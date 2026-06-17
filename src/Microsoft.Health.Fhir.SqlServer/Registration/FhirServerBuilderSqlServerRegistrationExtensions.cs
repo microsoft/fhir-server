@@ -151,6 +151,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
+            // Microsoft.Health.SqlServer still publishes schema upgrade notifications through MediatR.
+            services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SchemaUpgradedHandler).Assembly));
+
             services.Add<SqlServerSearchParameterValidator>()
                 .Singleton()
                 .AsSelf()

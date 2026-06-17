@@ -428,8 +428,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var enumerationTasks = Enumerable.Range(0, 10).Select(_ =>
                 Task.Run(() =>
                 {
-                    var snapshot = list.ToList();
-                    return snapshot.Count;
+                    var count = 0;
+                    foreach (var item in list)
+                    {
+                        count++;
+                    }
+
+                    return count;
                 }));
 
             var allTasks = addTasks
