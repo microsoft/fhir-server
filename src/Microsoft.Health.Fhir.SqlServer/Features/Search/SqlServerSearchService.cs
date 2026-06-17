@@ -2265,7 +2265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // In both cases we skip the rewrite so the original (correct) two-predicate form is used.
             bool scalarTemporalRewriteSafe = afterSmartCompartment != null &&
                 !SortsOnScalarTemporalParameter(searchOptions) &&
-                !afterSmartCompartment.AcceptVisitor(ContainsChainedExpressionVisitor.Instance, null);
+                !HasChainedParameters(searchOptions);
 
             Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter && scalarTemporalRewriteSafe
                 ? afterSmartCompartment.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
@@ -2305,6 +2305,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             foreach ((SearchParameterInfo searchParameterInfo, SortOrder _) in sort)
             {
                 if (ScalarTemporalEqualityRewriter.IsAllowListedScalarTemporalParameter(searchParameterInfo))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasChainedParameters(SqlSearchOptions searchOptions)
+        {
+            // Detect chained parameters by checking if any parameter code contains '.' (forward chain)
+            // or if any parameter code is '_has' (reverse chain).
+            IReadOnlyList<SearchParameterInfo> parameters = searchOptions?.SearchParameters;
+            if (parameters == null || parameters.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (SearchParameterInfo param in parameters)
+            {
+                if (param.Code.Contains('.', StringComparison.Ordinal) || param.Code == "_has")
                 {
                     return true;
                 }
