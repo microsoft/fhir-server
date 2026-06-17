@@ -239,13 +239,61 @@
                                     }
                                     else if (ExpandMode_ == ExpandMode.Subscription)
                                     {
-                                        @if (string.IsNullOrEmpty(ExpandedSubscriptionJson))
+                                        @if (ExpandedSubscriptionLoading)
                                         {
                                             <p class="text-muted small mb-0">Loading subscription...</p>
                                         }
+                                        else if (ExpandedSubscription == null)
+                                        {
+                                            <p class="text-muted small mb-0">No subscription details available.</p>
+                                        }
+                                        else if (!string.IsNullOrEmpty(ExpandedSubscription.Error))
+                                        {
+                                            <p class="text-danger small mb-0">Error: @ExpandedSubscription.Error</p>
+                                        }
+                                        else if (!ExpandedSubscription.Found)
+                                        {
+                                            <p class="text-warning small mb-0">⚠️ No auto-created subscription found for <code>@reg.ViewDefName</code> yet. It is created during materialization.</p>
+                                        }
                                         else
                                         {
-                                            <pre class="bg-light p-2 small mb-0" style="max-height: 300px; overflow-y: auto;">@ExpandedSubscriptionJson</pre>
+                                            <div class="small">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <span class="badge bg-warning text-dark me-2">🔁 @ExpandedSubscription.ChannelTypeDisplay</span>
+                                                    <span class="badge bg-@(ExpandedSubscription.Status == "active" ? "success" : "secondary")">@ExpandedSubscription.Status</span>
+                                                </div>
+                                                <table class="table table-sm mb-2">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td class="text-muted" style="width: 160px;">Triggers on change to</td>
+                                                            <td><span class="badge bg-light text-dark border">@(ExpandedSubscription.ResourceType ?? "—")</span></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-muted">FHIRPath query</td>
+                                                            <td><code class="text-primary">@(ExpandedSubscription.FilterCriteria ?? "—")</code></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-muted">Channel</td>
+                                                            <td><code>@ExpandedSubscription.ChannelTypeCode</code> → re-materializes <code>@reg.ViewDefName</code></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-muted">Endpoint</td>
+                                                            <td><code>@ExpandedSubscription.Endpoint</code></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-muted">Subscription id</td>
+                                                            <td><code>@ExpandedSubscription.Id</code></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                                <button class="btn btn-link btn-sm p-0" @onclick="() => ShowSubscriptionRawJson = !ShowSubscriptionRawJson">
+                                                    @(ShowSubscriptionRawJson ? "Hide raw JSON" : "Show raw JSON")
+                                                </button>
+                                                @if (ShowSubscriptionRawJson)
+                                                {
+                                                    <pre class="bg-light p-2 small mb-0 mt-1" style="max-height: 300px; overflow-y: auto;">@ExpandedSubscription.RawJson</pre>
+                                                }
+                                            </div>
                                         }
                                     }
                                 </div>
@@ -428,7 +476,7 @@
     private string SyntheaPath = @"C:\repos\synthea\output\hedis_cbp\fhir";
     private int MaxSyntheaFiles = 100;
     private int SyntheaFilesLoaded = 0; // cumulative count for display
-    private int CrisisPatientCount = 500;
+    private int CrisisPatientCount = 15;
     private bool IsLoadingSynthea = false;
     private bool IsLoadingScenario = false;
     private string LoadProgress = "";
@@ -453,7 +501,9 @@
     private string RegistrationStatus = "";
     private string ExpandedViewDef = "";
     private ExpandMode ExpandMode_ = ExpandMode.Columns;
-    private string ExpandedSubscriptionJson = "";
+    private SubscriptionInfoView? ExpandedSubscription = null;
+    private bool ExpandedSubscriptionLoading = false;
+    private bool ShowSubscriptionRawJson = false;
     private string ViewDefinitionsPath = Path.GetFullPath(
         Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "viewdefinitions"));
 
@@ -893,6 +943,45 @@
                 await InvokeAsync(StateHasChanged);
             }
 
+            // Some ViewDefinitions (notably larger Observation views) can take longer to finish
+            // materializing than the per-registration poll budget above. The per-registration loop
+            // may move on while a view is still 'Materializing', so reconcile all registrations here
+            // until they reach a terminal state (Ready/Failed) or an overall timeout. This uses the
+            // batch GET ViewDefinition status endpoint (one call for all views) and keeps the UI
+            // badges in sync so the user sees the final 'Ready' state instead of a stale spinner.
+            var overallDeadline = DateTime.UtcNow.AddMinutes(5);
+            while (DateTime.UtcNow < overallDeadline
+                   && ViewDefRegistrations.Any(r => r.Phase is RegPhase.Creating or RegPhase.Materializing or RegPhase.Registering))
+            {
+                await Task.Delay(2000);
+
+                var statuses = await FhirService.GetAllViewDefinitionStatusesAsync();
+                foreach (var reg in ViewDefRegistrations)
+                {
+                    var st = statuses.FirstOrDefault(s => s.ViewDefinitionName == reg.ViewDefName);
+                    if (st == null)
+                    {
+                        continue;
+                    }
+
+                    reg.Phase = st.Status switch
+                    {
+                        "Creating" => RegPhase.Creating,
+                        "Populating" => RegPhase.Materializing,
+                        "Active" => RegPhase.Ready,
+                        "Error" => RegPhase.Failed,
+                        _ => reg.Phase,
+                    };
+                    reg.Success = st.Status == "Active";
+                    if (!string.IsNullOrEmpty(st.ErrorMessage))
+                    {
+                        reg.Response = st.ErrorMessage;
+                    }
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+
             int successCount = ViewDefRegistrations.Count(r => r.Success);
             RegistrationStatus = $"✓ {successCount}/{ViewDefRegistrations.Count} ViewDefinitions ready. " +
                 "Subscriptions auto-created for incremental updates.";
@@ -913,28 +1002,34 @@
         if (ExpandedViewDef == viewDefName && ExpandMode_ == mode)
         {
             ExpandedViewDef = "";
-            ExpandedSubscriptionJson = "";
+            ExpandedSubscription = null;
+            ShowSubscriptionRawJson = false;
             return;
         }
 
         ExpandedViewDef = viewDefName;
         ExpandMode_ = mode;
-        ExpandedSubscriptionJson = "";
+        ExpandedSubscription = null;
+        ShowSubscriptionRawJson = false;
 
         if (mode == ExpandMode.Subscription)
         {
             var reg = ViewDefRegistrations.FirstOrDefault(r => r.ViewDefName == viewDefName);
             if (reg != null)
             {
+                ExpandedSubscriptionLoading = true;
+                StateHasChanged();
                 try
                 {
-                    ExpandedSubscriptionJson = "Loading...";
-                    StateHasChanged();
-                    ExpandedSubscriptionJson = await FhirService.GetSubscriptionForViewDefAsync(reg.ResourceType);
+                    ExpandedSubscription = await FhirService.GetSubscriptionForViewDefAsync(reg.ViewDefName);
                 }
                 catch (Exception ex)
                 {
-                    ExpandedSubscriptionJson = $"Error: {ex.Message}";
+                    ExpandedSubscription = new SubscriptionInfoView { ViewDefinitionName = viewDefName, Error = ex.Message };
+                }
+                finally
+                {
+                    ExpandedSubscriptionLoading = false;
                 }
             }
         }

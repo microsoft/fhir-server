@@ -366,13 +366,150 @@ public class FhirDemoService
     }
 
     /// <summary>
-    /// Gets the subscriptions for a specific ViewDefinition by searching for its criteria pattern.
+    /// Finds the auto-created Subscription for a specific ViewDefinition and parses it into a
+    /// friendly view model. The subscriptions are matched by their channel endpoint
+    /// (<c>internal://sqlfhir/{viewDefName}</c>) rather than the FHIR <c>criteria</c> search
+    /// parameter — the criteria is the shared transactions topic, so the filter that identifies
+    /// the resource type lives in the <c>backport-filter-criteria</c> extension instead.
     /// </summary>
-    public async Task<string> GetSubscriptionForViewDefAsync(string resourceType)
+    /// <param name="viewDefName">The ViewDefinition name (e.g. <c>us_core_blood_pressures</c>).</param>
+    public async Task<SubscriptionInfoView> GetSubscriptionForViewDefAsync(string viewDefName)
     {
-        var response = await _httpClient.GetAsync(
-            $"Subscription?status=active,requested&criteria={resourceType}%3F&_format=json");
-        return await response.Content.ReadAsStringAsync();
+        var result = new SubscriptionInfoView { ViewDefinitionName = viewDefName };
+
+        try
+        {
+            var response = await _httpClient.GetAsync("Subscription?status=active,requested&_count=100&_format=json");
+            if (!response.IsSuccessStatusCode)
+            {
+                result.Error = $"Server returned {(int)response.StatusCode} {response.StatusCode}";
+                return result;
+            }
+
+            string json = await response.Content.ReadAsStringAsync();
+            var doc = JsonNode.Parse(json);
+            var entries = doc?["entry"]?.AsArray();
+            if (entries == null || entries.Count == 0)
+            {
+                return result; // Found stays false
+            }
+
+            string expectedEndpoint = $"internal://sqlfhir/{viewDefName}";
+
+            foreach (var entry in entries)
+            {
+                var sub = entry?["resource"];
+                if (sub == null)
+                {
+                    continue;
+                }
+
+                var channel = sub["channel"];
+                string? endpoint = channel?["endpoint"]?.GetValue<string>();
+                string? headerName = ExtractViewDefNameFromHeaders(channel?["header"]?.AsArray());
+
+                bool matches = string.Equals(endpoint, expectedEndpoint, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(headerName, viewDefName, StringComparison.OrdinalIgnoreCase);
+
+                if (!matches)
+                {
+                    continue;
+                }
+
+                result.Found = true;
+                result.Id = sub["id"]?.GetValue<string>();
+                result.Status = sub["status"]?.GetValue<string>();
+                result.Reason = sub["reason"]?.GetValue<string>();
+                result.Topic = sub["criteria"]?.GetValue<string>();
+                result.Endpoint = endpoint;
+
+                // The resource-type filter (e.g. "Observation?") lives in the criteria's
+                // backport-filter-criteria extension, not the criteria element itself.
+                result.FilterCriteria = ExtractExtensionValueString(
+                    sub["_criteria"]?["extension"]?.AsArray(),
+                    "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria");
+                result.ResourceType = result.FilterCriteria?.TrimEnd('?');
+
+                // The channel type lives in the channel.type backport-channel-type extension.
+                string? channelCode = ExtractExtensionValueCodingCode(
+                    channel?["_type"]?["extension"]?.AsArray(),
+                    "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-channel-type");
+                result.ChannelTypeCode = channelCode;
+                result.ChannelTypeDisplay = channelCode switch
+                {
+                    "view-definition-refresh" => "ViewDefinition Refresh",
+                    "rest-hook" => "REST Hook",
+                    "azure-storage" => "Azure Storage",
+                    "azure-lake-storage" => "Azure Data Lake",
+                    _ => channelCode ?? sub["channel"]?["type"]?.GetValue<string>() ?? "Unknown",
+                };
+
+                result.RawJson = sub.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load subscription for ViewDefinition '{ViewDefName}'", viewDefName);
+            result.Error = ex.Message;
+        }
+
+        return result;
+    }
+
+    private static string? ExtractViewDefNameFromHeaders(JsonArray? headers)
+    {
+        if (headers == null)
+        {
+            return null;
+        }
+
+        foreach (var h in headers)
+        {
+            string? header = h?.GetValue<string>();
+            if (header != null && header.StartsWith("viewDefinitionName:", StringComparison.OrdinalIgnoreCase))
+            {
+                return header.Substring("viewDefinitionName:".Length).Trim();
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractExtensionValueString(JsonArray? extensions, string url)
+    {
+        if (extensions == null)
+        {
+            return null;
+        }
+
+        foreach (var ext in extensions)
+        {
+            if (string.Equals(ext?["url"]?.GetValue<string>(), url, StringComparison.OrdinalIgnoreCase))
+            {
+                return ext?["valueString"]?.GetValue<string>();
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractExtensionValueCodingCode(JsonArray? extensions, string url)
+    {
+        if (extensions == null)
+        {
+            return null;
+        }
+
+        foreach (var ext in extensions)
+        {
+            if (string.Equals(ext?["url"]?.GetValue<string>(), url, StringComparison.OrdinalIgnoreCase))
+            {
+                return ext?["valueCoding"]?["code"]?.GetValue<string>();
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -924,6 +1061,51 @@ public class ViewDefinitionRegistrationResult
     public bool Success { get; set; }
     public string Response { get; set; } = "";
     public string ViewDefinitionJson { get; set; } = "";
+}
+
+/// <summary>
+/// Friendly view model describing the auto-created Subscription for a ViewDefinition.
+/// </summary>
+public class SubscriptionInfoView
+{
+    /// <summary>Whether a matching subscription was found for the ViewDefinition.</summary>
+    public bool Found { get; set; }
+
+    /// <summary>The ViewDefinition name this subscription was looked up for.</summary>
+    public string ViewDefinitionName { get; set; } = "";
+
+    /// <summary>The Subscription resource id.</summary>
+    public string? Id { get; set; }
+
+    /// <summary>The subscription status (e.g. active).</summary>
+    public string? Status { get; set; }
+
+    /// <summary>The human-readable reason the subscription was created.</summary>
+    public string? Reason { get; set; }
+
+    /// <summary>The subscription topic / criteria URL.</summary>
+    public string? Topic { get; set; }
+
+    /// <summary>The FHIRPath-style filter criteria that triggers the subscription (e.g. "Observation?").</summary>
+    public string? FilterCriteria { get; set; }
+
+    /// <summary>The FHIR resource type the subscription fires on (e.g. "Observation").</summary>
+    public string? ResourceType { get; set; }
+
+    /// <summary>The raw channel type code (e.g. "view-definition-refresh").</summary>
+    public string? ChannelTypeCode { get; set; }
+
+    /// <summary>A friendly channel type label (e.g. "ViewDefinition Refresh").</summary>
+    public string? ChannelTypeDisplay { get; set; }
+
+    /// <summary>The channel endpoint (e.g. "internal://sqlfhir/us_core_blood_pressures").</summary>
+    public string? Endpoint { get; set; }
+
+    /// <summary>The raw subscription JSON, for an optional drill-down view.</summary>
+    public string? RawJson { get; set; }
+
+    /// <summary>An error message if the lookup failed.</summary>
+    public string? Error { get; set; }
 }
 
 /// <summary>
