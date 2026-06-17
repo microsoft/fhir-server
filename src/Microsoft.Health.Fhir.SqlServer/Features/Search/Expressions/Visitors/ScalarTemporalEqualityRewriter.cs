@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private static bool ContainsChain(Expression expression)
         {
-            if (expression is ChainedExpression chained)
+            if (expression is ChainedExpression)
             {
                 return true;
             }
