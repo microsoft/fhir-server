@@ -66,8 +66,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();
-
-            _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
         }
 
         [Fact]
@@ -80,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -97,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -134,6 +132,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
+            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(new List<ResourceSearchParameterStatus>());
 
             var contextProperties = new Dictionary<string, object>();
             var fhirContext = Substitute.For<IFhirRequestContext>();
@@ -145,11 +145,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
-            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
-            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
-            Assert.NotNull(pendingStatus);
-            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatus.Status);
-            Assert.Equal("http://example.com/Id", pendingStatus.Uri.OriginalString);
+            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatusUpdates));
+            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
+            Assert.Single(pendingStatuses);
+            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatuses[0].Status);
+            Assert.Equal("http://example.com/Id", pendingStatuses[0].Uri.OriginalString);
         }
 
         [Fact]
@@ -226,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -250,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -281,13 +282,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
-            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
-            Assert.NotNull(pendingStatus);
-            Assert.Equal("http://example.com/new-url", pendingStatus.Uri.OriginalString);
-            Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
+            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
+            Assert.NotNull(pendingStatuses);
+            Assert.Equal(2, pendingStatuses.Count);
+            Assert.Contains(pendingStatuses, s => s.Uri.OriginalString == "http://example.com/old-url" && s.Status == SearchParameterStatus.Deleted);
+            Assert.Contains(pendingStatuses, s => s.Uri.OriginalString == "http://example.com/new-url" && s.Status == SearchParameterStatus.Supported);
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

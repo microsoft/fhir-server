@@ -36,16 +36,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenABundle_WhenAnInvalidBundleTypeIsUsed_ThenHttp400IsReturned()
-        {
-            var bundleAsString = Samples.GetJson("Bundle-InvalidBundleType");
-
-            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostAsync(string.Empty, bundleAsString));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
-            Assert.True(fhirException.Message.Contains("The provided Bundle type is not supported.", StringComparison.OrdinalIgnoreCase));
-        }
-
-        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallel()
         {

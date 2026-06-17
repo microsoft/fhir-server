@@ -270,17 +270,14 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
         {
-            await using var connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            using var command = new SqlCommand(
-                @"
-UPDATE dbo.SearchParam
-  SET Status = 'PendingDelete', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
-  WHERE Uri = @uri",
-                connection);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
             command.Parameters.AddWithValue("@uri", uri);
 
-            await connection.OpenAsync(cancellationToken);
+            await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+            await connection.CloseAsync();
+            _sqlServerFhirModel.RemoveSearchParamIdToUriMapping(uri);
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)

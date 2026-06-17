@@ -221,7 +221,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await Task.Delay(delayMs, _cancellationToken);
             }
 
-            _searchParamLastUpdated = _searchParameterOperations.SearchParamLastUpdated;
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
@@ -239,7 +240,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     if (result.IsConsistent)
                     {
-                        _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={_searchParameterOperations.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
+                        var logDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+                        _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={logDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
                         break;
                     }
 

@@ -15,11 +15,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
-        DateTimeOffset SearchParamLastUpdated { get; }
+        DateTimeOffset? SearchParamLastUpdated { get; }
 
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null);
+        Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache = true);
 
         Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 

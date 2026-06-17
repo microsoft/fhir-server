@@ -358,43 +358,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     && !string.IsNullOrEmpty(x.Diagnostics)
                     && invalid.Any(y => x.Diagnostics.Contains(y)));
         }
-
-        [SkippableFact]
-        public async Task GivenUnknownValueSet_WhenExpanding_ThenReturns404WithOperationOutcome()
-        {
-            var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
-            Skip.IfNot(expandEnabled, "The $expand operation is disabled");
-
-            var unknownUrl = "http://example.org/fhir/ValueSet/nonexistent-" + Guid.NewGuid().ToString("N");
-            var url = $"{KnownResourceTypes.ValueSet}/{KnownRoutes.Expand}?url={unknownUrl}";
-
-            var ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.ReadAsync<Resource>(url));
-            Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
-            Assert.NotNull(ex.OperationOutcome);
-            Assert.NotEmpty(ex.OperationOutcome.Issue);
-            Assert.Contains(
-                ex.OperationOutcome.Issue,
-                x => x.Severity == OperationOutcome.IssueSeverity.Error
-                    && x.Code == OperationOutcome.IssueType.NotFound);
-        }
-
-        [SkippableFact]
-        public async Task GivenUnknownValueSetId_WhenExpandingById_ThenReturns404WithOperationOutcome()
-        {
-            var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
-            Skip.IfNot(expandEnabled, "The $expand operation is disabled");
-
-            var invalidId = Guid.NewGuid().ToString("N");
-            var url = $"{KnownResourceTypes.ValueSet}/{invalidId}/{KnownRoutes.Expand}";
-
-            var ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.ReadAsync<Resource>(url));
-            Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
-            Assert.NotNull(ex.OperationOutcome);
-            Assert.NotEmpty(ex.OperationOutcome.Issue);
-            Assert.Contains(
-                ex.OperationOutcome.Issue,
-                x => x.Severity == OperationOutcome.IssueSeverity.Error
-                    && x.Code == OperationOutcome.IssueType.NotFound);
-        }
     }
 }

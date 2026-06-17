@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -160,7 +160,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     existingStatus.Status = status;
                     searchParameterStatusList.Add(existingStatus);
-                    existingStatus.LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow;
                 }
                 else
                 {
@@ -168,7 +167,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         Status = status,
                         Uri = new Uri(uri),
-                        LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow,
                     });
                 }
             }

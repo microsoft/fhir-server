@@ -36,7 +36,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -68,7 +67,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly IOptions<FeatureConfiguration> _configuration;
         private readonly IAuthorizationService _authorizationService;
-        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public FhirControllerTests()
         {
@@ -78,7 +76,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _configuration = Substitute.For<IOptions<FeatureConfiguration>>();
             _configuration.Value.Returns(new FeatureConfiguration());
             _authorizationService = Substitute.For<IAuthorizationService>();
-            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
             _mediator.Send(
                 Arg.Any<DeleteResourceRequest>(),
@@ -93,8 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _requestContextAccessor,
                 _urlResolver,
                 _configuration,
-                _authorizationService,
-                _searchParameterOperations);
+                _authorizationService);
             _fhirController.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
@@ -1455,209 +1451,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .SingleOrDefault();
 
             Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterCreate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
-        {
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
-            var wrapper = CreateMockResourceWrapper(searchParameter);
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Any<CreateResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    if (attemptCount < 3)
-                    {
-                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                    }
-
-                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
-                });
-
-            var response = await _fhirController.Create(searchParameter);
-
-            Assert.Equal(3, attemptCount);
-            Assert.IsType<FhirResult>(response);
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterUpdate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
-        {
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
-            var wrapper = CreateMockResourceWrapper(searchParameter);
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Any<UpsertResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    if (attemptCount < 2)
-                    {
-                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                    }
-
-                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
-                });
-
-            var response = await _fhirController.Update(searchParameter, null, true);
-
-            Assert.Equal(2, attemptCount);
-            Assert.IsType<FhirResult>(response);
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterDelete_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
-        {
-            var key = new ResourceKey("SearchParameter", "test");
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-
-            _mediator.Send<DeleteResourceResponse>(
-                Arg.Any<DeleteResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    if (attemptCount < 2)
-                    {
-                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                    }
-
-                    return new DeleteResourceResponse(key);
-                });
-
-            var response = await _fhirController.Delete("SearchParameter", "test", new HardDeleteModel { HardDelete = false }, false);
-
-            Assert.Equal(2, attemptCount);
-            Assert.IsType<FhirResult>(response);
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterConditionalCreate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
-        {
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
-            var wrapper = CreateMockResourceWrapper(searchParameter);
-
-            var httpContext = new DefaultHttpContext();
-            httpContext.Request.Headers[KnownHeaders.IfNoneExist] = "url=http://test.com/param";
-            _fhirController.ControllerContext.HttpContext = httpContext;
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Any<ConditionalCreateResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    if (attemptCount < 3)
-                    {
-                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                    }
-
-                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
-                });
-
-            var response = await _fhirController.ConditionalCreate(searchParameter);
-
-            Assert.Equal(3, attemptCount);
-            Assert.IsType<FhirResult>(response);
-        }
-
-        [Fact]
-        public async Task GivenSearchParameterConditionalUpdate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
-        {
-            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
-            var wrapper = CreateMockResourceWrapper(searchParameter);
-
-            var httpContext = new DefaultHttpContext();
-            httpContext.Request.QueryString = new QueryString("?url=http://test.com/param");
-            _fhirController.ControllerContext.HttpContext = httpContext;
-
-            var attemptCount = 0;
-            _searchParameterOperations
-                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Any<ConditionalUpsertResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    if (attemptCount < 2)
-                    {
-                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
-                    }
-
-                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
-                });
-
-            var response = await _fhirController.ConditionalUpdate(searchParameter);
-
-            Assert.Equal(2, attemptCount);
-            Assert.IsType<FhirResult>(response);
-        }
-
-        [Fact]
-        public async Task GivenNonSearchParameterResource_WhenOperationExecuted_ThenNoRetry()
-        {
-            var patient = new Patient { Id = "test", VersionId = Guid.NewGuid().ToString() };
-            var wrapper = CreateMockResourceWrapper(patient);
-
-            var attemptCount = 0;
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Any<CreateResourceRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    attemptCount++;
-                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
-                });
-
-            var response = await _fhirController.Create(patient);
-
-            Assert.Equal(1, attemptCount);
-            Assert.IsType<FhirResult>(response);
-            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
-        }
-
-        private ResourceWrapper CreateMockResourceWrapper(Resource resource)
-        {
-            var rawJson = new FhirJsonSerializer().SerializeToString(resource);
-            return new ResourceWrapper(
-                resource.ToResourceElement(),
-                new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: false),
-                null,
-                false,
-                null,
-                null,
-                null);
         }
     }
 }

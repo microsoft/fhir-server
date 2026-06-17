@@ -1593,15 +1593,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Optimistic concurrency conflict detected while writing custom search parameter(s). Make sure that custom search parameters are not written in parallel. Consider sequential writes or a bundle..
-        /// </summary>
-        internal static string SearchParameterConcurrencyConflict {
-            get {
-                return ResourceManager.GetString("SearchParameterConcurrencyConflict", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to SearchParameter[{0}].resource.base is not defined..
         /// </summary>
         internal static string SearchParameterDefinitionBaseNotDefined {
@@ -2021,15 +2012,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedBulkUpdateOperation {
             get {
                 return ResourceManager.GetString("UnsupportedBulkUpdateOperation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The provided Bundle type is not supported. Supported values are: batch and transaction..
-        /// </summary>
-        internal static string UnsupportedBundleType {
-            get {
-                return ResourceManager.GetString("UnsupportedBundleType", resourceCulture);
             }
         }
         

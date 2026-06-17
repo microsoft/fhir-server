@@ -79,10 +79,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     cancellationToken);
                 return new ExpandResponse(resource);
             }
-            catch (ResourceNotFoundException)
-            {
-                throw;
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to handle the request.");

@@ -39,7 +39,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class DeletionService : IDeletionService, IDisposable
+    public class DeletionService : IDeletionService
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
@@ -54,8 +54,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
-        private readonly SemaphoreSlim _searchParamDeleteSemaphore;
-        private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
 
@@ -85,7 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            _searchParamDeleteSemaphore = new SemaphoreSlim(1, 1);
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -365,7 +362,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 false,
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
-            var softDeleteIncludes = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(async item =>
+            ResourceWrapperOperation[] softDeleteIncludes = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(async item =>
             {
                 // If there isn't a cached capability statement (IE this is the first request made after a service starts up) then performance on this request will be terrible as the capability statement needs to be rebuilt for every resource.
                 // This is because the capability statement can't be made correctly in a background job, so it doesn't cache the result.
@@ -375,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }));
 
-            var softDeleteMatches = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(async item =>
+            ResourceWrapperOperation[] softDeleteMatches = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(async item =>
             {
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Resource.ResourceTypeName, cancellationToken);
                 ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(item.Resource.ResourceTypeName, item.Resource.ResourceId);
@@ -400,7 +397,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
 
-                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match), cancellationToken);
+                await DeleteSearchParametersAsync(
+                    resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
+                    cancellationToken);
 
                 await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
             }
@@ -459,27 +458,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                // This throws AggregateExceptions.
-                // Note: includedResources cannot have search params
+                // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
                 {
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
+                await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
                 {
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
-
-                // With concurrency based on max last updated search params must be deleted one-by-one.
-                foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
-                {
-                    await DeleteSearchParameterWithLockAsync(item, cancellationToken);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                }
             }
             catch (Exception ex)
             {
@@ -646,48 +638,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return _configuration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        private async Task DeleteSearchParametersAsync(IEnumerable<SearchResultEntry> entries, CancellationToken cancellationToken)
+        private async Task DeleteSearchParametersAsync(IEnumerable<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            foreach (var entry in entries.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
+            if (resources?.Any() ?? false)
             {
-                await DeleteSearchParameterWithLockAsync(entry, cancellationToken);
-            }
-        }
-
-        private async Task DeleteSearchParameterWithLockAsync(SearchResultEntry item, CancellationToken cancellationToken)
-        {
-            await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                await SearchParameterRetry.ExecuteAsync(
-                    async () =>
-                    {
-                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
-                    },
-                    "Deletion");
-            }
-            finally
-            {
-                _searchParamDeleteSemaphore.Release();
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
+                foreach (var resource in resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
                 {
-                    _searchParamDeleteSemaphore?.Dispose();
+                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
                 }
+            }
+        }
 
-                _disposed = true;
+        private async Task DeleteSearchParameterAsync(ResourceWrapper resource, CancellationToken cancellationToken)
+        {
+            if (string.Equals(resource?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+            {
+                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
             }
         }
     }

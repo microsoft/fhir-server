@@ -38,8 +38,3 @@ We will implement optimistic concurrency across all search params based on max(L
 ## Notes
 This ADR superceeds previous implementation https://github.com/microsoft/fhir-server/blob/main/docs/arch/adr-2512-searchparameter-concurrency-management.md.
 Previous implementation should to be removed. 
-
-## Message to customers
-To guarantee store data integrity, FHIR server implemented strict concurrency control for search parameter writes. 
-When requests to write search parameters are sent in parallel, depending on timing, some requests might fail with concurrency conflict errors. This is because each write operation requires validation against the reference set, and concurrent modifications might lead to data integrity issues, therefore they are restricted.
-When writing search parameters, avoid sending multiple parallel requests. If you need to process multiple search parameters, send requests one after another, or use a single bundle call.

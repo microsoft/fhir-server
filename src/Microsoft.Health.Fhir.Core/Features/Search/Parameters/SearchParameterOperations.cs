@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid.Tags.Html;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
@@ -69,18 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
 
-        public DateTimeOffset SearchParamLastUpdated
-        {
-            get
-            {
-                if (!_searchParamLastUpdated.HasValue)
-                {
-                    throw new InvalidOperationException("Search param cache has not been updated yet.");
-                }
-
-                return _searchParamLastUpdated.Value;
-            }
-        }
+        public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
 
         public string GetSearchParameterHash(string resourceType)
         {
@@ -103,79 +94,82 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (activeReindexJob.found)
             {
-                throw new JobConflictException(string.Format(Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing, activeReindexJob.id));
+                throw new JobConflictException(Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
             }
         }
 
-        public async Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null)
+        public async Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, bool refreshCache = true)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);
             var searchParameterUrl = searchParameterWrapper.Url;
-            try
-            {
-                // We need to make sure we have the latest search parameters before trying to add
-                // a search parameter. This is to avoid creating a duplicate search parameter that
-                // was recently added and that hasn't propogated to all fhir-server instances.
-                // if last updated is provided, it means that updates were applied by pipeline. In this case do not update and keep the input.
-                if (!lastUpdated.HasValue)
-                {
-                    await GetAndApplySearchParameterUpdates(cancellationToken);
-                    lastUpdated = SearchParamLastUpdated;
-                }
 
-                // verify the parameter is supported before continuing
-                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-
-                if (searchParameterInfo.Component?.Any() == true)
+            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                searchParameterUrl,
+                async () =>
                 {
-                    foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                    try
                     {
-                        c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                        // We need to make sure we have the latest search parameters before trying to add
+                        // a search parameter. This is to avoid creating a duplicate search parameter that
+                        // was recently added and that hasn't propogated to all fhir-server instances.
+                        if (refreshCache)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
+
+                        // verify the parameter is supported before continuing
+                        var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+
+                        if (searchParameterInfo.Component?.Any() == true)
+                        {
+                            foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                            {
+                                c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                            }
+                        }
+
+                        (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+
+                        if (!supportedResult.Supported)
+                        {
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.NoConverterForSearchParamType, searchParameterInfo.Type, searchParameterInfo.Expression));
+                        }
+
+                        // check data store specific support for SearchParameter
+                        if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                        {
+                            throw new SearchParameterNotSupportedException(errorMessage);
+                        }
                     }
-                }
+                    catch (FhirException fex)
+                    {
+                        _logger.LogError(fex, "Error adding search parameter.");
+                        fex.Issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            Core.Resources.CustomSearchCreateError));
 
-                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unexpected error adding search parameter.");
+                        var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);
+                        customSearchException.Issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            ex.Message));
 
-                if (!supportedResult.Supported)
-                {
-                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.NoConverterForSearchParamType, searchParameterInfo.Type, searchParameterInfo.Expression));
-                }
-
-                // check data store specific support for SearchParameter
-                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
-                {
-                    throw new SearchParameterNotSupportedException(errorMessage);
-                }
-            }
-            catch (FhirException fex)
-            {
-                _logger.LogError(fex, "Error adding search parameter.");
-                fex.Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    Core.Resources.CustomSearchCreateError));
-
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error adding search parameter.");
-                var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);
-                customSearchException.Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    ex.Message));
-
-                throw customSearchException;
-            }
-
-            return lastUpdated.Value;
+                        throw customSearchException;
+                    }
+                },
+                _logger,
+                cancellationToken);
         }
 
         /// <summary>
         /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done
         /// to allow deletion service to properly handle Hard deletions for Search Parameters (e.g. allow reindex prior to removing resource from DB).
-        /// !!! This method has incorrect name. It does not delete search parameter, it just updates its status.
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
@@ -185,36 +179,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
             var searchParameterUrl = searchParam.GetStringScalar("url");
 
-            try
-            {
-                await EnsureNoActiveReindexJobAsync(cancellationToken);
+            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                searchParameterUrl,
+                async () =>
+                {
+                    try
+                    {
+                        await EnsureNoActiveReindexJobAsync(cancellationToken);
 
-                _logger.LogInformation("DeleteSearchParameterAsync: Refreshing cache");
-                await GetAndApplySearchParameterUpdates(cancellationToken);
-                _logger.LogInformation("DeleteSearchParameterAsync: Deleting the search parameter '{Url}'", searchParameterUrl);
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken, lastUpdated: SearchParamLastUpdated);
-            }
-            catch (FhirException fex)
-            {
-                _logger.LogError(fex, "Error deleting search parameter.");
-                fex.Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    Core.Resources.CustomSearchDeleteError));
+                        _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
+                    }
+                    catch (FhirException fex)
+                    {
+                        _logger.LogError(fex, "Error deleting search parameter.");
+                        fex.Issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            Core.Resources.CustomSearchDeleteError));
 
-                throw;
-            }
-            catch (Exception ex) when (!(ex is FhirException))
-            {
-                _logger.LogError(ex, "Unexpected error deleting search parameter.");
-                var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
-                customSearchException.Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    ex.Message));
+                        throw;
+                    }
+                    catch (Exception ex) when (!(ex is FhirException))
+                    {
+                        _logger.LogError(ex, "Unexpected error deleting search parameter.");
+                        var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
+                        customSearchException.Issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            ex.Message));
 
-                throw customSearchException;
-            }
+                        throw customSearchException;
+                    }
+                },
+                _logger,
+                cancellationToken);
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
@@ -276,9 +275,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
                 // Batch fetch all SearchParameter resources in one call
-                var searchParamResources = await GetSearchParametersByUrls(statusesToFetch.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
+                var searchParamResources = await GetSearchParametersByUrls(
+                    statusesToFetch
+                        .Select(p => p.Uri.OriginalString)
+                        .ToList(),
+                    cancellationToken);
 
                 var paramsToAdd = new List<ITypedElement>();
+                var allHaveResources = true;
                 foreach (var searchParam in statusesToFetch)
                 {
                     if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -286,6 +290,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         _logger.LogInformation(
                             "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                             searchParam.Uri);
+
+                        if (searchParam.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10)) // same as for in cache
+                        {
+                            allHaveResources = false;
+                        }
+
                         continue;
                     }
 
@@ -315,14 +325,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Once added to the definition manager we can update their status
                 await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-                if (results.LastUpdated.HasValue)
+                var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
+                var cycleConclusive = statuses.Count == 0 || (inCache && allHaveResources);
+
+                // If cache is updated directly and not from the database not all will have corresponding resources.
+                // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
+                if (inCache && allHaveResources && results.LastUpdated.HasValue)
                 {
                     _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
                 }
 
-                if (zeroWaitForSemaphore && _searchParamLastUpdated.HasValue) // log only for background
+                if (cycleConclusive && _searchParamLastUpdated.HasValue)
                 {
-                    // log for cross-instance cache refresh tracking (SQL only; Cosmos/File are no-ops).
+                    // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
                     var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
                     await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
                 }
@@ -340,6 +355,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return true;
+        }
+
+        // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
+        // when refresh is invoked between saving status and saving resource.
+        // This will not be needed when order of saves is reversed (resource first, then status)
+        private bool ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        {
+            var inCache = true;
+            foreach (var status in statuses)
+            {
+                _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
+                if (existingSearchParam == null)
+                {
+                    var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
+                    _logger.LogInformation(msg);
+
+                    // if the parameter was updated in the last 10 minutes it's possible we hit race condition
+                    // where status was updated but resource is not yet saved, so we should not consider this as cache miss
+                    if (status.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10))
+                    {
+                        inCache = false;
+                    }
+                }
+            }
+
+            return inCache;
         }
 
         private void DeleteSearchParameter(string url)
@@ -373,7 +414,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // search is not by url because it should work for deleted resources. this can be fixed only when resource deletes are delayed.
                 var queryParams = new List<Tuple<string, string>>
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
@@ -381,7 +421,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!string.IsNullOrEmpty(continuationToken))
                 {
-                    queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
+                    queryParams.Add(
+                        Tuple.Create(
+                            KnownQueryParameterNames.ContinuationToken,
+                            ContinuationTokenEncoder.Encode(continuationToken)));
                 }
 
                 var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
@@ -414,7 +457,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (unresolvedUrls.Count > 0)
             {
-                _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
+                _logger.LogWarning(
+                    "Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}",
+                    unresolvedUrls.Count,
+                    string.Join(", ", unresolvedUrls.Take(10)));
             }
 
             return searchParametersByUrl;

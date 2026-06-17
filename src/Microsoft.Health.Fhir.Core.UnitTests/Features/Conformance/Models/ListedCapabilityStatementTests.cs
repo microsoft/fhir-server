@@ -373,8 +373,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             await Task.WhenAll(cloneTask, modifyTask);
 
             // Assert
-            // If this step fails the excpetions will be logged to the test output
-            // This can look like this step threw an exception, but it is just reporting an exception that happened in the clone or modify tasks
             Assert.Empty(exceptions);
         }
     }

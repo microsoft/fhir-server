@@ -1,6 +1,3 @@
-## Status
-**Obsolete** - Code supporting this ADR removed per https://github.com/microsoft/fhir-server/blob/main/docs/arch/adr-2603-search-param-concurrency.md
-
 # ADR 2512: SearchParameter Concurrency Management - Application Level Locking and Database Optimistic Concurrency
 *Labels*: [SQL](https://github.com/microsoft/fhir-server/labels/Area-SQL) | [Core](https://github.com/microsoft/fhir-server/labels/Area-Core) | [SearchParameter](https://github.com/microsoft/fhir-server/labels/Area-SearchParameter)
 
@@ -102,7 +99,7 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
    - Proper LastUpdated handling in GET and UPSERT operations
 
 ## Status
-**Obsolete** - Code supporting this ADR removed per https://github.com/microsoft/fhir-server/blob/main/docs/arch/adr-2603-search-param-concurrency.md
+**Accepted** - Implemented and deployed
 
 ## Consequences
 

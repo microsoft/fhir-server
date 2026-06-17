@@ -416,21 +416,5 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 yield return d;
             }
         }
-
-        [Fact]
-        public async Task GivenUnknownValueSet_WhenExpanding_ThenThrowsResourceNotFoundException()
-        {
-            // When the terminology service throws ResourceNotFoundException for an unknown ValueSet,
-            // the exception propagates and the OperationOutcomeExceptionFilter maps it to HTTP 404.
-            _mediator.Send<ExpandResponse>(
-                Arg.Any<ExpandRequest>(),
-                Arg.Any<CancellationToken>())
-                .Returns<ExpandResponse>(x => throw new ResourceNotFoundException(
-                    "ValueSet 'http://example.org/fhir/ValueSet/unknown' is unknown"));
-
-            _controller.HttpContext.Request.QueryString = new QueryString("?url=http://example.org/fhir/ValueSet/unknown");
-
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _controller.Expand());
-        }
     }
 }

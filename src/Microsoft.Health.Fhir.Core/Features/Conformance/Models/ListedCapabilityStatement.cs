@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -110,20 +109,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         /// </summary>
         /// <typeparam name="T">Generic data type being copied.</typeparam>
         /// <param name="origin">Origin.</param>
-        /// <param name="destination">Destination.</param>
-        private static void SafeCopyTo<T>(ICollection<T> origin, ICollection<T> destination)
+        /// <param name="destiny">Destiny.</param>
+        private static void SafeCopyTo<T>(ICollection<T> origin, ICollection<T> destiny)
         {
             if (origin == null)
             {
-                destination = null;
+                destiny = null;
                 return;
             }
 
-            T[] temp = origin.ToArray();
+            T[] temp = new T[origin.Count];
+            origin.CopyTo(temp, 0);
 
             foreach (T item in temp)
             {
-                destination.Add(item);
+                destiny.Add(item);
             }
         }
     }

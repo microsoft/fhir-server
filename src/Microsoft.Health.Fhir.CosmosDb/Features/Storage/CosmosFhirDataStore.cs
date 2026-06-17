@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 UpsertOutcome result = await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
                 if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
                 {
-                    await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
+                    await PersistPendingSearchParameterStatusUpdatesAsync(cancellationToken);
                 }
 
                 return result;
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
                     {
-                        await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
+                        await PersistPendingSearchParameterStatusUpdatesAsync(cancellationToken);
                     }
 
                     return upsertOutcome;
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
+        private async Task PersistPendingSearchParameterStatusUpdatesAsync(CancellationToken cancellationToken)
         {
             var context = _requestContextAccessor.RequestContext;
             if (context?.Properties == null)
@@ -510,14 +510,47 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return;
             }
 
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var value) ||
-                value is not ResourceSearchParameterStatus status)
+            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
+                value is not List<ResourceSearchParameterStatus> pendingStatuses ||
+                pendingStatuses.Count == 0)
             {
                 return;
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses([status], cancellationToken);
-            context.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+            List<ResourceSearchParameterStatus> snapshot;
+            lock (pendingStatuses)
+            {
+                if (pendingStatuses.Count == 0)
+                {
+                    return;
+                }
+
+                snapshot = pendingStatuses
+                    .Where(status => status?.Uri != null)
+                    .GroupBy(status => status.Uri.OriginalString, StringComparer.Ordinal)
+                    .Select(group => group.Last())
+                    .ToList();
+            }
+
+            if (snapshot.Count == 0)
+            {
+                return;
+            }
+
+            await _searchParameterStatusDataStore.UpsertStatuses(snapshot, cancellationToken);
+
+            lock (pendingStatuses)
+            {
+                foreach (var item in snapshot)
+                {
+                    pendingStatuses.Remove(item);
+                }
+
+                if (pendingStatuses.Count == 0)
+                {
+                    context.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
+                }
+            }
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

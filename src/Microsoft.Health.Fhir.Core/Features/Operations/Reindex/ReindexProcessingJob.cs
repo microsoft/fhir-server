@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // use the same value as used in resource writes
             _searchParameterHash = searchParameterHash;
 
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated;
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
             isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;

@@ -4,16 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Diagnostics;
-using System.Net;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -73,42 +69,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             return;
                         }
 
-                        try
+                        switch (bundle.Type)
                         {
-                            // bundle.Type can raise InvalidCastException if the incoming value is not a valid BundleType.
-                            switch (bundle.Type)
-                            {
-                                case Hl7.Fhir.Model.Bundle.BundleType.Batch:
-                                    fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
-                                    break;
-                                case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
-                                    fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
-                                    break;
-                            }
-                        }
-                        catch (InvalidCastException)
-                        {
-                            // I had to add the 'timer' to the Http context, as the filter Microsoft.Health.Api.Features.Audit.AuditLoggingFilterAttribute expected it to be there.
-                            // This change avoid a null reference exception to happen.
-                            // The correct implementation would be handling the absence of the 'timer' in AuditLoggingFilterAttribute.
-                            context.HttpContext.Items["timer"] = Stopwatch.StartNew();
-
-                            context.Result = new OperationOutcomeResult(
-                                new OperationOutcome
-                                {
-                                    Id = fhirRequestContext.CorrelationId,
-                                    Issue =
-                                    {
-                                        new OperationOutcome.IssueComponent
-                                        {
-                                            Severity = OperationOutcome.IssueSeverity.Error,
-                                            Code = OperationOutcome.IssueType.Invalid,
-                                            Diagnostics = Core.Resources.UnsupportedBundleType,
-                                        },
-                                    },
-                                },
-                                HttpStatusCode.BadRequest);
-                            return;
+                            case Hl7.Fhir.Model.Bundle.BundleType.Batch:
+                                fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
+                                break;
+                            case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
+                                fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
+                                break;
                         }
                     }
                 }

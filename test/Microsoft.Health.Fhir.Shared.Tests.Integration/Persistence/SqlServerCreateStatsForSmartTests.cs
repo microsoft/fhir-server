@@ -343,10 +343,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 accessControlContext.AllowedResourceActions.Add(scope);
             }
 
-            var mockFhirRequestContext = Substitute.For<IFhirRequestContext>();
-            mockFhirRequestContext.AccessControlContext.Returns(accessControlContext);
-
-            contextAccessor.RequestContext.Returns(mockFhirRequestContext);
+            contextAccessor.RequestContext.AccessControlContext.Returns(accessControlContext);
         }
 
         private static SearchParams CreateSearchParams(params (string key, string value)[] items)
