@@ -54,6 +54,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _unionVisited = false;
         private bool _smartV2UnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
+        private int? _restrictingPredecessorTableExpressionIndexOverride;
+        private bool _useUnionAggregateAsRestrictingPredecessor;
         private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
@@ -171,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         }
                         else
                         {
-                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                            AppendNewSetOfUnionAllTableExpressions(context, tableExpression, unionExpression, tableExpression.QueryGenerator);
                         }
 
                         // Keep building the sql the old way when there are other remaining expressions after the union all without smart v2 scopes with search parameters
@@ -953,6 +955,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
                 }
             }
+
+            if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
+            {
+                _firstChainAfterUnionVisited = true;
+            }
         }
 
         private void HandleTableKindInclude(
@@ -1422,12 +1429,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(
+            SearchOptions context,
+            SearchParamTableExpression tableExpression,
+            UnionExpression unionExpression,
+            SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
                 throw new ArgumentOutOfRangeException(unionExpression.Operator.ToString());
             }
+
+            int? branchPredecessorIndex = tableExpression.ChainLevel > 0
+                ? (_useUnionAggregateAsRestrictingPredecessor && _unionAggregateCTEIndex > -1 ? _unionAggregateCTEIndex : _tableExpressionCounter)
+                : null;
+            var branchKind = tableExpression.ChainLevel > 0 ? SearchParamTableExpressionKind.Normal : SearchParamTableExpressionKind.Union;
 
             // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
@@ -1439,9 +1455,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
-                    SearchParamTableExpressionKind.Union);
+                    branchKind,
+                    tableExpression.ChainLevel);
 
-                searchParamExpression.AcceptVisitor(this, context);
+                if (branchKind == SearchParamTableExpressionKind.Union)
+                {
+                    searchParamExpression.AcceptVisitor(this, context);
+                }
+                else
+                {
+                    StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                    using (StringBuilder.Indent())
+                    {
+                        VisitTableWithRestrictingPredecessorOverride(searchParamExpression, context, branchPredecessorIndex);
+                    }
+
+                    StringBuilder.AppendLine("),");
+                }
             }
 
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
@@ -1466,7 +1497,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append(")");
 
             // check for a previous union all, and if so, join the new union all with the previous one
-            if (_unionAggregateCTEIndex > -1)
+            if (tableExpression.ChainLevel == 0 && _unionAggregateCTEIndex > -1)
             {
                 var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
                 var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
@@ -1493,7 +1524,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _unionAggregateCTEIndex = _tableExpressionCounter;
 
             _unionVisited = true;
-            _firstChainAfterUnionVisited = false;
+            _useUnionAggregateAsRestrictingPredecessor = true;
+            _firstChainAfterUnionVisited = tableExpression.ChainLevel > 0;
         }
 
         private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)
@@ -1605,6 +1637,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
         {
+            bool consumedUnionAggregatePredecessor = _useUnionAggregateAsRestrictingPredecessor;
+
             sb.Append(TableExpressionName(cteId)).AppendLine(" AS").AppendLine("(");
 
             using (sb.Indent())
@@ -1613,6 +1647,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             sb.Append(")");
+
+            if (consumedUnionAggregatePredecessor)
+            {
+                _useUnionAggregateAsRestrictingPredecessor = false;
+            }
+        }
+
+        private void VisitTableWithRestrictingPredecessorOverride(SearchParamTableExpression tableExpression, SearchOptions context, int? predecessorIndex)
+        {
+            if (!predecessorIndex.HasValue)
+            {
+                tableExpression.AcceptVisitor(this, context);
+                return;
+            }
+
+            int? previousOverride = _restrictingPredecessorTableExpressionIndexOverride;
+            _restrictingPredecessorTableExpressionIndexOverride = predecessorIndex;
+
+            try
+            {
+                tableExpression.AcceptVisitor(this, context);
+            }
+            finally
+            {
+                _restrictingPredecessorTableExpressionIndexOverride = previousOverride;
+            }
         }
 
         /// <summary>
@@ -1680,6 +1740,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private int FindRestrictingPredecessorTableExpressionIndex()
         {
+            if (_restrictingPredecessorTableExpressionIndexOverride.HasValue)
+            {
+                return _restrictingPredecessorTableExpressionIndexOverride.Value;
+            }
+
+            if (_useUnionAggregateAsRestrictingPredecessor && _unionAggregateCTEIndex > -1)
+            {
+                return _unionAggregateCTEIndex;
+            }
+
             int FindImpl(int currentIndex)
             {
                 // Due to the UnionAll expressions, the number of the current index used to create new CTEs can be greater than

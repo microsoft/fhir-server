@@ -20,6 +20,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
+            if (expression.Predicate is UnionExpression)
+            {
+                return true;
+            }
+
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
             return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
         }
@@ -35,6 +40,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         {
             unionExpression = null;
             allOtherRemainingExpressions = null;
+
+            if (expression.Predicate is UnionExpression directUnionExpression)
+            {
+                unionExpression = directUnionExpression;
+                return true;
+            }
 
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
 
@@ -86,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
             foreach (SearchParamTableExpression tableExpression in expressions)
             {
-                if (tableExpression.HasUnionAllExpression())
+                if (tableExpression.HasUnionAllExpression() && tableExpression.ChainLevel == 0)
                 {
                     if (tableExpression.HasSmartV2UnionExpression())
                     {

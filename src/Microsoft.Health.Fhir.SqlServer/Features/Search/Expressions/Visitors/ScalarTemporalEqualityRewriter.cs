@@ -50,11 +50,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitChained(ChainedExpression expression, bool context)
-        {
-            return expression;
-        }
-
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
         {
             if (context)

@@ -213,4 +213,121 @@ public class SqlQueryGeneratorTests
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
+
+    [Fact]
+    public void GivenDirectUnionPredicateFollowedByAnotherPredicate_WhenSqlGenerated_ThenNextPredicateJoinsUnionAggregate()
+    {
+        _fhirModel.GetSearchParamId(Arg.Any<Uri>()).Returns((short)100);
+
+        Expression birthdateUnion = BuildBirthdateDaySplitUnion();
+        var queryGenerator = birthdateUnion.AcceptVisitor(_queryGeneratorFactory, null);
+        SqlRootExpression sqlExpression = new(
+            [
+                new(queryGenerator, birthdateUnion, SearchParamTableExpressionKind.Normal),
+                new(null, null, SearchParamTableExpressionKind.All),
+            ],
+            new List<SearchParameterExpressionBase>());
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, CreateLatestSearchOptions());
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("SELECT * FROM cte0", generatedSql);
+        Assert.Contains("UNION ALL", generatedSql);
+        Assert.Contains("SELECT * FROM cte1", generatedSql);
+        Assert.Contains("JOIN cte2", generatedSql);
+    }
+
+    [Fact]
+    public void GivenChainedTargetUnionPredicate_WhenSqlGenerated_ThenUnionBranchesJoinChainLinkCte()
+    {
+        _fhirModel.GetSearchParamId(Arg.Any<Uri>()).Returns((short)100);
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)101);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)103);
+
+        var referenceParam = new SearchParameterInfo(
+            "Observation-patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-patient"),
+            expression: "Observation.subject",
+            baseResourceTypes: new[] { "Observation" },
+            targetResourceTypes: new[] { "Patient" });
+        var chainLinkExpression = new SqlChainLinkExpression(
+            new[] { "Observation" },
+            referenceParam,
+            new[] { "Patient" },
+            reversed: false);
+        Expression birthdateUnion = BuildBirthdateDaySplitUnion();
+        var birthdateQueryGenerator = birthdateUnion.AcceptVisitor(_queryGeneratorFactory, null);
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new(ChainLinkQueryGenerator.Instance, chainLinkExpression, SearchParamTableExpressionKind.Chain, chainLevel: 1),
+                new(birthdateQueryGenerator, birthdateUnion, SearchParamTableExpressionKind.Normal, chainLevel: 1),
+            ],
+            new List<SearchParameterExpressionBase>());
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, CreateLatestSearchOptions());
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.True(
+            generatedSql.IndexOf("cte0 AS", StringComparison.Ordinal) < generatedSql.IndexOf("cte1 AS", StringComparison.Ordinal),
+            generatedSql);
+        Assert.Equal(2, CountOccurrences(generatedSql, "JOIN cte0"));
+        Assert.DoesNotContain("JOIN cte1", generatedSql);
+        Assert.Contains("SELECT * FROM cte1", generatedSql);
+        Assert.Contains("SELECT * FROM cte2", generatedSql);
+    }
+
+    private static SearchOptions CreateLatestSearchOptions()
+    {
+        return new SearchOptions
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+    }
+
+    private static Expression BuildBirthdateDaySplitUnion()
+    {
+        var birthdateParam = new SearchParameterInfo(
+            "birthdate",
+            "birthdate",
+            SearchParamType.Date,
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+            expression: "Patient.birthDate",
+            baseResourceTypes: new[] { "Patient" });
+        DateTimeOffset startOfDay = new(2018, 6, 6, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+        return Expression.Union(
+            UnionOperator.All,
+            new Expression[]
+            {
+                new SearchParameterExpression(
+                    birthdateParam,
+                    Expression.And(
+                        Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, null, false),
+                        Expression.Equals(FieldName.DateTimeEnd, null, endOfDay))),
+                new SearchParameterExpression(
+                    birthdateParam,
+                    Expression.And(
+                        Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, null, true),
+                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, startOfDay),
+                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, endOfDay))),
+            });
+    }
+
+    private static int CountOccurrences(string value, string text)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = value.IndexOf(text, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += text.Length;
+        }
+
+        return count;
+    }
 }

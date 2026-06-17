@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ("birthdate", Fixture.ImagingStudyPatientBirthDate),
                 ("_tag", $"{Fixture.TenantTagSystem}|{Fixture.TenantTagCode}"));
 
-            ValidateBundle(bundle, Fixture.ImagingStudyPatient);
+            ValidateBundle(bundle, Fixture.ImagingStudyExactDayPatient, Fixture.ImagingStudyMonthPrecisionPatient);
         }
 #endif
 
@@ -469,9 +469,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public string ImagingStudyPatientBirthDate { get; } = "2018-06-06";
 
+            public string ImagingStudyMonthPrecisionPatientBirthDate { get; } = "2018-06";
+
             public string ImagingStudyStarted { get; } = "2018-02-02T05:00:00.000";
 
-            public Patient ImagingStudyPatient { get; private set; }
+            public Patient ImagingStudyExactDayPatient { get; private set; }
+
+            public Patient ImagingStudyMonthPrecisionPatient { get; private set; }
 #endif
 
             public Patient SmithPatient { get; private set; }
@@ -525,9 +529,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                ImagingStudyPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = tenantMeta, Gender = AdministrativeGender.Male, BirthDate = ImagingStudyPatientBirthDate, Name = new List<HumanName> { new HumanName { Family = "ImagingStudyPatient" } } })).Resource;
+                ImagingStudyExactDayPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = tenantMeta, Gender = AdministrativeGender.Male, BirthDate = ImagingStudyPatientBirthDate, Name = new List<HumanName> { new HumanName { Family = "ImagingStudyExactDayPatient" } } })).Resource;
+                ImagingStudyMonthPrecisionPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = tenantMeta, Gender = AdministrativeGender.Male, BirthDate = ImagingStudyMonthPrecisionPatientBirthDate, Name = new List<HumanName> { new HumanName { Family = "ImagingStudyMonthPrecisionPatient" } } })).Resource;
 
-                await TestFhirClient.CreateAsync(new ImagingStudy { Meta = tenantMeta, Status = ImagingStudy.ImagingStudyStatus.Available, Subject = new ResourceReference($"Patient/{ImagingStudyPatient.Id}"), Started = ImagingStudyStarted });
+                await TestFhirClient.CreateAsync(new ImagingStudy { Meta = tenantMeta, Status = ImagingStudy.ImagingStudyStatus.Available, Subject = new ResourceReference($"Patient/{ImagingStudyExactDayPatient.Id}"), Started = ImagingStudyStarted });
+                await TestFhirClient.CreateAsync(new ImagingStudy { Meta = tenantMeta, Status = ImagingStudy.ImagingStudyStatus.Available, Subject = new ResourceReference($"Patient/{ImagingStudyMonthPrecisionPatient.Id}"), Started = ImagingStudyStarted });
 #endif
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
