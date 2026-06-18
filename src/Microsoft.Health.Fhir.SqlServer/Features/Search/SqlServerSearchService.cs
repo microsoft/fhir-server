@@ -2245,15 +2245,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
-            // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
-            // fix in AB#191826 lands. When disabled, the original two-predicate equality form flows
-            // straight through to DateTimeEqualityRewriter and the rest of the pipeline.
+            // The scalar-temporal rewriter is gated by configuration and is disabled for sorted queries.
+            // This is a temporary guard until ScalarTemporalEqualityRewriter no longer emits a UnionExpression
+            // for day-equality rewrites. The sort path has separate phases/continuation semantics, and avoiding
+            // union injection here preserves existing behavior while still allowing the optimization for non-sort queries.
             Expression afterSmartCompartment = rootExpression
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
+            Expression afterScalarTemporal = ShouldApplyScalarTemporalEqualityRewriter(
+                    _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter,
+                    searchOptions?.Sort)
                 ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
                 : afterSmartCompartment;
 
@@ -2278,6 +2281,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        internal static bool ShouldApplyScalarTemporalEqualityRewriter(
+            bool enableScalarTemporalEqualityRewriter,
+            IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortParameters)
+        {
+            if (!enableScalarTemporalEqualityRewriter)
+            {
+                return false;
+            }
+
+            return sortParameters == null || sortParameters.Count == 0;
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)

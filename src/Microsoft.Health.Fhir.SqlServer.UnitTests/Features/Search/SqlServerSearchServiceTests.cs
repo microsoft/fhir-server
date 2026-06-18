@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -297,6 +298,39 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.Same(_model, model);
+        }
+
+        [Fact]
+        public void GivenScalarTemporalEnabledAndNoSort_WhenCheckingApplicability_ThenRewriterApplies()
+        {
+            bool shouldApply = SqlServerSearchService.ShouldApplyScalarTemporalEqualityRewriter(
+                enableScalarTemporalEqualityRewriter: true,
+                sortParameters: null);
+
+            Assert.True(shouldApply);
+        }
+
+        [Fact]
+        public void GivenScalarTemporalEnabledAndSortPresent_WhenCheckingApplicability_ThenRewriterDoesNotApply()
+        {
+            var sortParameters = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>
+                {
+                    (
+                        new SearchParameterInfo(
+                            "birthdate",
+                            "birthdate",
+                            SearchParamType.Date,
+                            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                            expression: "Patient.birthDate",
+                            baseResourceTypes: new[] { "Patient" }),
+                        SortOrder.Ascending),
+                };
+
+            bool shouldApply = SqlServerSearchService.ShouldApplyScalarTemporalEqualityRewriter(
+                enableScalarTemporalEqualityRewriter: true,
+                sortParameters: sortParameters);
+
+            Assert.False(shouldApply);
         }
     }
 }
