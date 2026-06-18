@@ -1944,6 +1944,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Include result was truncated. Iterative include results cannot be paged though, please narrow your search..
+        /// </summary>
+        internal static string TruncatedIncludeMessageForIterativeInclude {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessageForIterativeInclude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
         /// </summary>
         internal static string TypeFilterUnparseable {
