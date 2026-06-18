@@ -24,9 +24,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -50,7 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISqlServerFhirModel _model;
-        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -64,7 +60,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _model = Substitute.For<ISqlServerFhirModel>();
-            _queryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
             _sqlRetryService = Substitute.For<ISqlRetryService>();
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -81,10 +76,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
 
             // Create concrete instances of rewriters with required dependencies
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(_queryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(_queryGeneratorFactory);
-            var sortRewriter = new SortRewriter(_queryGeneratorFactory);
-            var partitionEliminationRewriter = new PartitionEliminationRewriter(_model, _schemaInformation, () => Substitute.For<ISearchParameterDefinitionManager>());
             var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(
@@ -98,13 +89,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _searchOptionsFactory,
                 _fhirDataStore,
                 _model,
-                sqlRootExpressionRewriter,
-                chainFlatteningRewriter,
-                sortRewriter,
-                partitionEliminationRewriter,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
-                _queryGeneratorFactory,
                 _sqlRetryService,
                 Options.Create(config),
                 fhirConfig,
@@ -120,13 +106,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Constructor_WithNullSearchOptionsFactory_ThrowsArgumentNullException()
         {
             // Arrange
-            var queryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(queryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(queryGeneratorFactory);
-            var sortRewriter = new SortRewriter(queryGeneratorFactory);
             var model = Substitute.For<ISqlServerFhirModel>();
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            var partitionEliminationRewriter = new PartitionEliminationRewriter(model, schemaInfo, () => Substitute.For<ISearchParameterDefinitionManager>());
             var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(
@@ -143,13 +124,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     null,
                     _fhirDataStore,
                     model,
-                    sqlRootExpressionRewriter,
-                    chainFlatteningRewriter,
-                    sortRewriter,
-                    partitionEliminationRewriter,
                     compartmentSearchRewriter,
                     smartCompartmentSearchRewriter,
-                    queryGeneratorFactory,
                     _sqlRetryService,
                     Options.Create(new SqlServerDataStoreConfiguration()),
                     new FhirSqlServerConfiguration(),
@@ -168,13 +144,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Constructor_WithNullSqlRetryService_ThrowsArgumentNullException()
         {
             // Arrange
-            var queryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(queryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(queryGeneratorFactory);
-            var sortRewriter = new SortRewriter(queryGeneratorFactory);
             var model = Substitute.For<ISqlServerFhirModel>();
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            var partitionEliminationRewriter = new PartitionEliminationRewriter(model, schemaInfo, () => Substitute.For<ISearchParameterDefinitionManager>());
             var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(
@@ -191,13 +162,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _searchOptionsFactory,
                     _fhirDataStore,
                     model,
-                    sqlRootExpressionRewriter,
-                    chainFlatteningRewriter,
-                    sortRewriter,
-                    partitionEliminationRewriter,
                     compartmentSearchRewriter,
                     smartCompartmentSearchRewriter,
-                    queryGeneratorFactory,
                     null,
                     Options.Create(new SqlServerDataStoreConfiguration()),
                     new FhirSqlServerConfiguration(),
@@ -216,13 +182,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Constructor_WithNullSchemaInformation_ThrowsArgumentNullException()
         {
             // Arrange
-            var queryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(queryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(queryGeneratorFactory);
-            var sortRewriter = new SortRewriter(queryGeneratorFactory);
             var model = Substitute.For<ISqlServerFhirModel>();
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            var partitionEliminationRewriter = new PartitionEliminationRewriter(model, schemaInfo, () => Substitute.For<ISearchParameterDefinitionManager>());
             var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(
@@ -239,13 +200,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _searchOptionsFactory,
                     _fhirDataStore,
                     model,
-                    sqlRootExpressionRewriter,
-                    chainFlatteningRewriter,
-                    sortRewriter,
-                    partitionEliminationRewriter,
                     compartmentSearchRewriter,
                     smartCompartmentSearchRewriter,
-                    queryGeneratorFactory,
                     _sqlRetryService,
                     Options.Create(new SqlServerDataStoreConfiguration()),
                     new FhirSqlServerConfiguration(),

@@ -35,7 +35,6 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Registration;
@@ -281,11 +280,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new ExpressionAccessControl(_fhirRequestContextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
 
-            var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(searchParamTableExpressionQueryGeneratorFactory);
-            var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
-            var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, SchemaInformation, () => searchableSearchParameterDefinitionManager);
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
@@ -300,13 +294,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchOptionsFactory,
                 _fhirDataStore,
                 sqlServerFhirModel,
-                sqlRootExpressionRewriter,
-                chainFlatteningRewriter,
-                sortRewriter,
-                partitionEliminationRewriter,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
-                searchParamTableExpressionQueryGeneratorFactory,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
                 _fhirSqlConfiguration,
