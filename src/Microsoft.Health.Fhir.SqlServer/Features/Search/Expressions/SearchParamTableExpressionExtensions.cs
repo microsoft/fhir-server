@@ -16,26 +16,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     {
         /// <summary>
         /// Identifies if a <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.
+        /// Handles both the scalar-temporal shape (bare <see cref="UnionExpression"/> as the predicate) and
+        /// the SmartV2 shape (<see cref="UnionExpression"/> nested inside a <see cref="MultiaryExpression"/>).
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
+            // Scalar-temporal shape: the predicate itself is a UnionExpression.
+            if (expression.Predicate is UnionExpression)
+            {
+                return true;
+            }
+
+            // SmartV2 shape: the UnionExpression is a child of a MultiaryExpression container.
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
             return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
         }
 
         /// <summary>
         /// Split the inner expressions from a <see cref="SearchParamTableExpression"/> into two groups: an existing <see cref="UnionExpression"/> and the other expressions.
+        /// Handles both the scalar-temporal shape (bare <see cref="UnionExpression"/> as the predicate) and
+        /// the SmartV2 shape (<see cref="UnionExpression"/> nested inside a <see cref="MultiaryExpression"/>).
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         /// <param name="unionExpression">Instance of <see cref="UnionExpression"/>.</param>
-        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionExpression"/>.</param>
+        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionExpression"/>. Null when the predicate is a bare union with no sibling expressions.</param>
         /// <returns>Returns TRUE if the <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.</returns>
         public static bool SplitExpressions(this SearchParamTableExpression expression, out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions)
         {
             unionExpression = null;
             allOtherRemainingExpressions = null;
 
+            // Scalar-temporal shape: the predicate itself is a UnionExpression.
+            // There are no remaining sibling expressions, so allOtherRemainingExpressions stays null.
+            if (expression.Predicate is UnionExpression bareUnion)
+            {
+                unionExpression = bareUnion;
+                return true;
+            }
+
+            // SmartV2 shape: union is a child of a MultiaryExpression container.
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
 
             if (expressionContainer != null)
