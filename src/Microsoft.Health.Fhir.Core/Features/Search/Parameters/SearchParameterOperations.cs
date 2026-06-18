@@ -6,11 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -22,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -34,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
@@ -47,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IResourceWrapperFactory resourceWrapperFactory,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -56,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -65,6 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _searchServiceFactory = searchServiceFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
+            _resourceWrapperFactory = resourceWrapperFactory;
             _logger = logger;
             _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
@@ -259,24 +270,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 
-                foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+                foreach (var searchParam in statuses.Where(_ => _.Status == SearchParameterStatus.PendingDelete || _.Status == SearchParameterStatus.PendingHardDelete))
                 {
-                    _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
+                    _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, searchParam.Status);
                 }
 
                 // Identify all System Defined Search Parameters and filter them from statuses
-                var systemDefinedSearchParameterUris = new HashSet<string>(
-                    _searchParameterDefinitionManager.AllSearchParameters
-                        .Where(p => p.IsSystemDefined)
-                        .Select(p => p.Url.OriginalString),
-                    StringComparer.Ordinal);
+                var systemDefinedSearchParameterUris = new HashSet<string>(_searchParameterDefinitionManager.AllSearchParameters.Where(p => p.IsSystemDefined).Select(p => p.Url.OriginalString));
 
                 var statusesToFetch = statuses
-                    .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
-                    .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
+                                        .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                                        .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
                 // Batch fetch all SearchParameter resources in one call
-                var searchParamResources = await GetSearchParametersByUrls(statusesToFetch.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
+                var searchParamResources = await GetSearchParametersByUrlsAsync(statusesToFetch.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
 
                 var paramsToAdd = new List<ITypedElement>();
                 foreach (var searchParam in statusesToFetch)
@@ -354,70 +361,162 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        private async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrls(List<string> urls, CancellationToken cancellationToken)
+        public async Task DeleteSearchParameterResourceAsync(string searchParameterUrl, bool hardDelete, CancellationToken cancellationToken)
         {
-            if (!urls.Any())
+            EnsureArg.IsNotNullOrWhiteSpace(searchParameterUrl, nameof(searchParameterUrl));
+
+            _logger.LogInformation("DeleteSearchParameterResourceAsync: Looking up resource for URL '{Url}'", searchParameterUrl);
+
+            // Search for the resource by URL to get the typed element
+            var results = await GetSearchParametersByUrlsAsync(new List<string> { searchParameterUrl }, cancellationToken);
+
+            if (!results.TryGetValue(searchParameterUrl, out var typedElement))
             {
-                return new Dictionary<string, ITypedElement>();
+                _logger.LogInformation("DeleteSearchParameterResourceAsync: Search parameter resource with URL '{Url}' not found in data store. It may have already been deleted.", searchParameterUrl);
+                return;
             }
 
-            const int chunkSize = 100;
-            var searchParametersByUrl = new Dictionary<string, ITypedElement>(StringComparer.Ordinal);
-            var unresolvedUrls = new HashSet<string>(urls, StringComparer.Ordinal);
-
-            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-
-            string continuationToken = null;
-
-            do
+            // Extract the resource ID from the typed element
+            var resourceId = typedElement.GetStringScalar("id");
+            if (string.IsNullOrEmpty(resourceId))
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                _logger.LogWarning("DeleteSearchParameterResourceAsync: Search parameter with URL '{Url}' found but has no ID.", searchParameterUrl);
+                return;
+            }
 
-                // search is not by url because it should work for deleted resources. this can be fixed only when resource deletes are delayed.
-                var queryParams = new List<Tuple<string, string>>
-                {
-                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
-                };
+            var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, resourceId);
+            _logger.LogInformation("DeleteSearchParameterResourceAsync: {DeleteType} deleting search parameter resource '{ResourceId}' with URL '{Url}'", hardDelete ? "Hard" : "Soft", resourceId, searchParameterUrl);
 
-                if (!string.IsNullOrEmpty(continuationToken))
-                {
-                    queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
-                }
+            using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
-                var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (result?.Results != null)
+            if (hardDelete)
+            {
+                await fhirDataStore.Value.HardDeleteAsync(resourceKey, keepCurrentVersion: false, allowPartialSuccess: false, cancellationToken);
+            }
+            else
+            {
+                await fhirDataStore.Value.UpsertAsync(
+                    CreateDeleteResourceWrapperOperation(resourceKey),
+                    cancellationToken);
+            }
+
+            _logger.LogInformation("DeleteSearchParameterResourceAsync: Successfully deleted search parameter resource '{ResourceId}' with URL '{Url}'", resourceKey.Id, searchParameterUrl);
+        }
+
+        private ResourceWrapperOperation CreateDeleteResourceWrapperOperation(ResourceKey resourceKey)
+        {
+            var lastModified = Clock.UtcNow;
+            var json = new JObject
+            {
+                ["resourceType"] = resourceKey.ResourceType,
+                ["id"] = resourceKey.Id,
+                ["meta"] = new JObject { ["lastUpdated"] = lastModified.UtcDateTime },
+            };
+
+            var rawResource = new RawResource(json.ToString(Newtonsoft.Json.Formatting.None), FhirResourceFormat.Json, isMetaSet: false);
+            var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceKey.ResourceType);
+
+            var wrapper = new ResourceWrapper(
+                resourceId: resourceKey.Id,
+                versionId: "1",
+                resourceTypeName: resourceKey.ResourceType,
+                rawResource: rawResource,
+                request: new ResourceRequest("DELETE", null),
+                lastModified: lastModified,
+                deleted: true,
+                searchIndices: [],
+                compartmentIndices: new CompartmentIndices(),
+                lastModifiedClaims: [],
+                searchParameterHash: searchParamHash);
+
+            return new ResourceWrapperOperation(
+                wrapper,
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null);
+        }
+
+        public async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrlsAsync(IReadOnlyCollection<string> searchParameterUrls, CancellationToken cancellationToken)
+        {
+            var result = new Dictionary<string, ITypedElement>();
+            var unresolvedUrls = new HashSet<string>(searchParameterUrls);
+
+            // First, try direct search by URL for each parameter
+            using var search = _searchServiceFactory.Invoke();
+            foreach (var url in searchParameterUrls)
+            {
+                var queryParams = new List<Tuple<string, string>> { Tuple.Create("url", url) };
+                var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+                if (searchResult?.Results != null && searchResult.Results.Any())
                 {
-                    foreach (var entry in result.Results)
+                    var entry = searchResult.Results.First();
+                    var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                    if (typedElement != null)
                     {
-                        var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
-                        if (typedElement == null)
-                        {
-                            continue;
-                        }
+                        result[url] = typedElement;
+                        unresolvedUrls.Remove(url);
+                    }
+                }
+            }
 
-                        var url = typedElement.GetStringScalar("url");
-                        if (!string.IsNullOrEmpty(url) && unresolvedUrls.Remove(url))
-                        {
-                            searchParametersByUrl[url] = typedElement;
+            // Below logic is temporary, as it handles old data. It can be removed once new delete code is in production and reindex is run.
+            // If some URLs were not resolved, fall back to full scan (handles deleted resources)
+            if (unresolvedUrls.Count > 0)
+            {
+                _logger.LogInformation("Could not resolve {Count} SearchParameter URL(s) by direct search. Falling back to full scan.", unresolvedUrls.Count);
 
-                            if (unresolvedUrls.Count == 0)
+                const int chunkSize = 100;
+                string continuationToken = null;
+
+                do
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var queryParams = new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()) };
+
+                    if (!string.IsNullOrEmpty(continuationToken))
+                    {
+                        queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
+                    }
+
+                    var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+                    if (searchResult?.Results != null)
+                    {
+                        foreach (var entry in searchResult.Results)
+                        {
+                            var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                            if (typedElement == null)
                             {
-                                return searchParametersByUrl;
+                                continue;
+                            }
+
+                            var url = typedElement.GetStringScalar("url");
+                            if (!string.IsNullOrEmpty(url) && unresolvedUrls.Remove(url))
+                            {
+                                result[url] = typedElement;
+
+                                if (unresolvedUrls.Count == 0)
+                                {
+                                    return result;
+                                }
                             }
                         }
                     }
+
+                    continuationToken = searchResult?.ContinuationToken;
                 }
+                while (!string.IsNullOrEmpty(continuationToken));
 
-                continuationToken = result?.ContinuationToken;
-            }
-            while (!string.IsNullOrEmpty(continuationToken));
-
-            if (unresolvedUrls.Count > 0)
-            {
-                _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
+                if (unresolvedUrls.Count > 0)
+                {
+                    _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
+                }
             }
 
-            return searchParametersByUrl;
+            return result;
         }
 
         public void Dispose()

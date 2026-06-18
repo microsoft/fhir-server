@@ -305,6 +305,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 dataStoreSearchParameterValidator,
                 () => OperationDataStore.CreateMockScope(),
                 () => SearchService.CreateMockScope(),
+                DataStore.CreateMockScopeProvider(),
+                resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             // Register pipeline behaviors for search parameter handling

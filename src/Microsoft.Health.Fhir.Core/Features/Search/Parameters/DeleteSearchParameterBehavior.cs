@@ -61,73 +61,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             var deleteRequest = request as DeleteResourceRequest;
 
-            if (deleteRequest.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (deleteRequest.ResourceKey.ResourceType == KnownResourceTypes.SearchParameter)
             {
-                // First check if this is a system-defined parameter by checking all parameters in the definition manager
-                var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
-                var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
-                    sp.IsSystemDefined &&
-                    sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
+                var current = _searchParameterDefinitionManager.AllSearchParameters.FirstOrDefault(_ => _.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
 
-                if (systemDefinedParam != null)
+                // First check if this is a system-defined parameter by checking all parameters in the definition manager
+                if (current != null && current.IsSystemDefined)
                 {
-                    throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, systemDefinedParam.Url));
+                    throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, current.Url));
                 }
 
                 // Now try to get the custom search parameter from the data store
                 var searchParamResource = await _fhirDataStore.GetAsync(deleteRequest.ResourceKey, cancellationToken);
-
                 if (searchParamResource == null)
                 {
                     throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, deleteRequest.ResourceKey.ResourceType, deleteRequest.ResourceKey.Id));
                 }
 
-                // If the search parameter exists and is not already deleted, delete it
-                if (!searchParamResource.IsDeleted)
+                // If the search parameter exists and is not already deleted, update status to pending delete
+                if (!searchParamResource.IsDeleted
+                    && !(current?.SearchParameterStatus == SearchParameterStatus.PendingDelete && deleteRequest.DeleteOperation == DeleteOperation.SoftDelete)
+                    && !(current?.SearchParameterStatus == SearchParameterStatus.PendingHardDelete && deleteRequest.DeleteOperation == DeleteOperation.HardDelete))
                 {
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
-                    var url = typed.GetStringScalar("url");
-                    await QueuePendingDeleteStatusAsync(url, cancellationToken);
+                    await UpdatePendingDeleteStatusAsync(typed.GetStringScalar("url"), deleteRequest.DeleteOperation, cancellationToken);
                 }
 
-                return await next(cancellationToken);
+                // Return a proper response without actually deleting the resource - reindex will handle the deletion
+                var response = new DeleteResourceResponse(deleteRequest.ResourceKey, resourcesDeleted: 0);
+                return (TDeleteResourceResponse)(object)response;
             }
 
             return await next(cancellationToken);
         }
 
-        private async Task QueuePendingDeleteStatusAsync(string url, CancellationToken cancellationToken)
+        private async Task UpdatePendingDeleteStatusAsync(string url, DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
                 return;
             }
 
-            var context = _requestContextAccessor.RequestContext;
-            if (context == null)
-            {
-                return;
-            }
-
-            var lastUpdated = _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated();
+            var lastUpdated = _requestContextAccessor.RequestContext?.GetSearchParameterLastUpdated();
             if (!lastUpdated.HasValue)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                 lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
             }
 
-            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
+            var status = deleteOperation == DeleteOperation.HardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
 
-            var update = new ResourceSearchParameterStatus
-            {
-                Uri = new Uri(url),
-                Status = SearchParameterStatus.PendingDelete,
-                LastUpdated = lastUpdated.Value,
-                IsPartiallySupported = existing?.IsPartiallySupported ?? false,
-                SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
-            };
-
-            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
+            // Update the status immediately in the data store
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { url }, status, cancellationToken, lastUpdated: lastUpdated);
         }
     }
 }

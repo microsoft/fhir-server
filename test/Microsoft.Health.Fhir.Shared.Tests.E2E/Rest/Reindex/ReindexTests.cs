@@ -1315,6 +1315,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             try
             {
+                var deletedIds = new HashSet<string>();
+
                 do
                 {
                     var searchResponse = await _fixture.TestFhirClient.SearchAsync(resourceType);
@@ -1323,17 +1325,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         break;
                     }
 
-                    _output.WriteLine($"Found {searchResponse.Resource.Entry.Count} {resourceType} resources.");
+                    var deletesInThisIteration = 0;
                     foreach (var entry in searchResponse.Resource.Entry)
                     {
-                        await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
+                        if (!deletedIds.Contains(entry.Resource.Id))
+                        {
+                            await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
+                            deletedIds.Add(entry.Resource.Id);
+                            deletesInThisIteration++;
+                        }
+                    }
+
+                    _output.WriteLine($"Deleted {deletesInThisIteration} {resourceType} resources");
+
+                    if (deletesInThisIteration == 0)
+                    {
+                        break;
                     }
                 }
                 while (true);
             }
             catch (Exception ex)
             {
-                _output.WriteLine($"Failed to delete Person resources: {ex.Message}");
+                _output.WriteLine($"Failed to delete {resourceType} resources: {ex.Message}");
             }
         }
 

@@ -150,6 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             var searchService = Substitute.For<ISearchService>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations = new SearchParameterOperations(
                 _manager,
@@ -159,6 +160,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterDataStoreValidator,
                 () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
+                fhirDataStore.CreateMockScopeProvider(),
+                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

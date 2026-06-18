@@ -153,6 +153,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
@@ -1497,6 +1499,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
