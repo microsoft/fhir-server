@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
 
             _searchService = new SqlServerSearchService(
                 _searchOptionsFactory,
@@ -99,6 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
+                searchParameterSqlParser,
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -116,6 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -134,6 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    searchParameterSqlParser,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -154,6 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -172,6 +178,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    searchParameterSqlParser,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -192,6 +199,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -210,6 +218,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    searchParameterSqlParser,
                     NullLogger<SqlServerSearchService>.Instance);
             });
 

@@ -1794,18 +1794,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 lock (_locker)
                 {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _queryGeneratorFactory, cancel);
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, cancel);
                 }
             }
 
             await _resourceSearchParamStats.Create(expression, _sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
         }
+        */
 
         internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
         {
-            return _resourceSearchParamStats.GetStatsFromCache();
+            // return _resourceSearchParamStats.GetStatsFromCache();
+            return new List<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>();
         }
-        */
 
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(CancellationToken cancel)
         {
@@ -2333,20 +2334,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             cmd.Parameters.AddWithValue("@ActiveOnly", activeOnly);
         }
 
-        /*
         private class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
-            private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
+
+            // private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
             public ResourceSearchParamStats(
                 ISqlRetryService sqlRetryService,
                 ILogger<SqlServerSearchService> logger,
-                SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
                 CancellationToken cancel)
             {
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
-                _queryGeneratorFactory = queryGeneratorFactory;
+
+                // _queryGeneratorFactory = queryGeneratorFactory;
                 Init(sqlRetryService, logger, cancel).Wait(cancel);
             }
 
@@ -2355,6 +2356,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return _stats.Keys;
             }
 
+            /*
             public async Task Create(
                 SqlRootExpression expression,
                 ISqlRetryService sqlRetryService,
@@ -2582,6 +2584,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         break;
                 }
             }
+            */
 
             private static HashSet<string> GetKeyColumns(string table)
             {
@@ -2660,6 +2663,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        /*
         private class Token
         {
             internal Token(string code, int? systemId, string systemValue)

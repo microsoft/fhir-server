@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -17,12 +18,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         private readonly SearchParameterCollection _parameterCollection;
         private readonly Dictionary<string, ISqlParser> _sqlParsers;
+        private readonly SystemSqlParser _systemSqlParser;
 
         public SearchParameterSqlParser(SearchParameterCollection parameterCollection)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
 
             _parameterCollection = parameterCollection;
+            _systemSqlParser = new SystemSqlParser();
             _sqlParsers = new Dictionary<string, ISqlParser>(StringComparer.OrdinalIgnoreCase)
             {
                 { "number", new NumberSqlParser(parameterCollection) },
@@ -77,39 +80,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.AppendLine("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit)");
             sqlBuilder.AppendLine(";WITH");
 
-            foreach (var kvp in parametersCopy)
+            // If no search parameters, use SystemSqlParser for basic resource retrieval
+            if (parametersCopy.Count == 0)
             {
-                if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
-                {
-                    includeParameters.Add(kvp.Key, kvp.Value);
-                    continue;
-                }
+                lastCteName = $"cte{cteIndex}";
 
-                foreach (var value in kvp.Value)
+                sqlBuilder.AppendLine($"{lastCteName} AS (");
+
+                sqlBuilder.Append(_systemSqlParser.Parse(string.Empty, string.Empty, parserOptions));
+
+                sqlBuilder.AppendLine();
+                sqlBuilder.Append(')');
+            }
+            else
+            {
+                foreach (var kvp in parametersCopy)
                 {
-                    var parameter = _parameterCollection.GetByCode(kvp.Key);
-                    if (parameter == null)
+                    if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
                     {
+                        includeParameters.Add(kvp.Key, kvp.Value);
                         continue;
                     }
 
-                    var cteName = $"cte{cteIndex}";
-
-                    if (cteIndex > 0)
+                    foreach (var value in kvp.Value)
                     {
-                        sqlBuilder.Append(',');
+                        var parameter = _parameterCollection.GetByCode(kvp.Key);
+                        if (parameter == null)
+                        {
+                            continue;
+                        }
+
+                        var cteName = $"cte{cteIndex}";
+
+                        if (cteIndex > 0)
+                        {
+                            sqlBuilder.Append(',');
+                        }
+
+                        sqlBuilder.AppendLine($"{cteName} AS (");
+
+                        sqlBuilder.Append(Parse(kvp.Key, value, parserOptions));
+
+                        sqlBuilder.AppendLine();
+                        sqlBuilder.Append(')');
+
+                        lastCteName = cteName;
+                        cteIndex++;
+                        parserOptions.LastCteName = lastCteName;
                     }
-
-                    sqlBuilder.AppendLine($"{cteName} AS (");
-
-                    sqlBuilder.Append(Parse(kvp.Key, value, parserOptions));
-
-                    sqlBuilder.AppendLine();
-                    sqlBuilder.Append(')');
-
-                    lastCteName = cteName;
-                    cteIndex++;
-                    parserOptions.LastCteName = lastCteName;
                 }
             }
 
@@ -170,7 +188,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
             else
             {
-                sqlBuilder.Append($"SELECT * FROM {lastCteName}");
+                sqlBuilder.Append("SELECT * FROM (")
+                    .Append("SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource")
+                    .Append("FROM dbo.Resource AS r")
+                    .Append($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.T1 AND r.ResourceSurrogateId = f.Sid1")
+                    .Append("WHERE r.IsHistory = 0 AND r.IsDeleted = 0")
+                    .Append(") AS t ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC");
             }
 
             return sqlBuilder.ToString();

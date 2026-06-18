@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Registration;
@@ -290,6 +291,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
+            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
                 _fhirDataStore,
@@ -304,6 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
+                searchParameterSqlParser,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
