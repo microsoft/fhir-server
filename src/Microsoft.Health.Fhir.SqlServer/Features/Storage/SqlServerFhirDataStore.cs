@@ -898,9 +898,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 // Sequential operations:
-                // - EnlistTransaction: set to true only in sequential transaction bundles (as they rely on C# transactions).
-                // - Standalone operations should not enlist transactions (as they rely on SQL transactions).
-                bool enlistTransaction = isBundleTransaction;
+                // - EnlistTransaction: set to true only in sequential transaction bundles (as they rely on C# transactions). Standalone operations should not enlist transactions (as they rely on SQL transactions).
 
                 MergeOptions mergeOptions = new MergeOptions(
                     enlistTransaction: isBundleTransaction,
