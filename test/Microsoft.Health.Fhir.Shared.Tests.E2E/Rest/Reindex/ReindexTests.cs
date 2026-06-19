@@ -1316,10 +1316,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 var deletedIds = new HashSet<string>();
+                string nextUrl = null;
 
                 do
                 {
-                    var searchResponse = await _fixture.TestFhirClient.SearchAsync(resourceType);
+                    var searchResponse = nextUrl == null
+                        ? await _fixture.TestFhirClient.SearchAsync(resourceType)
+                        : await _fixture.TestFhirClient.SearchAsync(nextUrl);
+
                     if (searchResponse?.Resource?.Entry == null || searchResponse.Resource.Entry.Count == 0)
                     {
                         break;
@@ -1330,7 +1334,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     {
                         if (!deletedIds.Contains(entry.Resource.Id))
                         {
-                            await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
+                            if (!entry.IsDeleted())
+                            {
+                                await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
+                            }
+
                             deletedIds.Add(entry.Resource.Id);
                             deletesInThisIteration++;
                         }
@@ -1338,12 +1346,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     _output.WriteLine($"Deleted {deletesInThisIteration} {resourceType} resources");
 
+                    var nextLink = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next");
+                    nextUrl = nextLink?.Url;
+
                     if (deletesInThisIteration == 0)
                     {
                         break;
                     }
                 }
-                while (true);
+                while (!string.IsNullOrEmpty(nextUrl));
             }
             catch (Exception ex)
             {
