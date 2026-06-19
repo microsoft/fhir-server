@@ -801,7 +801,17 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
                     {
-                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        ResourceElement resource = Samples.GetJsonSample("Weight");
+                        UpsertResourceRequest upsertResource = new UpsertResourceRequest(
+                           resource,
+                           new BundleResourceContext(
+                               Bundle.BundleType.Transaction,
+                               BundleProcessingLogic.Sequential,
+                               Bundle.HTTPVerb.PUT,
+                               null,
+                               Guid.Empty));
+
+                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(upsertResource);
                         createdId = saveResult.RawResourceElement.Id;
 
                         Assert.NotEqual(string.Empty, createdId);
