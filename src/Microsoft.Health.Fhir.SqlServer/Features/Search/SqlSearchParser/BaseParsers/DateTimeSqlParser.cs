@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value)
+        protected override string BuildWhereClause(string value, string modifier)
         {
             var escapedValue = ParseValue(value, out var opperator);
 

@@ -50,6 +50,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
+            if (code.Contains(':', StringComparison.OrdinalIgnoreCase))
+            {
+                code = code.Split(':', 2, StringSplitOptions.None)[0];
+            }
+
             _parametersByCode.TryGetValue(code, out var parameter);
             return parameter;
         }
@@ -62,6 +67,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public string? GetParameterType(string code)
         {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return null;
+            }
+
             var parameter = GetByCode(code);
             return parameter?.Type;
         }

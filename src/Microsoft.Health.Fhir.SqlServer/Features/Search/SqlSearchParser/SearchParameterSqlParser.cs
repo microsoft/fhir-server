@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -19,18 +20,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly SearchParameterCollection _parameterCollection;
         private readonly Dictionary<string, ISqlParser> _sqlParsers;
         private readonly SystemSqlParser _systemSqlParser;
+        private readonly IdSqlParser _idSqlParser;
+        private readonly ISqlServerFhirModel _sqlServerFhirModel;
 
-        public SearchParameterSqlParser(SearchParameterCollection parameterCollection)
+        public SearchParameterSqlParser(SearchParameterCollection parameterCollection, ISqlServerFhirModel fhirModel)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
+            ArgumentNullException.ThrowIfNull(fhirModel);
 
             _parameterCollection = parameterCollection;
+            _sqlServerFhirModel = fhirModel;
             _systemSqlParser = new SystemSqlParser();
+            _idSqlParser = new IdSqlParser();
             _sqlParsers = new Dictionary<string, ISqlParser>(StringComparer.OrdinalIgnoreCase)
             {
-                { "number", new NumberSqlParser(parameterCollection) },
-                { "date", new DateTimeSqlParser(parameterCollection) },
-                { "string", new StringSqlParser(parameterCollection) },
+                { "NumberSearchParam", new NumberSqlParser(parameterCollection) },
+                { "DateTimeSearchParam", new DateTimeSqlParser(parameterCollection) },
+                { "StringSearchParam", new StringSqlParser(parameterCollection) },
+                { "TokenSearchParam", new TokenSqlParser(parameterCollection) },
+                { "ReferenceSearchParam", new ReferenceSqlParser(parameterCollection, fhirModel) },
+                { "UriSearchParam", new UriSqlParser(parameterCollection) },
                 { "include", new IncludeSqlParser(parameterCollection) },
             };
 
@@ -49,6 +58,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 ContinuationSurrogateId = continuationSurrogateId,
             };
+
+            parametersCopy = parametersCopy.Where(param =>
+            {
+                if (param.Key.Equals("_elements", StringComparison.OrdinalIgnoreCase) || param.Key.Equals("_sort", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return true;
+            }).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
             // Check for _summary=accurate parameter
             if (parametersCopy.TryGetValue("_summary", out var summaryValues))
@@ -69,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (parametersCopy.TryGetValue("_type", out var typeValues))
             {
-                foreach (var typeValue in typeValues.Select(int.Parse))
+                foreach (var typeValue in typeValues.SelectMany(types => types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Select(_sqlServerFhirModel.GetResourceTypeId))
                 {
                     parserOptions.ResourceTypes.Add(typeValue);
                 }
@@ -96,6 +115,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 foreach (var kvp in parametersCopy)
                 {
+                    // Handle _id parameter specially - it doesn't use SearchParameterCollection
+                    if (kvp.Key.Equals("_id", StringComparison.OrdinalIgnoreCase))
+                    {
+                        foreach (var value in kvp.Value)
+                        {
+                            var cteName = $"cte{cteIndex}";
+
+                            if (cteIndex > 0)
+                            {
+                                sqlBuilder.Append(',');
+                            }
+
+                            sqlBuilder.AppendLine($"{cteName} AS (");
+                            sqlBuilder.Append(_idSqlParser.Parse(kvp.Key, value, parserOptions));
+                            sqlBuilder.AppendLine();
+                            sqlBuilder.Append(')');
+
+                            lastCteName = cteName;
+                            cteIndex++;
+                            parserOptions.LastCteName = lastCteName;
+                        }
+
+                        continue;
+                    }
+
                     if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
                     {
                         includeParameters.Add(kvp.Key, kvp.Value);
@@ -184,16 +228,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // If this is a count query, return count instead of full results
             if (parserOptions.IncludeTotalCount)
             {
-                sqlBuilder.Append($"SELECT COUNT(*) AS Total FROM {lastCteName}");
+                sqlBuilder.AppendLine($"SELECT COUNT_BIG(*) AS Total FROM {lastCteName}");
             }
             else
             {
-                sqlBuilder.Append("SELECT * FROM (")
-                    .Append("SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource")
-                    .Append("FROM dbo.Resource AS r")
-                    .Append($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.T1 AND r.ResourceSurrogateId = f.Sid1")
-                    .Append("WHERE r.IsHistory = 0 AND r.IsDeleted = 0")
-                    .Append(") AS t ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC");
+                sqlBuilder.AppendLine("SELECT * FROM (")
+                    .AppendLine("SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource ")
+                    .AppendLine("FROM dbo.Resource AS r ")
+                    .AppendLine($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.ResourceTypeId AND r.ResourceSurrogateId = f.ResourceSurrogateId ")
+                    .AppendLine("WHERE r.IsHistory = 0 AND r.IsDeleted = 0 ")
+                    .AppendLine(") AS t ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC");
             }
 
             return sqlBuilder.ToString();

@@ -58,9 +58,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 sqlBuilder.AppendLine($"  WHERE t.SearchParamId = {parameter.Id}");
 
-                // Add parameter-specific WHERE conditions
-                var whereClause = BuildWhereClause(value);
-                sqlBuilder.Append($"  AND {whereClause}");
+                var values = value.Split(',');
+
+                sqlBuilder.AppendLine("  AND (");
+                var firstClause = true;
+                foreach (var v in values)
+                {
+                    // Add parameter-specific WHERE conditions
+                    var whereClause = BuildWhereClause(v, modifier);
+
+                    if (!firstClause)
+                    {
+                        sqlBuilder.Append("  OR ");
+                    }
+                    else
+                    {
+                        sqlBuilder.Append("  ");
+                    }
+
+                    sqlBuilder.AppendLine(whereClause);
+                    firstClause = false;
+                }
+
+                sqlBuilder.AppendLine("  )");
             }
 
             // Add base filters only on the first CTE
@@ -83,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return sqlBuilder.ToString();
         }
 
-        protected abstract string BuildWhereClause(string value);
+        protected abstract string BuildWhereClause(string value, string modifier);
 
         protected static string EscapeSqlValue(string value)
         {

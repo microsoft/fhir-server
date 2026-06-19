@@ -433,6 +433,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = new SqlSearchOptions(sqlSearchOptions);
 
+            if (clonedSearchOptions.CountOnly && !clonedSearchOptions.QueryParams.Any(kvp => kvp.Key == KnownQueryParameterNames.Summary))
+            {
+#pragma warning disable IDE0300 // Simplify collection initialization
+#pragma warning disable CA1861 // Avoid constant arrays as arguments
+                clonedSearchOptions.QueryParams.Add(KnownQueryParameterNames.Summary, new string[] { "count" });
+#pragma warning restore CA1861 // Avoid constant arrays as arguments
+#pragma warning restore IDE0300 // Simplify collection initialization
+            }
+
             /*
             // Reads by resource ids is handled directly via GetAsync().
             // Search result is set only on success, otherwise it is null.

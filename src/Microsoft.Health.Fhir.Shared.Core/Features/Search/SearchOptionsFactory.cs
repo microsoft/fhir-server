@@ -398,6 +398,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
 
                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
+
+                if (searchOptions.QueryParams.TryGetValue("_type", out var typeValues))
+                {
+                    typeValues.Add(resourceType);
+                }
+                else
+                {
+                    searchOptions.QueryParams.Add("_type", new List<string> { resourceType });
+                }
             }
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
@@ -830,7 +839,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                             foreach (var param in restriction.SearchParameters.Parameters)
                             {
-                               searchParams.Add(param.Item1, param.Item2);
+                                searchParams.Add(param.Item1, param.Item2);
                             }
                         }
 

@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -18,6 +19,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         // This method negates effect of the AddParametersHash(). This is done this way to keep current SQL generator logic.
         internal static string RemoveParametersHash(string query)
         {
+            if (query == null)
+            {
+                throw new BadRequestException(nameof(query));
+            }
+
             var hashStartIndex = query.IndexOf(SqlSearchConstants.ParametersHashStart, StringComparison.OrdinalIgnoreCase);
             if (hashStartIndex < 0) // no parameters hash
             {

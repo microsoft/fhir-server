@@ -402,6 +402,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 searchOptions.MaxItemCount = 10;
 
+                searchOptions.QueryParams = new Dictionary<string, IList<string>>();
+                searchOptions.QueryParams.Add("_count", new List<string> { "10" });
+                searchOptions.QueryParams.Add("_type", new List<string> { KnownResourceTypes.SearchParameter });
+
                 // ✅ Include soft-deleted resources to find PendingDelete search parameters
                 searchOptions.ResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.SoftDeleted;
 
