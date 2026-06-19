@@ -97,6 +97,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed
         /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
+        /// <remarks>
+        /// The returned order is the CTE generation order used by <c>SqlQueryGenerator</c>, and it is authoritative for
+        /// restricting-predecessor resolution. Two invariants must hold:
+        /// <list type="number">
+        /// <item>
+        /// The partition is <b>stable</b>: relative order within each group (regular unions, SmartV2 unions, non-unions) is
+        /// preserved. <see cref="SearchParamTableExpressionKind.Concatenation"/> branches produced by the
+        /// <c>ConcatenationRewriter</c> form an adjacent (Normal, Concatenation) pair of non-union expressions, and both must
+        /// restrict against the same predecessor. Stability keeps the pair adjacent so the predecessor walk in
+        /// <c>SqlQueryGenerator.FindRestrictingPredecessorTableExpressionIndex</c> resolves correctly.
+        /// </item>
+        /// <item>
+        /// Moving unions to the front only ever pulls a union out from between two non-unions, which keeps sibling pairs
+        /// adjacent; it never separates a Concatenation branch from its Normal sibling.
+        /// </item>
+        /// </list>
+        /// </remarks>
         /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static IReadOnlyList<SearchParamTableExpression> SortExpressionsByQueryLogic(this IReadOnlyList<SearchParamTableExpression> expressions)
         {
@@ -104,6 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             var smartV2Unions = new List<SearchParamTableExpression>();
             var nonUnions = new List<SearchParamTableExpression>();
 
+            // Stable partition: each expression is appended to its group in input order, and the groups are
+            // concatenated below, so relative order within every group is preserved.
             foreach (SearchParamTableExpression tableExpression in expressions)
             {
                 if (tableExpression.HasUnionAllExpression())

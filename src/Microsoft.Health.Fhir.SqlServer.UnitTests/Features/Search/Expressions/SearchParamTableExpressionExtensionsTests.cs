@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -147,6 +148,58 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.False(result);
             Assert.Null(outUnion);
             Assert.Null(outRemainder);
+        }
+
+        // -----------------------------------------------------------------------
+        // SortExpressionsByQueryLogic
+        // -----------------------------------------------------------------------
+
+        // Guards the ordering invariant that SqlQueryGenerator's restricting-predecessor resolution
+        // depends on: a scalar-temporal UnionExpression is pulled to the front, while the
+        // (Normal, Concatenation) sibling pair emitted by ConcatenationRewriter stays adjacent and in
+        // order so both branches restrict against the same shared union-aggregate predecessor.
+        [Fact]
+        public void SortExpressionsByQueryLogic_WhenRegularUnionPrecedesConcatenationPair_ThenUnionMovesFirstAndPairStaysAdjacent()
+        {
+            var leadingNormal = BuildNormalTableExpression("leading");
+            var regularUnion = new SearchParamTableExpression(
+                DateTimeQueryGenerator.Instance,
+                BuildBareUnion(),
+                SearchParamTableExpressionKind.Normal);
+            var normalSibling = BuildNormalTableExpression("sibling-normal");
+            var concatenationSibling = new SearchParamTableExpression(
+                DateTimeQueryGenerator.Instance,
+                new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, "sibling-concat")),
+                SearchParamTableExpressionKind.Concatenation);
+            var trailingNormal = BuildNormalTableExpression("trailing");
+
+            var input = new List<SearchParamTableExpression>
+            {
+                leadingNormal,
+                regularUnion,
+                normalSibling,
+                concatenationSibling,
+                trailingNormal,
+            };
+
+            IReadOnlyList<SearchParamTableExpression> sorted = input.SortExpressionsByQueryLogic();
+
+            // The union is pulled to the front; all non-unions keep their relative input order; the
+            // (Normal, Concatenation) sibling pair remains adjacent and in order.
+            Assert.Same(regularUnion, sorted[0]);
+            Assert.Same(leadingNormal, sorted[1]);
+            Assert.Same(normalSibling, sorted[2]);
+            Assert.Same(concatenationSibling, sorted[3]);
+            Assert.Same(trailingNormal, sorted[4]);
+            Assert.Equal(SearchParamTableExpressionKind.Concatenation, sorted[3].Kind);
+        }
+
+        private static SearchParamTableExpression BuildNormalTableExpression(string code)
+        {
+            return new SearchParamTableExpression(
+                DateTimeQueryGenerator.Instance,
+                new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, code)),
+                SearchParamTableExpressionKind.Normal);
         }
     }
 }
