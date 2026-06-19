@@ -79,9 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 // If the search parameter exists and is not already deleted, update status to pending delete
-                if (!searchParamResource.IsDeleted
-                    && !(current?.SearchParameterStatus == SearchParameterStatus.PendingDelete && deleteRequest.DeleteOperation == DeleteOperation.SoftDelete)
-                    && !(current?.SearchParameterStatus == SearchParameterStatus.PendingHardDelete && deleteRequest.DeleteOperation == DeleteOperation.HardDelete))
+                if (!searchParamResource.IsDeleted)
                 {
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
                     await UpdatePendingDeleteStatusAsync(typed.GetStringScalar("url"), deleteRequest.DeleteOperation, cancellationToken);
@@ -112,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var status = deleteOperation == DeleteOperation.HardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
 
             // Update the status immediately in the data store
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { url }, status, cancellationToken, lastUpdated: lastUpdated);
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([url], status, cancellationToken, lastUpdated: lastUpdated);
         }
     }
 }
