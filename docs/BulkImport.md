@@ -29,68 +29,42 @@ Below are the high-level steps to use $import. The sections that follow in this 
 
 1. [Deploy a new FHIR server](#deploy-a-fhir-server) if it's not already deployed. Ensure that **Enable Import** is set to **True** during the installation.
 1. [Check and set up the configuration](#check-and-set-up-configuration) settings of the FHIR server. If your FHIR server is newly deployed, you can skip this step.
-1. [Set initial import mode or incremental import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. 
+1. [Set initial import mode or incremental import mode](#change-import-mode-on-the-fhir-server) on the FHIR server. 
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. For more information, see [Get started Azure Storage Explorer](https://docs.microsoft.com/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [az_copy](https://docs.microsoft.com/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available in Azure SQL database is at least 3 times that of the sum of your NDJSON files.
 1. Make the [$import API](#call-import) call.
 1. Periodically [check the status](#check-import-status) of the import.
-1. If using initial import mode, [Unset initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
+1. If using initial import mode, [Unset initial import mode](#change-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
 
 ### Deploy a FHIR server
 
-See the [QuickstartDeployPortal](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) guide for information about how to deploy a new FHIR server. Use the following guidelines for parameter values while installing the server.
+Deploy a new FHIR server using the Azure portal. During deployment, ensure that **Import** is enabled.
 
-- **Number of instances**: `>=2`
-- **Solution type**: `FhirServerSqlServer`
-- **SQL Admin Password**: Set a strong password.
-- **SQL Schema Automatic Updates Enabled**: Auto
-- **Enable Import**: True
-    ![arm-template-portal](./images/bulk-import/arm-template-portal.png)
+For more information, see [Quickstart: Deploy the FHIR server using the Azure portal](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md).
 
 ### Check and set up configuration
 
-Ensure the following settings are set correctly in your FHIR server:
+Ensure that **Import** is enabled and a storage account is configured for your FHIR server. You can verify and update these settings in the Azure portal:
 
-- **FhirServer__Operations__Import__Enabled**: True
-- **TaskHosting__Enabled**: True
-- **FhirServer__Operations__Import__MaxRunningProcessingTaskCount**: Not set as default or have value >0. We suggest it has a value >= instance count for performance.
-- **FhirServer__Operations__IntegrationDataStore__StorageAccountUri**: The URL of the Azure Storage Account used as adata source. For example: https://<accountName>.blob.core.windows.net/.<br>
-                        **OR**
-- **FhirServer__Operations__IntegrationDataStore__StorageAccountConnection**: The connection string of the Azure Storage Account that's used as a data source.
-- 
----
-**NOTE**
-
-There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The FHIR server will use the connection string to connect to the storage account and import data. For import URL validation, connection-string endpoint overrides such as `BlobEndpoint` are not supported. The expected blob endpoint is derived from `AccountName`, `DefaultEndpointsProtocol`, and `EndpointSuffix`.
-
-The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the URI of the storage account. For this option, we assume that the FHIR server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the FHIR server code in the App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
-
----
-
-| :zap:! If you're doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like TaskHosting__Enabled needs to be configured in App Service as TaskHosting:Enabled for the key name. In other words, any __(double underscore) should be replaced by :(colon). |
-|-----------------------------------------|
+1. Navigate to your FHIR server resource in the [Azure portal](https://portal.azure.com).
+2. Under **Settings**, confirm that **Import** is enabled.
+3. Confirm that a storage account is associated with the FHIR server for use as the import data source.
+4. Ensure the FHIR server has **Storage Blob Data Contributor** permissions on the storage account.
 
 You can choose to use initial import mode or incremental import mode.
 
-### Change initial import mode on the FHIR server
+### Change import mode on the FHIR server
 
-Set the Initial Import mode value to `True` for initial import mode. Initial import mode suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
+You can switch between initial and incremental import modes using the Azure portal.
 
-```
-FhirServer__Operations__Import__InitialImportMode: True
-```
-### Change incremental import mode on the FHIR server
+1. Navigate to your FHIR server resource in the [Azure portal](https://portal.azure.com).
+2. Under **Settings**, locate the **Import** configuration.
+3. Set the import mode to **Initial** or **Incremental** as needed.
+4. Select **Save** and confirm to restart the app for changes to take effect.
 
-Set the Initial Import mode value to `False` for incremental import mode. In incremental import mode, concurrent API writes can be performed during data ingestion into the FHIR service. 
-```
-FhirServer__Operations__Import__InitialImportMode: False
-```
+**Initial import mode** suspends write operations (PUT and POST) on the FHIR server. It is intended for bulk-loading data into an empty server. After the initial import is complete, you must switch back to **Incremental** mode to resume normal write operations.
 
-After the FHIR server app is ready, browse to the Azure portal and click **Configuration**. If it's needed, create the `FhirServer:Operations:Import:InitialImportMode` setting by selecting **New application setting**. Set the value to `True` or `False` as needed.
-
-Select **OK**, then select **Save**. When you're prompted, select **Continue** to restart the app and to allow the changes to take effect.
-
-![set-initial-import-mode](./images/bulk-import/set-initial-import-mode.png)
+**Incremental import mode** allows concurrent API writes during data ingestion. This is the default mode and is suitable for periodic data loads into a running FHIR server.
 
 ### Call $import
 
@@ -119,7 +93,7 @@ Content-Type:application/fhir+json
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
-| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. The URL must point to the storage account configured by `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` or the standard blob endpoint derived from `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection`. Custom `BlobEndpoint` connection-string overrides are not supported for import URL validation. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**
