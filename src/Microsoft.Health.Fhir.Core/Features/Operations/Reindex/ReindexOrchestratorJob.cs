@@ -256,13 +256,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var searchParameters = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(pending, cancellationToken));
 
             var toMarkDeleted = new List<string>();
-            foreach (var url in pending)
+            foreach (var url in pending.Where(url => !searchParameters.ContainsKey(url)))
             {
-                if (!searchParameters.ContainsKey(url))
-                {
-                    _logger.LogJobInformation(_jobInfo, "Search parameter resource '{Url}' not found - will mark as Deleted.", url);
-                    toMarkDeleted.Add(url);
-                }
+                _logger.LogJobInformation(_jobInfo, "Search parameter resource '{Url}' not found - will mark as Deleted.", url);
+                toMarkDeleted.Add(url);
             }
 
             if (toMarkDeleted.Any())
