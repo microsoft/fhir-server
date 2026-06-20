@@ -63,9 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (deleteRequest.ResourceKey.ResourceType == KnownResourceTypes.SearchParameter)
             {
-                var current = _searchParameterDefinitionManager.AllSearchParameters.FirstOrDefault(_ => _.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
-
                 // First check if this is a system-defined parameter by checking all parameters in the definition manager
+                var current = _searchParameterDefinitionManager.AllSearchParameters.FirstOrDefault(_ => _.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
                 if (current != null && current.IsSystemDefined)
                 {
                     throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, current.Url));
@@ -82,35 +81,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (!searchParamResource.IsDeleted)
                 {
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
-                    await UpdatePendingDeleteStatusAsync(typed.GetStringScalar("url"), deleteRequest.DeleteOperation, cancellationToken);
+                    await QueuePendingDeleteStatusAsync(typed.GetStringScalar("url"), deleteRequest.DeleteOperation, cancellationToken);
                 }
 
-                // Return a proper response without actually deleting the resource - reindex will handle the deletion
-                var response = new DeleteResourceResponse(deleteRequest.ResourceKey, resourcesDeleted: 0);
-                return (TDeleteResourceResponse)(object)response;
+                return await next(cancellationToken);
             }
 
             return await next(cancellationToken);
         }
 
-        private async Task UpdatePendingDeleteStatusAsync(string url, DeleteOperation deleteOperation, CancellationToken cancellationToken)
+        private async Task QueuePendingDeleteStatusAsync(string url, DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
                 return;
             }
 
-            var lastUpdated = _requestContextAccessor.RequestContext?.GetSearchParameterLastUpdated();
+            var context = _requestContextAccessor.RequestContext;
+            if (context == null)
+            {
+                return;
+            }
+
+            var lastUpdated = _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated();
             if (!lastUpdated.HasValue)
             {
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                 lastUpdated = _searchParameterOperations.SearchParamLastUpdated;
             }
 
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
+
             var status = deleteOperation == DeleteOperation.HardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
 
-            // Update the status immediately in the data store
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([url], status, cancellationToken, lastUpdated: lastUpdated);
+            var update = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(url),
+                Status = status,
+                LastUpdated = lastUpdated.Value,
+                IsPartiallySupported = existing?.IsPartiallySupported ?? false,
+                SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
+            };
+
+            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }

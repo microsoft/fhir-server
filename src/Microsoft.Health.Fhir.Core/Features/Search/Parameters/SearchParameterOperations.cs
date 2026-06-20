@@ -444,20 +444,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var result = new Dictionary<string, ITypedElement>();
             var unresolvedUrls = new HashSet<string>(searchParameterUrls);
 
-            // First, try direct search by URL for each parameter
+            // First, try direct search by URL in batches
             using var search = _searchServiceFactory.Invoke();
-            foreach (var url in searchParameterUrls)
+            const int chunkSize = 100;
+
+            for (var i = 0; i < searchParameterUrls.Count; i += chunkSize)
             {
-                var queryParams = new List<Tuple<string, string>> { Tuple.Create("url", url) };
-                var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (searchResult?.Results != null && searchResult.Results.Any())
+                var urlParam = string.Join(",", searchParameterUrls.Skip(i).Take(chunkSize));
+                var queryParams = new List<Tuple<string, string>>
                 {
-                    var entry = searchResult.Results.First();
-                    var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
-                    if (typedElement != null)
+                    Tuple.Create("url", urlParam),
+                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
+                };
+
+                var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+                if (searchResult?.Results != null)
+                {
+                    foreach (var entry in searchResult.Results)
                     {
-                        result[url] = typedElement;
-                        unresolvedUrls.Remove(url);
+                        var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                        if (typedElement != null)
+                        {
+                            var url = typedElement.GetStringScalar("url");
+                            if (!string.IsNullOrEmpty(url) && unresolvedUrls.Contains(url))
+                            {
+                                result[url] = typedElement;
+                                unresolvedUrls.Remove(url);
+                            }
+                        }
                     }
                 }
             }
@@ -468,15 +482,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 _logger.LogInformation("Could not resolve {Count} SearchParameter URL(s) by direct search. Falling back to full scan.", unresolvedUrls.Count);
 
-                const int chunkSize = 100;
                 string continuationToken = null;
 
                 do
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-
                     var queryParams = new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()) };
-
                     if (!string.IsNullOrEmpty(continuationToken))
                     {
                         queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));

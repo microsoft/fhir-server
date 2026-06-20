@@ -59,11 +59,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output.WriteLine("ReindexTests.InitializeAsync: Starting...");
 
             await CancelAnyRunningReindexJobsAsync();
-            await DeleteResourcesAsync("SearchParameter", false); // hard delete does not work right
-            await DeleteResourcesAsync("Person", true);
-            await DeleteResourcesAsync("Specimen", true);
-            await DeleteResourcesAsync("SupplyDelivery", true);
-            await DeleteResourcesAsync("Immunization", true);
+
+            await DeleteResourcesAsync("Person");
+            await DeleteResourcesAsync("Specimen");
+            await DeleteResourcesAsync("SupplyDelivery");
+            await DeleteResourcesAsync("Immunization");
+            //// delete search param resources
+            await DeleteResourcesAsync("SearchParameter"); // mark as pending
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
+            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
 
             _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
         }
@@ -660,7 +664,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // This test is count sensitive.
             // It will work only if there is expected number of persons and there are no other resource types to reindex.
             // Hence - delete and reindex.
-            await DeleteResourcesAsync("Person", true);
+            await DeleteResourcesAsync("Person");
             value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
             await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
 
@@ -1311,45 +1315,54 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(supplyDelivery);
         }
 
-        private async Task DeleteResourcesAsync(string resourceType, bool hardDelete)
+        private async Task DeleteResourcesAsync(string resourceType)
         {
             try
             {
                 var deletedIds = new HashSet<string>();
                 string nextUrl = null;
+                const int pageSize = 100;
 
                 do
                 {
                     var searchResponse = nextUrl == null
-                        ? await _fixture.TestFhirClient.SearchAsync(resourceType)
-                        : await _fixture.TestFhirClient.SearchAsync(nextUrl);
+                        ? await _fixture.TestFhirClient.SearchAsync($"{resourceType}?_count={pageSize}")
+                        : await _fixture.TestFhirClient.SearchAsync(nextUrl.Contains("_count=") ? nextUrl : $"{nextUrl}&_count={pageSize}");
 
                     if (searchResponse?.Resource?.Entry == null || searchResponse.Resource.Entry.Count == 0)
                     {
                         break;
                     }
 
-                    var deletesInThisIteration = 0;
+                    var bundle = new Bundle { Type = Bundle.BundleType.Batch };
+
                     foreach (var entry in searchResponse.Resource.Entry)
                     {
                         if (!deletedIds.Contains(entry.Resource.Id))
                         {
                             if (!entry.IsDeleted())
                             {
-                                await DeleteResourceAsync(resourceType, entry.Resource.Id, hardDelete);
+                                bundle.Entry.Add(new Bundle.EntryComponent
+                                {
+                                    Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"{resourceType}/{entry.Resource.Id}" },
+                                });
                             }
 
                             deletedIds.Add(entry.Resource.Id);
-                            deletesInThisIteration++;
                         }
                     }
 
-                    _output.WriteLine($"Deleted {deletesInThisIteration} {resourceType} resources");
+                    if (bundle.Entry.Count > 0)
+                    {
+                        await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                    }
+
+                    _output.WriteLine($"Deleted {bundle.Entry.Count} {resourceType} resources");
 
                     var nextLink = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next");
                     nextUrl = nextLink?.Url;
 
-                    if (deletesInThisIteration == 0)
+                    if (bundle.Entry.Count == 0)
                     {
                         break;
                     }
