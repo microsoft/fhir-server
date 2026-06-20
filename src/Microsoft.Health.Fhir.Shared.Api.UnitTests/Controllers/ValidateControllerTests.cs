@@ -206,6 +206,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenParametersWithNullParameterCollection_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter = null;
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithMissingResourceParameter_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "otherParam",
+                    Value = new FhirString("test"),
+                });
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithNullResourceParameter_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "resource",
+                    Resource = null,
+                });
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
         private ICollection<OperationOutcomeIssue> CreateIssues(int count)
         {
             var issues = new List<OperationOutcomeIssue>();
