@@ -1336,20 +1336,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     var bundle = new Bundle { Type = Bundle.BundleType.Batch };
 
-                    foreach (var entry in searchResponse.Resource.Entry)
+                    foreach (var entry in searchResponse.Resource.Entry.Where(entry => !deletedIds.Contains(entry.Resource.Id)))
                     {
-                        if (!deletedIds.Contains(entry.Resource.Id))
+                        if (!entry.IsDeleted())
                         {
-                            if (!entry.IsDeleted())
+                            bundle.Entry.Add(new Bundle.EntryComponent
                             {
-                                bundle.Entry.Add(new Bundle.EntryComponent
-                                {
-                                    Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"{resourceType}/{entry.Resource.Id}" },
-                                });
-                            }
-
-                            deletedIds.Add(entry.Resource.Id);
+                                Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"{resourceType}/{entry.Resource.Id}" },
+                            });
                         }
+
+                        deletedIds.Add(entry.Resource.Id);
                     }
 
                     if (bundle.Entry.Count > 0)
