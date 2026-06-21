@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task GivenPendingDeleteSearchParameterWithoutResource_WhenReindexJobRuns_ThenParameterMarkedAsDeleted()
+        public async Task GivenPendingDeleteWithoutResource_AfterReindex_ThenStatusIsDeleted()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             var searchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
@@ -534,7 +534,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
 
                 var key = new ResourceKey("SearchParameter", searchParam.Id);
+                var resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.NotNull(resource);
                 await _fixture.DataStore.HardDeleteAsync(key, false, false, CancellationToken.None);
+                resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.Null(resource);
 
                 var request = new CreateReindexRequest(new List<string>(), new List<string>());
                 var response = await SetUpForReindexing(request);
@@ -548,14 +552,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
             finally
             {
-                try
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                    await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                }
-                catch
-                {
-                }
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
             }
         }
 
