@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\ExpiredResourceCleanupWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\QueryPlanReuseCheckerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterCachePopulationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterOptimisticConcurrencyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlComplexQueryTests.cs" />

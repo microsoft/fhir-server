@@ -519,6 +519,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenPendingDeleteSearchParameterWithoutResource_WhenReindexJobRuns_ThenParameterMarkedAsDeleted()
+        {
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
+
+            try
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [searchParam.Url],
+                    SearchParameterStatus.PendingDelete,
+                    CancellationToken.None,
+                    lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
+
+                var key = new ResourceKey("SearchParameter", searchParam.Id);
+                await _fixture.DataStore.HardDeleteAsync(key, false, false, CancellationToken.None);
+
+                var request = new CreateReindexRequest(new List<string>(), new List<string>());
+                var response = await SetUpForReindexing(request);
+                using var cancellationTokenSource = new CancellationTokenSource();
+                var reindexJobWorker = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+
+                var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
+                var paramStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParam.Url);
+                Assert.NotNull(paramStatus);
+                Assert.Equal(SearchParameterStatus.Deleted, paramStatus.Status);
+            }
+            finally
+            {
+                try
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
