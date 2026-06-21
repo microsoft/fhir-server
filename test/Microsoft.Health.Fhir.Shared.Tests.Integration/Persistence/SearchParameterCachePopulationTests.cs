@@ -61,25 +61,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         /// <summary>
-        /// Verify that CacheSynced populates the cache with parameters
-        /// that have status=Supported or status=Enabled from the status table.
+        /// Verify that cache sync populates the cache with parameters that have status=Supported or status=Enabled from the status table.
         /// </summary>
         [Fact]
-        public async Task GivenNewStatusEntry_WhenCacheSynced_ThenParameterIsPopulated()
+        public async Task GivenNewStatusEntry_WhenEnabledAndCacheSynced_ThenCacheIsCorrect()
         {
-            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
             var testUri = $"http://myorg/id_{Guid.NewGuid()}";
             try
             {
                 await CreateSearchParameterResourceAsync(testUri, CancellationToken.None);
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Enabled', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri = '{testUri}'");
-                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
-                var found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var cachedParam);
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                var foundSupported = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var param);
+                Assert.True(foundSupported, "Parameter should be in cache with Supported status");
+                Assert.Equal(SearchParameterStatus.Supported, param.SearchParameterStatus);
+
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [testUri],
+                    SearchParameterStatus.Enabled,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
+
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                var found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out param);
                 Assert.True(found, $"SearchParameter {testUri} should be in cache after CacheSynced");
-                Assert.NotNull(cachedParam);
-                Assert.Equal(SearchParameterStatus.Enabled, cachedParam.SearchParameterStatus);
+                Assert.NotNull(param);
+                Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
             }
             finally
             {
@@ -88,32 +95,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         /// <summary>
-        /// Verify that when a SearchParameter status is updated in the status table,
-        /// CacheSynced refreshes the cache.
+        /// Verify that when a search parameter status is updated to Disabled it is reflected in cache.
         /// </summary>
         [Fact]
-        public async Task GivenCachedParameter_WhenStatusUpdatedAndCacheSynced_ThenCacheIsRefreshed()
+        public async Task GivenCachedParameter_WhenDisabledAndCacheSynced_ThenCacheIsCorrect()
         {
-            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
             var testUri = $"http://myorg/id_{Guid.NewGuid()}";
             try
             {
                 await CreateSearchParameterResourceAsync(testUri, CancellationToken.None);
 
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Disabled', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri = '{testUri}'");
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                var found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var param);
+                Assert.True(found, "Parameter should be in cache with Supported status");
+                Assert.Equal(SearchParameterStatus.Supported, param.SearchParameterStatus);
 
-                var foundDisabled = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out _);
-                Assert.False(foundDisabled, "Disabled parameter should not be in cache");
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [testUri],
+                    SearchParameterStatus.Disabled,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Enabled', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri = '{testUri}'");
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out param);
+                Assert.True(found, "Disabled parameter should still be in cache");
+                Assert.False(param.IsSupported, "Disabled parameter should have IsSupported = false");
+                Assert.Equal(SearchParameterStatus.Disabled, param.SearchParameterStatus);
 
-                var foundEnabled = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var cachedParam);
-                Assert.True(foundEnabled, "Enabled parameter should be in cache");
-                Assert.NotNull(cachedParam);
-                Assert.Equal(SearchParameterStatus.Enabled, cachedParam.SearchParameterStatus);
+                found = _fixture.SupportedSearchParameterDefinitionManager.TryGetSearchParameter(testUri, out _);
+                Assert.False(found, "Disabled parameter should not be in supported cache");
+
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [testUri],
+                    SearchParameterStatus.Enabled,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
+
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out param);
+                Assert.True(found, "Enabled parameter should be in cache");
+                Assert.NotNull(param);
+                Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
             }
             finally
             {
@@ -122,29 +144,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         /// <summary>
-        /// Verify that when a SearchParameter status transitions to Deleted,
-        /// CacheSynced removes it from the cache.
+        /// Verify that when a search param status transitions to Deleted cache sync removes it from the cache.
         /// </summary>
         [Fact]
-        public async Task GivenCachedParameter_WhenStatusTransitionsToDeletedAndCacheSynced_ThenRemovedFromCache()
+        public async Task GivenCachedParameter_WhenDeletedAndCacheSynced_ThenCacheIsCorrect()
         {
-            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
             var testUri = $"http://myorg/id_{Guid.NewGuid()}";
             try
             {
                 await CreateSearchParameterResourceAsync(testUri, CancellationToken.None);
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Enabled', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri = '{testUri}'");
 
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                var found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var param);
+                Assert.True(found, "Parameter should be in cache with Supported status");
+                Assert.Equal(SearchParameterStatus.Supported, param.SearchParameterStatus);
 
-                var foundEnabled = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var enabledParam);
-                Assert.True(foundEnabled, "Parameter should be in cache");
-                Assert.Equal(SearchParameterStatus.Enabled, enabledParam.SearchParameterStatus);
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [testUri],
+                    SearchParameterStatus.Enabled,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Deleted', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri = '{testUri}'");
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out param);
+                Assert.True(found, "Parameter should be in cache");
+                Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
 
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [testUri],
+                    SearchParameterStatus.Deleted,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
+
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
                 Assert.False(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out _), "Deleted parameter should not be in cache");
             }
             finally
@@ -154,15 +186,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         /// <summary>
-        /// Verify that CacheSynced correctly handles a large number of search parameters
-        /// by batching the URL lookups and processing all parameters.
+        /// Verify that cache sync correctly handles a large number of search parameters by batching the URL lookups and processing all parameters.
         /// </summary>
         [Fact]
         public async Task GivenLargeNumberOfParameters_WhenCacheSynced_ThenAllAreCached()
         {
-            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
-            const int count = 105;
+            const int count = 160; // this should exceed the batch size used in GetSearchParametersByUrlAsync (currently 100)
             var urls = new List<string>();
 
             try
@@ -180,16 +209,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await CreateSearchParameterResourceAsync(url, CancellationToken.None);
                 }
 
-                var urlList = string.Join("','", urls);
-                await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.SearchParam SET Status = 'Enabled', LastUpdated = convert(datetimeoffset(7), sysutcdatetime()) WHERE Uri IN ('{urlList}')");
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+                int supportedCount = 0;
+                foreach (var url in urls)
+                {
+                    if (_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out var param))
+                    {
+                        Assert.Equal(SearchParameterStatus.Supported, param.SearchParameterStatus);
+                        supportedCount++;
+                    }
+                }
+
+                Assert.Equal(count, supportedCount);
+
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    urls,
+                    SearchParameterStatus.Enabled,
+                    CancellationToken.None,
+                    lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 int cachedCount = 0;
                 foreach (var url in urls)
                 {
-                    if (_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out _))
+                    if (_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out var param))
                     {
+                        Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
                         cachedCount++;
                     }
                 }
