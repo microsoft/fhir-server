@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenLargeNumberOfParameters_WhenCacheSynced_ThenAllAreCached()
         {
-            const int count = 160; // this should exceed the batch size used in GetSearchParametersByUrlAsync (currently 100)
+            const int count = 160; // this should exceed the batch size used in GetSearchParametersByUrlsAsync (currently 100)
             var urls = new List<string>();
 
             try
