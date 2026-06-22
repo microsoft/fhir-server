@@ -118,6 +118,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     version = result?.Wrapper.Version;
                     break;
                 case DeleteOperation.HardDelete:
+                    if (key.ResourceType == KnownResourceTypes.SearchParameter)
+                    {
+                        var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
+                        if (resourceWrapper != null && !resourceWrapper.IsDeleted)
+                        {
+                            await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.DeleteSearchParameterAsync(resourceWrapper.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true));
+                        }
+
+                        break;
+                    }
+
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, false, request.AllowPartialSuccess, cancellationToken));
+                    break;
                 case DeleteOperation.PurgeHistory:
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
                     break;
@@ -662,7 +675,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await SearchParameterRetry.ExecuteAsync(
                     async () =>
                     {
-                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, true);
+                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true);
                     },
                     "Deletion");
             }

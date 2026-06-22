@@ -184,14 +184,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done
+        /// Marks the Search Parameter as PendingDelete or PendingHardDelete. This is only used by DeletionService.cs and will be removed when refactoring is done
         /// to allow deletion service to properly handle Hard deletions for Search Parameters (e.g. allow reindex prior to removing resource from DB).
         /// !!! This method has incorrect name. It does not delete search parameter, it just updates its status.
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <param name="ignoreSearchParameterNotSupportedException">The value indicating whether to ignore SearchParameterNotSupportedException.</param>
-        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
+        /// <param name="isHardDelete">True for hard delete (PendingHardDelete), false for soft delete (PendingDelete).</param>
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, bool isHardDelete = false)
         {
             var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
             var searchParameterUrl = searchParam.GetStringScalar("url");
@@ -202,8 +203,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 _logger.LogInformation("DeleteSearchParameterAsync: Refreshing cache");
                 await GetAndApplySearchParameterUpdates(cancellationToken);
-                _logger.LogInformation("DeleteSearchParameterAsync: Deleting the search parameter '{Url}'", searchParameterUrl);
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken, lastUpdated: SearchParamLastUpdated);
+                var status = isHardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
+                _logger.LogInformation("DeleteSearchParameterAsync: Deleting the search parameter '{Url}' with status {Status}", searchParameterUrl, status);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, status, cancellationToken, lastUpdated: SearchParamLastUpdated);
             }
             catch (FhirException fex)
             {

@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset SearchParamLastUpdated { get; }
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, bool isHardDelete = false);
 
         Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null);
 

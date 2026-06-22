@@ -13,6 +13,7 @@ using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -178,6 +179,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
                 Assert.False(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out _), "Deleted parameter should not be in cache");
+            }
+            finally
+            {
+                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
+            }
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete)]
+        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete)]
+        public async Task GivenCachedParameter_WhenDeleteInvoked_ThenStatusIsCorrect(DeleteOperation deleteOperation, SearchParameterStatus expectedStatus)
+        {
+            var testUri = $"http://myorg/id_{Guid.NewGuid()}";
+            try
+            {
+                var resourceId = await CreateSearchParameterResourceAsync(testUri, CancellationToken.None);
+
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                var found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out var param);
+                Assert.True(found, "Parameter should be in cache with Supported status");
+                Assert.Equal(SearchParameterStatus.Supported, param.SearchParameterStatus);
+
+                var deleteRequest = new DeleteResourceRequest("SearchParameter", resourceId, deleteOperation);
+                await _fixture.Mediator.DeleteResourceAsync(deleteRequest, CancellationToken.None);
+
+                var key = new ResourceKey("SearchParameter", resourceId);
+                var resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.NotNull(resource);
+
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                found = _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(testUri, out param);
+                Assert.True(found, "Parameter should still be in cache after delete");
+                Assert.Equal(expectedStatus, param.SearchParameterStatus);
             }
             finally
             {
