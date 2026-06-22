@@ -232,13 +232,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 int cachedCount = 0;
-                foreach (var url in urls)
+                foreach (var url in urls.Where(url => _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out _)))
                 {
-                    if (_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out var param))
-                    {
-                        Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
-                        cachedCount++;
-                    }
+                    _fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out var param);
+                    Assert.Equal(SearchParameterStatus.Enabled, param.SearchParameterStatus);
+                    cachedCount++;
                 }
 
                 Assert.Equal(count, cachedCount);

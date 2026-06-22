@@ -543,7 +543,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var request = new CreateReindexRequest(new List<string>(), new List<string>());
                 var response = await SetUpForReindexing(request);
                 using var cancellationTokenSource = new CancellationTokenSource();
-                var reindexJobWorker = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
                 var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
                 var paramStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParam.Url);
