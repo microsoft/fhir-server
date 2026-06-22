@@ -1201,11 +1201,10 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Code = searchParamName,
             };
 
-            _searchParameterDefinitionManager.AddNewSearchParameters([searchParam.ToTypedElement()]);
+            await _fixture.Mediator.CreateResourceAsync(searchParam.ToResourceElement(), cancellationToken: CancellationToken.None);
 
             await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
-            // Add the search parameter to the datastore
             await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None, lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
             await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
