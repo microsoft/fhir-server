@@ -1534,35 +1534,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
-            // check for a previous union all, and if so, join the new union all with the previous one
-            if (_unionAggregateCTEIndex > -1)
+            // A chain-nested union (chainLevel > 0) manages its own predecessor via _unionBranchPredecessorIndex and
+            // must stay invisible to the top-level / SMART union state machine (_unionVisited,
+            // _firstChainAfterUnionVisited, _unionAggregateCTEIndex). Those flags drive the post-union chaining join in
+            // HandleTableKindNormal / HandleTableKindAll, which assumes the union aggregate's T1/Sid1 IS the resource to
+            // chain from - true only for a top-level union. For a chain-nested union the aggregate's T1/Sid1 is the chain
+            // SOURCE and the chain TARGET lives in T2/Sid2, so a downstream same-target predicate must keep intersecting
+            // on T2/Sid2 via the plain chained path. Likewise the "previous union" join block below projects/joins only
+            // T1/Sid1, which would drop the chain target columns. Only top-level unions update that shared state.
+            if (chainLevel == 0)
             {
-                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
-                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
-
-                StringBuilder.Append(", ");
-                StringBuilder.AppendLine();
-                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
-                using (StringBuilder.Indent())
+                // check for a previous union all, and if so, join the new union all with the previous one
+                if (_unionAggregateCTEIndex > -1)
                 {
-                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
-                    .AppendLine()
-                    .Append("FROM ").Append(prevUnionAggregateTableName)
-                    .AppendLine()
-                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
-                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
-                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
-                    .AppendLine();
+                    var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                    var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                    StringBuilder.Append(", ");
+                    StringBuilder.AppendLine();
+                    StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                    using (StringBuilder.Indent())
+                    {
+                        StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                        .AppendLine()
+                        .Append("FROM ").Append(prevUnionAggregateTableName)
+                        .AppendLine()
+                        .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                        .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                        .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                        .AppendLine();
+                    }
+
+                    StringBuilder.Append(")");
                 }
 
-                StringBuilder.Append(")");
+                _unionAggregateCTEIndex = _tableExpressionCounter;
+
+                _unionVisited = true;
+                _firstChainAfterUnionVisited = false;
             }
-
-            _unionAggregateCTEIndex = _tableExpressionCounter;
-
-            _unionVisited = true;
-            _firstChainAfterUnionVisited = false;
         }
 
         private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)

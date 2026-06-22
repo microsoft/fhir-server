@@ -458,5 +458,57 @@ public class SqlQueryGeneratorTests
         return (rewritten.SearchParamTableExpressions[0], rewritten.SearchParamTableExpressions[1]);
     }
 
+    [Fact]
+    public void GivenChainedBirthdateUnionFollowedBySecondSameTargetPredicate_WhenSqlGenerated_ThenSecondPredicateRestrictsAgainstUnionAggregateOnChainTarget()
+    {
+        // Reproduces the production ICM shape that returned zero rows (ICM 21000001063947 / 815288838):
+        // DiagnosticReport?subject:Patient.birthdate=<exact day>&subject:Patient.family=Smith. The exact-day
+        // birthdate becomes a chain-nested UNION ALL; the SECOND same-target predicate (family) must continue to
+        // intersect on the chain TARGET columns (T2/Sid2 = Patient), exactly as a plain chained predicate would.
+        // Before the fix, the chain-nested union flipped on the top-level/SMART _unionVisited state, so family
+        // joined the union aggregate on T1/Sid1 (the chain SOURCE) and matched nothing.
+        SetupChainModel();
+
+        SearchParamTableExpression chainLink = BuildChainLinkTableExpression();
+        SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
+        SearchParamTableExpression family = BuildFamilyNormalTableExpression(chainLevel: 1);
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { chainLink, unionTableExpression, family },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Generation order: cte0 = chain link, cte1/cte2 = birthdate union branches, cte3 = union aggregate,
+        // cte4 = family. The two union branches and the family predicate all restrict against their predecessor
+        // on the chain TARGET columns (T2/Sid2). The family predicate must join the union aggregate (cte3) on
+        // T2/Sid2 - NOT on T1/Sid1 (the chain source), which produced an empty result.
+        Assert.Contains("JOIN cte3 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2", sql);
+        Assert.DoesNotContain("JOIN cte3 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1", sql);
+
+        // Each birthdate branch still restricts against the chain link on the target columns.
+        Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
+    }
+
+    private static SearchParamTableExpression BuildFamilyNormalTableExpression(int chainLevel)
+    {
+        var familyParam = new SearchParameterInfo(
+            "family",
+            "family",
+            SearchParamType.String,
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-family"),
+            expression: "Patient.name.family",
+            baseResourceTypes: new[] { "Patient" });
+        var familyPredicate = new SearchParameterExpression(familyParam, Expression.StringEquals(FieldName.String, null, "Smith", false));
+
+        return new SearchParamTableExpression(StringQueryGenerator.Instance, familyPredicate, SearchParamTableExpressionKind.Normal, chainLevel);
+    }
+
     private static int CountOccurrences(string haystack, string needle) => haystack.Split(needle).Length - 1;
 }
