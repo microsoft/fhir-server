@@ -248,6 +248,80 @@ public class SqlQueryGeneratorTests
     }
 
     [Fact]
+    public void GivenChainedBirthdateUnion_WhenSqlGenerated_ThenUnionLowersAndBranchesRestrictAgainstChainLink()
+    {
+        // Reproduces the production chained shape after ChainFlatteningRewriter:
+        // MedicationDispense?patient:Patient.birthdate=<exact day>. ScalarTemporalEqualityRewriter
+        // rewrites the birthdate into a day-split UNION ALL nested inside the chain. The chain link CTE
+        // is the predecessor; both union branches must restrict against it, and the chained union must
+        // lower to SQL without the predecessor math breaking (ICM 21000001063947 / 815288838).
+        SetupChainModel();
+
+        SearchParamTableExpression chainLink = BuildChainLinkTableExpression();
+        SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { chainLink, unionTableExpression },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Generation order: cte0 = chain link (T1/Sid1 = MedicationDispense source, T2/Sid2 = Patient target),
+        // cte1/cte2 = day-split union branches, cte3 = union aggregate. Each branch must JOIN the chain link
+        // (cte0) on the chain target columns (T2/Sid2) so the birthdate is filtered to the chained Patient while
+        // the MedicationDispense source columns (T1/Sid1) flow through. The branches must NOT restrict against
+        // each other (no JOIN cte1).
+        Assert.Contains("UNION ALL", sql);
+        Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
+        Assert.DoesNotContain("JOIN cte1", sql);
+
+        // The aggregate unions the two branches and the final query joins it on the source (T1/Sid1).
+        Assert.Contains("SELECT * FROM cte1", sql);
+        Assert.Contains("UNION ALL SELECT * FROM cte2", sql);
+        Assert.Contains("JOIN cte3 ON r.ResourceTypeId = cte3.T1 AND r.ResourceSurrogateId = cte3.Sid1", sql);
+    }
+
+    [Fact]
+    public void GivenReverseChainedBirthdateUnion_WhenSqlGenerated_ThenBranchesRestrictAgainstChainLinkIdenticallyToForwardChain()
+    {
+        // Reverse-chain (_has) shape, e.g. Organization?_has:Patient:organization:birthdate=<exact day>.
+        // The day-split UNION is nested inside a reversed chain link. The union branches must JOIN the chain
+        // link exactly the way a plain chained birthdate predicate would (on T2/Sid2), so reverse chains inherit
+        // the proven baseline chained-predicate behavior. This locks reverse-chain (_has) correctness.
+        SetupChainModel();
+
+        SearchParamTableExpression chainLink = BuildReverseChainLinkTableExpression();
+        SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { chainLink, unionTableExpression },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Identical branch structure to the forward chain: each branch JOINs the chain link (cte0) on T2/Sid2,
+        // the branches are unioned, and the final query joins the aggregate on the source (T1/Sid1). The only
+        // difference vs the forward chain is what cte0 itself produces - which is the proven baseline chain link.
+        Assert.Contains("UNION ALL", sql);
+        Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
+        Assert.DoesNotContain("JOIN cte1", sql);
+        Assert.Contains("UNION ALL SELECT * FROM cte2", sql);
+        Assert.Contains("JOIN cte3 ON r.ResourceTypeId = cte3.T1 AND r.ResourceSurrogateId = cte3.Sid1", sql);
+    }
+
+    [Fact]
     public void GivenNormalFilterFollowedByConcatenationPair_WhenSqlGenerated_ThenBothBranchesShareLeadingPredecessor()
     {
         // Regression guard for the non-union path: a leading Normal filter followed by a Normal/Concatenation pair.
@@ -287,7 +361,10 @@ public class SqlQueryGeneratorTests
             expression: "Patient.birthDate",
             baseResourceTypes: new[] { "Patient" });
 
-    private static SearchParamTableExpression BuildBareBirthdateUnionTableExpression()
+    private static SearchParamTableExpression BuildBareBirthdateUnionTableExpression() =>
+        BuildBirthdateUnionTableExpression(chainLevel: 0);
+
+    private static SearchParamTableExpression BuildBirthdateUnionTableExpression(int chainLevel)
     {
         var startOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         var endOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero);
@@ -295,7 +372,66 @@ public class SqlQueryGeneratorTests
         var longBranch = new SearchParameterExpression(BuildBirthdateParam(), Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, startOfDay));
         UnionExpression union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
 
-        return new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal);
+        return new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal, chainLevel);
+    }
+
+    private void SetupChainModel()
+    {
+        _fhirModel.TryGetResourceTypeId("MedicationDispense", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)10;
+                return true;
+            });
+        _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)1;
+                return true;
+            });
+        _fhirModel.GetSearchParamId(Arg.Any<Uri>()).Returns((short)100);
+    }
+
+    private static SearchParamTableExpression BuildChainLinkTableExpression()
+    {
+        var referenceParam = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-patient"),
+            expression: "MedicationDispense.subject",
+            baseResourceTypes: new[] { "MedicationDispense" },
+            targetResourceTypes: new[] { "Patient" });
+
+        var chainLink = new SqlChainLinkExpression(
+            new[] { "MedicationDispense" },
+            referenceParam,
+            new[] { "Patient" },
+            reversed: false);
+
+        return new SearchParamTableExpression(ChainLinkQueryGenerator.Instance, chainLink, SearchParamTableExpressionKind.Chain, chainLevel: 1);
+    }
+
+    private static SearchParamTableExpression BuildReverseChainLinkTableExpression()
+    {
+        // Reverse chain (_has): Organization?_has:Patient:organization:birthdate=...
+        // The reference lives on Patient (the source resource type), pointing at Organization (the search root).
+        var referenceParam = new SearchParameterInfo(
+            "organization",
+            "organization",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Patient-organization"),
+            expression: "Patient.managingOrganization",
+            baseResourceTypes: new[] { "Patient" },
+            targetResourceTypes: new[] { "Organization" });
+
+        var chainLink = new SqlChainLinkExpression(
+            new[] { "Patient" },
+            referenceParam,
+            new[] { "Organization" },
+            reversed: true);
+
+        return new SearchParamTableExpression(ChainLinkQueryGenerator.Instance, chainLink, SearchParamTableExpressionKind.Chain, chainLevel: 1);
     }
 
     // Produces a [Normal, Concatenation] pair from a bounded date range using the real DateTimeBoundedRangeRewriter,

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// This rewriter must run BEFORE <see cref="DateTimeEqualityRewriter"/> so the input pattern still has only two
     /// predicates. Composite parameters and range operators are out of scope and pass through unchanged.
     /// </summary>
-    internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
+    internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly ScalarTemporalEqualityRewriter Instance = new ScalarTemporalEqualityRewriter();
 
@@ -50,24 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitChained(ChainedExpression expression, bool context)
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
-            if (ReferenceEquals(visitedExpression, expression.Expression))
-            {
-                return expression;
-            }
-
-            return new ChainedExpression(expression.ResourceTypes, expression.ReferenceSearchParameter, expression.TargetResourceTypes, expression.Reversed, visitedExpression);
-        }
-
-        public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
-        {
-            if (context)
-            {
-                return expression;
-            }
-
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {

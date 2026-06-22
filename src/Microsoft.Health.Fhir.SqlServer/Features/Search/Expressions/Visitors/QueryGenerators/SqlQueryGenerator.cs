@@ -55,6 +55,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _smartV2UnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
+
+        // When a chain-nested union (ChainLevel > 0) is being lowered, every branch CTE must restrict against
+        // the chain link that precedes the union (its shared restricting predecessor), NOT against the previous
+        // branch. This holds that fixed predecessor CTE index for the duration of the branch loop; -1 when not
+        // generating a chain-nested union.
+        private int _unionBranchPredecessorIndex = -1;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
@@ -171,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         }
                         else
                         {
-                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator, tableExpression.ChainLevel);
                         }
 
                         // Keep building the sql the old way when there are other remaining expressions after the union all without smart v2 scopes with search parameters
@@ -574,6 +580,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
+            // A chain-nested union (ChainLevel > 0) lowers differently from a top-level union: every branch must
+            // join back to the chain link that precedes the union so the branch carries the source resource
+            // columns (T1/Sid1) through and filters the chain target (T2/Sid2). This mirrors the chained
+            // HandleTableKindNormal form so a chained birthdate UNION produces the same result shape a plain
+            // chained predicate would.
+            if (searchParamTableExpression.ChainLevel > 0 && _unionBranchPredecessorIndex >= 0)
+            {
+                HandleParamTableUnionChainBranch(searchParamTableExpression, context);
+                return;
+            }
+
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -622,6 +639,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendDeletedClause(delimited, context.ResourceVersionTypes);
                     }
+
+                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
+                    {
+                        delimited.BeginDelimitedElement();
+                        searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                    }
+                }
+            }
+
+            StringBuilder.AppendLine("),");
+        }
+
+        /// <summary>
+        /// Emits a single branch CTE of a chain-nested union (<see cref="SearchParamTableExpression.ChainLevel"/> &gt; 0).
+        /// Mirrors the chained <see cref="HandleTableKindNormal"/> form: it carries the chain link's source columns
+        /// (T1/Sid1) through and joins the branch's own table to the chain link on the target columns (T2/Sid2).
+        /// All branches restrict against the same chain link (<see cref="_unionBranchPredecessorIndex"/>), so the
+        /// lowered union produces the same result shape a plain chained predicate would.
+        /// </summary>
+        private void HandleParamTableUnionChainBranch(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
+        {
+            var tableName = searchParamTableExpression.QueryGenerator.Table;
+            var predecessorCte = TableExpressionName(_unionBranchPredecessorIndex);
+
+            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+            using (StringBuilder.Indent())
+            {
+                StringBuilder.Append("SELECT T1, Sid1, ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
+                    .Append("FROM ").AppendLine(tableName)
+                    .Append(_joinShift).Append("JOIN ").Append(predecessorCte)
+                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
+                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
+
+                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, tableName);
 
                     if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
                     {
@@ -1422,7 +1478,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, int chainLevel = 0)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1431,6 +1487,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
+
+            // For a chain-nested union, every branch must restrict against the chain link that precedes the
+            // union (firstInclusiveTableExpressionId - 1), not against the branch generated immediately before
+            // it. Pin that predecessor for the duration of the branch loop and restore it afterwards.
+            int previousUnionBranchPredecessorIndex = _unionBranchPredecessorIndex;
+            if (chainLevel > 0)
+            {
+                _unionBranchPredecessorIndex = firstInclusiveTableExpressionId - 1;
+            }
+
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
                 // Determine the appropriate query generator for this specific inner expression
@@ -1439,10 +1505,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
-                    SearchParamTableExpressionKind.Union);
+                    SearchParamTableExpressionKind.Union,
+                    chainLevel);
 
                 searchParamExpression.AcceptVisitor(this, context);
             }
+
+            _unionBranchPredecessorIndex = previousUnionBranchPredecessorIndex;
 
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 

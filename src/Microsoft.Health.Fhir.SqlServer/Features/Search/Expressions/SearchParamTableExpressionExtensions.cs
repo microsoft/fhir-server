@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         /// <remarks>
         /// The returned order is the CTE generation order used by <c>SqlQueryGenerator</c>, and it is authoritative for
-        /// restricting-predecessor resolution. Two invariants must hold:
+        /// restricting-predecessor resolution. Three invariants must hold:
         /// <list type="number">
         /// <item>
         /// The partition is <b>stable</b>: relative order within each group (regular unions, SmartV2 unions, non-unions) is
@@ -111,6 +111,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <item>
         /// Moving unions to the front only ever pulls a union out from between two non-unions, which keeps sibling pairs
         /// adjacent; it never separates a Concatenation branch from its Normal sibling.
+        /// </item>
+        /// <item>
+        /// Only <b>top-level</b> unions (<see cref="SearchParamTableExpression.ChainLevel"/> == 0) are hoisted. A
+        /// chain-nested union (ChainLevel &gt; 0, produced when the <c>ScalarTemporalEqualityRewriter</c> rewrites a chained
+        /// exact-day birthdate into a day-split UNION) is left in place so it stays AFTER the chain link it must restrict
+        /// against. Hoisting it would emit the union before its chain link and break predecessor resolution.
         /// </item>
         /// </list>
         /// </remarks>
@@ -125,7 +131,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             // concatenated below, so relative order within every group is preserved.
             foreach (SearchParamTableExpression tableExpression in expressions)
             {
-                if (tableExpression.HasUnionAllExpression())
+                // Only hoist top-level unions. A chain-nested union (ChainLevel > 0) must remain after its chain link,
+                // so it is treated as a non-union and keeps its original position.
+                if (tableExpression.HasUnionAllExpression() && tableExpression.ChainLevel == 0)
                 {
                     if (tableExpression.HasSmartV2UnionExpression())
                     {

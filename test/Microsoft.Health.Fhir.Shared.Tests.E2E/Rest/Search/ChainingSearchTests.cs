@@ -118,6 +118,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedExactDayBirthdateWithBaseResourceSortAndSecondChainedPredicate_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            // Regression for ICMs 21000001063947 / 815288838. An exact-day chained birthdate is rewritten into a
+            // UNION ALL (ADR-2606). Combined with a base-resource _sort and a second predicate on the same chained
+            // target, this previously produced broken SQL and HTTP 500s. This mirrors the customer query shape:
+            // MedicationDispense?patient:Patient.birthdate=<day>&_sort=-whenhandedover&patient:Patient.identifier=...
+            string tag = Guid.NewGuid().ToString();
+            var meta = new Meta { Tag = new List<Coding> { new Coding("testTag", tag) } };
+            const string exactDay = "1951-06-08";
+
+            Patient matchingPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = exactDay, Name = new List<HumanName> { new HumanName { Family = "Smith" } } })).Resource;
+            Patient wrongFamilyPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = exactDay, Name = new List<HumanName> { new HumanName { Family = "Jones" } } })).Resource;
+            Patient wrongDayPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = "1951-06-09", Name = new List<HumanName> { new HumanName { Family = "Smith" } } })).Resource;
+
+            var code = new CodeableConcept("http://loinc.org", "4548-4");
+
+            Observation matchA = await CreateObservationWithEffective(matchingPatient, "2021-03-03");
+            Observation matchB = await CreateObservationWithEffective(matchingPatient, "2021-01-01");
+            await CreateObservationWithEffective(wrongFamilyPatient, "2021-02-02");
+            await CreateObservationWithEffective(wrongDayPatient, "2021-04-04");
+
+            // Exact-day birthdate (UNION path) + a second chained predicate on the same target + a base-resource date sort.
+            string query = $"_tag={tag}&subject:Patient.birthdate={exactDay}&subject:Patient.family=Smith&_sort=-date&_count=100";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(bundle, matchA, matchB);
+
+            async Task<Observation> CreateObservationWithEffective(Patient patient, string effective)
+            {
+                return (await Client.CreateAsync(
+                    new Observation
+                    {
+                        Meta = meta,
+                        Status = ObservationStatus.Final,
+                        Code = code,
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                        Effective = new FhirDateTime(effective),
+                    })).Resource;
+            }
+        }
+
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {

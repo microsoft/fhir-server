@@ -30,6 +30,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
+        static ScalarTemporalEqualityRewriterTests()
+        {
+            // The chained tests reconstruct a real ChainedExpression (via the base ExpressionRewriter.VisitChained),
+            // whose constructor validates resource type names through ModelInfoProvider.IsKnownResource. The provider
+            // is a process-wide singleton, so set a standard R4 provider here to make those tests deterministic rather
+            // than depending on whichever other test happened to call SetProvider first. The default R4 mock already
+            // knows Observation and Patient, which is all the chained shapes below require.
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
+        }
+
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
             { StartOfDay, EndOfDay },
@@ -128,14 +138,38 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough()
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenInnerEmitsDaySplitUnion()
         {
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
-            Assert.Same(inner, result.Expression);
+            // The chain metadata is preserved; only the inner birthdate predicate is rewritten into the day-split union.
+            Assert.Equal(expr.ResourceTypes, result.ResourceTypes);
+            Assert.Same(expr.ReferenceSearchParameter, result.ReferenceSearchParameter);
+            Assert.Equal(expr.TargetResourceTypes, result.TargetResourceTypes);
+            Assert.Equal(expr.Reversed, result.Reversed);
+            AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayWithSiblingPredicateInChainedExpression_WhenRewritten_ThenOnlyBirthdateBranchEmitsDaySplitUnion()
+        {
+            // Mirrors the production chained shape: patient:Patient.birthdate=<day> AND patient:Patient.identifier=<id>.
+            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var sibling = new SearchParameterExpression(BuildReferenceParam(), Expression.Equals(FieldName.ReferenceResourceId, null, "abc"));
+            var inner = Expression.And(birthdate, sibling);
+            var expr = BuildChainedExpression(inner);
+
+            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            var and = Assert.IsType<MultiaryExpression>(result.Expression);
+            Assert.Equal(MultiaryOperator.And, and.MultiaryOperation);
+            Assert.Collection(
+                and.Expressions,
+                rewrittenBirthdate => AssertDaySplitUnion(rewrittenBirthdate, StartOfDay, EndOfDay),
+                untouchedSibling => Assert.Same(sibling, untouchedSibling));
         }
 
         [Theory]
