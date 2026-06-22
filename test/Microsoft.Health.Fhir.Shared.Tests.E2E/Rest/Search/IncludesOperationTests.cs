@@ -186,7 +186,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 .FirstOrDefault();
 
             Assert.False(response.Resource.Link?.Any(x => x.Relation.Equals("related", StringComparison.Ordinal)));
-            Assert.Equal(6, relatedResources.Count); // includes has a bug where it returns _includesCount + 1 resources instead of _includesCount resources and it counts iterative includes seperately
+            Assert.True(relatedResources.Count >= 4 && relatedResources.Count <= 6, "The number of included resources is wrong"); // includes has a bug where it returns _includesCount + 1 resources instead of _includesCount resources and it counts iterative includes seperately. The test data also has some patients being reused, so depending on the order the test data is entered in the number of resources returned can vary.
+            Assert.Contains(relatedResources, resource => resource.TypeName.Equals(KnownResourceTypes.MedicationRequest, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(relatedResources, resource => resource.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase));
             Assert.Equal(10, matchedResources.Count);
             Assert.NotNull(operationOutcome);
         }
