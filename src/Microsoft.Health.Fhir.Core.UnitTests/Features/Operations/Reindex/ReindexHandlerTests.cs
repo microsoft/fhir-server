@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private ReindexJobRecord CreateJobRecord(OperationStatus status = OperationStatus.Queued)
         {
-            return new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 1)
+            return new ReindexJobRecord(new List<string>(), 1)
             {
                 Status = status,
             };

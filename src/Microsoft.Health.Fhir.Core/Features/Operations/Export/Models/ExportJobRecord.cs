@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -19,6 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord : JobRecord, IJobData
     {
+        public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
+        public const uint MinMaximumNumberOfResourcesPerQuery = 1;
+
         public ExportJobRecord(
             Uri requestUri,
             ExportJobType exportType,
@@ -67,6 +71,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             GroupId = groupId;
             StorageAccountConnectionHash = storageAccountConnectionHash;
             StorageAccountUri = storageAccountUri;
+
+            // check for MaximumNumberOfResourcesPerQuery boundary
+            if (maximumNumberOfResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maximumNumberOfResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidExportParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery, MaxMaximumNumberOfResourcesPerQuery));
+            }
+
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;
@@ -87,6 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
             Till = till ?? new PartialDateTime(Clock.UtcNow);
+            IsTillExplicit = till != null;
             StartSurrogateId = startSurrogateId;
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
@@ -154,16 +166,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public PartialDateTime Since { get; private set; }
 
         [JsonProperty(JobRecordProperties.Till)]
-        public PartialDateTime Till { get; private set; }
+        public PartialDateTime Till { get; internal set; }
+
+        /// <summary>
+        /// Indicates whether the Till value was explicitly set by the user.
+        /// If false, Till should be set to the job's CreateDate in the orchestrator.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.IsTillExplicit)]
+        public bool IsTillExplicit { get; private set; }
 
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.StartSurrogateId)]
-        public string StartSurrogateId { get; private set; }
+        public string StartSurrogateId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.EndSurrogateId)]
-        public string EndSurrogateId { get; private set; }
+        public string EndSurrogateId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.GlobalEndSurrogateId)]
         public string GlobalEndSurrogateId { get; private set; }
@@ -185,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string StorageAccountUri { get; private set; }
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+        public uint MaximumNumberOfResourcesPerQuery { get; internal set; }
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }

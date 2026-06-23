@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -758,13 +759,27 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.BundleTransaction)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
+            // In this test, after a C# transaction is created and never commit, it's expected that the resource will not exist.
+            // For the use of C# transactions, operations should enlist in transactions. And it'll only work as expected for transaction sequential bundles.
+
             string createdId = string.Empty;
 
             using (_ = _fixture.TransactionHandler.BeginTransaction())
             {
-                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                ResourceElement resource = Samples.GetJsonSample("Weight");
+                UpsertResourceRequest upsertResource = new UpsertResourceRequest(
+                    resource,
+                    new BundleResourceContext(
+                        Bundle.BundleType.Transaction,
+                        BundleProcessingLogic.Sequential,
+                        Bundle.HTTPVerb.PUT,
+                        null,
+                        Guid.Empty));
+
+                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(upsertResource);
                 createdId = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId);
@@ -786,7 +801,17 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
                     {
-                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        ResourceElement resource = Samples.GetJsonSample("Weight");
+                        UpsertResourceRequest upsertResource = new UpsertResourceRequest(
+                           resource,
+                           new BundleResourceContext(
+                               Bundle.BundleType.Transaction,
+                               BundleProcessingLogic.Sequential,
+                               Bundle.HTTPVerb.PUT,
+                               null,
+                               Guid.Empty));
+
+                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(upsertResource);
                         createdId = saveResult.RawResourceElement.Id;
 
                         Assert.NotEqual(string.Empty, createdId);
@@ -1201,10 +1226,12 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Code = searchParamName,
             };
 
-            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+            _searchParameterDefinitionManager.AddNewSearchParameters([searchParam.ToTypedElement()]);
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
             // Add the search parameter to the datastore
-            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported, CancellationToken.None);
+            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None, lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
 
             await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
@@ -1218,12 +1245,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             json = json.Replace("\"id\": \"example\"", "\"id\": \"" + id + "\"");
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
             return Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
-        }
-
-        private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
-            where TException : Exception
-        {
-            await Assert.ThrowsAsync<TException>(action);
         }
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)

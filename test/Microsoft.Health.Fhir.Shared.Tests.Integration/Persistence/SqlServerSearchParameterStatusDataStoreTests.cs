@@ -42,6 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenUpsertingWithSameUri_ThenLastUpdatedIsRefreshed()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Upsert-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
@@ -49,13 +51,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Act - First upsert
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 // Get the result
                 var allStatuses1 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -66,12 +68,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Small delay to ensure different timestamp
                 await Task.Delay(100);
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Modify and upsert again
                 status.Status = SearchParameterStatus.Enabled;
                 status.IsPartiallySupported = true;
-                status.LastUpdated = createdStatus.LastUpdated; // Use the LastUpdated from DB
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 // Get the updated result
                 var allStatuses2 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -109,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             // Act - Call SyncStatuses (this should not throw)
-            var exception = Record.Exception(() => dataStore!.SyncStatuses(new[] { status }));
+            var exception = Record.Exception(() => dataStore!.SyncStatuses([status]));
 
             // Assert - Method completes without exception
             Assert.Null(exception);
@@ -118,6 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenUpsertingMultipleStatuses_ThenAllAreCreated()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var testUri1 = "http://hl7.org/fhir/SearchParameter/Test-Batch1-" + Guid.NewGuid();
             var testUri2 = "http://hl7.org/fhir/SearchParameter/Test-Batch2-" + Guid.NewGuid();
@@ -130,21 +136,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = new Uri(testUri1),
                     Status = SearchParameterStatus.Disabled,
                     IsPartiallySupported = false,
-                    LastUpdated = DateTimeOffset.UtcNow,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
                 new ResourceSearchParameterStatus
                 {
                     Uri = new Uri(testUri2),
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = true,
-                    LastUpdated = DateTimeOffset.UtcNow,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
                 new ResourceSearchParameterStatus
                 {
                     Uri = new Uri(testUri3),
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = false,
-                    LastUpdated = DateTimeOffset.UtcNow,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 },
             };
 
@@ -227,6 +233,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenUpdatingExistingStatus_ThenPreservesOtherStatuses()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Preserve-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
@@ -234,20 +242,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Create initial status
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var countBefore = (await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).Count;
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Update the status
                 status.Status = SearchParameterStatus.Enabled;
-                status.LastUpdated = DateTimeOffset.UtcNow;
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var countAfter = (await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).Count;
 
@@ -261,38 +271,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenUpsertStatuses_WhenLastUpdatedIsPropagated_ThenInputCollectionIsUpdated()
+        public async Task GivenUpsertStatuses_WhenCollectionIsUpdated_ThenReturnedLastUpdatedIsGreaterThanOriginal()
         {
-            // Arrange
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Propagate-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
-                // Act - Upsert and verify LastUpdated is propagated back
-                var originalLastUpdated = status.LastUpdated;
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
-                // Assert - The status object should have an updated LastUpdated value from the database
-                // Note: The database may return timestamps in a different timezone, so we compare using UtcDateTime
-                Assert.True(
-                    status.LastUpdated.UtcDateTime >= originalLastUpdated.UtcDateTime,
-                    $"Expected LastUpdated ({status.LastUpdated}) to be >= original ({originalLastUpdated})");
+                var dbStatus = (await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == testUri);
 
-                // Verify the value in the database matches what was propagated to the input collection
-                var dbStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
-                var dbStatus = dbStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
-
-                Assert.NotNull(dbStatus);
-                Assert.True(
-                    Math.Abs((dbStatus.LastUpdated - status.LastUpdated).TotalSeconds) < 1,
-                    $"Expected propagated LastUpdated ({status.LastUpdated}) to match database ({dbStatus.LastUpdated}) within 1 second");
+                Assert.True(dbStatus.LastUpdated > status.LastUpdated, $"Expected {status.LastUpdated.ToString("yyyy-MM-ddTHH:mm:ss.fff")} < {dbStatus.LastUpdated.ToString("yyyy-MM-ddTHH:mm:ss.fff")}");
             }
             finally
             {
@@ -303,6 +301,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSqlServerResourceSearchParameterStatus_WhenIdIsAssigned_ThenIdIsPersisted()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Id-" + Guid.NewGuid();
             var status = new SqlServerResourceSearchParameterStatus
@@ -310,13 +310,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Act - Upsert and retrieve
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var dbStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus = dbStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
@@ -337,20 +337,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenGetSearchParameterStatuses_WhenIsPartiallySupported_ThenValueIsPreserved()
         {
-            // Arrange
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-PartialSupport-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Enabled,
                 IsPartiallySupported = true,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Act
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var dbStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus = dbStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
@@ -369,6 +370,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenStatusIsUnsupported_ThenStatusIsPersisted()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange - Test that Unsupported status is handled correctly
             // Note: In older schemas (< V52), Unsupported is converted to Disabled
             // In newer schemas (>= V52), Unsupported is preserved
@@ -378,13 +381,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Unsupported,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Act
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var dbStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus = dbStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
@@ -404,6 +407,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenMixedNewAndExistingStatuses_ThenBothAreHandledCorrectly()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var existingUri = "http://hl7.org/fhir/SearchParameter/Test-MixedExisting-" + Guid.NewGuid();
             var newUri = "http://hl7.org/fhir/SearchParameter/Test-MixedNew-" + Guid.NewGuid();
@@ -413,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(existingUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
@@ -425,13 +430,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.OriginalString == existingUri);
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Prepare mixed batch: update existing + create new
                 var updateExisting = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = true,
-                    LastUpdated = createdStatus.LastUpdated,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 };
 
                 var createNew = new ResourceSearchParameterStatus
@@ -439,13 +446,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = new Uri(newUri),
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = false,
-                    LastUpdated = DateTimeOffset.UtcNow,
+                    LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
                 };
 
                 // Act
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(
-                    new[] { updateExisting, createNew },
-                    CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([updateExisting, createNew], CancellationToken.None);
 
                 // Assert
                 var finalStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -469,6 +474,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenStatusValueChanges_ThenChangeIsReflectedInDatabase()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Comprehensive test for all status transition scenarios
             // Consolidates multiple transition tests into one comprehensive test
 
@@ -479,13 +486,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             try
             {
                 // Create initial status (Disabled)
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var statuses1 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus1 = statuses1.First(s => s.Uri.OriginalString == testUri);
@@ -494,11 +501,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 await Task.Delay(100);
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Transition to Enabled
                 status.Status = SearchParameterStatus.Enabled;
                 status.IsPartiallySupported = true;
-                status.LastUpdated = dbStatus1.LastUpdated;
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var statuses2 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus2 = statuses2.First(s => s.Uri.OriginalString == testUri);
@@ -509,11 +518,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 await Task.Delay(100);
 
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Transition to Supported
                 status.Status = SearchParameterStatus.Supported;
                 status.IsPartiallySupported = false;
-                status.LastUpdated = dbStatus2.LastUpdated;
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
+                status.LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated;
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
 
                 var statuses3 = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var dbStatus3 = statuses3.First(s => s.Uri.OriginalString == testUri);
@@ -530,6 +541,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenUpsertStatuses_WhenCancellationRequested_ThenOperationIsCancelled()
         {
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             // Arrange
             var testUri = "http://hl7.org/fhir/SearchParameter/Test-Cancellation-" + Guid.NewGuid();
             var status = new ResourceSearchParameterStatus
@@ -537,7 +550,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
             using var cts = new CancellationTokenSource();
@@ -546,7 +559,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act & Assert
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, cts.Token);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], cts.Token);
             });
         }
 

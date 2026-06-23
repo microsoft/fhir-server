@@ -145,9 +145,9 @@ if ($DataStore -eq 'sql') {
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
         if ([string]::IsNullOrWhiteSpace($sqlElasticPoolName)) {
-            Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating standalone (GP_Gen5_4)..."
+            Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating standalone (GP_Gen5_8)..."
             Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
-                New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_4" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+                New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_8" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
             }
         } else {
             Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating in elastic pool '$sqlElasticPoolName'..."

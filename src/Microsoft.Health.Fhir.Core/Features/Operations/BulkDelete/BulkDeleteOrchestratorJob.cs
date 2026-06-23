@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
@@ -47,11 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             {
                 IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
 
-                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
+                processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
             }
             else
             {
-                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, new List<string>() { definition.Type }, cancellationToken);
+                processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>() { definition.Type }, cancellationToken);
             }
 
             // Processing Definition can be null if bulk delete was requested on criteria that didn't match any resources. If there is nothing to delete, just finish the job.
@@ -65,11 +66,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         // Creates a bulk delete processing job.
         // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
-        internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
+        internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(JobInfo jobInfo, BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
         {
+            var createDate = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
             var searchParameters = new List<Tuple<string, string>>()
                 {
-                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"),
                 };
 
             if (baseDefinition.SearchParameters != null)
@@ -77,9 +79,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 searchParameters.AddRange(baseDefinition.SearchParameters);
             }
 
+            var countSearchParameters = new List<Tuple<string, string>>(searchParameters);
+            countSearchParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"));
+
             while (resourceTypes.Count > 0)
             {
-                int numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
+                int numResources = (await searchService.SearchAsync(resourceTypes[0], countSearchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
 
                 if (numResources == 0)
                 {

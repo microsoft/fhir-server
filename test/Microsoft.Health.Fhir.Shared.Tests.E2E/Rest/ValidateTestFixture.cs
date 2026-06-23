@@ -20,7 +20,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected override async System.Threading.Tasks.Task OnInitializedAsync()
         {
-            // Delete all profile related resources before starting the test suite.
+            // Use PUT (UpdateAsync) with stable IDs to upsert profile resources.
+            // This prevents duplicate StructureDefinitions from accumulating in persistent test environments.
             var sd = new List<string>()
             {
                 "StructureDefinition-us-core-birthsex", "StructureDefinition-us-core-ethnicity", "StructureDefinition-us-core-patient",
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in sd)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<StructureDefinition>(name), $"name={name}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<StructureDefinition>(name));
             }
 
             var valueSets = new List<string>()
@@ -38,13 +39,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in valueSets)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<ValueSet>(name), $"name={name}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<ValueSet>(name));
             }
 
             var codeSystem = new List<string>() { "CodeSystem-careplan-category" };
             foreach (var name in codeSystem)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<CodeSystem>(name), $"name={name}");
+                await TestFhirClient.UpdateAsync(Samples.GetJsonSample<CodeSystem>(name));
             }
         }
     }

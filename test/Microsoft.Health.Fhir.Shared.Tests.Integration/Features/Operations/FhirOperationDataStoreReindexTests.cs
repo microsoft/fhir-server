@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
             // Create a local job record with a random ID that doesn't exist in the database or queue
-            var nonExistentJobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>())
+            var nonExistentJobRecord = new ReindexJobRecord(new List<string>())
             {
                 Id = "999999", // Use a non-existent ID
             };
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task<ReindexJobRecord> InsertNewReindexJobRecordAsync(Action<ReindexJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>());
+            var jobRecord = new ReindexJobRecord(new List<string>());
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

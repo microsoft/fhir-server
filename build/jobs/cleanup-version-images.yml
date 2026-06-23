@@ -38,7 +38,36 @@ jobs:
               }
           }
 
-          Write-Host "Removing untagged ${version} images"
+          Write-Host "Removing orphaned untagged ${version} images"
           $repository = "${version}_fhir-server"
-          az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv `
-          | %{ az acr repository delete --name $(azureContainerRegistryName) --image $repository@$_ --yes }
+
+          # Step 1: Collect all digests referenced by tagged manifests (multi-arch index children)
+          $referencedDigests = @{}
+          $taggedManifests = az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]!=null]" -o json | ConvertFrom-Json
+          foreach ($tagged in $taggedManifests) {
+              try {
+                  $manifest = az acr manifest show --name $repository --registry $(azureContainerRegistryName) --digest $tagged.digest -o json 2>$null | ConvertFrom-Json
+                  if ($manifest.manifests) {
+                      # This is a multi-arch index; record all child digests
+                      foreach ($child in $manifest.manifests) {
+                          $referencedDigests[$child.digest] = $tagged.digest
+                          Write-Host "  Protected child manifest $($child.digest) (referenced by $($tagged.tags -join ', '))"
+                      }
+                  }
+              }
+              catch {
+                  Write-Host "  Warning: Could not inspect manifest $($tagged.digest)"
+              }
+          }
+
+          # Step 2: Delete only truly orphaned untagged manifests
+          $untaggedDigests = az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv
+          foreach ($digest in $untaggedDigests) {
+              if ($referencedDigests.ContainsKey($digest)) {
+                  Write-Host "  Skipping $digest (referenced by tagged index $($referencedDigests[$digest]))"
+              }
+              else {
+                  Write-Host "  Deleting orphaned manifest $digest"
+                  az acr repository delete --name $(azureContainerRegistryName) --image "${repository}@${digest}" --yes
+              }
+          }

@@ -81,7 +81,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(DeleteOperation.HardDelete, definition.DeleteOperation);
-                Assert.Equal(searchParams.Count + 1, definition.SearchParameters.Count); // Adds the max time
+                Assert.Equal(searchParams.Count, definition.SearchParameters.Count);
+
+                return new List<JobInfo>()
+                    {
+                        new JobInfo()
+                        {
+                            Id = 1,
+                        },
+                    };
+            });
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);
+
+            var response = await _handler.Handle(request, CancellationToken.None);
+            Assert.NotNull(response);
+            Assert.Equal(1, response.Id);
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteRequestWithNoParameters_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>();
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(args.ArgAt<string[]>(1)[0]);
+                Assert.Equal(_testUrl, definition.Url);
+                Assert.Equal(_testUrl, definition.BaseUrl);
+                Assert.Equal(DeleteOperation.HardDelete, definition.DeleteOperation);
+                Assert.Equal(searchParams.Count, definition.SearchParameters.Count);
 
                 return new List<JobInfo>()
                     {
