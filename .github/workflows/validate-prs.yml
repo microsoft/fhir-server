@@ -36,7 +36,6 @@ jobs:
           TITLE: ${{ env.TITLE }}
           LABELS: ${{ env.LABELS }}
           AUTHOR: ${{ env.AUTHOR }}
-          NO_MILESTONE: ${{ env.NO_MILESTONE }}
         with:
           script: |
             var errors = "";
