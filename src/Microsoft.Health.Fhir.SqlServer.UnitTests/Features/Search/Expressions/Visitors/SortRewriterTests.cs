@@ -52,6 +52,49 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _rewriter = new SortRewriter(factory);
         }
 
+        // SortWithFilter is emitted only when the predicate guarantees the sort parameter on every branch
+        // (a plain match, or a union where ALL branches reference it). A union with no match or only a partial
+        // match falls through to a plain Sort. The not-matched cases use descending order + no continuation token
+        // so VisitSqlRoot appends Sort (not NotExists).
+        public static TheoryData<Expression, SortOrder, bool> SortCoverageCases => new()
+        {
+            // All branches of the day-split union reference birthdate → match.
+            { BuildBirthdateDaySplitUnion(), SortOrder.Ascending, true },
+
+            // No branch references birthdate → no match.
+            {
+                Expression.Union(
+                    UnionOperator.All,
+                    new Expression[]
+                    {
+                        new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Smith")),
+                        new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Jones")),
+                    }),
+                SortOrder.Descending,
+                false
+            },
+
+            // Mixed union: one branch references birthdate, one does not → no match (all branches must match).
+            {
+                Expression.Union(
+                    UnionOperator.All,
+                    new Expression[]
+                    {
+                        new SearchParameterExpression(BirthdateParam, Expression.Equals(FieldName.DateTimeEnd, null, EndOfDay)),
+                        new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Smith")),
+                    }),
+                SortOrder.Descending,
+                false
+            },
+
+            // Baseline plain SearchParameterExpression on birthdate → match (existing null-signal path).
+            {
+                new SearchParameterExpression(BirthdateParam, Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay)),
+                SortOrder.Ascending,
+                true
+            },
+        };
+
         private static SqlSearchOptions BuildSortOptions(SearchParameterInfo sortParam, SortOrder order = SortOrder.Ascending)
         {
             var inner = new SearchOptions
@@ -86,94 +129,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             return Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
         }
 
-        [Fact]
-        public void GivenUnionPredicateWhereAllBranchesMatchSortParam_WhenRewritten_ThenMatchFoundAndSortWithFilterEmitted()
+        [Theory]
+        [MemberData(nameof(SortCoverageCases))]
+        public void GivenSortPredicateCoverage_WhenRewritten_ThenSortWithFilterEmittedOnlyWhenAllBranchesMatch(Expression predicate, SortOrder sortOrder, bool expectMatch)
         {
-            // When every branch of a bare union references the sort parameter,
-            // the rewriter must treat the predicate as "found" and emit SortWithFilter.
-            var unionPredicate = BuildBirthdateDaySplitUnion();
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                unionPredicate,
-                SearchParamTableExpressionKind.Normal);
-            var root = SqlRootExpression.WithSearchParamTableExpressions(
-                new List<SearchParamTableExpression> { tableExpr });
-            var options = BuildSortOptions(BirthdateParam);
+            var tableExpr = new SearchParamTableExpression(DateTimeQueryGenerator.Instance, predicate, SearchParamTableExpressionKind.Normal);
+            var root = SqlRootExpression.WithSearchParamTableExpressions(new List<SearchParamTableExpression> { tableExpr });
+            var options = BuildSortOptions(BirthdateParam, sortOrder);
 
             var result = (SqlRootExpression)root.AcceptVisitor(_rewriter, options);
 
-            Assert.True(options.IsSortWithFilter, "IsSortWithFilter should be set when the union covers the sort parameter on all branches.");
-            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.SortWithFilter);
-            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.Sort);
-            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.NotExists);
-        }
+            SearchParamTableExpressionKind expected = expectMatch ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
+            SearchParamTableExpressionKind unexpected = expectMatch ? SearchParamTableExpressionKind.Sort : SearchParamTableExpressionKind.SortWithFilter;
 
-        [Fact]
-        public void GivenUnionPredicateWhereNoBranchMatchesSortParam_WhenRewritten_ThenNoMatchAndSortEmitted()
-        {
-            // When no branch references the sort parameter, VisitUnion must NOT signal "found".
-            // Using descending sort + no continuation token so VisitSqlRoot appends Sort (not NotExists).
-            var nameBranch1 = new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Smith"));
-            var nameBranch2 = new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Jones"));
-            var unionPredicate = Expression.Union(UnionOperator.All, new Expression[] { nameBranch1, nameBranch2 });
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                unionPredicate,
-                SearchParamTableExpressionKind.Normal);
-            var root = SqlRootExpression.WithSearchParamTableExpressions(
-                new List<SearchParamTableExpression> { tableExpr });
-            var options = BuildSortOptions(BirthdateParam, SortOrder.Descending);
-
-            var result = (SqlRootExpression)root.AcceptVisitor(_rewriter, options);
-
-            Assert.False(options.IsSortWithFilter, "IsSortWithFilter should NOT be set when the union predicate does not cover the sort parameter.");
-            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.Sort);
-            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.SortWithFilter);
-        }
-
-        [Fact]
-        public void GivenUnionPredicateWhereOnlyOneBranchMatchesSortParam_WhenRewritten_ThenNoMatchAndSortEmitted()
-        {
-            // A mixed union (one branch matches, one does not) must NOT signal "found".
-            // All branches must match for SortWithFilter to be emitted.
-            var birthdateBranch = new SearchParameterExpression(BirthdateParam, Expression.Equals(FieldName.DateTimeEnd, null, EndOfDay));
-            var nameBranch = new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Smith"));
-            var unionPredicate = Expression.Union(UnionOperator.All, new Expression[] { birthdateBranch, nameBranch });
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                unionPredicate,
-                SearchParamTableExpressionKind.Normal);
-            var root = SqlRootExpression.WithSearchParamTableExpressions(
-                new List<SearchParamTableExpression> { tableExpr });
-            var options = BuildSortOptions(BirthdateParam, SortOrder.Descending);
-
-            var result = (SqlRootExpression)root.AcceptVisitor(_rewriter, options);
-
-            Assert.False(options.IsSortWithFilter, "Partial branch match is not sufficient — all branches must cover the sort parameter.");
-            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.Sort);
-            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.SortWithFilter);
-        }
-
-        [Fact]
-        public void GivenPlainSearchParameterPredicateMatchingSortParam_WhenRewritten_ThenMatchFoundAndSortWithFilterEmitted()
-        {
-            // Baseline: verify the existing null-signal path still works for plain SearchParameterExpression.
-            var predicate = new SearchParameterExpression(
-                BirthdateParam,
-                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                predicate,
-                SearchParamTableExpressionKind.Normal);
-            var root = SqlRootExpression.WithSearchParamTableExpressions(
-                new List<SearchParamTableExpression> { tableExpr });
-            var options = BuildSortOptions(BirthdateParam);
-
-            var result = (SqlRootExpression)root.AcceptVisitor(_rewriter, options);
-
-            Assert.True(options.IsSortWithFilter);
-            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.SortWithFilter);
-            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.Sort);
+            Assert.Equal(expectMatch, options.IsSortWithFilter);
+            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == expected);
+            Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == unexpected);
             Assert.DoesNotContain(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.NotExists);
         }
     }

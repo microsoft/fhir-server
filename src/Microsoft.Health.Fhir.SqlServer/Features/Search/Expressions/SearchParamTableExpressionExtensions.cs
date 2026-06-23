@@ -98,25 +98,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
         /// <remarks>
-        /// The returned order is the CTE generation order used by <c>SqlQueryGenerator</c>, and it is authoritative for
-        /// restricting-predecessor resolution. Three invariants must hold:
+        /// This is the CTE generation order <c>SqlQueryGenerator</c>'s restricting-predecessor resolution depends on, so two
+        /// invariants must hold:
         /// <list type="number">
         /// <item>
-        /// The partition is <b>stable</b>: relative order within each group (regular unions, SmartV2 unions, non-unions) is
-        /// preserved. <see cref="SearchParamTableExpressionKind.Concatenation"/> branches produced by the
-        /// <c>ConcatenationRewriter</c> form an adjacent (Normal, Concatenation) pair of non-union expressions, and both must
-        /// restrict against the same predecessor. Stability keeps the pair adjacent so the predecessor walk in
-        /// <c>SqlQueryGenerator.FindRestrictingPredecessorTableExpressionIndex</c> resolves correctly.
+        /// The partition is <b>stable</b> (relative order preserved within each group), and hoisting only pulls a union out
+        /// from between non-unions. This keeps the adjacent (Normal, <see cref="SearchParamTableExpressionKind.Concatenation"/>)
+        /// pair emitted by <c>ConcatenationRewriter</c> together, so both branches resolve to the same predecessor.
         /// </item>
         /// <item>
-        /// Moving unions to the front only ever pulls a union out from between two non-unions, which keeps sibling pairs
-        /// adjacent; it never separates a Concatenation branch from its Normal sibling.
-        /// </item>
-        /// <item>
-        /// Only <b>top-level</b> unions (<see cref="SearchParamTableExpression.ChainLevel"/> == 0) are hoisted. A
-        /// chain-nested union (ChainLevel &gt; 0, produced when the <c>ScalarTemporalEqualityRewriter</c> rewrites a chained
-        /// exact-day birthdate into a day-split UNION) is left in place so it stays AFTER the chain link it must restrict
-        /// against. Hoisting it would emit the union before its chain link and break predecessor resolution.
+        /// Only <b>top-level</b> unions (<see cref="SearchParamTableExpression.ChainLevel"/> == 0) are hoisted. A chain-nested
+        /// union (ChainLevel &gt; 0, from a chained exact-day birthdate) stays in place so it remains AFTER the chain link it
+        /// must restrict against; hoisting it would emit the union before its chain link and break predecessor resolution.
         /// </item>
         /// </list>
         /// </remarks>

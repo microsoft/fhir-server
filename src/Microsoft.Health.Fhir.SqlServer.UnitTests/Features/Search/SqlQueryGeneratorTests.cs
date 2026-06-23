@@ -247,17 +247,18 @@ public class SqlQueryGeneratorTests
         Assert.Contains("SELECT * FROM cte3", sql);
     }
 
-    [Fact]
-    public void GivenChainedBirthdateUnion_WhenSqlGenerated_ThenUnionLowersAndBranchesRestrictAgainstChainLink()
+    [Theory]
+    [InlineData(false)] // forward chain: MedicationDispense?patient:Patient.birthdate=<exact day>
+    [InlineData(true)] // reverse chain (_has): Organization?_has:Patient:organization:birthdate=<exact day>
+    public void GivenChainedBirthdateUnion_WhenSqlGenerated_ThenUnionLowersAndBranchesRestrictAgainstChainLink(bool reversed)
     {
-        // Reproduces the production chained shape after ChainFlatteningRewriter:
-        // MedicationDispense?patient:Patient.birthdate=<exact day>. ScalarTemporalEqualityRewriter
-        // rewrites the birthdate into a day-split UNION ALL nested inside the chain. The chain link CTE
-        // is the predecessor; both union branches must restrict against it, and the chained union must
-        // lower to SQL without the predecessor math breaking (ICM 21000001063947 / 815288838).
+        // ScalarTemporalEqualityRewriter rewrites the birthdate into a day-split UNION ALL nested inside the chain.
+        // Both directions must lower identically: each union branch JOINs the chain link (cte0) on the chain target
+        // columns (T2/Sid2) exactly as a plain chained birthdate predicate would, so the branches inherit the proven
+        // baseline chained behavior (ICM 21000001063947 / 815288838). The only difference is what cte0 produces.
         SetupChainModel();
 
-        SearchParamTableExpression chainLink = BuildChainLinkTableExpression();
+        SearchParamTableExpression chainLink = reversed ? BuildReverseChainLinkTableExpression() : BuildChainLinkTableExpression();
         SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
 
         SqlRootExpression sqlExpression = new(
@@ -272,51 +273,14 @@ public class SqlQueryGeneratorTests
         _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
         string sql = _strBuilder.ToString();
 
-        // Generation order: cte0 = chain link (T1/Sid1 = MedicationDispense source, T2/Sid2 = Patient target),
-        // cte1/cte2 = day-split union branches, cte3 = union aggregate. Each branch must JOIN the chain link
-        // (cte0) on the chain target columns (T2/Sid2) so the birthdate is filtered to the chained Patient while
-        // the MedicationDispense source columns (T1/Sid1) flow through. The branches must NOT restrict against
-        // each other (no JOIN cte1).
+        // Generation order: cte0 = chain link (T1/Sid1 = source, T2/Sid2 = target), cte1/cte2 = day-split union
+        // branches, cte3 = union aggregate. Each branch JOINs the chain link on the target columns; the branches
+        // must NOT restrict against each other (no JOIN cte1). The aggregate unions the branches and the final
+        // query joins it on the source (T1/Sid1).
         Assert.Contains("UNION ALL", sql);
         Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
         Assert.DoesNotContain("JOIN cte1", sql);
-
-        // The aggregate unions the two branches and the final query joins it on the source (T1/Sid1).
         Assert.Contains("SELECT * FROM cte1", sql);
-        Assert.Contains("UNION ALL SELECT * FROM cte2", sql);
-        Assert.Contains("JOIN cte3 ON r.ResourceTypeId = cte3.T1 AND r.ResourceSurrogateId = cte3.Sid1", sql);
-    }
-
-    [Fact]
-    public void GivenReverseChainedBirthdateUnion_WhenSqlGenerated_ThenBranchesRestrictAgainstChainLinkIdenticallyToForwardChain()
-    {
-        // Reverse-chain (_has) shape, e.g. Organization?_has:Patient:organization:birthdate=<exact day>.
-        // The day-split UNION is nested inside a reversed chain link. The union branches must JOIN the chain
-        // link exactly the way a plain chained birthdate predicate would (on T2/Sid2), so reverse chains inherit
-        // the proven baseline chained-predicate behavior. This locks reverse-chain (_has) correctness.
-        SetupChainModel();
-
-        SearchParamTableExpression chainLink = BuildReverseChainLinkTableExpression();
-        SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
-
-        SqlRootExpression sqlExpression = new(
-            new List<SearchParamTableExpression> { chainLink, unionTableExpression },
-            new List<SearchParameterExpressionBase>());
-        SearchOptions searchOptions = new()
-        {
-            Sort = [],
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        };
-
-        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
-        string sql = _strBuilder.ToString();
-
-        // Identical branch structure to the forward chain: each branch JOINs the chain link (cte0) on T2/Sid2,
-        // the branches are unioned, and the final query joins the aggregate on the source (T1/Sid1). The only
-        // difference vs the forward chain is what cte0 itself produces - which is the proven baseline chain link.
-        Assert.Contains("UNION ALL", sql);
-        Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
-        Assert.DoesNotContain("JOIN cte1", sql);
         Assert.Contains("UNION ALL SELECT * FROM cte2", sql);
         Assert.Contains("JOIN cte3 ON r.ResourceTypeId = cte3.T1 AND r.ResourceSurrogateId = cte3.Sid1", sql);
     }
@@ -350,6 +314,71 @@ public class SqlQueryGeneratorTests
         Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte0"));
         Assert.DoesNotContain("EXISTS (SELECT * FROM cte1", sql);
         Assert.Contains("SELECT * FROM cte1", sql);
+    }
+
+    [Fact]
+    public void GivenTwoConsecutiveConcatenationPairs_WhenSqlGenerated_ThenSecondPairRestrictsAgainstFirstPairResult()
+    {
+        // Stacked pairs: cte0/cte1 = first (Normal, Concatenation) pair, cte2/cte3 = second pair. The predecessor
+        // of the second pair is the second branch of the FIRST pair (cte1), exercising the case where a
+        // Concatenation's predecessor is itself a Concatenation. Both second-pair branches must resolve to cte1,
+        // never to the second pair's own Normal sibling (cte2).
+        (SearchParamTableExpression normalA, SearchParamTableExpression concatA) = BuildBoundedDateRangePair();
+        (SearchParamTableExpression normalB, SearchParamTableExpression concatB) = BuildBoundedDateRangePair();
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { normalA, concatA, normalB, concatB },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte1"));
+        Assert.DoesNotContain("EXISTS (SELECT * FROM cte2", sql);
+        Assert.Contains("SELECT * FROM cte2", sql); // concatB unions in its Normal sibling (cte2) as a data source
+    }
+
+    [Fact]
+    public void GivenThreeBranchUnionFollowedByConcatenationPair_WhenSqlGenerated_ThenBothBranchesShareUnionAggregateRegardlessOfBranchCount()
+    {
+        // Locks the -2 skip against branch count: a 3-branch union emits cte0/cte1/cte2 (branches) + cte3
+        // (aggregate), so the following Normal/Concatenation pair lands on cte4/cte5. Both pair branches must
+        // still restrict against the shared union aggregate (cte3) - the skip is one CTE (the Normal sibling),
+        // independent of how many branches the union inflated the counter by.
+        SearchParamTableExpression union = BuildThreeBranchBirthdateUnionTableExpression();
+        (SearchParamTableExpression normal, SearchParamTableExpression concatenation) = BuildBoundedDateRangePair();
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { union, normal, concatenation },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte3"));
+        Assert.DoesNotContain("EXISTS (SELECT * FROM cte4", sql);
+        Assert.Contains("SELECT * FROM cte4", sql); // concatenation unions in its Normal sibling (cte4) as a data source
+    }
+
+    private static SearchParamTableExpression BuildThreeBranchBirthdateUnionTableExpression()
+    {
+        var day = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
+        var branch1 = new SearchParameterExpression(BuildBirthdateParam(), Expression.Equals(FieldName.DateTimeEnd, null, day));
+        var branch2 = new SearchParameterExpression(BuildBirthdateParam(), Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, day));
+        var branch3 = new SearchParameterExpression(BuildBirthdateParam(), Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, day));
+        UnionExpression union = Expression.Union(UnionOperator.All, new Expression[] { branch1, branch2, branch3 });
+
+        return new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal, 0);
     }
 
     private static SearchParameterInfo BuildBirthdateParam() =>

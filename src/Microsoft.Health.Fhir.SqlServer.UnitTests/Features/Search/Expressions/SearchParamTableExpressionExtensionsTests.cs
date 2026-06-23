@@ -36,6 +36,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             expression: "Patient.name",
             baseResourceTypes: new[] { "Patient" });
 
+        public static TheoryData<Expression, bool> UnionDetectionCases => new()
+        {
+            { BuildBareUnion(), true }, // scalar-temporal shape: bare union predicate
+            { Expression.And(BuildSmartV2Union(), new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, "Smith"))), true }, // SmartV2 shape: union nested in a multiary
+            { new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, "Smith")), false }, // plain predicate, no union
+        };
+
         private static UnionExpression BuildBareUnion()
         {
             var endOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero);
@@ -55,42 +62,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         // HasUnionAllExpression
         // -----------------------------------------------------------------------
 
-        [Fact]
-        public void HasUnionAllExpression_WhenPredicateIsBareUnion_ReturnsTrue()
+        [Theory]
+        [MemberData(nameof(UnionDetectionCases))]
+        public void HasUnionAllExpression_DetectsBareAndNestedUnions(Expression predicate, bool expected)
         {
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                BuildBareUnion(),
-                SearchParamTableExpressionKind.Normal);
-
-            Assert.True(tableExpr.HasUnionAllExpression());
-        }
-
-        [Fact]
-        public void HasUnionAllExpression_WhenUnionNestedInMultiary_ReturnsTrue()
-        {
-            var union = BuildSmartV2Union();
-            var otherExpr = new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, "Smith"));
-            var multiary = Expression.And(union, otherExpr);
-
-            var tableExpr = new SearchParamTableExpression(
-                DateTimeQueryGenerator.Instance,
-                multiary,
-                SearchParamTableExpressionKind.Normal);
-
-            Assert.True(tableExpr.HasUnionAllExpression());
-        }
-
-        [Fact]
-        public void HasUnionAllExpression_WhenPredicateIsPlainSearchParameter_ReturnsFalse()
-        {
-            var predicate = new SearchParameterExpression(NameParam, Expression.Equals(FieldName.TokenCode, null, "Smith"));
             var tableExpr = new SearchParamTableExpression(
                 DateTimeQueryGenerator.Instance,
                 predicate,
                 SearchParamTableExpressionKind.Normal);
 
-            Assert.False(tableExpr.HasUnionAllExpression());
+            Assert.Equal(expected, tableExpr.HasUnionAllExpression());
         }
 
         // -----------------------------------------------------------------------

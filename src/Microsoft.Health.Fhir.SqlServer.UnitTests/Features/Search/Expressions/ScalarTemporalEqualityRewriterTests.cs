@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class ScalarTemporalEqualityRewriterTests
+    public class ScalarTemporalEqualityRewriterTests : IClassFixture<ScalarTemporalEqualityRewriterTests.R4ModelInfoProviderFixture>
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
@@ -29,16 +29,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
-
-        static ScalarTemporalEqualityRewriterTests()
-        {
-            // The chained tests reconstruct a real ChainedExpression (via the base ExpressionRewriter.VisitChained),
-            // whose constructor validates resource type names through ModelInfoProvider.IsKnownResource. The provider
-            // is a process-wide singleton, so set a standard R4 provider here to make those tests deterministic rather
-            // than depending on whichever other test happened to call SetProvider first. The default R4 mock already
-            // knows Observation and Patient, which is all the chained shapes below require.
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
-        }
 
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
@@ -253,6 +243,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
             Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
             Assert.Equal(expected, binary.Value);
+        }
+
+        // The chained tests reconstruct a real ChainedExpression, whose constructor validates resource type names
+        // against the process-wide ModelInfoProvider singleton. Setting it from a class fixture (run once before this
+        // class's tests) rather than a static constructor avoids tying provider state to arbitrary type-load timing.
+        // The default R4 mock knows Observation and Patient, which is all the chained shapes here require.
+        public sealed class R4ModelInfoProviderFixture
+        {
+            public R4ModelInfoProviderFixture()
+            {
+                ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
+            }
         }
     }
 }

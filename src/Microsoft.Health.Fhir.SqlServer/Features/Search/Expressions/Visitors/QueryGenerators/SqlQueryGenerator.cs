@@ -660,6 +660,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         /// </summary>
         private void HandleParamTableUnionChainBranch(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
+            // NOTE: this always selects FROM the branch's own QueryGenerator.Table. Unlike the top-level union path
+            // (HandleParamTableUnion), it does NOT redirect ResourceTable-located predicates (_type/_id) to the
+            // Resource table. That is safe only because the sole producer of chain-nested unions today is
+            // ScalarTemporalEqualityRewriter, whose branches are all DateTime-table birthdate predicates. If a future
+            // rewriter nests a ResourceTable-located union inside a chain, this method must grow that handling.
             var tableName = searchParamTableExpression.QueryGenerator.Table;
             var predecessorCte = TableExpressionName(_unionBranchPredecessorIndex);
 
@@ -1534,14 +1539,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
-            // A chain-nested union (chainLevel > 0) manages its own predecessor via _unionBranchPredecessorIndex and
-            // must stay invisible to the top-level / SMART union state machine (_unionVisited,
-            // _firstChainAfterUnionVisited, _unionAggregateCTEIndex). Those flags drive the post-union chaining join in
-            // HandleTableKindNormal / HandleTableKindAll, which assumes the union aggregate's T1/Sid1 IS the resource to
-            // chain from - true only for a top-level union. For a chain-nested union the aggregate's T1/Sid1 is the chain
-            // SOURCE and the chain TARGET lives in T2/Sid2, so a downstream same-target predicate must keep intersecting
-            // on T2/Sid2 via the plain chained path. Likewise the "previous union" join block below projects/joins only
-            // T1/Sid1, which would drop the chain target columns. Only top-level unions update that shared state.
+            // Only top-level unions touch the union state machine (_unionVisited, _firstChainAfterUnionVisited,
+            // _unionAggregateCTEIndex) and the "previous union" join block below. A chain-nested union's aggregate
+            // T1/Sid1 is the chain SOURCE while the chain TARGET it must keep filtering lives in T2/Sid2, so engaging
+            // that state (which assumes T1/Sid1 is the resource to chain from) would route a downstream same-target
+            // predicate onto the wrong columns and drop the chain target. It manages its own predecessor instead.
             if (chainLevel == 0)
             {
                 // check for a previous union all, and if so, join the new union all with the previous one
@@ -1760,23 +1762,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private int FindRestrictingPredecessorTableExpressionIndex(SearchParamTableExpressionKind currentKind)
         {
-            // Resolves the output CTE index of the restricting predecessor for the expression currently
-            // being generated. This is keyed off _tableExpressionCounter, which is the CTE index of the
-            // expression being generated right now. The counter already accounts for every emitted CTE —
-            // union branches and their aggregate, smart-scope union re-generation for includes, and the
-            // include filtered-data CTE — so it is the authoritative basis for locating predecessors.
-            //
-            // For every kind the restricting predecessor is the immediately preceding CTE
-            // (_tableExpressionCounter - 1), EXCEPT Concatenation.
-            //
-            // A Concatenation is the second branch of a (Normal, Concatenation) UNION ALL pair produced by
-            // the ConcatenationRewriter / DateTimeBoundedRangeRewriter. Its immediately preceding CTE is its
-            // Normal sibling, and BOTH branches must restrict against the sibling's predecessor — not against
-            // the sibling itself. The Normal sibling always occupies exactly one CTE, so we skip it
-            // (_tableExpressionCounter - 2). When a union precedes the pair this resolves to the shared union
-            // aggregate CTE, which is the bug this logic corrects: basing the walk on the counter rather than
-            // on indices into the unsorted _rootExpression.SearchParamTableExpressions keeps predecessor
-            // selection correct once a union inflates the CTE counter.
+            // The restricting predecessor is the immediately preceding CTE (_tableExpressionCounter - 1) for every
+            // kind EXCEPT Concatenation. A Concatenation is the second branch of a (Normal, Concatenation) pair; both
+            // branches must restrict against the Normal sibling's predecessor, not the sibling itself, so we skip the
+            // single-CTE sibling (_tableExpressionCounter - 2). Keying off the counter (not indices into the unsorted
+            // _rootExpression.SearchParamTableExpressions) is what keeps this correct once a union inflates the counter.
             if (currentKind == SearchParamTableExpressionKind.Concatenation)
             {
                 return _tableExpressionCounter - 2;
