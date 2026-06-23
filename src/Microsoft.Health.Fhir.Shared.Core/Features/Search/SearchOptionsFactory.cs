@@ -450,6 +450,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 catch (SearchParameterNotSupportedException)
                 {
                     unsupportedSearchParameters.Add(q);
+                    searchOptions.QueryParams.Remove(q.Item1);
 
                     return null;
                 }

@@ -494,7 +494,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
                             */
 
-                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, continuationToken?.ResourceSurrogateId);
+                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, sqlSearchOptions, continuationToken?.ResourceSurrogateId);
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);

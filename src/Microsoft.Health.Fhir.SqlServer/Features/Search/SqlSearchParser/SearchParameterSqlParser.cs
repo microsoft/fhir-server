@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _sqlParsers.Add("chained", new ChainedSqlParser(parameterCollection, _sqlParsers));
         }
 
-        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, long? continuationSurrogateId = null)
+        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, long? continuationSurrogateId = null)
         {
             var parametersCopy = parameters.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
@@ -57,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var parserOptions = new ParserOptions()
             {
                 ContinuationSurrogateId = continuationSurrogateId,
+                Count = sqlSearchOptions.MaxItemCount,
             };
 
             parametersCopy = parametersCopy.Where(param =>
@@ -80,9 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parametersCopy.Remove("_summary");
             }
 
-            if (parametersCopy.TryGetValue("_count", out var countValues) && int.TryParse(countValues.FirstOrDefault(), out var count))
+            if (parametersCopy.TryGetValue("_count", out var countValues))
             {
-                parserOptions.Count = count;
                 parametersCopy.Remove("_count");
             }
 
