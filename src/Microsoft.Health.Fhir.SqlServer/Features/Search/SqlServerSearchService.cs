@@ -764,7 +764,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     && newContinuationType.HasValue
                                     && newContinuationId.HasValue
                                     && matchedResourceSurrogateIdStart.HasValue
-                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount))
+                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount)
+                                    && !clonedSearchOptions.ContainsIterativeInclude)
                                 {
                                     clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
                                         new object[]
@@ -791,7 +792,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         new OperationOutcomeIssue(
                                             OperationOutcomeConstants.IssueSeverity.Warning,
                                             OperationOutcomeConstants.IssueType.Incomplete,
-                                            clonedSearchOptions.IncludesOperationSupported ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage));
+                                            clonedSearchOptions.IncludesOperationSupported ? (clonedSearchOptions.ContainsIterativeInclude ? Core.Resources.TruncatedIncludeMessageForIterativeInclude : Core.Resources.TruncatedIncludeMessageForIncludes) : Core.Resources.TruncatedIncludeMessage));
                                 }
 
                                 // If this is a sort query, lets keep track of whether we actually searched for sort values.

@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            ContainsIterativeInclude = other.ContainsIterativeInclude;
         }
 
         /// <summary>
@@ -185,6 +186,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the search contains iterative includes.
+        /// </summary>
+        public bool ContainsIterativeInclude { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance
