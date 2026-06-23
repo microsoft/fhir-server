@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         mergeOptions.EnlistInTransaction,
                         retries == 0,
                         eventualConsistency: false,
-                        ensureAtomicOperations: mergeOptions.EnsureAtomicOperations,
+                        isBundleTransaction: mergeOptions.IsBundleTransaction,
                         cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool ensureAtomicOperations, CancellationToken cancellationToken)
+        private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool isBundleTransaction, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -419,9 +419,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            // In case the operation is atomic and there are validation errors, then nothing should be persisted at the database.
+            // In case the operation is atomic (i.e., bundle transaction) and there are validation errors, then nothing should be persisted at the database.
             // Instead, the errors should be reported and ensure the operation is atomic.
-            if (ensureAtomicOperations && results.Where(r => !r.Value.IsOperationSuccessful).Any())
+            if (isBundleTransaction && results.Where(r => !r.Value.IsOperationSuccessful).Any())
             {
                 return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
             }
@@ -882,8 +882,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.BundleResourceContext != null &&
                 resource.BundleResourceContext.IsTransactionalBundle;
 
+            // For non-transaction operations, extract pending statuses now so they are merged with the resource.
+            // Transaction bundles never reach this branch with pending statuses: any transaction bundle that
+            // contains a SearchParameter resource is forced to the parallel path (handled above), where the
+            // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
+            if (!isBundleTransaction)
+            {
+                SetAndClearPendingSearchParameterStatus(resource);
+            }
+
             if (isBundleParallelOperation)
             {
+                // Parallel operations:
+                // - EnlistTransaction: should be always false, and rely on SQL transactions.
+
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
                 SetAndClearPendingSearchParameterStatus(resource);
 
@@ -891,17 +903,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                // For non-transaction operations, extract pending statuses now so they are merged with the resource.
-                // Transaction bundles never reach this branch with pending statuses: any transaction bundle that
-                // contains a SearchParameter resource is forced to the parallel path (handled above), where the
-                // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
-                if (!isBundleTransaction)
-                {
-                    SetAndClearPendingSearchParameterStatus(resource);
-                }
+                // Sequential operations:
+                // - EnlistTransaction: set to true only in sequential transaction bundles (as they rely on C# transactions). Standalone operations should not enlist transactions (as they rely on SQL transactions).
 
-                // For regular upserts and sequential bundle operations, enlistTransaction is set to true.
-                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true, ensureAtomicOperations: isBundleTransaction);
+                MergeOptions mergeOptions = new MergeOptions(
+                    enlistTransaction: isBundleTransaction,
+                    isBundleTransaction: isBundleTransaction);
                 var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.Results.First().Value;
 

@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             await Assert.ThrowsAsync<ResourceConflictException>(
-                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: true), cts.Token));
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cts.Token));
 
             await sqlRetryService.DidNotReceive()
                 .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             await Assert.ThrowsAsync<TaskCanceledException>(
-                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, ensureAtomicOperations: false), cts.Token));
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: false), cts.Token));
 
             await sqlRetryService.Received(1)
                 .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
