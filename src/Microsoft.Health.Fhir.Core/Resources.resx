@@ -882,4 +882,7 @@
   <data name="SearchParameterConcurrencyConflict" xml:space="preserve">
     <value>Optimistic concurrency conflict detected while writing custom search parameter(s). Make sure that custom search parameters are not written in parallel. Consider sequential writes or a bundle.</value>
   </data>
+  <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
+    <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
+  </data>
 </root>
