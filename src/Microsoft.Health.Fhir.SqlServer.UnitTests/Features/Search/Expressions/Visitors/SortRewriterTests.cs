@@ -52,10 +52,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _rewriter = new SortRewriter(factory);
         }
 
-        // SortWithFilter is emitted only when the predicate guarantees the sort parameter on every branch
-        // (a plain match, or a union where ALL branches reference it). A union with no match or only a partial
-        // match falls through to a plain Sort. The not-matched cases use descending order + no continuation token
-        // so VisitSqlRoot appends Sort (not NotExists).
+        // SortWithFilter requires the sort parameter on every branch; otherwise this falls back to Sort.
+        // Not-matched cases use descending order with no continuation token so VisitSqlRoot appends Sort, not NotExists.
         public static TheoryData<Expression, SortOrder, bool> SortCoverageCases => new()
         {
             // All branches of the day-split union reference birthdate → match.

@@ -122,9 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedExactDayBirthdateWithBaseResourceSortAndSecondChainedPredicate_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Regression for ICMs 21000001063947 / 815288838. An exact-day chained birthdate is rewritten into a
-            // UNION ALL (ADR-2606). Combined with a base-resource _sort and a second predicate on the same chained
-            // target, this previously produced broken SQL and HTTP 500s. This mirrors the customer query shape:
+            // Matches previous error shape:
             // MedicationDispense?patient:Patient.birthdate=<day>&_sort=-whenhandedover&patient:Patient.identifier=...
             string tag = Guid.NewGuid().ToString();
             var meta = new Meta { Tag = new List<Coding> { new Coding("testTag", tag) } };

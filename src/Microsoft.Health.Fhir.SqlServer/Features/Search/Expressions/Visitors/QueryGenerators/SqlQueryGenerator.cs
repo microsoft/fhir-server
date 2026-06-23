@@ -56,11 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
 
-        // When a chain-nested union (ChainLevel > 0) is being lowered, every branch CTE must restrict against
-        // the chain link that precedes the union (its shared restricting predecessor), NOT against the previous
-        // branch. This holds that fixed predecessor CTE index for the duration of the branch loop; -1 when not
-        // generating a chain-nested union.
-        private int _unionBranchPredecessorIndex = -1;
+        private int _unionBranchPredecessorIndex = -1; // chain-union predecessor CTE
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
@@ -580,11 +576,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            // A chain-nested union (ChainLevel > 0) lowers differently from a top-level union: every branch must
-            // join back to the chain link that precedes the union so the branch carries the source resource
-            // columns (T1/Sid1) through and filters the chain target (T2/Sid2). This mirrors the chained
-            // HandleTableKindNormal form so a chained birthdate UNION produces the same result shape a plain
-            // chained predicate would.
+            // Chained + Union need special handling.
             if (searchParamTableExpression.ChainLevel > 0 && _unionBranchPredecessorIndex >= 0)
             {
                 HandleParamTableUnionChainBranch(searchParamTableExpression, context);
@@ -1539,11 +1531,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
-            // Only top-level unions touch the union state machine (_unionVisited, _firstChainAfterUnionVisited,
-            // _unionAggregateCTEIndex) and the "previous union" join block below. A chain-nested union's aggregate
-            // T1/Sid1 is the chain SOURCE while the chain TARGET it must keep filtering lives in T2/Sid2, so engaging
-            // that state (which assumes T1/Sid1 is the resource to chain from) would route a downstream same-target
-            // predicate onto the wrong columns and drop the chain target. It manages its own predecessor instead.
+            // Only top-level unions should update union state and run the previous-union join below.
+            // Chain-nested unions keep the source in T1/Sid1 and the target to filter in T2/Sid2.
+            // Using top-level state would put same-target predicates on the wrong columns, so they manage their own predecessor.
             if (chainLevel == 0)
             {
                 // check for a previous union all, and if so, join the new union all with the previous one
@@ -1762,11 +1752,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private int FindRestrictingPredecessorTableExpressionIndex(SearchParamTableExpressionKind currentKind)
         {
-            // The restricting predecessor is the immediately preceding CTE (_tableExpressionCounter - 1) for every
-            // kind EXCEPT Concatenation. A Concatenation is the second branch of a (Normal, Concatenation) pair; both
-            // branches must restrict against the Normal sibling's predecessor, not the sibling itself, so we skip the
-            // single-CTE sibling (_tableExpressionCounter - 2). Keying off the counter (not indices into the unsorted
-            // _rootExpression.SearchParamTableExpressions) is what keeps this correct once a union inflates the counter.
+            // Restrict against the previous CTE except for Concatenation, whose branches use the Normal sibling's predecessor.
+            // Use _tableExpressionCounter, not root expression indices, because unions can add extra CTEs.
             if (currentKind == SearchParamTableExpressionKind.Concatenation)
             {
                 return _tableExpressionCounter - 2;

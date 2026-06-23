@@ -1,4 +1,4 @@
-# Scalar Temporal Equality Rewriter for Birthdate
+# ADR-2605: Scalar Temporal Equality Rewriter for Birthdate
 
 ## Context
 
@@ -8,6 +8,8 @@ The table carries a filtered index intended for the rare wide rows:
 `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`. For `IsLongerThanADay = 0` there is no filtered index — the common short rows are served by the general `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax`. The previous SQL generated creates a two-predicate form which doesn't build SQL the planner can use to target either index. This means it picks a generic seek on the clustered index which is far less efficient than using the non-clustered indexes on our indexes we have.
 
 The FHIR containment semantics for partial-date equality are separately tracked by AB#191826 and intentionally left untouched here.
+
+Later validation found that emitting the birthdate rewrite as a `UnionExpression` also requires SQL generation to preserve CTE predecessor semantics, especially for `Normal` + `Concatenation` date-range pairs and chained birthdate searches.
 
 ## Decision
 
@@ -24,12 +26,16 @@ All other shapes — month/year precision, approximate (`ap`), single-sided rang
 
 There is also discussion on if the data returned by this query is matching the FHIR spec. In this change we are only keeping current behavior. If we change our date range return values in the future we can simply remove the second (union) part of the rewrite query easily.
 
+SQL generation will support this union shape by resolving predecessors from emitted CTE order, hoisting only top-level unions, and lowering chain-nested unions after their chain link. Chain-aware union branches keep the chain source in `T1/Sid1` and filter the target through `T2/Sid2`, so forward and reverse chained birthdate searches get the same optimization without breaking SMART scope, `_type`, or compartment union paths.
+
 ## Status
 
- Accepted
+Accepted
 
 ## Consequences
 
 - Day-precision birthdate equality consistently picks the intended filtered/specific indexes per branch instead of a generic plan over the mixed population, reducing logical reads on `dbo.DateTimeSearchParam` for the dominant workload.
+- The SQL generator keeps CTE predecessor resolution tied to generated CTE order, so union expansion does not make `Concatenation` or chained predicates join the wrong predecessor.
+- Chained and reverse-chained exact-day birthdate searches now use the optimization instead of being skipped by the previous chained-expression guard.
 - The long branch becomes dead once AB#191826 lands; at that point the union collapses to the short branch and this ADR should be revisited.
 - The allow-list (currently `individual-birthdate`) limits blast radius. Extending the optimization to additional scalar date parameters is a follow-up that requires confirming the same single-element storage assumption.

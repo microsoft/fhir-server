@@ -157,14 +157,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         }
 
         /// <summary>
-        /// Propagates the sort-parameter "found" signal through a <see cref="UnionExpression"/>.
-        /// Returns <c>null</c> (the found signal) only when <b>every</b> branch of the union
-        /// guarantees the sort parameter is present — i.e. every resource that matches the union
-        /// is guaranteed to have a sort value and the missing-value sort phases can be skipped.
-        /// If any branch does not contain the sort parameter the original expression is returned
-        /// unchanged. The original reference is always returned rather than reconstructing the
-        /// union, because the <see cref="UnionExpression"/> constructor rejects null children and
-        /// would throw if any branch visit returned null.
+        /// Returns the sort-parameter "found" signal (<c>null</c>) only if every union branch contains the sort parameter.
+        /// Otherwise returns the original union because missing-value sort phases are still needed, and rebuilding with null children would be invalid.
         /// </summary>
         public override Expression VisitUnion(UnionExpression expression, SqlSearchOptions context)
         {

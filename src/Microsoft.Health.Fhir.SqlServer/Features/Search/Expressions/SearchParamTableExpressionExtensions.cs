@@ -98,20 +98,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
         /// <remarks>
-        /// This is the CTE generation order <c>SqlQueryGenerator</c>'s restricting-predecessor resolution depends on, so two
-        /// invariants must hold:
-        /// <list type="number">
-        /// <item>
-        /// The partition is <b>stable</b> (relative order preserved within each group), and hoisting only pulls a union out
-        /// from between non-unions. This keeps the adjacent (Normal, <see cref="SearchParamTableExpressionKind.Concatenation"/>)
-        /// pair emitted by <c>ConcatenationRewriter</c> together, so both branches resolve to the same predecessor.
-        /// </item>
-        /// <item>
-        /// Only <b>top-level</b> unions (<see cref="SearchParamTableExpression.ChainLevel"/> == 0) are hoisted. A chain-nested
-        /// union (ChainLevel &gt; 0, from a chained exact-day birthdate) stays in place so it remains AFTER the chain link it
-        /// must restrict against; hoisting it would emit the union before its chain link and break predecessor resolution.
-        /// </item>
-        /// </list>
+        /// <c>SqlQueryGenerator</c>'s predecessor resolution depends on stable partitioning so Concatenation pairs stay adjacent.
+        /// Only top-level unions are hoisted; chain-nested unions must stay after their chain link to preserve predecessor resolution.
         /// </remarks>
         /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static IReadOnlyList<SearchParamTableExpression> SortExpressionsByQueryLogic(this IReadOnlyList<SearchParamTableExpression> expressions)

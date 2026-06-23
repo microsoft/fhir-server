@@ -245,10 +245,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(expected, binary.Value);
         }
 
-        // The chained tests reconstruct a real ChainedExpression, whose constructor validates resource type names
-        // against the process-wide ModelInfoProvider singleton. Setting it from a class fixture (run once before this
-        // class's tests) rather than a static constructor avoids tying provider state to arbitrary type-load timing.
-        // The default R4 mock knows Observation and Patient, which is all the chained shapes here require.
+        // Chained tests build a real ChainedExpression, so set ModelInfoProvider via fixture to avoid type-load timing.
+        // The R4 mock knows Observation and Patient, which is all these chained shapes requre.
         public sealed class R4ModelInfoProviderFixture
         {
             public R4ModelInfoProviderFixture()
