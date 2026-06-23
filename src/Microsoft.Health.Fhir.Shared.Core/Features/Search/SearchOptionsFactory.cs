@@ -398,18 +398,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
 
                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
-
-                if (searchOptions.QueryParams.TryGetValue("_type", out var typeValues))
-                {
-                    typeValues.Add(resourceType);
-                }
-                else
-                {
-                    searchOptions.QueryParams.Add("_type", new List<string> { resourceType });
-                }
             }
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
+
+            var singleResourceTypesString = string.Join(",", resourceTypesString);
+            searchOptions.QueryParams.Remove("_type");
+
+            if (!singleResourceTypesString.Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
+            {
+                searchOptions.QueryParams.Add("_type", new List<string> { singleResourceTypesString });
+            }
 
             // Form all the include revinclude expressions before for the Smart queries access control check
             // Collect all the resource types required by the include/revinclude expressions
