@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, false, request.AllowPartialSuccess, cancellationToken));
                     break;
                 case DeleteOperation.PurgeHistory:
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, true, request.AllowPartialSuccess, cancellationToken));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
