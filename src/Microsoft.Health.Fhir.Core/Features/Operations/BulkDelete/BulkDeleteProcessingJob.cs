@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 {
                     types.RemoveAt(0);
                     using var searchService = _searchService.Invoke();
-                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, searchService.Value, types, cancellationToken);
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(jobInfo, definition, searchService.Value, types, cancellationToken);
 
                     if (processingDefinition != null)
                     {

@@ -1852,6 +1852,31 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
+        public async Task GivenImportInputUrlForUnconfiguredStorageAccount_ThenBadRequestShouldBeReturned()
+        {
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = new Uri("https://unconfigured.example.org/container/patient.ndjson"),
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.ImportAsync(request.ToParameters()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenImportRequestWithMultipleSameFile_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();

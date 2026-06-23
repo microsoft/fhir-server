@@ -155,75 +155,91 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesIgnored.Add("StructureDefinition", 4);  // Changed: use 4 StructureDefinitions instead of 2 + 2 SearchParameters
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+            var createdResources = new List<Resource>();
 
-            // Create resources of different types with the same tag
-            // Use StructureDefinition resources which are excluded from bulk update but don't have
-            // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
-            var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-ethnicity");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
-            structureDefinition.Meta = new Meta();
-            structureDefinition.Meta.Tag.Add(tag);
-            await _fhirClient.CreateAsync(structureDefinition);
-
-            // Create resources of different types with the same tag
-            await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
-            var location = new Location
+            try
             {
-                Meta = new Meta
+                // Create resources of different types with the same tag
+                // Use StructureDefinition resources which are excluded from bulk update but don't have
+                // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
+                var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-ethnicity");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
+                structureDefinition.Meta = new Meta();
+                structureDefinition.Meta.Tag.Add(tag);
+                createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
+
+                // Create resources of different types with the same tag
+                await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
+                var location = new Location
                 {
-                    Tag = new List<Coding>
+                    Meta = new Meta
                     {
-                        new Coding("testTag", tag.Code),
+                        Tag = new List<Coding>
+                        {
+                            new Coding("testTag", tag.Code),
+                        },
                     },
-                },
-            };
-            await _fhirClient.CreateAsync(location);
-
-            var organization = new Organization
-            {
-                Meta = new Meta
-                {
-                    Tag = new List<Coding>
-                    {
-                        new Coding("testTag", tag.Code),
-                    },
-                },
-                Active = true,
-            };
-            await _fhirClient.CreateAsync(organization);
-
-            // Wait to ensure resources are created before bulk update
-            await Task.Delay(2000);
-
-            var patchRequest = new Parameters()
-                .AddAddPatchParameter("Resource", "language", new Code("en"));
-
-            ChangeTypeToUpsertPatchParameter(patchRequest);
-
-            // Create the request with Observation and Location as excluded resource types
-
-            var queryParam = new Dictionary<string, string>
-                {
-                    { "_isParallel", isParallel.ToString() },
                 };
-            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "$bulk-update", queryParam);
+                await _fhirClient.CreateAsync(location);
 
-            // Monitor the job until completion
-            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+                var organization = new Organization
+                {
+                    Meta = new Meta
+                    {
+                        Tag = new List<Coding>
+                        {
+                            new Coding("testTag", tag.Code),
+                        },
+                    },
+                    Active = true,
+                };
+                await _fhirClient.CreateAsync(organization);
+
+                var patchRequest = new Parameters()
+                    .AddAddPatchParameter("Resource", "language", new Code("en"));
+
+                ChangeTypeToUpsertPatchParameter(patchRequest);
+
+                // Create the request with Observation and Location as excluded resource types
+
+                var queryParam = new Dictionary<string, string>
+                    {
+                        { "_isParallel", isParallel.ToString() },
+                    };
+                HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "$bulk-update", queryParam);
+
+                // Monitor the job until completion
+                await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+            }
+            finally
+            {
+                // Clean up created StructureDefinitions to prevent accumulation in persistent environments
+                foreach (var resource in createdResources)
+                {
+                    try
+                    {
+                        await _fhirClient.DeleteAsync(resource);
+                    }
+                    catch (Exception)
+                    {
+                        // Best-effort cleanup — don't fail the test
+                    }
+                }
+            }
         }
 
         [SkippableFact]
@@ -275,8 +291,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation.Code = new CodeableConcept("test", "test");
 
             await _fhirClient.CreateAsync(observation);
-
-            await Task.Delay(5000); // Ensure resources are created
 
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
@@ -349,8 +363,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -417,8 +429,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -448,8 +458,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "active", new FhirBoolean(true));
@@ -475,8 +483,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -499,8 +505,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -526,8 +530,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on both Patient and Group
             var patchRequest = new Parameters()
@@ -560,8 +562,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -589,8 +589,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -628,7 +626,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create Group with included Patients
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
             var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
@@ -654,7 +651,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -690,7 +686,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -739,8 +734,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), (int)expectedResults.ResourcesUpdated[key], tag);
             }
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk update
 
             HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, path, queryParams);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);

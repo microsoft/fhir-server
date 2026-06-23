@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -77,12 +79,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
+        /// <param name="searchParameterOperations">The search parameter operations.</param>
         public FhirController(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            ISearchParameterOperations searchParameterOperations)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -90,10 +94,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
+            _searchParameterOperations = searchParameterOperations;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -162,9 +168,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            RawResourceElement response = await _mediator.CreateResourceAsync(
-                new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.CreateResourceAsync(
+                    new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
+                    HttpContext.RequestAborted),
+                "Create");
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -191,25 +200,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
-            UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.Send<UpsertResourceResponse>(
                 new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalCreate");
 
-            if (createResponse?.Outcome == null)
+            if (response?.Outcome == null)
             {
                 return Ok();
             }
 
             var statusCode = HttpStatusCode.Created;
             var message = Resources.ConditionalCreateResourceCreated;
-            if (createResponse.Outcome.Outcome != SaveOutcomeType.Created)
+            if (response.Outcome.Outcome != SaveOutcomeType.Created)
             {
                 statusCode = HttpStatusCode.OK;
                 message = Resources.ConditionalCreateResourceAlreadyExists;
             }
 
             return FhirResult.Create(
-                createResponse.Outcome.RawResourceElement,
+                response.Outcome.RawResourceElement,
                 statusCode,
                 true,
                 true,
@@ -233,9 +245,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
-            SaveOutcome response = await _mediator.UpsertResourceAsync(
-                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaHistory),
-                HttpContext.RequestAborted);
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.UpsertResourceAsync(
+                    new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaHistory),
+                    HttpContext.RequestAborted),
+                "Update");
 
             return ToSaveOutcomeResult(response);
         }
@@ -254,9 +269,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                resource.TypeName,
+                () => _mediator.Send<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalUpdate");
 
             SaveOutcome saveOutcome = response.Outcome;
 
@@ -419,13 +437,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
         {
-            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
-                new DeleteResourceRequest(
-                    new ResourceKey(typeParameter, idParameter),
-                    hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
-                    GetBundleResourceContext(),
-                    allowPartialSuccess),
-                HttpContext.RequestAborted);
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                typeParameter,
+                () => _mediator.DeleteResourceAsync(
+                    new DeleteResourceRequest(
+                        new ResourceKey(typeParameter, idParameter),
+                        hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
+                        GetBundleResourceContext(),
+                        allowPartialSuccess),
+                    HttpContext.RequestAborted),
+                "Delete");
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -469,14 +490,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
-            DeleteResourceResponse response = await _mediator.Send(
+            var response = await ExecuteWithSearchParameterRetryAsync(
+                typeParameter,
+                () => _mediator.Send(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
                     conditionalParameters,
                     hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
                     GetBundleResourceContext()),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted),
+                "ConditionalDelete");
 
             if (maxDeleteCount.HasValue)
             {
@@ -703,6 +727,32 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(bundleResponse);
+        }
+
+        /// <summary>
+        /// Executes an action with retry logic if the resource type is SearchParameter, and it is not a part of parallel bundle.
+        /// </summary>
+        private async Task<T> ExecuteWithSearchParameterRetryAsync<T>(string resourceType, Func<Task<T>> action, string info)
+        {
+            if (resourceType == KnownResourceTypes.SearchParameter)
+            {
+                var context = GetBundleResourceContext();
+                if (context != null && context.IsParallelBundle)
+                {
+                    return await action();
+                }
+
+                return await SearchParameterRetry.ExecuteAsync(
+                    async () =>
+                    {
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(HttpContext.RequestAborted);
+                        _fhirRequestContextAccessor.RequestContext.SetSearchParameterLastUpdated(_searchParameterOperations.SearchParamLastUpdated);
+                        return await action();
+                    },
+                    info);
+            }
+
+            return await action();
         }
 
         /// <summary>

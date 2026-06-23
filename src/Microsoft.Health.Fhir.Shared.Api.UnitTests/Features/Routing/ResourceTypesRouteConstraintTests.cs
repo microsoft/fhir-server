@@ -48,6 +48,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
         }
 
+        [Theory]
+        [InlineData("/patient/1234")]
+        [InlineData("/PATIENT/1234")]
+        [InlineData("/oBsErVaTiOn/1234")]
+        public async Task GivenAMisCasedModelRequest_WhenRouting_ThenConstraintIsNotPassed(string path)
+        {
+            // FHIR resource type names are case-sensitive. Mis-cased types must not match
+            // the typed routes so ASP.NET routing returns a framework 404 (not 405).
+            var data = await GetRouteData(HttpMethods.Get, path);
+
+            Assert.Empty(data.Routers);
+            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
+        }
+
+        [Theory]
+        [InlineData("GET")]
+        [InlineData("PUT")]
+        [InlineData("DELETE")]
+        [InlineData("POST")]
+        [InlineData("PATCH")]
+        public async Task GivenAMisCasedResourceTypeForAnyVerb_WhenRouting_ThenConstraintIsNotPassed(string verb)
+        {
+            var data = await GetRouteData(verb, "/patient");
+
+            Assert.Empty(data.Routers);
+            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
+        }
+
         protected override void AddAdditionalServices(IServiceCollection builder)
         {
             new MvcModule().Load(builder);

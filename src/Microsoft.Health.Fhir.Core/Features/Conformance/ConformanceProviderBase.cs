@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public abstract class ConformanceProviderBase : IConformanceProvider
     {
-        private readonly ConcurrentDictionary<string, bool> _evaluatedQueries = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, bool> _evaluatedQueries = new ConcurrentDictionary<string, bool>(StringComparer.Ordinal);
 
         public abstract Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken));
 

@@ -62,7 +62,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
 
-            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters); // remove read only restriction
+            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
+
+            // Temporarily add _lastUpdated to the search parameters to mimic the behavior of the processing job. Conditional search will also fail if there are no search criteria.
             var dateCurrent = new PartialDateTime(Clock.UtcNow);
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
@@ -77,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 JobType.BulkDeleteOrchestrator,
                 request.DeleteOperation,
                 request.ResourceType,
-                searchParameters,
+                request.ConditionalParameters,
                 request.ExcludedResourceTypes,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),

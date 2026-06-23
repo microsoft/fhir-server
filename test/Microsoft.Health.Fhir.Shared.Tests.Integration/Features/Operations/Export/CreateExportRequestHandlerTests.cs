@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private static readonly Uri RequestUrlWithSince = new Uri($"https://localhost/$export?_since={SinceParameter}");
 
         private readonly MockClaimsExtractor _claimsExtractor = new MockClaimsExtractor();
+        private readonly FhirStorageTestsFixture _fixture;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         public CreateExportRequestHandlerTests(FhirStorageTestsFixture fixture)
         {
+            _fixture = fixture;
             _fhirOperationDataStore = AddListener(fixture.OperationDataStore);
             _fhirStorageTestHelper = fixture.TestHelper;
 
@@ -410,6 +412,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
+        }
+
+        [Theory]
+        [InlineData(500u, 500u)] // Below server limit → preserved as-is
+        [InlineData(10000u, 10000u)] // Exactly at max → preserved
+        public async Task GivenARequestWithValidMaxCount_WhenCreatingAnExportJob_ThenMaxCountIsPreserved(uint requestedMaxCount, uint expectedMaxCount)
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }),
+                Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, maxCount: requestedMaxCount);
+            await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.NotNull(actualRecord);
+            Assert.Equal(expectedMaxCount, actualRecord.MaximumNumberOfResourcesPerQuery);
         }
 
         [Fact]

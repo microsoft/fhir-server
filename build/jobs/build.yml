@@ -35,7 +35,7 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
       testRunTitle: 'Unit Tests'
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
@@ -44,10 +44,22 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: 'Unit Tests'
+      # Disable the task's built-in (non-retry-aware) result publishing so the
+      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+  - task: PublishTestResults@2
+    displayName: 'Publish unit test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: 'Unit Tests'
+      failTaskOnFailedTests: true
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()

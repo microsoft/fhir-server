@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
         [InlineData(HttpStatusCode.RequestEntityTooLarge, true)]
         [InlineData(HttpStatusCode.UnsupportedMediaType, true)]
         [InlineData(HttpStatusCode.TooManyRequests, true)]
+        [InlineData(HttpStatusCode.RequestTimeout, true)]
         [InlineData(HttpStatusCode.InternalServerError, false)]
         [InlineData(HttpStatusCode.NotImplemented, false)]
         [InlineData(HttpStatusCode.BadGateway, false)]

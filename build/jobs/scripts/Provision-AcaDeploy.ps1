@@ -145,9 +145,9 @@ if ($DataStore -eq 'sql') {
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
         if ([string]::IsNullOrWhiteSpace($sqlElasticPoolName)) {
-            Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating standalone (GP_Gen5_4)..."
+            Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating standalone (GP_Gen5_8)..."
             Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
-                New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_4" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+                New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_8" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
             }
         } else {
             Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating in elastic pool '$sqlElasticPoolName'..."
@@ -415,6 +415,62 @@ if ($DataStore -eq 'sql') {
             -ErrorAction Stop
     }
     Write-Host "Successfully associated CosmosDB with NSP."
+}
+
+# Associate Key Vault with Network Security Perimeter
+$nspName = "nsp-$resourceGroupName"
+$kvName = $KeyVaultName.ToLowerInvariant()
+$kvAssociationName = "keyvault-$kvName-association"
+
+Write-Host "Associating Key Vault '$kvName' with Network Security Perimeter: $nspName"
+$kvNspTemplateParameters = @{
+    'nspName' = $nspName
+    'resourceName' = $kvName
+    'resourceType' = 'Microsoft.KeyVault/vaults'
+    'associationName' = $kvAssociationName
+    'accessMode' = 'Learning'
+    'nspProfile' = 'default'
+}
+
+Invoke-WithRetry -OperationName "KeyVault NSP Association Deployment" -ScriptBlock {
+    New-AzResourceGroupDeployment `
+        -ResourceGroupName $resourceGroupName `
+        -Name "$kvName-keyvault-nsp-association" `
+        -TemplateFile "$WorkingDirectory/samples/templates/nsp-resource-association.json" `
+        -TemplateParameterObject $kvNspTemplateParameters `
+        -Verbose `
+        -ErrorAction Stop
+}
+Write-Host "Successfully associated Key Vault '$kvName' with NSP."
+
+# Associate Storage Account with Network Security Perimeter (if one was created)
+$storageAccountNameOutput = $deploymentResult.Outputs.storageAccountName.Value
+if (-not [string]::IsNullOrWhiteSpace($storageAccountNameOutput)) {
+    $nspName = "nsp-$resourceGroupName"
+    $saAssociationName = "storage-$storageAccountNameOutput-association"
+
+    Write-Host "Associating Storage Account '$storageAccountNameOutput' with Network Security Perimeter: $nspName"
+    $saNspTemplateParameters = @{
+        'nspName' = $nspName
+        'resourceName' = $storageAccountNameOutput
+        'resourceType' = 'Microsoft.Storage/storageAccounts'
+        'associationName' = $saAssociationName
+        'accessMode' = 'Learning'
+        'nspProfile' = 'default'
+    }
+
+    Invoke-WithRetry -OperationName "Storage Account NSP Association Deployment" -ScriptBlock {
+        New-AzResourceGroupDeployment `
+            -ResourceGroupName $resourceGroupName `
+            -Name "$storageAccountNameOutput-storage-nsp-association" `
+            -TemplateFile "$WorkingDirectory/samples/templates/nsp-resource-association.json" `
+            -TemplateParameterObject $saNspTemplateParameters `
+            -Verbose `
+            -ErrorAction Stop
+    }
+    Write-Host "Successfully associated Storage Account '$storageAccountNameOutput' with NSP."
+} else {
+    Write-Host "No Storage Account was created (export/import disabled), skipping NSP association."
 }
 
 $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value

@@ -338,7 +338,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            resultSet.Add(readerToResult(reader));
+                            var result = readerToResult(reader);
+                            if (result != null)
+                            {
+                                resultSet.Add(result);
+                            }
                         }
 
                         results.Add(resultSet);

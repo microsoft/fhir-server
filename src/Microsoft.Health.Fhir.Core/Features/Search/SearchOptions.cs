@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
             Expression = other.Expression;
+            SearchParameters = new List<SearchParameterInfo>(other.SearchParameters);
             UnsupportedSearchParams = new List<Tuple<string, string>>(other.UnsupportedSearchParams);
             Sort = new List<(SearchParameterInfo, SortOrder)>(other.Sort);
 
@@ -55,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            ContainsIterativeInclude = other.ContainsIterativeInclude;
         }
 
         /// <summary>
@@ -141,6 +143,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public Expression Expression { get; internal set; }
 
         /// <summary>
+        /// Gets the collection of search parameters used for filtering and querying resources.
+        /// </summary>
+        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
+
+        /// <summary>
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
@@ -179,6 +186,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the search contains iterative includes.
+        /// </summary>
+        public bool ContainsIterativeInclude { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

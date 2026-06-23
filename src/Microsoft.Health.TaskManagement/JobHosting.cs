@@ -7,7 +7,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,17 +22,20 @@ namespace Microsoft.Health.JobManagement
         private static readonly ActivitySource _jobHostingActivitySource = new ActivitySource(nameof(JobHosting));
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
+        private readonly IJobMetricFactory _jobMetricFactory;
         private readonly ILogger<JobHosting> _logger;
         private DateTime _lastHeartbeatLog;
 
-        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
+        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, IJobMetricFactory jobMetricFactory, ILogger<JobHosting> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(jobFactory, nameof(jobFactory));
+            EnsureArg.IsNotNull(jobMetricFactory, nameof(jobMetricFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
             _jobFactory = jobFactory;
+            _jobMetricFactory = jobMetricFactory;
             _logger = logger;
             RunningJobsTarget = new ConcurrentDictionary<byte, int>();
         }
@@ -179,6 +181,10 @@ namespace Microsoft.Health.JobManagement
 
             using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
+            // jobMetric can be null if the job type is not registered in the JobMetricFactory.
+            // Not all types of jobs emit metrics to avoid duplicates.
+            IJobMetric jobMetric = _jobMetricFactory.Create(jobInfo);
+
             if (job?.Value == null)
             {
                 _logger.LogJobWarning(jobInfo, "Not supported job type.", jobInfo.Id);
@@ -215,6 +221,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    jobMetric?.EmitFailure(nameof(JobExecutionException));
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -240,6 +247,7 @@ namespace Microsoft.Health.JobManagement
                 else
                 {
                     _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    jobMetric?.EmitFailure(nameof(JobExecutionSoftFailureException));
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -279,6 +287,7 @@ namespace Microsoft.Health.JobManagement
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
+                jobMetric?.EmitFailure(ex.GetType().Name);
 
                 try
                 {
@@ -297,6 +306,7 @@ namespace Microsoft.Health.JobManagement
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 _logger.LogJobInformation(jobInfo, "Job completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                jobMetric?.EmitSuccess();
             }
             catch (Exception completeEx)
             {
