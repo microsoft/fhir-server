@@ -41,6 +41,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Metrics
         }
 
         [Fact]
+        public void GivenServerSideRequestForgeryExceptionInAggregateInnerExceptions_ShouldEmitReturnsFalse()
+        {
+            var exception = new AggregateException(
+                new InvalidOperationException("first"),
+                new ServerSideRequestForgeryException("blocked"));
+
+            Assert.False(_filter.ShouldEmit(exception, new DefaultHttpContext()));
+        }
+
+        [Fact]
         public void GivenServerSideRequestForgeryException_AndNullHttpContext_ShouldEmitReturnsFalse()
         {
             // The filter does not require an HttpContext — the exception type alone is sufficient.

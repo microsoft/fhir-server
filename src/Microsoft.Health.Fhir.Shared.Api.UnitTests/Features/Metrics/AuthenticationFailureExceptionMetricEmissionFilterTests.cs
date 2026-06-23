@@ -49,6 +49,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Metrics
             Assert.False(_filter.ShouldEmit(exception, new DefaultHttpContext()));
         }
 
+        [Fact]
+        public void GivenSecurityTokenExceptionInAggregateInnerExceptions_ShouldEmitReturnsFalse()
+        {
+            var exception = new AggregateException(
+                new InvalidOperationException("first"),
+                new SecurityTokenException("expired"));
+
+            Assert.False(_filter.ShouldEmit(exception, new DefaultHttpContext()));
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.OK)]
         [InlineData(HttpStatusCode.Unauthorized)]

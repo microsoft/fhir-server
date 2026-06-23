@@ -93,14 +93,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
         }
 
         /// <summary>
-        /// Returns whether the given exception (or any exception in its inner-exception chain) represents an
-        /// authentication failure. Override in a subclass to recognize additional authentication-related
-        /// exception types defined by a downstream consumer.
+        /// Returns whether the given exception (or any exception in its inner-exception chain, including
+        /// flattened <see cref="AggregateException"/> branches) represents an authentication failure.
+        /// Override in a subclass to recognize additional authentication-related exception types defined by
+        /// a downstream consumer.
         /// </summary>
         /// <param name="exception">The exception under consideration. Never <c>null</c>.</param>
         /// <returns><c>true</c> if the exception is (or wraps) an authentication failure.</returns>
         protected virtual bool IsAuthenticationException(Exception exception)
         {
+            if (exception is AggregateException aggregateException)
+            {
+                foreach (Exception innerException in aggregateException.Flatten().InnerExceptions)
+                {
+                    if (IsAuthenticationException(innerException))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             for (Exception current = exception; current != null; current = current.InnerException)
             {
                 if (current is SecurityTokenException)

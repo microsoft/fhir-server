@@ -87,14 +87,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
         }
 
         /// <summary>
-        /// Returns whether the given exception (or any exception in its inner-exception chain) represents a
-        /// security-abuse signal that should not produce a per-event failure metric. Override in a subclass to
-        /// recognize additional abuse-related exception types defined by a downstream consumer.
+        /// Returns whether the given exception (or any exception in its inner-exception chain, including
+        /// flattened <see cref="AggregateException"/> branches) represents a security-abuse signal that should
+        /// not produce a per-event failure metric. Override in a subclass to recognize additional
+        /// abuse-related exception types defined by a downstream consumer.
         /// </summary>
         /// <param name="exception">The exception under consideration. Never <c>null</c>.</param>
         /// <returns><c>true</c> if the exception is (or wraps) a security-abuse exception.</returns>
         protected virtual bool IsSecurityAbuseException(Exception exception)
         {
+            if (exception is AggregateException aggregateException)
+            {
+                foreach (Exception innerException in aggregateException.Flatten().InnerExceptions)
+                {
+                    if (IsSecurityAbuseException(innerException))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             for (Exception current = exception; current != null; current = current.InnerException)
             {
                 if (current is ServerSideRequestForgeryException)
