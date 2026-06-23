@@ -407,29 +407,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private ResourceWrapperOperation CreateDeleteResourceWrapperOperation(ResourceKey resourceKey)
         {
-            var lastModified = Clock.UtcNow;
             var json = new JObject
             {
                 ["resourceType"] = resourceKey.ResourceType,
                 ["id"] = resourceKey.Id,
-                ["meta"] = new JObject { ["lastUpdated"] = lastModified.UtcDateTime },
+                ["meta"] = new JObject { ["lastUpdated"] = Clock.UtcNow.UtcDateTime },
             };
 
             var rawResource = new RawResource(json.ToString(Newtonsoft.Json.Formatting.None), FhirResourceFormat.Json, isMetaSet: false);
-            var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceKey.ResourceType);
+            var typedElement = rawResource.ToITypedElement(_modelInfoProvider);
+            var resourceElement = typedElement.ToResourceElement();
 
-            var wrapper = new ResourceWrapper(
-                resourceId: resourceKey.Id,
-                versionId: "1",
-                resourceTypeName: resourceKey.ResourceType,
-                rawResource: rawResource,
-                request: new ResourceRequest("DELETE", null),
-                lastModified: lastModified,
-                deleted: true,
-                searchIndices: [],
-                compartmentIndices: new CompartmentIndices(),
-                lastModifiedClaims: [],
-                searchParameterHash: searchParamHash);
+            var wrapper = _resourceWrapperFactory.Create(resourceElement, deleted: true, keepMeta: false, keepVersion: false);
 
             return new ResourceWrapperOperation(
                 wrapper,
