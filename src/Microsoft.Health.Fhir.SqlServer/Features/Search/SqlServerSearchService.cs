@@ -2554,12 +2554,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                     else if (tableExpression.Kind == SearchParamTableExpressionKind.NotExists)
                     {
-                        ProcessNotExistsForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, collected, out hasResourceSurrogateId, logger);
+                        ProcessNotExistsForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, collected, out hasResourceSurrogateId);
                     }
 
                     // Emit stats rows
                     foreach (var (table, resourceTypeId, searchParamId) in collected)
                     {
+                        // For a NotExists (:missing=true) predicate that carries a ResourceSurrogateId range
+                        // constraint, create an additional ResourceSurrogateId filtered stat. This is emitted
+                        // independently of the value-key columns so it is still created for tables that have no
+                        // value columns (e.g. ReferenceSearchParam, UriSearchParam), which is exactly where the
+                        // anti-join on ResourceSurrogateId benefits most. hasResourceSurrogateId is only ever set
+                        // in the NotExists branch, so this never adds stats for Normal/Union searches.
+                        if (hasResourceSurrogateId)
+                        {
+                            await Create(table, "ResourceSurrogateId", resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                        }
+
                         var columns = GetKeyColumns(table);
                         if (columns.Count == 0)
                         {
@@ -2569,12 +2580,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         foreach (var column in columns)
                         {
                             await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
-                        }
-
-                        // For NotExists with ResourceSurrogateId range constraint, create an additional filtered stat
-                        if (hasResourceSurrogateId)
-                        {
-                            await Create(table, "ResourceSurrogateId", resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
                         }
                     }
                 }
@@ -2614,8 +2619,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 SearchParamTableExpressionQueryGenerator defaultGenerator,
                 SqlServerFhirModel model,
                 List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
-                out bool hasResourceSurrogateId,
-                ILogger logger)
+                out bool hasResourceSurrogateId)
             {
                 hasResourceSurrogateId = false;
 
@@ -2650,18 +2654,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return;
                 }
 
-                // Fall back to base resource types if none found in predicate
-                if (resourceTypeIds.Count == 0 && missingParam.Parameter.BaseResourceTypes?.Count > 0)
-                {
-                    foreach (var baseType in missingParam.Parameter.BaseResourceTypes)
-                    {
-                        if (model.TryGetResourceTypeId(baseType, out var rtId))
-                        {
-                            resourceTypeIds.Add(rtId);
-                        }
-                    }
-                }
-
+                // Require a concrete resource-type constraint that came from the predicate itself. We
+                // intentionally do NOT fall back to the search parameter's BaseResourceTypes here: for a typed
+                // :missing search (e.g. Observation?_tag:missing=true) the resource type is present in the
+                // NotExists predicate as a sibling, so it is already captured above. An untyped cross-type
+                // :missing search (e.g. ?_tag:missing=true) has no concrete type and a BaseResourceTypes
+                // fallback would fan out a stat for every base resource type, so we skip it instead.
                 if (resourceTypeIds.Count == 0)
                 {
                     return;
