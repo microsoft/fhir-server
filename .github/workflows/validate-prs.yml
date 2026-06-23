@@ -20,7 +20,6 @@ permissions:
 env:
   LABELS: ${{ join( github.event.pull_request.labels.*.name, ' ' ) }}
   TITLE: ${{ github.event.pull_request.title }}
-  NO_MILESTONE: ${{ github.event.pull_request.milestone == null }}
   AUTHOR: ${{ github.event.pull_request.user.login}}
 
 jobs:
@@ -45,6 +44,11 @@ jobs:
             const body = context.payload.pull_request.body;
             const labels = process.env.LABELS;
             const author = process.env.AUTHOR;
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
 
             const excludeAuthors = ["dependabot[bot]"];
             
@@ -59,7 +63,7 @@ jobs:
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
-            if(process.env.NO_MILESTONE === 'true') {
+            if(pullRequest.milestone == null) {
               errors += '- Add a milestone to the PR for the sprint that it is merged (i.e. add S47). \n';
             }
 
