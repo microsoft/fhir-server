@@ -16,7 +16,7 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 - **XML doc** on all public members.
 - **One blank line** between `namespace` and `class` declarations.
 - **Dependency injection** and interface-based design throughout — never `new` a service directly.
-- **MediatR** Request/Response/Handler pattern for all business operations.
+- **Medino** Request/Response/Handler pattern for all business operations.
 - **FHIR compliance first** — any behavior change must be validated against the HL7 FHIR specification.
 
 ---

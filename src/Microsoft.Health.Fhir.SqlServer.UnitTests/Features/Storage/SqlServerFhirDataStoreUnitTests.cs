@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
+    [Collection(ModelInfoProviderCollection.Name)]
     public class SqlServerFhirDataStoreUnitTests
     {
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()

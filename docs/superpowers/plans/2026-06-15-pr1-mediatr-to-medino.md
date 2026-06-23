@@ -1,12 +1,12 @@
-# PR 1 — MediatR → Medino Migration Implementation Plan
+# PR 1 — MediatR → Medino + Shared 11.x Migration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace MediatR 12.5.0 with the MIT-licensed Medino 3.0.3 across the FHIR Server repository, with zero behavioral change, on the current `net9.0;net8.0` toolchain.
+**Goal:** Replace MediatR 12.5.0 with the MIT-licensed Medino 3.0.3 and move the Microsoft.Health shared package line to 11.x across the FHIR Server repository, with zero behavioral change, on the current `net9.0;net8.0` toolchain.
 
 **Architecture:** Compiler-driven big-bang. Swap the NuGet package, swap the `using` namespace, then let the compiler flag every call/handler/method site that needs a deterministic rename (`Send`→`SendAsync`, `Publish`→`PublishAsync`, `Handle`→`HandleAsync`, `Execute`→`ExecuteAsync`, `next(ct)`→`next()`). Medino has no `IRequestPreProcessor`, so the three FHIR validators are re-expressed as `IPipelineBehavior<TRequest, TResponse>` that run their check then call `await next()`. Medino runs exception actions natively, so the two explicit exception-processor behavior registrations are deleted, not migrated.
 
-**Tech Stack:** C# / .NET (net9.0;net8.0), Medino 3.0.3 + Medino.Extensions.DependencyInjection 3.0.3, FluentValidation, Microsoft.Testing.Platform (MTP) xUnit, Central Package Management (`Directory.Packages.props`).
+**Tech Stack:** C# / .NET (net9.0;net8.0), Medino 3.0.3 + Medino.Extensions.DependencyInjection 3.0.3, Microsoft.Health shared packages 11.0.111, FluentValidation, Microsoft.Testing.Platform (MTP) xUnit, Central Package Management (`Directory.Packages.props`).
 
 **Source of truth:** `docs/superpowers/specs/2026-06-15-dotnet10-upgrade-design.md` §4. ADO Task #195647.
 
@@ -37,7 +37,7 @@ Read this once before starting; every task below depends on it.
 
 | File | Change |
 |------|--------|
-| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3 |
+| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3; bump Microsoft.Health shared packages to 11.0.111 and aligned transitive pins |
 | ~230 `*.cs` with `using MediatR…` | Namespace swap to `using Medino;` (scripted) |
 | `src/Microsoft.Health.Fhir.Core/Messages/Bundle/BundleRequest.cs` | Remove redundant non-generic `, IRequest` |
 | `src/Microsoft.Health.Fhir.Core/Messages/Create/CreateResourceRequest.cs` | Remove redundant non-generic `, IRequest` |

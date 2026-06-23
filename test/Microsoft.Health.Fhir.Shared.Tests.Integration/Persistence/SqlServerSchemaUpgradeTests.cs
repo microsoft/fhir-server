@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
-            var mediator = Substitute.For<MediatR.IMediator>();
+            var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
                 defaultSqlConnectionWrapperFactory,

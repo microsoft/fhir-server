@@ -17,26 +17,27 @@ Upgrade the FHIR Server repository to **.NET 10** and replace **MediatR** (comme
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Target frameworks | **`net10.0;net8.0`** (drop `net9.0`) | net8.0 stays as the downlevel floor. The fhir-paas RP consumes `Microsoft.Health.Fhir.*` NuGet packages from its `LatestVersion` (net9.0 today) projects and resolves the net8.0 asset via downlevel. A net10-only build would break those consumers. |
-| Sequencing | **PR 1 = Medino, PR 2 = .NET 10** | The ~210-file Medino refactor is de-risked on the current toolchain before the framework bump. Each PR has one clear theme. |
+| Sequencing | **PR 1 = Medino + shared 11.x, PR 2 = .NET 10** | The mediator and shared-package compatibility work is de-risked on the current toolchain before the framework bump. PR 2 can then focus on TFMs, SDK, pipelines, Docker, and dev container changes. |
 | Medino execution | **Compiler-driven big-bang** in PR 1 | The package swap makes the compiler flag every call/handler site needing a rename, turning the migration into a deterministic checklist. |
-| Shared packages | **Bump `HealthcareSharedPackageVersion` 10.0.68 → 11.0.108** in PR 2 | 11.x is the .NET 10 release line; its assets target net10/net8 and so cannot land in PR 1's net9 floor. |
+| Shared packages | **Bump `HealthcareSharedPackageVersion` 10.0.68 → 11.0.111** in PR 1 | Shared 11.x removes the `Microsoft.Health.SqlServer` MediatR schema-upgrade boundary, allowing PR 1 to eliminate active MediatR references while still building the current `net9.0;net8.0` TFMs. |
 | Scope | **Tight** | No `.sln → .slnx` migration and no StyleCop removal, even though the dicom precedent included both. |
 
 ## 3. Why Medino is self-contained
 
 - fhir-server uses **no streaming** (`IStreamRequestHandler`) and **no MediatR `Unit`** type — the two notable Medino feature gaps do not apply.
-- The shared `Microsoft.Health.*` core/abstractions/api packages do **not** reference MediatR, so the mediator swap is entirely contained within this repo.
+- Shared `Microsoft.Health.SqlServer` 10.x exposed a MediatR schema-upgrade boundary; moving to shared 11.x in PR 1 removes that bridge and keeps active mediation on Medino.
 - Medino has **no `IRequestPreProcessor`/`IRequestPostProcessor`** — the only non-mechanical rework (see PR 1, §4.3).
 
 ---
 
-## 4. PR 1 — MediatR → Medino migration
+## 4. PR 1 — MediatR → Medino migration + shared 11.x
 
 Performed on the **current `net9.0;net8.0`** toolchain. No framework change.
 
 ### 4.1 Package swap (`Directory.Packages.props`)
 - Remove `MediatR` `12.5.0`.
 - Add `Medino` `3.0.3` and `Medino.Extensions.DependencyInjection` `3.0.3` (latest stable on nuget.org, verified).
+- Bump `HealthcareSharedPackageVersion` to `11.0.111` and align required transitive pins (`DotNetSdkPackageVersion` `10.0.9`, `Azure.Identity` `1.21.0`, `Microsoft.Data.SqlClient` `7.0.1`) so restore has no package downgrades.
 
 ### 4.2 Mechanical renames (~210 files, compiler-verified)
 - `using MediatR;` / `using MediatR.Pipeline;` → `using Medino;`.
@@ -79,9 +80,8 @@ Lands **after** PR 1 is merged, so the diff is purely framework/tooling with no 
 - `Directory.Build.props`: `<TargetFrameworks>net9.0;net8.0</TargetFrameworks>` → **`net10.0;net8.0`**.
 
 ### 5.2 Packages (`Directory.Packages.props`)
-- `DotNetSdkPackageVersion` `9.0.15` → **`10.0.x`** (drives ~25 `Microsoft.Extensions.*` / `System.*` pins).
 - ASP.NET `<Choose>` block: replace the `net9.0 → 9.0.15` arm with **`net10.0 → 10.0.x`**; keep the `net8.0 → 8.0.26` arm.
-- **`HealthcareSharedPackageVersion` `10.0.68` → `11.0.108`.** Major bump; budget for breaking-change fixes across `Microsoft.Health.Abstractions`, `Api`, `Client`, `Core`, `Encryption`, `Extensions.BuildTimeCodeGenerator`, `Extensions.DependencyInjection`, `SqlServer`, `SqlServer.Api`, `Test.Utilities`, `Tools.Sql.Tasks`.
+- Shared `Microsoft.Health.*` and required transitive `Microsoft.Extensions.*` / `System.*` pins are already on the 11.x / 10.0.x line from PR 1; only adjust patch versions if the .NET 10 implementation requires newer servicing builds.
 - **No MISE bump** — `Microsoft.Identity.ServiceEssentials` is not referenced by fhir-server (the dicom cert-fix step does not apply).
 - `Microsoft.Identity.Web` (`2.13.3`) left as-is unless the build requires otherwise.
 

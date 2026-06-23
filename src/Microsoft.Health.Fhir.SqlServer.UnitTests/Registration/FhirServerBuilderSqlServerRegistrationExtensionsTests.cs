@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
     public class FhirServerBuilderSqlServerRegistrationExtensionsTests
     {
         [Fact]
-        public void GivenSqlServerBuilder_WhenAddingSqlServer_ThenSchemaUpgradeMediatorIsRegistered()
+        public void GivenSqlServerBuilder_WhenAddingSqlServer_ThenSchemaUpgradeHandlerIsRegistered()
         {
             var services = new ServiceCollection();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
 
             builder.AddSqlServer(_ => { });
 
-            Assert.Contains(services, service => service.ServiceType == typeof(IMediator));
             Assert.Contains(
                 services,
                 service =>

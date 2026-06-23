@@ -17,6 +17,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
     {
         public ModelInfoProviderFixture()
         {
+            SetCompartmentProvider();
+        }
+
+        public void SetCompartmentProvider()
+        {
             var provider = MockModelInfoProviderBuilder
                 .Create(FhirSpecification.R4)
                 .AddKnownTypes("Encounter", "Device", "Practitioner", "RelatedPerson", "Claim", "Appointment", "Condition")
