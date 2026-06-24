@@ -304,6 +304,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
             yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
             yield return new object[] { VLatest.UriSearchParam.TableName, VLatest.UriSearchParam.Uri.Metadata.Name };
+            yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name };
         }
 
         [Theory]
@@ -323,7 +324,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             yield return new object[] { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name, VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name };
             yield return new object[] { VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.Name };
             yield return new object[] { VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.LowValue.Metadata.Name, VLatest.QuantitySearchParam.HighValue.Metadata.Name };
-            yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name };
         }
 
         [Theory]

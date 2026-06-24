@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
             short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
             short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+            short patientTypeId = sqlSearchService.Model.GetResourceTypeId("Patient");
 
             // Capture stats before the search so we can assert on the delta.
             var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
@@ -119,37 +120,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            // Assert — filtered statistics must be created for the ReferenceResourceId and ReferenceResourceTypeId columns
+            // Assert — a filtered stat on ReferenceResourceId with ReferenceResourceTypeId in the filter
             var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
             var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
 
-            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s, string columnName) =>
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
                 s.TableName == VLatest.ReferenceSearchParam.TableName
-                && s.ColumnName == columnName
+                && s.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name
                 && s.ResourceTypeId == resourceTypeId
-                && s.SearchParamId == searchParamId;
+                && s.SearchParamId == searchParamId
+                && s.ReferenceResourceTypeId == patientTypeId;
 
             // Cache
             Assert.True(
-                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
-                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
-                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceId.");
-
-            Assert.True(
-                cacheAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
-                > cacheBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
-                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceTypeId.");
+                cacheAfter.Count(MatchesStat) > cacheBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceId with ReferenceResourceTypeId filter.");
 
             // Database
             Assert.True(
-                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name))
-                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)),
-                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceId.");
-
-            Assert.True(
-                databaseAfter.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name))
-                > databaseBefore.Count(s => MatchesStat(s, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name)),
-                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceTypeId.");
+                databaseAfter.Count(MatchesStat) > databaseBefore.Count(MatchesStat),
+                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceId with ReferenceResourceTypeId filter.");
         }
 
         [Fact]
@@ -169,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
             short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
 
-            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId) s) =>
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
                 s.TableName == VLatest.UriSearchParam.TableName
                 && s.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
                 && s.ResourceTypeId == resourceTypeId
@@ -220,7 +210,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         b.TableName == s.TableName
                         && b.ColumnName == s.ColumnName
                         && b.ResourceTypeId == s.ResourceTypeId
-                        && b.SearchParamId == s.SearchParamId))
+                        && b.SearchParamId == s.SearchParamId
+                        && b.ReferenceResourceTypeId == s.ReferenceResourceTypeId))
                 .ToList();
 
             Assert.Empty(newReferenceStats);

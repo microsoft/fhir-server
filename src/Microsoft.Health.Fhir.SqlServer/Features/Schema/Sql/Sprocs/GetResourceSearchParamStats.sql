@@ -16,7 +16,7 @@ BEGIN TRY
       AND S.name LIKE 'ST[_]%'
       AND (T.name LIKE @Table OR @Table IS NULL)
       AND (S.name LIKE '%ResourceTypeId[_]'+convert(varchar,@ResourceTypeId)+'[_]%' OR @ResourceTypeId IS NULL)
-      AND (S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId) OR @SearchParamId IS NULL)
+      AND (S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId)+'%' OR @SearchParamId IS NULL)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
 END TRY
