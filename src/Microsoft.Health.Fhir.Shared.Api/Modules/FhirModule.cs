@@ -176,27 +176,23 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf();
 
-            // Explicitly register all closed generic IPipelineBehavior interfaces for ProvenanceHeaderBehavior
-            // to ensure Medino's DI container properly resolves them.
-            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
-            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
-            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
-            services.AddScoped(provider => (IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProvenanceHeaderBehavior>());
+            services.AddScoped<IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Create.CreateResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest>>();
 
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf();
 
-            // Explicitly register all closed generic IPipelineBehavior interfaces for ProfileResourcesBehaviour
-            // to ensure Medino's DI container properly resolves them.
-            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
-            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
-            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
-            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
-            services.AddSingleton(provider => (IPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>)provider.GetRequiredService<ProfileResourcesBehaviour>());
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>>();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

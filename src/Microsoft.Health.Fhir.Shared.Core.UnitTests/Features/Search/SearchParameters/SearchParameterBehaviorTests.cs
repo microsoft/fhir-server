@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -68,6 +69,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
+        }
+
+        [Fact]
+        public void GivenCreateOrUpdateSearchParameterBehavior_WhenMedinoLocatesHandleAsync_ThenHandleMethodIsUnambiguous()
+        {
+            MethodInfo createHandleAsyncMethod = null;
+            MethodInfo upsertHandleAsyncMethod = null;
+
+            var createException = Record.Exception(() => createHandleAsyncMethod = typeof(CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>).GetMethod("HandleAsync"));
+            var upsertException = Record.Exception(() => upsertHandleAsyncMethod = typeof(CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>).GetMethod("HandleAsync"));
+
+            Assert.Null(createException);
+            Assert.Null(upsertException);
+            Assert.NotNull(createHandleAsyncMethod);
+            Assert.NotNull(upsertHandleAsyncMethod);
         }
 
         [Fact]

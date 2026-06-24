@@ -19,12 +19,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
-    public sealed class ProfileResourcesBehaviour :
-        IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
+    public sealed class ProfileResourcesBehaviour
     {
         private IAuthorizationService<DataActions> _authorizationService;
         private IProvideProfilesForValidation _profilesResolver;
@@ -39,21 +34,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         }
 
         public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
+            => await HandleCoreAsync(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
+            => await HandleCoreAsync(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
+            => await HandleCoreAsync(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
+            => await HandleCoreAsync(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<DeleteResourceResponse> HandleAsync(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
+            => await HandleCoreAsync(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        private async Task<TResponse> GenericHandle<TResponse>(
+        internal async Task<TResponse> HandleCoreAsync<TResponse>(
             string resourceType,
             bool isBundleInnerRequest,
             RequestHandlerDelegate<TResponse> next,

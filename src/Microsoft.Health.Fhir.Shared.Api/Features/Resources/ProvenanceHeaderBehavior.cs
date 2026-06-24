@@ -23,11 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
     /// Intercepts create/update requests and checks presence of "X-Provenance" header.
     /// If header present it proceed normal work with target request and then create provenance object with provenance.target equal to that object.
     /// </summary>
-    public sealed class ProvenanceHeaderBehavior :
-        IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public sealed class ProvenanceHeaderBehavior
     {
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -47,18 +43,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         }
 
         public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+            => await HandleCoreAsync(next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+            => await HandleCoreAsync(next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+            => await HandleCoreAsync(next, cancellationToken);
 
         public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+            => await HandleCoreAsync(next, cancellationToken);
 
-        private async Task<UpsertResourceResponse> GenericHandle(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        internal async Task<UpsertResourceResponse> HandleCoreAsync(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (_state.Intercepted)
             {

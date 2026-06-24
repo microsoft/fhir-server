@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Reflection;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Resources;
@@ -39,21 +40,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Modules
             fhirModule.Load(services);
 
             // Act & Assert - verify each closed generic interface is registered as a service descriptor
-            var createResourceBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(createResourceBehavior);
-
-            var upsertResourceBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(upsertResourceBehavior);
-
-            var conditionalCreateBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(conditionalCreateBehavior);
-
-            var conditionalUpsertBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(conditionalUpsertBehavior);
+            AssertPipelineBehaviorRegistered<CreateResourceRequest, UpsertResourceResponse, ProvenanceHeaderPipelineBehavior<CreateResourceRequest>>(services);
+            AssertPipelineBehaviorRegistered<UpsertResourceRequest, UpsertResourceResponse, ProvenanceHeaderPipelineBehavior<UpsertResourceRequest>>(services);
+            AssertPipelineBehaviorRegistered<ConditionalCreateResourceRequest, UpsertResourceResponse, ProvenanceHeaderPipelineBehavior<ConditionalCreateResourceRequest>>(services);
+            AssertPipelineBehaviorRegistered<ConditionalUpsertResourceRequest, UpsertResourceResponse, ProvenanceHeaderPipelineBehavior<ConditionalUpsertResourceRequest>>(services);
         }
 
         /// <summary>
@@ -72,22 +62,62 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Modules
             fhirModule.Load(services);
 
             // Act & Assert - verify DeleteResourceResponse is registered to ProfileResourcesBehaviour
-            var deleteBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>));
-            Assert.NotNull(deleteBehavior);
+            AssertPipelineBehaviorRegistered<DeleteResourceRequest, DeleteResourceResponse, ProfileResourcesPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>>(services);
 
             // Verify the remaining closed generic interfaces for ProfileResourcesBehaviour are also registered
-            var upsertBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(upsertBehavior);
+            AssertPipelineBehaviorRegistered<CreateResourceRequest, UpsertResourceResponse, ProfileResourcesPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>>(services);
+            AssertPipelineBehaviorRegistered<UpsertResourceRequest, UpsertResourceResponse, ProfileResourcesPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>>(services);
+            AssertPipelineBehaviorRegistered<ConditionalCreateResourceRequest, UpsertResourceResponse, ProfileResourcesPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>>(services);
+            AssertPipelineBehaviorRegistered<ConditionalUpsertResourceRequest, UpsertResourceResponse, ProfileResourcesPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>>(services);
+        }
 
-            var conditionalCreateBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(conditionalCreateBehavior);
+        [Fact]
+        public void RegisteredPipelineBehaviors_WhenMedinoLocatesHandleAsync_ThenHandleMethodsAreUnambiguous()
+        {
+            var services = CreateServiceCollection();
+            var closedPipelineBehaviorDescriptors = services
+                .Where(serviceDescriptor =>
+                    serviceDescriptor.ServiceType.IsGenericType &&
+                    serviceDescriptor.ServiceType.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>) &&
+                    !serviceDescriptor.ServiceType.ContainsGenericParameters)
+                .ToList();
 
-            var conditionalUpsertBehavior = services.FirstOrDefault(sd =>
-                sd.ServiceType == typeof(IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>));
-            Assert.NotNull(conditionalUpsertBehavior);
+            Assert.NotEmpty(closedPipelineBehaviorDescriptors);
+
+            foreach (var descriptor in closedPipelineBehaviorDescriptors)
+            {
+                var implementationType = descriptor.ImplementationType ?? descriptor.ImplementationInstance?.GetType();
+
+                Assert.NotNull(implementationType);
+
+                MethodInfo handleAsyncMethod = null;
+
+                var exception = Record.Exception(() => handleAsyncMethod = implementationType.GetMethod("HandleAsync"));
+
+                Assert.Null(exception);
+                Assert.NotNull(handleAsyncMethod);
+            }
+        }
+
+        private static IServiceCollection CreateServiceCollection()
+        {
+            var services = new ServiceCollection();
+            var module = new MediationModule();
+            module.Load(services);
+
+            var fhirModule = new FhirModule();
+            fhirModule.Load(services);
+
+            return services;
+        }
+
+        private static void AssertPipelineBehaviorRegistered<TRequest, TResponse, TImplementation>(IServiceCollection services)
+        {
+            Assert.Contains(
+                services,
+                descriptor =>
+                    descriptor.ServiceType == typeof(IPipelineBehavior<TRequest, TResponse>) &&
+                    descriptor.ImplementationType == typeof(TImplementation));
         }
     }
 }
