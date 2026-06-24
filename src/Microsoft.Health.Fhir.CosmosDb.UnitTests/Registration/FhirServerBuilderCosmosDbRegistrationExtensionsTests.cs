@@ -5,45 +5,25 @@
 
 using System;
 using System.Linq;
-using Medino;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.SqlServer.Features.Schema.Messages.Notifications;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
+namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class FhirServerBuilderSqlServerRegistrationExtensionsTests
+    public class FhirServerBuilderCosmosDbRegistrationExtensionsTests
     {
         [Fact]
-        public void GivenSqlServerBuilder_WhenAddingSqlServer_ThenSchemaUpgradeHandlerIsRegistered()
-        {
-            var services = new ServiceCollection();
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
-
-            var builder = new TestFhirServerBuilder(services);
-
-            builder.AddSqlServer(_ => { });
-
-            Assert.Contains(
-                services,
-                service =>
-                    service.ServiceType == typeof(INotificationHandler<SchemaUpgradedNotification>) &&
-                    service.ImplementationType == typeof(SchemaUpgradedHandler));
-        }
-
-        [Fact]
-        public void GivenCoreJobsAlreadyRegistered_WhenAddingSqlServer_ThenCoreJobsAreNotRegisteredAgain()
+        public void GivenCoreJobsAlreadyRegistered_WhenAddingCosmosDb_ThenCoreJobsAreNotRegisteredAgain()
         {
             var services = new ServiceCollection();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
@@ -51,13 +31,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
 
             var builder = new TestFhirServerBuilder(services);
 
-            builder.AddSqlServer(_ => { });
+            builder.AddCosmosDb();
 
             int coreJobCount = CountJobTypesInSameAssemblyAs<BulkUpdateOrchestratorJob>();
-            int sqlServerJobCount = CountJobTypesInSameAssemblyAs<ImportOrchestratorJob>();
+            int cosmosJobCount = CountJobTypesInSameAssemblyAs<CosmosExportOrchestratorJob>();
             int registeredJobFactoryCount = services.Count(service => service.ServiceType == typeof(Func<IJob>));
 
-            Assert.Equal(coreJobCount + sqlServerJobCount, registeredJobFactoryCount);
+            Assert.Equal(coreJobCount + cosmosJobCount, registeredJobFactoryCount);
         }
 
         private static void RegisterCoreJobs(IServiceCollection services)

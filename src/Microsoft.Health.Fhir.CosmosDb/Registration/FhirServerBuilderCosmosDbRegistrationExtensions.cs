@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
@@ -279,18 +278,13 @@ namespace Microsoft.Extensions.DependencyInjection
                .Transient()
                .AsSelf();
 
-            // Register all IJob implementations from both CosmosDb and Core assemblies
+            // Register Cosmos-specific IJob implementations. Core jobs are registered once by Startup when task hosting is enabled.
             IEnumerable<TypeRegistrationBuilder> cosmosJobs = services.TypesInSameAssemblyAs<CosmosExportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
 
-            IEnumerable<TypeRegistrationBuilder> coreJobs = services.TypesInSameAssemblyAs<BulkUpdateOrchestratorJob>()
-                .AssignableTo<IJob>()
-                .Transient()
-                .AsSelf();
-
-            foreach (TypeRegistrationBuilder job in cosmosJobs.Concat(coreJobs))
+            foreach (TypeRegistrationBuilder job in cosmosJobs)
             {
                 job.AsDelegate<Func<IJob>>();
             }

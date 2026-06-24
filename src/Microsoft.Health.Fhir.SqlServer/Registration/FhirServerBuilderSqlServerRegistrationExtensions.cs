@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
@@ -224,18 +223,13 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
-            // Register all IJob implementations from both SqlServer and Core assemblies
+            // Register SQL-specific IJob implementations. Core jobs are registered once by Startup when task hosting is enabled.
             IEnumerable<TypeRegistrationBuilder> sqlServerJobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
 
-            IEnumerable<TypeRegistrationBuilder> coreJobs = services.TypesInSameAssemblyAs<BulkUpdateOrchestratorJob>()
-                .AssignableTo<IJob>()
-                .Transient()
-                .AsSelf();
-
-            foreach (TypeRegistrationBuilder job in sqlServerJobs.Concat(coreJobs))
+            foreach (TypeRegistrationBuilder job in sqlServerJobs)
             {
                 job.AsDelegate<Func<IJob>>();
             }
