@@ -9,6 +9,18 @@ parameters:
 
 steps:
 - task: UseDotNet@2
+  displayName: 'Use .NET 8 runtime'
+  inputs:
+    packageType: 'runtime'
+    version: '8.0.28'
+
+- task: UseDotNet@2
+  displayName: 'Use .NET 9 runtime'
+  inputs:
+    packageType: 'runtime'
+    version: '9.0.17'
+
+- task: UseDotNet@2
   displayName: 'Use .NET SDK'
   inputs:
     useGlobalJson: true
