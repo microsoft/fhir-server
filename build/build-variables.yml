@@ -37,6 +37,7 @@ variables:
   #-----------------------------------------------------------------------------------------
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'oss-service-connection-with-workloadidentity'
+  DefaultWindowsImage: 'VanillaWindows2022-1ESPT-v2'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
