@@ -748,5 +748,6 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ## Acceptance criteria (spec §4.6)
 
 - [ ] Solution builds clean on `net9.0;net8.0` with `TreatWarningsAsErrors=true` and **no remaining `MediatR` references** (`rg MediatR` → empty).
+- [ ] `global.json` selects the Microsoft.Testing.Platform test runner, and ADO test tasks publish MTP-generated TRX files explicitly instead of using DotNetCoreCLI's VSTest logger injection.
 - [ ] All unit + integration tests green on both frameworks.
 - [ ] Validation pre-processor behavior preserved (validation test suite green).
