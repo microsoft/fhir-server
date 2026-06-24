@@ -40,7 +40,7 @@ Read this once before starting; every task below depends on it.
 | `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3; bump Microsoft.Health shared packages to 11.0.111 and aligned transitive pins |
 | `global.json` | Use .NET SDK 10.0.301 so `Microsoft.Health.Tools.Sql.Tasks` 11.x can load its `net10.0` MSBuild task while still targeting `net9.0;net8.0` |
 | ADO build templates | Install .NET 8.0.422 and/or 9.0.315 SDK bands before SDK 10 so target-specific generators and MTP test executables can find the matching `Microsoft.NETCore.App` and `Microsoft.AspNetCore.App` 8.0.28/9.0.17 shared frameworks |
-| `build/docker/Dockerfile` | Use the .NET 10 SDK build image for SQL script generation; runtime image and publish TFM remain net9 until PR 2 |
+| `build/docker/Dockerfile` | Use the .NET 10 SDK build image for SQL script generation; keep publishing net9 for PR 1, but move the runtime image to `aspnet:9.0.17-azurelinux3.0` so deployed apps can resolve the .NET 9.0.17 shared framework |
 | ~230 `*.cs` with `using MediatR…` | Namespace swap to `using Medino;` (scripted) |
 | `src/Microsoft.Health.Fhir.Core/Messages/Bundle/BundleRequest.cs` | Remove redundant non-generic `, IRequest` |
 | `src/Microsoft.Health.Fhir.Core/Messages/Create/CreateResourceRequest.cs` | Remove redundant non-generic `, IRequest` |

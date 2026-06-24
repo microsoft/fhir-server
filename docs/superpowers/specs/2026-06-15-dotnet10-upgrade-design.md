@@ -93,7 +93,7 @@ Lands **after** PR 1 is merged, so the diff is purely framework/tooling with no 
 - `build/ci-pipeline.yml` + `build/pr-pipeline.yml`: rename job `Windows_dotnet9 → Windows_dotnet10` (cosmetic); the `Linux_dotnet8` job stays for downlevel coverage.
 - `build/jobs/analyze.yml` (~L113): `-f net9.0` → `-f net10.0`.
 - `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml` (~L35): `-f net8.0` **stays**.
-- `build/docker/Dockerfile`: SDK build image is already `sdk:10.0.301-azurelinux3.0` from PR 1; PR 2 changes `aspnet:9.0.16-azurelinux3.0` → `aspnet:10.0.x-azurelinux3.0` and `-f net9.0` → `-f net10.0`.
+- `build/docker/Dockerfile`: SDK build image is already `sdk:10.0.301-azurelinux3.0` from PR 1; runtime image is already `aspnet:9.0.17-azurelinux3.0` from PR 1 so the deployed app can resolve the .NET 9.0.17 shared framework; PR 2 changes it to `aspnet:10.0.x-azurelinux3.0` and `-f net9.0` → `-f net10.0`.
 - `UseDotNet@2` tasks use `useGlobalJson: true`, so they auto-install `10.0.301` from `global.json` — no per-task version edits.
 
 ### 5.4 Dev container
