@@ -241,10 +241,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(service, nameof(service));
 
             var actions = DataActions.Delete | DataActions.Read | (hardDelete ? DataActions.HardDelete : DataActions.None);
-            var gradular = includeGranular ? DataActions.Search : DataActions.None;
+
+            // Granular (SMART v2) conditional delete requires Search to resolve the target plus Delete (and HardDelete when applicable).
+            // A search-only scope (e.g. "patient/Observation.s" which maps to Search|Export) must NOT be able to delete.
+            var gradular = includeGranular
+                ? DataActions.Search | DataActions.Delete | (hardDelete ? DataActions.HardDelete : DataActions.None)
+                : DataActions.None;
             return service.CheckAccess(
                 actions | gradular,
-                x => (x & actions) == actions || (x & gradular) == gradular,
+                x => (x & actions) == actions || (includeGranular && (x & gradular) == gradular),
                 throwException,
                 cancellationToken);
         }
