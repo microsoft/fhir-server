@@ -9,10 +9,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
@@ -25,6 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     {
         private readonly IMediator _mediator;
         private readonly ILogger<PatchResourceHandler> _logger;
+        private readonly ISearchService _searchService;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public PatchResourceHandler(
             IMediator mediator,
@@ -33,14 +38,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            ILogger<PatchResourceHandler> logger)
+            ILogger<PatchResourceHandler> logger,
+            ISearchService searchService,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _mediator = mediator;
             _logger = logger;
+            _searchService = searchService;
+            _contextAccessor = contextAccessor;
         }
 
         public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
@@ -55,6 +66,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 throw new MethodNotAllowedException(Core.Resources.DeleteVersionNotAllowed);
             }
+
+            // For SMART fine-grained access control, ensure the targeted resource belongs to the caller's
+            // compartment before patching it. Otherwise a patient-scoped token could modify another patient's data.
+            await SmartCompartmentResourceValidator.EnsureResourceIsInCompartmentAsync(
+                _searchService,
+                _contextAccessor,
+                key?.ResourceType,
+                key?.Id,
+                cancellationToken);
 
             ResourceWrapper currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
             if (currentDoc == null)

@@ -260,6 +260,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenOnlySearchPermission_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        {
+            // A SMART v2 search-only scope (".s" maps to Search|Export) must NOT be able to perform a conditional delete.
+            var requested = DataActions.Read | DataActions.Delete | DataActions.Search | (hardDelete ? DataActions.HardDelete : DataActions.None);
+            var granted = DataActions.Search;
+            var service = CreateAuthorizationService(requested, granted);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(
+                () => service.CheckConditionalDeleteAccess(CancellationToken.None, hardDelete, includeGranular: true, throwException: true));
+
+            await service.Received(1).CheckAccess(
+                Arg.Is<DataActions>(x => x == requested),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOnlySearchPermission_WhenCheckingConditionalDeleteAccessWithoutGranular_ThenAccessIsDenied()
+        {
+            // Guards against the latent bug where includeGranular=false produced an empty granular mask
+            // that made the "(x & granular) == granular" check always succeed.
+            var requested = DataActions.Read | DataActions.Delete;
+            var granted = DataActions.Search;
+            var service = CreateAuthorizationService(requested, granted);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(
+                () => service.CheckConditionalDeleteAccess(CancellationToken.None, hardDelete: false, includeGranular: false, throwException: true));
+
+            await service.Received(1).CheckAccess(
+                Arg.Is<DataActions>(x => x == requested),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write)]

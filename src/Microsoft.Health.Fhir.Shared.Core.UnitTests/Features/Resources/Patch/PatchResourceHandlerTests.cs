@@ -12,8 +12,10 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -37,9 +39,11 @@ public class PatchResourceHandlerTests
     {
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         _mediator = Substitute.For<IMediator>();
 
-        _patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(_mediator, authService, fhirDataStore);
+        _patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(_mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
@@ -91,9 +95,11 @@ public class PatchResourceHandlerTests
         // Arrange
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         IMediator mediator = Substitute.For<IMediator>();
 
-        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
@@ -131,9 +137,11 @@ public class PatchResourceHandlerTests
         // Arrange
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         IMediator mediator = Substitute.For<IMediator>();
 
-        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
