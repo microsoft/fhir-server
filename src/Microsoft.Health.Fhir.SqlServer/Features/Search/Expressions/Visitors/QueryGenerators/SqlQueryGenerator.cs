@@ -638,6 +638,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
+            if (searchParamTableExpression.ChainLevel == 0 &&
+                !IsInSortMode(context) &&
+                TryGetNoSplitUnionPredicate(searchParamTableExpression.Predicate, out UnionExpression noSplitUnion, out Expression remainderPredicate))
+            {
+                for (int branchIndex = 0; branchIndex < noSplitUnion.Expressions.Count; branchIndex++)
+                {
+                    if (branchIndex > 0)
+                    {
+                        StringBuilder.AppendLine();
+                        StringBuilder.Append("UNION ALL");
+                        StringBuilder.AppendLine();
+                    }
+
+                    StringBuilder.Append("SELECT ")
+                        .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                        .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+
+                    if (UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
+                    {
+                        AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
+                    }
+
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                    {
+                        AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
+
+                        if (!UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
+                        {
+                            AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                        }
+
+                        Expression branchPredicate = CombinePredicates(noSplitUnion.Expressions[branchIndex], remainderPredicate);
+                        delimited.BeginDelimitedElement();
+                        CheckForIdentifierSearchParams(branchPredicate);
+                        branchPredicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                    }
+                }
+
+                return;
+            }
+
             if (searchParamTableExpression.ChainLevel == 0)
             {
                 int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
@@ -726,6 +768,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
+        }
+
+        private static bool TryGetNoSplitUnionPredicate(Expression predicate, out UnionExpression unionExpression, out Expression remainderPredicate)
+        {
+            unionExpression = null;
+            remainderPredicate = null;
+
+            if (predicate is UnionExpression directUnion && directUnion.DoNotSplitIntoSeparateCtes)
+            {
+                unionExpression = directUnion;
+                return true;
+            }
+
+            if (predicate is MultiaryExpression andExpression && andExpression.MultiaryOperation == MultiaryOperator.And)
+            {
+                UnionExpression selectedUnionExpression = andExpression.Expressions
+                    .OfType<UnionExpression>()
+                    .SingleOrDefault(u => u.DoNotSplitIntoSeparateCtes);
+
+                if (selectedUnionExpression != null)
+                {
+                    unionExpression = selectedUnionExpression;
+                    List<Expression> remainderExpressions = andExpression.Expressions.Where(e => !ReferenceEquals(e, selectedUnionExpression)).ToList();
+                    if (remainderExpressions.Count == 1)
+                    {
+                        remainderPredicate = remainderExpressions[0];
+                    }
+                    else if (remainderExpressions.Count > 1)
+                    {
+                        remainderPredicate = Expression.And(remainderExpressions);
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Expression CombinePredicates(Expression branchPredicate, Expression remainderPredicate)
+        {
+            if (remainderPredicate == null)
+            {
+                return branchPredicate;
+            }
+
+            return Expression.And(branchPredicate, remainderPredicate);
         }
 
         private void HandleTableKindAll(SearchParamTableExpression searchParamTableExpression, SearchOptions context)

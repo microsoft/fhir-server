@@ -64,5 +64,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             Assert.True(unionExpression.DoNotSplitIntoSeparateCtes);
         }
+
+        [Fact]
+        public void GivenUnionExpressionWithNoSplitMarker_WhenRewritten_ThenMarkerIsPreserved()
+        {
+            StringExpression expression1 = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex: 0, value: "rush", ignoreCase: true);
+            StringExpression expression2 = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex: 0, value: "2112", ignoreCase: true);
+            UnionExpression unionExpression = new UnionExpression(UnionOperator.All, new Expression[] { expression1, expression2 })
+            {
+                DoNotSplitIntoSeparateCtes = true,
+            };
+
+            var result = Assert.IsType<UnionExpression>(unionExpression.AcceptVisitor(new StringNodeRewriter(), null));
+
+            Assert.True(result.DoNotSplitIntoSeparateCtes);
+        }
+
+        private sealed class StringNodeRewriter : ExpressionRewriter<object>
+        {
+            public override Expression VisitString(StringExpression expression, object context)
+            {
+                return new StringExpression(expression.StringOperator, expression.FieldName, expression.ComponentIndex, expression.Value, expression.IgnoreCase);
+            }
+        }
     }
 }

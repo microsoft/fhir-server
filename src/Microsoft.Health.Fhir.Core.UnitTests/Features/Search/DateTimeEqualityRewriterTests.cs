@@ -5,7 +5,9 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -130,6 +132,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression rewrittenExpression = inputExpression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             Assert.Same(inputExpression, rewrittenExpression);
+        }
+
+        [Fact]
+        public void GivenNoSplitUnion_WhenDateTimeRewriterRewritesBranches_NoSplitMarkerIsPreserved()
+        {
+            var birthdate = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            var start = new DateTimeOffset(2021, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var end = start.AddDays(1).AddTicks(-1);
+
+            var shortBranch = new SearchParameterExpression(
+                birthdate,
+                Expression.Equals(FieldName.DateTimeEnd, null, end));
+
+            var longBranch = new SearchParameterExpression(
+                birthdate,
+                Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end)));
+
+            var union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+            union.DoNotSplitIntoSeparateCtes = true;
+
+            var rewritten = Assert.IsType<UnionExpression>(union.AcceptVisitor(DateTimeEqualityRewriter.Instance));
+
+            Assert.True(rewritten.DoNotSplitIntoSeparateCtes);
         }
     }
 }

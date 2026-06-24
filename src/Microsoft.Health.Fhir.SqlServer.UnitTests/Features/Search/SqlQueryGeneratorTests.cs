@@ -213,4 +213,52 @@ public class SqlQueryGeneratorTests
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
+
+    [Fact]
+    public void GivenNoSplitUnionPredicate_WhenSqlGenerated_ThenSingleCteUsesUnionAllBetweenBranches()
+    {
+        var birthdateParam = new SearchParameterInfo(
+            "birthdate",
+            "birthdate",
+            SearchParamType.Date,
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+            expression: "Patient.birthDate",
+            baseResourceTypes: new[] { "Patient" });
+
+        var startOfDay = new DateTimeOffset(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+        var shortBranch = new SearchParameterExpression(
+            birthdateParam,
+            Expression.And(
+                Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, null, false),
+                Expression.Equals(FieldName.DateTimeEnd, null, endOfDay)));
+
+        var longBranch = new SearchParameterExpression(
+            birthdateParam,
+            Expression.And(
+                Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, null, true),
+                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, startOfDay),
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, endOfDay)));
+
+        var union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+        union.DoNotSplitIntoSeparateCtes = true;
+        Expression predicate = Expression.And(union);
+
+        var queryGenerator = predicate.AcceptVisitor(_queryGeneratorFactory, null);
+        SqlRootExpression sqlExpression = new([new(queryGenerator, predicate, SearchParamTableExpressionKind.Normal)], new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+
+        Assert.Contains("UNION ALL", generatedSql);
+        Assert.DoesNotContain(" OR (SearchParamId = 690", generatedSql);
+        Assert.DoesNotContain("EndDateTime = @p0 SearchParamId", generatedSql);
+    }
 }
