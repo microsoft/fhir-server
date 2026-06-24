@@ -9,6 +9,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using NSubstitute;
@@ -230,6 +231,58 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.DoesNotContain(log.Attributes, kv => kv.Key == KnownApplicationInsightsDimensions.OperationName);
 
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
+        public void GivenARecord_WhenAFilterReturnsFalse_ThenNoMetricIsEmitted()
+        {
+            var alwaysSuppress = Substitute.For<IExceptionMetricEmissionFilter>();
+            alwaysSuppress.ShouldEmit(Arg.Any<Exception>(), Arg.Any<HttpContext>()).Returns(false);
+
+            var enricher = new AzureMonitorOpenTelemetryLogEnricher(
+                _httpContextAccessor,
+                _failureMetricHandler,
+                new[] { alwaysSuppress });
+
+            LogRecord log = CreateLogRecord(
+                DateTime.UtcNow,
+                Guid.NewGuid().ToString(),
+                LogLevel.Error,
+                new EventId(1),
+                "Creating a log record",
+                new InvalidOperationException("Test"),
+                null);
+
+            enricher.OnEnd(log);
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
+        public void GivenARecord_WhenAllFiltersReturnTrue_ThenMetricIsEmitted()
+        {
+            var alwaysAllow1 = Substitute.For<IExceptionMetricEmissionFilter>();
+            alwaysAllow1.ShouldEmit(Arg.Any<Exception>(), Arg.Any<HttpContext>()).Returns(true);
+            var alwaysAllow2 = Substitute.For<IExceptionMetricEmissionFilter>();
+            alwaysAllow2.ShouldEmit(Arg.Any<Exception>(), Arg.Any<HttpContext>()).Returns(true);
+
+            var enricher = new AzureMonitorOpenTelemetryLogEnricher(
+                _httpContextAccessor,
+                _failureMetricHandler,
+                new[] { alwaysAllow1, alwaysAllow2 });
+
+            LogRecord log = CreateLogRecord(
+                DateTime.UtcNow,
+                Guid.NewGuid().ToString(),
+                LogLevel.Error,
+                new EventId(1),
+                "Creating a log record",
+                new InvalidOperationException("Test"),
+                null);
+
+            enricher.OnEnd(log);
+
+            _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         public static LogRecord CreateLogRecord()

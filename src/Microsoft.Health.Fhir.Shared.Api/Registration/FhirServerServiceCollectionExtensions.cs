@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
@@ -183,6 +184,8 @@ namespace Microsoft.Extensions.DependencyInjection
             // Generic metric handlers.
             services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
             services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
+            services.AddSingleton<IExceptionMetricEmissionFilter, AuthenticationFailureExceptionMetricEmissionFilter>();
+            services.AddSingleton<IExceptionMetricEmissionFilter, SecurityAbuseExceptionMetricEmissionFilter>();
             services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
 
             // Feature specific metric handlers.
