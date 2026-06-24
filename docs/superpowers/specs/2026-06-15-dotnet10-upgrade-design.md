@@ -65,6 +65,7 @@ Medino has no `IRequestPreProcessor`. Convert the three validators into Medino `
 
 ### 4.6 Acceptance criteria
 - Builds clean on `net9.0;net8.0` with **no remaining `MediatR` references**.
+- Build agents use .NET SDK 10.0.301 so the shared 11.x SQL MSBuild task can load its `net10.0` assembly while PR 1 continues to target `net9.0;net8.0`.
 - All tests green.
 - Validation pre-processor behavior preserved (verified by existing validation tests).
 
@@ -75,7 +76,7 @@ Medino has no `IRequestPreProcessor`. Convert the three validators into Medino `
 Lands **after** PR 1 is merged, so the diff is purely framework/tooling with no business-logic churn.
 
 ### 5.1 SDK & target frameworks
-- `global.json`: SDK `9.0.314` → **`10.0.300`** (or latest stable 10.0.x at implementation time).
+- `global.json`: already moved to SDK **`10.0.301`** in PR 1 because Microsoft.Health shared 11.x SQL build tasks require a .NET 10 runtime.
 - `build/dotnet8-compat/global.json`: **stays `8.0.421`** (drives the net8.0 downlevel build).
 - `Directory.Build.props`: `<TargetFrameworks>net9.0;net8.0</TargetFrameworks>` → **`net10.0;net8.0`**.
 
@@ -90,11 +91,11 @@ Lands **after** PR 1 is merged, so the diff is purely framework/tooling with no 
 - `build/ci-pipeline.yml` + `build/pr-pipeline.yml`: rename job `Windows_dotnet9 → Windows_dotnet10` (cosmetic); the `Linux_dotnet8` job stays for downlevel coverage.
 - `build/jobs/analyze.yml` (~L113): `-f net9.0` → `-f net10.0`.
 - `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml` (~L35): `-f net8.0` **stays**.
-- `build/docker/Dockerfile`: `sdk:9.0.314-azurelinux3.0` → `sdk:10.0.x-azurelinux3.0`; `aspnet:9.0.16-azurelinux3.0` → `aspnet:10.0.x-azurelinux3.0`; `-f net9.0` → `-f net10.0`.
-- `UseDotNet@2` tasks use `useGlobalJson: true`, so they auto-install `10.0.300` from `global.json` — no per-task version edits.
+- `build/docker/Dockerfile`: SDK build image is already `sdk:10.0.301-azurelinux3.0` from PR 1; PR 2 changes `aspnet:9.0.16-azurelinux3.0` → `aspnet:10.0.x-azurelinux3.0` and `-f net9.0` → `-f net10.0`.
+- `UseDotNet@2` tasks use `useGlobalJson: true`, so they auto-install `10.0.301` from `global.json` — no per-task version edits.
 
 ### 5.4 Dev container
-- `.devcontainer/Dockerfile` installs the SDK via `dotnet-install.sh --jsonfile /setup/global.json`, so the SDK **auto-follows** the `global.json` bump to `10.0.300` — no version edit there.
+- `.devcontainer/Dockerfile` installs the SDK via `dotnet-install.sh --jsonfile /setup/global.json`, so the SDK already follows PR 1's `10.0.301` — no version edit there.
 - **Bump the base image** `mcr.microsoft.com/vscode/devcontainers/base:0-buster` (Debian 10, EOL — below .NET 10's OS minimum) to a supported distro (e.g. `mcr.microsoft.com/devcontainers/base:bookworm`), verifying the `library-scripts/*.sh` (common/docker/zsh) still apply on the newer base.
 - Verify: the dev container rebuilds and `dotnet build` succeeds inside it on net10.0.
 
@@ -119,7 +120,7 @@ Lands **after** PR 1 is merged, so the diff is purely framework/tooling with no 
 | **azurelinux3.0 base-image tags** for 10.0.x sdk/aspnet must be published | Verify tag availability before finalizing the Dockerfile. |
 | **Dev container base-image bump** may need follow-up tweaks to `library-scripts` | Rebuild and validate the container as part of PR 2. |
 | **`TreatWarningsAsErrors=true`** + net10 analyzers may surface new warnings that fail the build | Budget time to clear new analyzer warnings. |
-| **Exact 10.0.x patch** for SDK/ASP.NET | Pin to the latest stable at implementation time (10.0.300 as the reference baseline). |
+| **Exact 10.0.x patch** for SDK/ASP.NET | SDK is pinned to 10.0.301 in PR 1; pin ASP.NET/runtime packages to the latest stable at PR 2 implementation time. |
 | **RP/fhir-paas coordination** — RP consumes fhir-server packages | Covered by the Planning & communication task (#195646): align with RP owners before/around the package version bump. |
 
 ## 7. Out of scope
