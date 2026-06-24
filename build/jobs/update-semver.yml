@@ -13,6 +13,8 @@ steps:
 - powershell: |
     dotnet tool install --global GitVersion.Tool --version 5.12.0
 
+    # GitVersion 5.12.0's LibGit2Sharp cannot read repos with this newer Git extension.
+    # Remove this workaround when updating to GitVersion 6.
     git config --unset-all extensions.worktreeconfig 2>$null
     $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
 
