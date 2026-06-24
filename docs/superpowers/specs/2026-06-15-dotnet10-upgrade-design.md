@@ -37,7 +37,7 @@ Performed on the **current `net9.0;net8.0`** toolchain. No framework change.
 ### 4.1 Package swap (`Directory.Packages.props`)
 - Remove `MediatR` `12.5.0`.
 - Add `Medino` `3.0.3` and `Medino.Extensions.DependencyInjection` `3.0.3` (latest stable on nuget.org, verified).
-- Bump `HealthcareSharedPackageVersion` to `11.0.111` and align required transitive pins (`DotNetSdkPackageVersion` `10.0.9`, `Azure.Identity` `1.21.0`, `Microsoft.Data.SqlClient` `7.0.1`) so restore has no package downgrades.
+- Bump `HealthcareSharedPackageVersion` to `11.0.111` and align required transitive pins (`DotNetSdkPackageVersion` `10.0.9`, `Azure.Identity` `1.21.0`, `Microsoft.Data.SqlClient` `7.0.1`) so restore has no package downgrades. Because `Microsoft.Data.SqlClient` 7.x moves Entra authentication providers into extension packages, SQL deployments must also carry `Microsoft.Data.SqlClient.Extensions.Azure` for `ActiveDirectoryMSI` connection strings.
 
 ### 4.2 Mechanical renames (~210 files, compiler-verified)
 - `using MediatR;` / `using MediatR.Pipeline;` → `using Medino;`.
@@ -68,6 +68,7 @@ Medino has no `IRequestPreProcessor`. Convert the three validators into Medino `
 - Build agents use .NET SDK 10.0.301 so the shared 11.x SQL MSBuild task can load its `net10.0` assembly while PR 1 continues to target `net9.0;net8.0`.
 - ADO build templates also install the .NET 8.0.422 and/or 9.0.315 SDK bands before SDK 10 so the agents have the matching `Microsoft.NETCore.App` and `Microsoft.AspNetCore.App` 8.0.28/9.0.17 shared frameworks for target-specific generators and MTP test executables.
 - `global.json` opts `dotnet test` into Microsoft.Testing.Platform mode, and ADO `DotNetCoreCLI@2` test tasks disable built-in result publishing so the task does not inject VSTest-only `--logger trx` arguments.
+- SQL web deployments include `Microsoft.Data.SqlClient.Extensions.Azure`, and a guard test verifies `SqlAuthenticationMethod.ActiveDirectoryMSI` has a registered provider.
 - All tests green.
 - Validation pre-processor behavior preserved (verified by existing validation tests).
 

@@ -37,7 +37,7 @@ Read this once before starting; every task below depends on it.
 
 | File | Change |
 |------|--------|
-| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3; bump Microsoft.Health shared packages to 11.0.111 and aligned transitive pins |
+| `Directory.Packages.props` | Remove MediatR; add Medino + Medino.Extensions.DependencyInjection 3.0.3; bump Microsoft.Health shared packages to 11.0.111 and aligned transitive pins, including `Microsoft.Data.SqlClient.Extensions.Azure` for SqlClient 7.x Entra auth providers |
 | `global.json` | Use .NET SDK 10.0.301 so `Microsoft.Health.Tools.Sql.Tasks` 11.x can load its `net10.0` MSBuild task while still targeting `net9.0;net8.0` |
 | ADO build templates | Install .NET 8.0.422 and/or 9.0.315 SDK bands before SDK 10 so target-specific generators and MTP test executables can find the matching `Microsoft.NETCore.App` and `Microsoft.AspNetCore.App` 8.0.28/9.0.17 shared frameworks |
 | `build/docker/Dockerfile` | Use the .NET 10 SDK build image for SQL script generation; keep publishing net9 for PR 1, but move the runtime image to `aspnet:9.0.17-azurelinux3.0` so deployed apps can resolve the .NET 9.0.17 shared framework |
@@ -55,6 +55,8 @@ Read this once before starting; every task below depends on it.
 | `src/Microsoft.Health.Fhir.Core/Features/Search/Parameters/CreateOrUpdateSearchParameterBehavior.cs` | `Handle`→`HandleAsync`, `next(ct)`→`next()` |
 | `src/Microsoft.Health.Fhir.Core/Features/Search/Parameters/DeleteSearchParameterBehavior.cs` | `Handle`→`HandleAsync`, `next(ct)`→`next()` |
 | `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlExceptionActionProcessor.cs` | `Execute`→`ExecuteAsync`, add `where TRequest : notnull` |
+| `src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj` | Reference `Microsoft.Data.SqlClient.Extensions.Azure` so deployed SQL-backed apps can use `Authentication=Active Directory MSI` with SqlClient 7.x |
+| `src/Microsoft.Health.Fhir.SqlServer.UnitTests/SqlAuthenticationProviderTests.cs` | Guard that `SqlAuthenticationMethod.ActiveDirectoryMSI` has a registered provider on both target frameworks |
 | `src/Microsoft.Health.Fhir.SchemaManager/SchemaManagerServiceCollectionBuilder.cs` | `AddMediatR`→`AddMedino` |
 | ~63 handlers + test call sites | `Handle`→`HandleAsync` (build-driven) |
 | ~180 mediator call sites | `Send`→`SendAsync`, `Publish`→`PublishAsync` (scripted + build-verified) |
@@ -749,5 +751,6 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 - [ ] Solution builds clean on `net9.0;net8.0` with `TreatWarningsAsErrors=true` and **no remaining `MediatR` references** (`rg MediatR` → empty).
 - [ ] `global.json` selects the Microsoft.Testing.Platform test runner, and ADO test tasks publish MTP-generated TRX files explicitly instead of using DotNetCoreCLI's VSTest logger injection.
+- [ ] SQL-backed deployments include the SqlClient Azure authentication extension, and the `ActiveDirectoryMSI` provider registration guard test passes on `net9.0` and `net8.0`.
 - [ ] All unit + integration tests green on both frameworks.
 - [ ] Validation pre-processor behavior preserved (validation test suite green).
