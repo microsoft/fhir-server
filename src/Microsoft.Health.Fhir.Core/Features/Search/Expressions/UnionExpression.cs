@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public IReadOnlyList<Expression> Expressions { get; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this union must remain in-place and not be split into separate SQL CTE branches.
+        /// </summary>
+        public bool DoNotSplitIntoSeparateCtes { get; set; }
+
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));

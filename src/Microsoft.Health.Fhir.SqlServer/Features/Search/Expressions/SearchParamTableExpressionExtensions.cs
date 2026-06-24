@@ -44,6 +44,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
                 if (tempUnionAllExpression != null)
                 {
+                    if (tempUnionAllExpression.DoNotSplitIntoSeparateCtes)
+                    {
+                        return false;
+                    }
+
                     IReadOnlyList<Expression> allOtherExpression = expressionContainer.Expressions.Where(e => e != tempUnionAllExpression).ToList();
 
                     if (allOtherExpression.Any())

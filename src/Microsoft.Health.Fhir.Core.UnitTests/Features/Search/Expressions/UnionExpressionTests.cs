@@ -49,5 +49,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 UnionExpression unionExpressionFail2 = new UnionExpression(UnionOperator.All, new Expression[] { multiaryExpression1 });
             });
         }
+
+        [Fact]
+        public void GivenUnionExpression_WhenCreated_ThenNoSplitMarkerDefaultsToFalseAndCanBeEnabled()
+        {
+            StringExpression expression1 = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex: 0, value: "rush", ignoreCase: true);
+            StringExpression expression2 = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex: 0, value: "2112", ignoreCase: true);
+
+            UnionExpression unionExpression = new UnionExpression(UnionOperator.All, new Expression[] { expression1, expression2 });
+
+            Assert.False(unionExpression.DoNotSplitIntoSeparateCtes);
+
+            unionExpression.DoNotSplitIntoSeparateCtes = true;
+
+            Assert.True(unionExpression.DoNotSplitIntoSeparateCtes);
+        }
     }
 }
