@@ -13,6 +13,7 @@ steps:
 - powershell: |
     dotnet tool install --global GitVersion.Tool --version 5.12.0
 
+    git config --unset-all extensions.worktreeconfig 2>$null
     $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
 
     Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
