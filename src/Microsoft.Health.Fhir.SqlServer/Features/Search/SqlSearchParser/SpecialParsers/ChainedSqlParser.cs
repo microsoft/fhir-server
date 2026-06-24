@@ -120,12 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.Append(')');
             sqlBuilder.AppendLine();
 
-            sqlBuilder.AppendLine($"SELECT DISTINCT {(options.IncludeTotalCount ? string.Empty : $"TOP ({options.Count + 1})")} RefResourceTypeId as ResourceTypeId, RefResourceSurrogateId as ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row FROM ctechain{options.ChainLevel}_1");
-
-            if (!options.IncludeTotalCount)
-            {
-                sqlBuilder.AppendLine($"  ORDER BY ResourceTypeId {(options.SortDescending ? "DESC" : "ASC")}, ResourceSurrogateId {(options.SortDescending ? "DESC" : "ASC")}");
-            }
+            sqlBuilder.AppendLine($"SELECT DISTINCT RefResourceTypeId as ResourceTypeId, RefResourceSurrogateId as ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row FROM ctechain{options.ChainLevel}_1");
 
             return sqlBuilder.ToString();
         }

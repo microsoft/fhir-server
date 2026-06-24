@@ -127,6 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (parametersCopy.Count == 0)
             {
                 lastCteName = $"cte{cteIndex}";
+                cteIndex++;
 
                 sqlBuilder.AppendLine($"{lastCteName} AS (");
 
@@ -204,7 +205,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
-            if (includeParameters.Count > 0)
+            if (!parserOptions.IncludeTotalCount)
+            {
+                var cteName = $"cte{cteIndex}";
+                cteIndex++;
+
+                sqlBuilder.AppendLine($",{cteName} AS (")
+                    .AppendLine($"SELECT TOP {parserOptions.Count + 1} * FROM {lastCteName} r")
+                    .AppendLine($"  ORDER BY r.ResourceTypeId {(parserOptions.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(parserOptions.SortDescending ? "DESC" : "ASC")}")
+                    .AppendLine(")");
+
+                lastCteName = cteName;
+            }
+
+            if (includeParameters.Count > 0 && !parserOptions.IncludeTotalCount)
             {
                 var baseCteName = $"cte{cteIndex}";
                 cteIndex++;
@@ -326,7 +340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     orderByClause = "ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
                 }
 
-                sqlBuilder.AppendLine("SELECT * FROM (")
+                sqlBuilder.AppendLine($"SELECT * FROM (")
                     .AppendLine("SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource ")
                     .AppendLine("FROM dbo.Resource AS r ")
                     .AppendLine($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.ResourceTypeId AND r.ResourceSurrogateId = f.ResourceSurrogateId ")
