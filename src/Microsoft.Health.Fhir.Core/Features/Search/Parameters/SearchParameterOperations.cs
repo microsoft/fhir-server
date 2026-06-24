@@ -478,55 +478,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
             }
 
-            // Below logic is temporary, as it handles old data. It can be removed once new delete code is in production and reindex is run.
-            // If some URLs were not resolved, fall back to full scan (handles deleted resources)
             if (unresolvedUrls.Count > 0)
             {
-                _logger.LogInformation("Could not resolve {Count} SearchParameter URL(s) by direct search. Falling back to full scan.", unresolvedUrls.Count);
-
-                string continuationToken = null;
-
-                do
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var queryParams = new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()) };
-                    if (!string.IsNullOrEmpty(continuationToken))
-                    {
-                        queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
-                    }
-
-                    var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                    if (searchResult?.Results != null)
-                    {
-                        foreach (var entry in searchResult.Results)
-                        {
-                            var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
-                            if (typedElement == null)
-                            {
-                                continue;
-                            }
-
-                            var url = typedElement.GetStringScalar("url");
-                            if (!string.IsNullOrEmpty(url) && unresolvedUrls.Remove(url))
-                            {
-                                result[url] = typedElement;
-
-                                if (unresolvedUrls.Count == 0)
-                                {
-                                    return result;
-                                }
-                            }
-                        }
-                    }
-
-                    continuationToken = searchResult?.ContinuationToken;
-                }
-                while (!string.IsNullOrEmpty(continuationToken));
-
-                if (unresolvedUrls.Count > 0)
-                {
-                    _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
-                }
+                _logger.LogWarning("Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}", unresolvedUrls.Count, string.Join(", ", unresolvedUrls.Take(10)));
             }
 
             return result;
