@@ -29,21 +29,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             sqlBuilder.AppendLine("  FROM dbo.Resource r");
 
             // WHERE clause - base filters
-            sqlBuilder.Append("  WHERE r.IsHistory = 0 AND r.IsDeleted = 0");
+            sqlBuilder.AppendLine("  WHERE r.IsHistory = 0 AND r.IsDeleted = 0");
 
             // Add resource type filter if specified
             if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
             {
                 var resourceTypeIds = string.Join(", ", options.ResourceTypes);
                 sqlBuilder.AppendLine();
-                sqlBuilder.Append($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
             }
 
             // Add continuation token support
-            if (options.ContinuationSurrogateId.HasValue)
+            if (options.ContinuationToken != null)
             {
-                sqlBuilder.AppendLine();
-                sqlBuilder.Append($"  AND r.ResourceSurrogateId > {options.ContinuationSurrogateId.Value}");
+                sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                if (options.ContinuationToken.ResourceTypeId != null)
+                {
+                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                }
+            }
+
+            if (!options.IncludeTotalCount)
+            {
+                sqlBuilder.AppendLine($"  ORDER BY r.ResourceTypeId {(options.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(options.SortDescending ? "DESC" : "ASC")}");
             }
 
             return sqlBuilder.ToString();

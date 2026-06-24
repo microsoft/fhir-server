@@ -59,9 +59,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
                 }
 
-                if (options.ContinuationSurrogateId.HasValue)
+                if (options.ContinuationToken != null)
                 {
-                    sqlBuilder.Append($"  AND r.ResourceSurrogateId > {options.ContinuationSurrogateId.Value}");
+                    sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                    if (options.ContinuationToken.ResourceTypeId != null)
+                    {
+                        sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                    }
+                }
+
+                if (!options.IncludeTotalCount)
+                {
+                    sqlBuilder.AppendLine($"  ORDER BY r.ResourceTypeId {(options.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(options.SortDescending ? "DESC" : "ASC")}");
                 }
             }
 

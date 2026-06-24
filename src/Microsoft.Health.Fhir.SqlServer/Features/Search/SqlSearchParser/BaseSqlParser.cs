@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 modifier = parts[1];
             }
 
-            var parameter = _parameterCollection.GetByCode(name);
+            var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes[0]);
             if (parameter == null)
             {
                 return null;
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {
                 sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
-                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? string.Empty : "NOT ")} EXISTS (SELECT 1 FROM {parameter.Type} t WHERE t.ResourceSurrogateId = r.ResourceSurrogateId AND t.SearchParameterId = {parameter.Id})");
+                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? string.Empty : "NOT ")} EXISTS (SELECT 1 FROM {parameter.Type} t WHERE t.ResourceSurrogateId = r.ResourceSurrogateId AND t.SearchParamId = {parameter.Id})");
             }
             else
             {
@@ -94,9 +94,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
                 }
 
-                if (options.ContinuationSurrogateId.HasValue)
+                if (options.ContinuationToken != null)
                 {
-                    sqlBuilder.Append($"  AND r.ResourceSurrogateId > {options.ContinuationSurrogateId.Value}");
+                    sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                    if (options.ContinuationToken.ResourceTypeId != null)
+                    {
+                        sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                    }
+                }
+
+                if (!options.IncludeTotalCount)
+                {
+                    sqlBuilder.AppendLine($"  ORDER BY r.ResourceTypeId {(options.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(options.SortDescending ? "DESC" : "ASC")}");
                 }
             }
 

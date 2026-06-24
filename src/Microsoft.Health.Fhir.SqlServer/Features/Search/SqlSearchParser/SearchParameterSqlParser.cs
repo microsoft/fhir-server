@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
@@ -43,10 +44,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 { "include", new IncludeSqlParser(parameterCollection) },
             };
 
-            _sqlParsers.Add("chained", new ChainedSqlParser(parameterCollection, _sqlParsers));
+            _sqlParsers.Add("chained", new ChainedSqlParser(parameterCollection, _sqlParsers, fhirModel));
         }
 
-        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, long? continuationSurrogateId = null)
+        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
         {
             var parametersCopy = parameters.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
@@ -56,13 +57,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             Dictionary<string, IList<string>> includeParameters = new();
             var parserOptions = new ParserOptions()
             {
-                ContinuationSurrogateId = continuationSurrogateId,
+                ContinuationToken = continuationToken,
                 Count = sqlSearchOptions.MaxItemCount,
             };
 
+            // Extract and process _sort parameter
+            string? sortParameterName = null;
+            bool sortDescending = false;
+            bool sortIsSpecialParameter = false;
+
+            if (parametersCopy.TryGetValue("_sort", out var sortValues) && sortValues.Count > 0)
+            {
+                var sortValue = sortValues[0]; // Use first sort parameter
+                sortDescending = sortValue.StartsWith('-');
+                sortParameterName = sortDescending ? sortValue[1..] : sortValue;
+
+                // Check if this is a special parameter (_lastUpdated or _type)
+                sortIsSpecialParameter = sortParameterName.Equals(SearchParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase) ||
+                                        sortParameterName.Equals(SearchParameterNames.ResourceType, StringComparison.OrdinalIgnoreCase);
+
+                parserOptions.SortParameterName = sortParameterName;
+                parserOptions.SortDescending = sortDescending;
+                parserOptions.SortIsSpecialParameter = sortIsSpecialParameter;
+                parserOptions.SortQuerySecondPhase = sqlSearchOptions.SortQuerySecondPhase;
+
+                parametersCopy.Remove("_sort");
+            }
+
             parametersCopy = parametersCopy.Where(param =>
             {
-                if (param.Key.Equals("_elements", StringComparison.OrdinalIgnoreCase) || param.Key.Equals("_sort", StringComparison.OrdinalIgnoreCase))
+                if (param.Key.Equals("_elements", StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
@@ -140,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         continue;
                     }
 
-                    if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
+                    if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key, parserOptions.ResourceTypes.FirstOrDefault()) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
                     {
                         includeParameters.Add(kvp.Key, kvp.Value);
                         continue;
@@ -148,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                     foreach (var value in kvp.Value)
                     {
-                        var parameter = _parameterCollection.GetByCode(kvp.Key);
+                        var parameter = _parameterCollection.GetByCode(kvp.Key, parserOptions.ResourceTypes.FirstOrDefault());
                         if (parameter == null)
                         {
                             continue;
@@ -232,12 +256,82 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
             else
             {
+                // Build the ORDER BY clause based on sort parameters
+                string orderByClause;
+
+                if (!string.IsNullOrEmpty(sortParameterName))
+                {
+                    if (sortIsSpecialParameter)
+                    {
+                        // Special parameters map directly to Resource table columns
+                        if (sortParameterName.Equals(SearchParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // _lastUpdated maps to ResourceSurrogateId (which encodes timestamp)
+                            orderByClause = sortDescending
+                                ? "ORDER BY t.IsMatch DESC, t.ResourceSurrogateId DESC"
+                                : "ORDER BY t.IsMatch DESC, t.ResourceSurrogateId ASC";
+                        }
+                        else if (sortParameterName.Equals(SearchParameterNames.ResourceType, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // _type maps to ResourceTypeId
+                            orderByClause = sortDescending
+                                ? "ORDER BY t.IsMatch DESC, t.ResourceTypeId DESC, t.ResourceSurrogateId DESC"
+                                : "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
+                        }
+                        else
+                        {
+                            // Fallback to default ordering
+                            orderByClause = "ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
+                        }
+                    }
+                    else
+                    {
+                        // Regular search parameters - use two-phase approach
+                        // Phase 1 (when SortQuerySecondPhase = false): Resources WITHOUT the sort parameter
+                        // Phase 2 (when SortQuerySecondPhase = true): Resources WITH the sort parameter
+
+                        if (sortDescending)
+                        {
+                            // Descending: first show resources WITH values (phase 2), then WITHOUT (phase 1)
+                            if (sqlSearchOptions.SortQuerySecondPhase)
+                            {
+                                // Phase 2: Resources with values, sorted descending by IsMatch and then by value
+                                orderByClause = "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId DESC";
+                            }
+                            else
+                            {
+                                // Phase 1: Resources without values (missing the search parameter)
+                                orderByClause = "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId DESC";
+                            }
+                        }
+                        else
+                        {
+                            // Ascending: first show resources WITHOUT values (phase 1), then WITH (phase 2)
+                            if (sqlSearchOptions.SortQuerySecondPhase)
+                            {
+                                // Phase 2: Resources with values, sorted ascending by IsMatch and then by value
+                                orderByClause = "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
+                            }
+                            else
+                            {
+                                // Phase 1: Resources without values (missing the search parameter)
+                                orderByClause = "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // No sort parameter - use default ordering
+                    orderByClause = "ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
+                }
+
                 sqlBuilder.AppendLine("SELECT * FROM (")
                     .AppendLine("SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource ")
                     .AppendLine("FROM dbo.Resource AS r ")
                     .AppendLine($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.ResourceTypeId AND r.ResourceSurrogateId = f.ResourceSurrogateId ")
                     .AppendLine("WHERE r.IsHistory = 0 AND r.IsDeleted = 0 ")
-                    .AppendLine(") AS t ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC");
+                    .AppendLine($") AS t {orderByClause}");
             }
 
             return sqlBuilder.ToString();
@@ -250,7 +344,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
-            var parameterType = _parameterCollection.GetParameterType(name);
+            var parameterType = _parameterCollection.GetParameterType(name, options.ResourceTypes[0]);
             if (parameterType == null)
             {
                 return null;

@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class ParserOptions
     {
-        public long? ContinuationSurrogateId { get; set; }
+        public ContinuationToken? ContinuationToken { get; set; }
 
         public string? LastCteName { get; set; }
 
@@ -24,5 +24,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public IList<int> ResourceTypes { get; init; } = new List<int>();
 
         public bool IncludeTotalCount { get; set; }
+
+        public string? SortParameterName { get; set; }
+
+        public bool SortDescending { get; set; }
+
+        public bool SortIsSpecialParameter { get; set; }
+
+        public bool SortQuerySecondPhase { get; set; }
     }
 }

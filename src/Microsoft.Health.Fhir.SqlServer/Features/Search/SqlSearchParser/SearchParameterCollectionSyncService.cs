@@ -119,9 +119,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 {
                     try
                     {
-                        // Remove the parameter if it exists (we'll re-add if it's still searchable)
-                        var existingParam = _searchParameterCollection.GetByCode(searchParamInfo.Code);
-
                         if (searchParamInfo.IsSearchable && searchParamInfo.IsSupported)
                         {
                             // Add or update the parameter
@@ -131,16 +128,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                                 _searchParameterCollection.Add(searchParameter);
                                 _logger.LogDebug("Updated search parameter '{Code}' in collection.", searchParamInfo.Code);
                             }
-                        }
-                        else if (existingParam != null)
-                        {
-                            // Parameter is no longer searchable - we can't remove from dictionary but log it
-                            _logger.LogInformation(
-                                "Search parameter '{Code}' (URL: {Url}) is no longer searchable (IsSearchable={IsSearchable}, IsSupported={IsSupported}). Note: existing entries remain in collection.",
-                                searchParamInfo.Code,
-                                searchParamInfo.Url,
-                                searchParamInfo.IsSearchable,
-                                searchParamInfo.IsSupported);
                         }
                     }
                     catch (Exception ex)
@@ -188,6 +175,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     Code = searchParamInfo.Code,
                     Type = typeString,
                     Id = searchParamId,
+                    ResourceTypes = searchParamInfo.BaseResourceTypes,
+                    TargetResourceTypes = searchParamInfo.TargetResourceTypes,
                 };
             }
             catch (Exception ex)

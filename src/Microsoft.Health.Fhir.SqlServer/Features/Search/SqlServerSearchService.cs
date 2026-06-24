@@ -494,7 +494,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
                             */
 
-                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, sqlSearchOptions, continuationToken?.ResourceSurrogateId);
+                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, sqlSearchOptions, continuationToken);
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
@@ -686,15 +686,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 await reader.NextResultAsync(cancellationToken);
 
                                 ContinuationToken continuationToken = moreResults
-                                        ? new ContinuationToken(
-                                            clonedSearchOptions.Sort.Select(s =>
-                                                s.searchParameterInfo.Name switch
-                                                {
-                                                    SearchParameterNames.ResourceType => (object)newContinuationType,
-                                                    SearchParameterNames.LastUpdated => newContinuationId,
-                                                    _ => sortValue,
-                                                }).ToArray())
+                                        ? new ContinuationToken(new object[] { sortValue, newContinuationType, newContinuationId })
                                         : null;
+
                                 string includesContinuationTokenString = null;
                                 if (clonedSearchOptions.IncludesOperationSupported
                                     && clonedSearchOptions.Expression is MultiaryExpression

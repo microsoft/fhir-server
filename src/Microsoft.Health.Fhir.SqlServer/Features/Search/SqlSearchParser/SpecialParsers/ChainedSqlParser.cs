@@ -7,7 +7,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -15,14 +17,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         private readonly SearchParameterCollection _parameterCollection;
         private readonly Dictionary<string, ISqlParser> _sqlParsers;
+        private readonly ISqlServerFhirModel _model;
 
-        public ChainedSqlParser(SearchParameterCollection parameterCollection, Dictionary<string, ISqlParser> sqlParsers)
+        public ChainedSqlParser(SearchParameterCollection parameterCollection, Dictionary<string, ISqlParser> sqlParsers, ISqlServerFhirModel model)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             ArgumentNullException.ThrowIfNull(sqlParsers);
+            ArgumentNullException.ThrowIfNull(model);
 
             _parameterCollection = parameterCollection;
             _sqlParsers = sqlParsers;
+            _model = model;
         }
 
         public string? Parse(string name, string value, ParserOptions options)
@@ -43,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var remainingChain = parts[1];
 
             // Look up the first parameter (should be a reference parameter)
-            var parameter = _parameterCollection.GetByCode(firstCode);
+            var parameter = _parameterCollection.GetByCode(firstCode, options.ResourceTypes.FirstOrDefault());
             if (parameter == null)
             {
                 return null;
@@ -66,10 +71,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.AppendLine();
             sqlBuilder.Append("  AND refTarget.IsDeleted = 0");
 
-            if (options.LastCteName == null && options.ContinuationSurrogateId.HasValue)
+            if (options.ContinuationToken != null)
             {
-                sqlBuilder.AppendLine();
-                sqlBuilder.Append($"  AND refSource.ResourceSurrogateId > {options.ContinuationSurrogateId.Value}");
+                sqlBuilder.AppendLine($"  AND refSource.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                if (options.ContinuationToken.ResourceTypeId != null)
+                {
+                    sqlBuilder.AppendLine($"  AND refSource.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                }
             }
 
             sqlBuilder.AppendLine();
@@ -81,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.AppendLine();
 
             // Get the parameter for the remaining chain to find the right parser
-            var remainingParameter = _parameterCollection.GetByCode(remainingChain.Split('.')[0]);
+            var remainingParameter = _parameterCollection.GetByCode(remainingChain.Split('.')[0], _model.GetResourceTypeId(parameter.TargetResourceTypes[0]));
             if (remainingParameter == null)
             {
                 return null;
@@ -111,7 +120,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.Append(')');
             sqlBuilder.AppendLine();
 
-            sqlBuilder.Append($"SELECT DISTINCT {(options.IncludeTotalCount ? string.Empty : $"TOP ({options.Count + 1})")} RefResourceTypeId as ResourceTypeId, RefResourceSurrogateId as ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row FROM ctechain{options.ChainLevel}_1");
+            sqlBuilder.AppendLine($"SELECT DISTINCT {(options.IncludeTotalCount ? string.Empty : $"TOP ({options.Count + 1})")} RefResourceTypeId as ResourceTypeId, RefResourceSurrogateId as ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row FROM ctechain{options.ChainLevel}_1");
+
+            if (!options.IncludeTotalCount)
+            {
+                sqlBuilder.AppendLine($"  ORDER BY ResourceTypeId {(options.SortDescending ? "DESC" : "ASC")}, ResourceSurrogateId {(options.SortDescending ? "DESC" : "ASC")}");
+            }
 
             return sqlBuilder.ToString();
         }

@@ -610,6 +610,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
                 {
+                    searchOptions.QueryParams.Remove(unsupported.Item1);
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 

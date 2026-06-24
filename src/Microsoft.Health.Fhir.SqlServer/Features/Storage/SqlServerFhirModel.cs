@@ -114,6 +114,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return resourceTypeId;
             }
 
+            if (resourceTypeName == KnownResourceTypes.DomainResource || resourceTypeName == KnownResourceTypes.Resource)
+            {
+                return 0;
+            }
+
             throw new ResourceNotFoundException($"Resource type '{resourceTypeName}' is not a known resource type.");
         }
 

@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var parts = value.Split(':', 2);
-            var parameter = _parameterCollection.GetByCode(parts[1]);
+            var parameter = _parameterCollection.GetByCode(parts[1], options.ResourceTypes[0]);
 
             if (parameter == null)
             {
