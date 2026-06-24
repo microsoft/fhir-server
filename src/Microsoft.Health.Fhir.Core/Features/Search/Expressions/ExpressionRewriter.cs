@@ -80,7 +80,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public virtual Expression VisitUnion(UnionExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
-            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new UnionExpression(expression.Operator, rewrittenExpressions);
+
+            if (ReferenceEquals(rewrittenExpressions, expression.Expressions))
+            {
+                return expression;
+            }
+
+            return new UnionExpression(expression.Operator, rewrittenExpressions)
+            {
+                DoNotSplitIntoSeparateCtes = expression.DoNotSplitIntoSeparateCtes,
+            };
         }
 
         public virtual Expression VisitString(StringExpression expression, TContext context)

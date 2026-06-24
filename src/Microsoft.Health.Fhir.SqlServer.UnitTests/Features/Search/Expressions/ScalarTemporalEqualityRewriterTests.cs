@@ -164,6 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var union = Assert.IsType<UnionExpression>(result);
             Assert.Equal(UnionOperator.All, union.Operator);
+            Assert.True(union.DoNotSplitIntoSeparateCtes);
             Assert.Collection(
                 union.Expressions,
                 shortBranch => AssertSearchParameterAnd(

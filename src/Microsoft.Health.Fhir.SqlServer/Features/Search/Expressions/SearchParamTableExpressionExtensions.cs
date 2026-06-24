@@ -20,6 +20,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
+            // The predicate may either BE a UnionExpression (e.g. a scalar date day-split that replaced a single
+            // SearchParameterExpression) or be a container (e.g. And(union, ...)) that holds one.
+            if (expression.Predicate is UnionExpression)
+            {
+                return true;
+            }
+
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
             return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
         }
@@ -35,6 +42,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         {
             unionExpression = null;
             allOtherRemainingExpressions = null;
+
+            // The union may be the entire predicate (e.g. a scalar date day-split that replaced a single
+            // SearchParameterExpression). In that case there are no sibling expressions to separate out.
+            if (expression.Predicate is UnionExpression bareUnionExpression)
+            {
+                unionExpression = bareUnionExpression;
+                return true;
+            }
 
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
 

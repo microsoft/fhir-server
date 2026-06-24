@@ -196,7 +196,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     startPredicate,
                     endPredicate));
 
-            return Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+            UnionExpression union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+            union.DoNotSplitIntoSeparateCtes = true;
+            return union;
         }
 
         private static bool IsStartGe(BinaryExpression be) =>

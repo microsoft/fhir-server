@@ -170,5 +170,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             return expression;
         }
+
+        // A union (e.g. a scalar date day-split) can itself be the filter over the sort parameter.
+        // If any branch filters on the sort parameter, treat the whole union as a filter match by
+        // returning null (so VisitSqlRoot emits a SortWithFilter). Do NOT fall through to the base
+        // implementation, which would rebuild the union from branches that VisitSearchParameter
+        // collapsed to null and trip the UnionExpression null-branch guard.
+        public override Expression VisitUnion(UnionExpression expression, SqlSearchOptions context) =>
+           expression.Expressions.All(e => e.AcceptVisitor(this, context) == null) ? null : expression;
     }
 }

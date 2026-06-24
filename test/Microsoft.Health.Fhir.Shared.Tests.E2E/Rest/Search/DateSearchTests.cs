@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -298,10 +299,161 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByMultiValueOr_ThenUnionOfPerValueOverlapSetsIsReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03,2001-12-31&_tag={tag}");
+
+            ValidateBundle(bundle, matrix.Year2000, matrix.March2000, matrix.March03, matrix.Year2001, matrix.December2001, matrix.December31_2001);
+            AssertNoDuplicateEntries(bundle);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByNotEquals_ThenOnlyTheExactDayValueIsExcluded()
+        {
+            string tag = Guid.NewGuid().ToString();
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=ne2000-03-03&_tag={tag}&_total=accurate&_count=100");
+
+            Assert.Equal(11, bundle.Total.GetValueOrDefault());
+            ValidateBundle(
+                bundle,
+                matrix.Year2000,
+                matrix.March2000,
+                matrix.December31_1999,
+                matrix.April01_2000,
+                matrix.December2000,
+                matrix.March31_2000,
+                matrix.Year2001,
+                matrix.November30_2001,
+                matrix.December2001,
+                matrix.December31_2001,
+                matrix.January01_2002);
+            AssertNoDuplicateEntries(bundle);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithTotal_ThenCountIsAccurateAndEntriesAreNotDuplicated()
+        {
+            string tag = Guid.NewGuid().ToString();
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}&_total=accurate");
+
+            Assert.Equal(3, bundle.Total.GetValueOrDefault());
+            ValidateBundle(bundle, matrix.Year2000, matrix.March2000, matrix.March03);
+            AssertNoDuplicateEntries(bundle);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenDayEqualitySearchedWithSort_ThenResultsAreOrderedByBirthdateWithoutDuplicates()
+        {
+            string tag = Guid.NewGuid().ToString();
+            PartialBirthdateMatrix matrix = await CreatePartialBirthdateMatrixAsync(tag);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_sort=birthdate&_tag={tag}");
+
+            AssertNoDuplicateEntries(bundle);
+            Assert.Equal(
+                new[] { matrix.Year2000.Id, matrix.March2000.Id, matrix.March03.Id },
+                bundle.Entry.Select(e => e.Resource.Id).ToArray());
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithLeapDayBirthdates_WhenSearchedByDay_ThenCorrectBundleShouldBeReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2020", tag),
+                p => SetPatientBirthDate(p, "2020-02", tag),
+                p => SetPatientBirthDate(p, "2020-02-28", tag),
+                p => SetPatientBirthDate(p, "2020-02-29", tag),
+                p => SetPatientBirthDate(p, "2020-03-01", tag));
+            Patient year2020 = patients[0];
+            Patient february2020 = patients[1];
+            Patient february28 = patients[2];
+            Patient february29 = patients[3];
+            Patient march01 = patients[4];
+
+            Bundle leapDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-02-29&_tag={tag}");
+            ValidateBundle(leapDayBundle, year2020, february2020, february29);
+
+            Bundle feb28Bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-02-28&_tag={tag}");
+            ValidateBundle(feb28Bundle, year2020, february2020, february28);
+
+            Bundle march01Bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2020-03-01&_tag={tag}");
+            ValidateBundle(march01Bundle, year2020, march01);
+        }
+
+        private async System.Threading.Tasks.Task<PartialBirthdateMatrix> CreatePartialBirthdateMatrixAsync(string tag)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag),
+                p => SetPatientBirthDate(p, "2001", tag),
+                p => SetPatientBirthDate(p, "2001-11-30", tag),
+                p => SetPatientBirthDate(p, "2001-12", tag),
+                p => SetPatientBirthDate(p, "2001-12-31", tag),
+                p => SetPatientBirthDate(p, "2002-01-01", tag));
+
+            return new PartialBirthdateMatrix(
+                Year2000: patients[0],
+                March2000: patients[1],
+                March03: patients[2],
+                December31_1999: patients[3],
+                April01_2000: patients[4],
+                December2000: patients[5],
+                March31_2000: patients[6],
+                Year2001: patients[7],
+                November30_2001: patients[8],
+                December2001: patients[9],
+                December31_2001: patients[10],
+                January01_2002: patients[11]);
+        }
+
+        private static void AssertNoDuplicateEntries(Bundle bundle)
+        {
+            List<string> ids = bundle.Entry.Select(e => e.Resource.Id).ToList();
+            Assert.Equal(ids.Count, ids.Distinct().Count());
+        }
+
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
         {
             patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
             patient.BirthDate = birthDate;
         }
+
+        private sealed record PartialBirthdateMatrix(
+            Patient Year2000,
+            Patient March2000,
+            Patient March03,
+            Patient December31_1999,
+            Patient April01_2000,
+            Patient December2000,
+            Patient March31_2000,
+            Patient Year2001,
+            Patient November30_2001,
+            Patient December2001,
+            Patient December31_2001,
+            Patient January01_2002);
     }
 }

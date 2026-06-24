@@ -61,6 +61,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool previousSqlQueryGeneratorFailure = false;
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
+
+        // Tracks the restricting predecessor CTE index computed for each generated CTE, keyed by CTE index. Used so a
+        // Concatenation can reuse its sibling's predecessor instead of recomputing it from the (counter-misaligned)
+        // table-expression list.
+        private readonly Dictionary<int, int> _ctePredecessorByCteIndex = new Dictionary<int, int>();
+        private SearchParamTableExpressionKind? _currentTableExpressionKind;
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -508,6 +514,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
 
+                // Remember the kind of the CTE currently being generated so FindRestrictingPredecessorTableExpressionIndex
+                // can special-case a Concatenation (date-overlap second branch).
+                _currentTableExpressionKind = searchParamTableExpression.Kind;
+
                 switch (searchParamTableExpression.Kind)
                 {
                     case SearchParamTableExpressionKind.Normal:
@@ -574,64 +584,74 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
             using (StringBuilder.Indent())
             {
-                StringBuilder.Append("SELECT ")
-                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
-
-                var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
-
-                // handle special case where we want to Union a specific resource to the results
-                if (searchParameterExpressionPredicate != null &&
-                    searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
-                {
-                    specialCaseTableName = VLatest.Resource;
-                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
-                }
-                else
-                {
-                    // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
-                    // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
-                    // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
-                    // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
-                    if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
-                    {
-                        bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
-                            e is SearchParameterExpression spe &&
-                            (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
-
-                        if (allAreResourceTypeOrId)
-                        {
-                            specialCaseTableName = VLatest.Resource;
-                        }
-                    }
-
-                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
-                }
-
-                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                {
-                    // Apply History and Delete clause when querying from Resource table in case of compartment unions
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
-
-                    if (specialCaseTableName.Equals(VLatest.Resource))
-                    {
-                        AppendDeletedClause(delimited, context.ResourceVersionTypes);
-                    }
-
-                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
-                    {
-                        delimited.BeginDelimitedElement();
-                        searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
-                    }
-                }
+                AppendUnionAllBranchSelect(searchParamTableExpression, context);
             }
 
             StringBuilder.AppendLine("),");
+        }
+
+        /// <summary>
+        /// Appends the <c>SELECT ... FROM ... WHERE ...</c> body for a single branch of a UNION ALL. Callers are
+        /// responsible for the surrounding CTE wrapper and for separating consecutive branches with <c>UNION ALL</c>.
+        /// </summary>
+        private void AppendUnionAllBranchSelect(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
+        {
+            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
+
+            StringBuilder.Append("SELECT ")
+                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
+
+            var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
+
+            // handle special case where we want to Union a specific resource to the results
+            if (searchParameterExpressionPredicate != null &&
+                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
+            {
+                specialCaseTableName = VLatest.Resource;
+                StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+            }
+            else
+            {
+                // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
+                // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
+                // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
+                if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
+                {
+                    bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
+                        e is SearchParameterExpression spe &&
+                        (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
+
+                    if (allAreResourceTypeOrId)
+                    {
+                        specialCaseTableName = VLatest.Resource;
+                    }
+                }
+
+                StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+            }
+
+            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            {
+                // Apply History and Delete clause when querying from Resource table in case of compartment unions
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
+
+                if (specialCaseTableName.Equals(VLatest.Resource))
+                {
+                    AppendDeletedClause(delimited, context.ResourceVersionTypes);
+                }
+
+                if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
+                {
+                    delimited.BeginDelimitedElement();
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                }
+            }
         }
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
@@ -1429,6 +1449,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new ArgumentOutOfRangeException(unionExpression.Operator.ToString());
             }
 
+            // Unions flagged with DoNotSplitIntoSeparateCtes (e.g. scalar date day-splits) are emitted as a single CTE
+            // whose body combines the branches with inline UNION ALL, instead of one CTE per branch plus an aggregating
+            // CTE. Both forms produce the same aggregated (T1, Sid1) CTE, so the predecessor wiring below is shared.
+            if (unionExpression.DoNotSplitIntoSeparateCtes)
+            {
+                AppendInlinedUnionAllTableExpression(context, unionExpression, defaultQueryGenerator);
+            }
+            else
+            {
+                AppendSplitUnionAllTableExpressions(context, unionExpression, defaultQueryGenerator);
+            }
+
+            // check for a previous union all, and if so, join the new union all with the previous one
+            if (_unionAggregateCTEIndex > -1)
+            {
+                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                StringBuilder.Append(", ");
+                StringBuilder.AppendLine();
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                    .AppendLine()
+                    .Append("FROM ").Append(prevUnionAggregateTableName)
+                    .AppendLine()
+                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                    .AppendLine();
+                }
+
+                StringBuilder.Append(")");
+            }
+
+            _unionAggregateCTEIndex = _tableExpressionCounter;
+
+            _unionVisited = true;
+            _firstChainAfterUnionVisited = false;
+        }
+
+        private void AppendSplitUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        {
             // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionExpression.Expressions)
@@ -1464,36 +1529,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
+        }
 
-            // check for a previous union all, and if so, join the new union all with the previous one
-            if (_unionAggregateCTEIndex > -1)
+        /// <summary>
+        /// Emits a single CTE whose body combines each branch of <paramref name="unionExpression"/> with inline
+        /// <c>UNION ALL</c> (one <c>SELECT ... FROM ... WHERE ...</c> per branch). Used for unions marked with
+        /// <see cref="UnionExpression.DoNotSplitIntoSeparateCtes"/> so the union does not fan out into one CTE per
+        /// branch plus an aggregating CTE. The resulting CTE has the same <c>(T1, Sid1)</c> shape as the split form.
+        /// </summary>
+        private void AppendInlinedUnionAllTableExpression(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        {
+            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+            bool isFirstBranch = true;
+            foreach (Expression innerExpression in unionExpression.Expressions)
             {
-                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
-                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+                // Determine the appropriate query generator for this specific inner expression
+                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
 
-                StringBuilder.Append(", ");
-                StringBuilder.AppendLine();
-                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                var branchExpression = new SearchParamTableExpression(
+                    queryGenerator,
+                    innerExpression,
+                    SearchParamTableExpressionKind.Union);
 
                 using (StringBuilder.Indent())
                 {
-                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
-                    .AppendLine()
-                    .Append("FROM ").Append(prevUnionAggregateTableName)
-                    .AppendLine()
-                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
-                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
-                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
-                    .AppendLine();
+                    if (!isFirstBranch)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                    }
+
+                    // AppendUnionAllBranchSelect ends with the WHERE clause, which already terminates with a newline,
+                    // so the next branch's "UNION ALL" (or the closing paren below) starts on its own line.
+                    AppendUnionAllBranchSelect(branchExpression, context);
                 }
 
-                StringBuilder.Append(")");
+                isFirstBranch = false;
             }
 
-            _unionAggregateCTEIndex = _tableExpressionCounter;
-
-            _unionVisited = true;
-            _firstChainAfterUnionVisited = false;
+            StringBuilder.Append(")");
         }
 
         private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)
@@ -1716,7 +1790,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            return FindImpl(_tableExpressionCounter);
+            int predResult;
+
+            // A Concatenation is the second branch of a date-overlap split (e.g. DateTimeEqualityRewriter emits a
+            // "longer than a day = true" CTE followed by a Concatenation for the "= false" rows). Both branches must
+            // restrict against the SAME predecessor. The sibling is always the immediately-preceding CTE
+            // (cte{counter-1}); reuse the predecessor we already computed for it. FindImpl cannot be relied on here
+            // because, when a UNION ALL precedes these CTEs (e.g. a scalar date day-split), the CTE counter no longer
+            // lines up with the (unsorted) table-expression list it indexes, so the Concatenation skip-back is missed.
+            if (_currentTableExpressionKind == SearchParamTableExpressionKind.Concatenation
+                && _ctePredecessorByCteIndex.TryGetValue(_tableExpressionCounter - 1, out int siblingPredecessorIndex))
+            {
+                predResult = siblingPredecessorIndex;
+            }
+            else
+            {
+                predResult = FindImpl(_tableExpressionCounter);
+            }
+
+            _ctePredecessorByCteIndex[_tableExpressionCounter] = predResult;
+            return predResult;
         }
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, string tableAlias = null)

@@ -35,6 +35,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 [Trait(Traits.Category, Categories.Search)]
 public class SqlQueryGeneratorTests
 {
+    private static readonly SearchParameterInfo BirthdateParam = new(
+        "birthdate",
+        "birthdate",
+        SearchParamType.Date,
+        new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+        expression: "Patient.birthDate",
+        baseResourceTypes: new[] { "Patient" });
+
+    private static readonly SearchParameterInfo NameParam = new(
+        "name",
+        "name",
+        SearchParamType.String,
+        new Uri("http://hl7.org/fhir/SearchParameter/individual-name"),
+        expression: "Patient.name",
+        baseResourceTypes: new[] { "Patient" });
+
     private readonly ISqlServerFhirModel _fhirModel;
     private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
     private readonly SchemaInformation _schemaInformation = new(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
@@ -212,5 +228,65 @@ public class SqlQueryGeneratorTests
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    [Fact]
+    public void GivenNoSplitDayUnionWithSibling_WhenSqlGenerated_ThenUnionIsASingleCteWithInlineUnionAll()
+    {
+        UnionExpression union = BuildDaySplitUnion(doNotSplit: true);
+
+        SqlRootExpression sqlExpression = BuildUnionWithSibling(union);
+        SearchOptions searchOptions = new() { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // The union is lowered to a single CTE (cte0) whose body combines both branches with inline UNION ALL,
+        // and the sibling (cte1) intersects it. There is no separate per-branch or aggregating CTE, so cte2 never appears.
+        Assert.Contains("UNION ALL", sql);
+        Assert.Contains("cte0", sql);
+        Assert.Contains("cte1", sql);
+        Assert.DoesNotContain("cte2", sql);
+        Assert.Contains("EXISTS (SELECT * FROM cte0", sql);
+    }
+
+    [Fact]
+    public void GivenDayUnionWithoutNoSplitFlag_WhenSqlGenerated_ThenUnionFansOutIntoSeparateCtes()
+    {
+        UnionExpression union = BuildDaySplitUnion(doNotSplit: false);
+
+        SqlRootExpression sqlExpression = BuildUnionWithSibling(union);
+        SearchOptions searchOptions = new() { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Without the flag the union fans out into one CTE per branch (cte0, cte1) plus an aggregating CTE (cte2)
+        // that UNION ALLs them, followed by the sibling CTE (cte3).
+        Assert.Contains("SELECT * FROM cte0", sql);
+        Assert.Contains("cte3", sql);
+    }
+
+    private static UnionExpression BuildDaySplitUnion(bool doNotSplit)
+    {
+        var endOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero);
+        var startOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
+        var shortBranch = new SearchParameterExpression(BirthdateParam, Expression.Equals(FieldName.DateTimeEnd, null, endOfDay));
+        var longBranch = new SearchParameterExpression(BirthdateParam, Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, startOfDay));
+        var union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+        union.DoNotSplitIntoSeparateCtes = doNotSplit;
+        return union;
+    }
+
+    private static SqlRootExpression BuildUnionWithSibling(UnionExpression union)
+    {
+        // The runtime shape: the union is the entire predicate of its own table expression (a bare UnionExpression).
+        var unionTable = new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal);
+        var siblingTable = new SearchParamTableExpression(
+            StringQueryGenerator.Instance,
+            new SearchParameterExpression(NameParam, Expression.StringEquals(FieldName.String, null, "Smith", false)),
+            SearchParamTableExpressionKind.Normal);
+
+        return new SqlRootExpression(new[] { unionTable, siblingTable }, new List<SearchParameterExpressionBase>());
     }
 }
