@@ -23,10 +23,10 @@ jobs:
     clean: true
 
   - task: UseDotNet@2
-    displayName: Use .NET 8 runtime
+    displayName: Use .NET 8 SDK
     inputs:
-      packageType: 'runtime'
-      version: '8.0.28'
+      packageType: 'sdk'
+      version: '8.0.422'
 
   - task: UseDotNet@2
     displayName: Use .NET sdk

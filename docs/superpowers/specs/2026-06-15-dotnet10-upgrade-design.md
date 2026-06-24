@@ -66,7 +66,7 @@ Medino has no `IRequestPreProcessor`. Convert the three validators into Medino `
 ### 4.6 Acceptance criteria
 - Builds clean on `net9.0;net8.0` with **no remaining `MediatR` references**.
 - Build agents use .NET SDK 10.0.301 so the shared 11.x SQL MSBuild task can load its `net10.0` assembly while PR 1 continues to target `net9.0;net8.0`.
-- ADO build templates also install .NET 8.0.28 and/or 9.0.17 runtimes before SDK 10 because shared 11.x code-generation targets invoke `tools/net8.0` and `tools/net9.0` generator assemblies for those target frameworks.
+- ADO build templates also install the .NET 8.0.422 and/or 9.0.315 SDK bands before SDK 10 so the agents have the matching `Microsoft.NETCore.App` and `Microsoft.AspNetCore.App` 8.0.28/9.0.17 shared frameworks for target-specific generators and MTP test executables.
 - `global.json` opts `dotnet test` into Microsoft.Testing.Platform mode, and ADO `DotNetCoreCLI@2` test tasks disable built-in result publishing so the task does not inject VSTest-only `--logger trx` arguments.
 - All tests green.
 - Validation pre-processor behavior preserved (verified by existing validation tests).

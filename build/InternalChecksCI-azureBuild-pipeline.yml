@@ -50,16 +50,16 @@ jobs:
       nugetConfigPath: nuget.config
 
   - task: UseDotNet@2
-    displayName: Use .NET 8 runtime
+    displayName: Use .NET 8 SDK
     inputs:
-      packageType: 'runtime'
-      version: '8.0.28'
+      packageType: 'sdk'
+      version: '8.0.422'
 
   - task: UseDotNet@2
-    displayName: Use .NET 9 runtime
+    displayName: Use .NET 9 SDK
     inputs:
-      packageType: 'runtime'
-      version: '9.0.17'
+      packageType: 'sdk'
+      version: '9.0.315'
 
   - task: UseDotNet@2
     displayName: Use .NET Core sdk

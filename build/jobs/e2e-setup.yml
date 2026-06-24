@@ -7,10 +7,10 @@ steps:
       artifactName: 'IntegrationTests'
 
   - task: UseDotNet@2
-    displayName: Use .NET 9 runtime
+    displayName: Use .NET 9 SDK
     inputs:
-      packageType: 'runtime'
-      version: '9.0.17'
+      packageType: 'sdk'
+      version: '9.0.315'
 
   - task: UseDotNet@2
     inputs:
