@@ -16,20 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
-        private readonly TokenCredential _azureServiceTokenProvider;
+        private readonly ManagedIdentityCredential _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
         public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
-            : this(new ManagedIdentityCredential(), logger)
         {
-        }
-
-        internal AzureAccessTokenProvider(TokenCredential tokenCredential, ILogger<AzureAccessTokenProvider> logger)
-        {
-            EnsureArg.IsNotNull(tokenCredential, nameof(tokenCredential));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = tokenCredential;
+            _azureServiceTokenProvider = new ManagedIdentityCredential();
             _logger = logger;
         }
 
@@ -49,11 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
                 accessToken = await _azureServiceTokenProvider.GetTokenAsync(accessTokenContext, cancellationToken: cancellationToken);
             }
             catch (CredentialUnavailableException ex)
-            {
-                _logger.LogWarning(ex, "Failed to retrieve access token");
-                throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
-            }
-            catch (AuthenticationFailedException ex)
             {
                 _logger.LogWarning(ex, "Failed to retrieve access token");
                 throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
