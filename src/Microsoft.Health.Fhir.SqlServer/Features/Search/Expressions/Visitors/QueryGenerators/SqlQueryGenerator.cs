@@ -1449,7 +1449,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                AppendSplitUnionAllTableExpressions(context, unionExpression, defaultQueryGenerator);
+                // Iterate through all expressions and create a unique CTE for each one.
+                int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
+                foreach (Expression innerExpression in unionExpression.Expressions)
+                {
+                    // Determine the appropriate query generator for this specific inner expression
+                    var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+
+                    var searchParamExpression = new SearchParamTableExpression(
+                        queryGenerator,
+                        innerExpression,
+                        SearchParamTableExpressionKind.Union);
+
+                    searchParamExpression.AcceptVisitor(this, context);
+                }
+
+                int lastInclusiveTableExpressionId = _tableExpressionCounter;
+
+                // Create a final CTE aggregating results from all previous CTEs.
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
+                {
+                    using (StringBuilder.Indent())
+                    {
+                        StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
+
+                        if (tableExpressionId < lastInclusiveTableExpressionId)
+                        {
+                            StringBuilder.AppendLine();
+                            StringBuilder.Append("UNION ALL ");
+                        }
+                    }
+                }
+
+                StringBuilder.AppendLine();
+                StringBuilder.Append(")");
             }
 
             // check for a previous union all, and if so, join the new union all with the previous one
@@ -1481,45 +1515,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _unionVisited = true;
             _firstChainAfterUnionVisited = false;
-        }
-
-        private void AppendSplitUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
-        {
-            // Iterate through all expressions and create a unique CTE for each one.
-            int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
-            foreach (Expression innerExpression in unionExpression.Expressions)
-            {
-                // Determine the appropriate query generator for this specific inner expression
-                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
-
-                var searchParamExpression = new SearchParamTableExpression(
-                    queryGenerator,
-                    innerExpression,
-                    SearchParamTableExpressionKind.Union);
-
-                searchParamExpression.AcceptVisitor(this, context);
-            }
-
-            int lastInclusiveTableExpressionId = _tableExpressionCounter;
-
-            // Create a final CTE aggregating results from all previous CTEs.
-            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-            for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
-            {
-                using (StringBuilder.Indent())
-                {
-                    StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
-
-                    if (tableExpressionId < lastInclusiveTableExpressionId)
-                    {
-                        StringBuilder.AppendLine();
-                        StringBuilder.Append("UNION ALL ");
-                    }
-                }
-            }
-
-            StringBuilder.AppendLine();
-            StringBuilder.Append(")");
         }
 
         /// <summary>
