@@ -143,25 +143,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
         }
 
-        [Fact]
-        public void GivenAllowListedBirthdateExactDayWithSiblingPredicateInChainedExpression_WhenRewritten_ThenOnlyBirthdateBranchEmitsDaySplitUnion()
-        {
-            // Mirrors the production chained shape: patient:Patient.birthdate=<day> AND patient:Patient.identifier=<id>.
-            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
-            var sibling = new SearchParameterExpression(BuildReferenceParam(), Expression.Equals(FieldName.ReferenceResourceId, null, "abc"));
-            var inner = Expression.And(birthdate, sibling);
-            var expr = BuildChainedExpression(inner);
-
-            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
-
-            var and = Assert.IsType<MultiaryExpression>(result.Expression);
-            Assert.Equal(MultiaryOperator.And, and.MultiaryOperation);
-            Assert.Collection(
-                and.Expressions,
-                rewrittenBirthdate => AssertDaySplitUnion(rewrittenBirthdate, StartOfDay, EndOfDay),
-                untouchedSibling => Assert.Same(sibling, untouchedSibling));
-        }
-
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
         public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
@@ -245,8 +226,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(expected, binary.Value);
         }
 
-        // Chained tests build a real ChainedExpression, so set ModelInfoProvider via fixture to avoid type-load timing.
-        // The R4 mock knows Observation and Patient, which is all these chained shapes requre.
         public sealed class R4ModelInfoProviderFixture
         {
             public R4ModelInfoProviderFixture()

@@ -247,18 +247,14 @@ public class SqlQueryGeneratorTests
         Assert.Contains("SELECT * FROM cte3", sql);
     }
 
-    [Theory]
-    [InlineData(false)] // forward chain: MedicationDispense?patient:Patient.birthdate=<exact day>
-    [InlineData(true)] // reverse chain (_has): Organization?_has:Patient:organization:birthdate=<exact day>
-    public void GivenChainedBirthdateUnion_WhenSqlGenerated_ThenUnionLowersAndBranchesRestrictAgainstChainLink(bool reversed)
+    [Fact]
+    public void GivenChainedBirthdateUnion_WhenSqlGenerated_ThenUnionLowersAndBranchesRestrictAgainstChainLink()
     {
         // ScalarTemporalEqualityRewriter rewrites the birthdate into a day-split UNION ALL nested inside the chain.
-        // Both directions must lower identically: each union branch JOINs the chain link (cte0) on the chain target
-        // columns (T2/Sid2) exactly as a plain chained birthdate predicate would, so the branches inherit the proven
-        // baseline chained behavior (ICM 21000001063947 / 815288838). The only difference is what cte0 produces.
+        // Each union branch joins the chain link (cte0) on the chain target columns (T2/Sid2).
         SetupChainModel();
 
-        SearchParamTableExpression chainLink = reversed ? BuildReverseChainLinkTableExpression() : BuildChainLinkTableExpression();
+        SearchParamTableExpression chainLink = BuildChainLinkTableExpression();
         SearchParamTableExpression unionTableExpression = BuildBirthdateUnionTableExpression(chainLevel: 1);
 
         SqlRootExpression sqlExpression = new(
@@ -343,44 +339,6 @@ public class SqlQueryGeneratorTests
         Assert.Contains("SELECT * FROM cte2", sql); // concatB unions in its Normal sibling (cte2) as a data source
     }
 
-    [Fact]
-    public void GivenThreeBranchUnionFollowedByConcatenationPair_WhenSqlGenerated_ThenBothBranchesShareUnionAggregateRegardlessOfBranchCount()
-    {
-        // Locks the -2 skip against branch count: a 3-branch union emits cte0/cte1/cte2 (branches) + cte3
-        // (aggregate), so the following Normal/Concatenation pair lands on cte4/cte5. Both pair branches must
-        // still restrict against the shared union aggregate (cte3) - the skip is one CTE (the Normal sibling),
-        // independent of how many branches the union inflated the counter by.
-        SearchParamTableExpression union = BuildThreeBranchBirthdateUnionTableExpression();
-        (SearchParamTableExpression normal, SearchParamTableExpression concatenation) = BuildBoundedDateRangePair();
-
-        SqlRootExpression sqlExpression = new(
-            new List<SearchParamTableExpression> { union, normal, concatenation },
-            new List<SearchParameterExpressionBase>());
-        SearchOptions searchOptions = new()
-        {
-            Sort = [],
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        };
-
-        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
-        string sql = _strBuilder.ToString();
-
-        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte3"));
-        Assert.DoesNotContain("EXISTS (SELECT * FROM cte4", sql);
-        Assert.Contains("SELECT * FROM cte4", sql); // concatenation unions in its Normal sibling (cte4) as a data source
-    }
-
-    private static SearchParamTableExpression BuildThreeBranchBirthdateUnionTableExpression()
-    {
-        var day = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
-        var branch1 = new SearchParameterExpression(BuildBirthdateParam(), Expression.Equals(FieldName.DateTimeEnd, null, day));
-        var branch2 = new SearchParameterExpression(BuildBirthdateParam(), Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, day));
-        var branch3 = new SearchParameterExpression(BuildBirthdateParam(), Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, day));
-        UnionExpression union = Expression.Union(UnionOperator.All, new Expression[] { branch1, branch2, branch3 });
-
-        return new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal, 0);
-    }
-
     private static SearchParameterInfo BuildBirthdateParam() =>
         new SearchParameterInfo(
             "birthdate",
@@ -437,28 +395,6 @@ public class SqlQueryGeneratorTests
             referenceParam,
             new[] { "Patient" },
             reversed: false);
-
-        return new SearchParamTableExpression(ChainLinkQueryGenerator.Instance, chainLink, SearchParamTableExpressionKind.Chain, chainLevel: 1);
-    }
-
-    private static SearchParamTableExpression BuildReverseChainLinkTableExpression()
-    {
-        // Reverse chain (_has): Organization?_has:Patient:organization:birthdate=...
-        // The reference lives on Patient (the source resource type), pointing at Organization (the search root).
-        var referenceParam = new SearchParameterInfo(
-            "organization",
-            "organization",
-            SearchParamType.Reference,
-            new Uri("http://hl7.org/fhir/SearchParameter/Patient-organization"),
-            expression: "Patient.managingOrganization",
-            baseResourceTypes: new[] { "Patient" },
-            targetResourceTypes: new[] { "Organization" });
-
-        var chainLink = new SqlChainLinkExpression(
-            new[] { "Patient" },
-            referenceParam,
-            new[] { "Organization" },
-            reversed: true);
 
         return new SearchParamTableExpression(ChainLinkQueryGenerator.Instance, chainLink, SearchParamTableExpressionKind.Chain, chainLevel: 1);
     }

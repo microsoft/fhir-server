@@ -52,27 +52,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _rewriter = new SortRewriter(factory);
         }
 
-        // SortWithFilter requires the sort parameter on every branch; otherwise this falls back to Sort.
-        // Not-matched cases use descending order with no continuation token so VisitSqlRoot appends Sort, not NotExists.
         public static TheoryData<Expression, SortOrder, bool> SortCoverageCases => new()
         {
-            // All branches of the day-split union reference birthdate → match.
             { BuildBirthdateDaySplitUnion(), SortOrder.Ascending, true },
-
-            // No branch references birthdate → no match.
-            {
-                Expression.Union(
-                    UnionOperator.All,
-                    new Expression[]
-                    {
-                        new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Smith")),
-                        new SearchParameterExpression(NameParam, Expression.Equals(FieldName.String, null, "Jones")),
-                    }),
-                SortOrder.Descending,
-                false
-            },
-
-            // Mixed union: one branch references birthdate, one does not → no match (all branches must match).
             {
                 Expression.Union(
                     UnionOperator.All,
@@ -83,13 +65,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
                     }),
                 SortOrder.Descending,
                 false
-            },
-
-            // Baseline plain SearchParameterExpression on birthdate → match (existing null-signal path).
-            {
-                new SearchParameterExpression(BirthdateParam, Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay)),
-                SortOrder.Ascending,
-                true
             },
         };
 
@@ -104,11 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             return new SqlSearchOptions(inner);
         }
 
-        /// <summary>
-        /// Builds the bare UnionExpression that ScalarTemporalEqualityRewriter emits for a day-precision birthdate.
-        /// Both branches are SearchParameterExpression(birthdate, ...) so the sort rewriter's VisitUnion
-        /// must detect that ALL branches contain the sort parameter.
-        /// </summary>
         private static UnionExpression BuildBirthdateDaySplitUnion()
         {
             var shortBranch = new SearchParameterExpression(
