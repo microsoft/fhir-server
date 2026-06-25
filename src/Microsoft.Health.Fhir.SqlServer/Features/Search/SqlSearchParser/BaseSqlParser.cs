@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {
                 sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
-                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? string.Empty : "NOT ")} EXISTS (SELECT 1 FROM {parameter.Type} t WHERE t.ResourceSurrogateId = r.ResourceSurrogateId AND t.SearchParamId = {parameter.Id})");
+                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {parameter.Type} t WHERE t.ResourceSurrogateId = r.ResourceSurrogateId AND t.SearchParamId = {parameter.Id})");
             }
             else
             {
