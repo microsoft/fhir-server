@@ -51,9 +51,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
-        private bool _unionVisited = false;
         private bool _smartV2UnionVisited = false;
-        private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
+
+        // --- chain/union CTE state machine ---
+        // These four fields are mutated together by AppendNewSetOfUnionAllTableExpressions and
+        // HandleTableKindNormal and must stay consistent; change them as a unit.
+        // _unionVisited: a top-level UNION ALL has been emitted, so later chain links may need resource-union handling.
+        // _unionAggregateCTEIndex: index of the CTE that aggregates all union-branch results (-1 = none emitted yet).
+        // _firstChainAfterUnionVisited: once a chain link after the union is emitted, later inner joins switch from T1/Sid1 to T2/Sid2.
+        // _unionBranchPredecessorIndex: predecessor CTE pinned for chain-nested union branches (-1 = not currently inside one).
+        private bool _unionVisited = false;
+        private int _unionAggregateCTEIndex = -1;
         private bool _firstChainAfterUnionVisited = false;
         private int _unionBranchPredecessorIndex = -1;
         private HashSet<int> _cteToLimit = new HashSet<int>();
@@ -635,6 +643,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine("),");
         }
 
+        // True when this chain link should resource-union a specific resource into the results:
+        // a top-level union has already been emitted (_unionVisited) and we are not currently inside
+        // a chain-nested union branch (_unionBranchPredecessorIndex < 0).
+        private bool IsScopedResourceUnionLink(SearchParamTableExpression searchParamTableExpression)
+            => searchParamTableExpression.ChainLevel == 1 && _unionVisited && _unionBranchPredecessorIndex < 0;
+
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
@@ -665,7 +679,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
                 }
             }
-            else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited && _unionBranchPredecessorIndex < 0)
+            else if (IsScopedResourceUnionLink(searchParamTableExpression))
             {
                 // handle special case where we want to Union a specific resource to the results
                 var searchParameterExpressionPredicate = CheckExpressionOrFirstChildIsSearchParam(searchParamTableExpression.Predicate);
@@ -1430,48 +1444,93 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new ArgumentOutOfRangeException(unionExpression.Operator.ToString());
             }
 
-            // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             bool isChainNestedUnion = chainLevel > 0;
 
-            int previousUnionBranchPredecessorIndex = _unionBranchPredecessorIndex;
+            // Emit one CTE per union branch. Chain-nested unions emit Normal CTEs restricted by their
+            // pinned chain-link predecessor; top-level unions emit Union CTEs via the normal visitor path.
             if (isChainNestedUnion)
             {
-                _unionBranchPredecessorIndex = firstInclusiveTableExpressionId - 1;
+                AppendChainNestedUnionBranches(context, unionExpression, defaultQueryGenerator, chainLevel, firstInclusiveTableExpressionId);
             }
+            else
+            {
+                AppendTopLevelUnionBranches(context, unionExpression, defaultQueryGenerator, chainLevel);
+            }
+
+            // Emit the CTE that UNION ALLs every branch CTE together.
+            AppendUnionAggregateCte(firstInclusiveTableExpressionId);
+
+            // Chain-nested unions are restricted by their pinned chain-link predecessor, not by the
+            // top-level union state machine, so they stop here without joining a previous union or
+            // mutating the shared union state.
+            if (isChainNestedUnion)
+            {
+                return;
+            }
+
+            JoinWithPreviousUnionAggregate();
+
+            _unionAggregateCTEIndex = _tableExpressionCounter;
+            _unionVisited = true;
+            _firstChainAfterUnionVisited = false;
+        }
+
+        // Emits one Normal CTE per branch of a chain-nested union. Each branch must restrict against the
+        // chain link emitted immediately before the union rather than against the previous branch, so we
+        // pin that predecessor for the duration of the loop (FindRestrictingPredecessorTableExpressionIndex
+        // reads _unionBranchPredecessorIndex) and restore it in finally so nested unions unwind cleanly.
+        private void AppendChainNestedUnionBranches(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, int chainLevel, int firstInclusiveTableExpressionId)
+        {
+            int previousUnionBranchPredecessorIndex = _unionBranchPredecessorIndex;
+            _unionBranchPredecessorIndex = firstInclusiveTableExpressionId - 1;
 
             try
             {
                 foreach (Expression innerExpression in unionExpression.Expressions)
                 {
-                    // Determine the appropriate query generator for this specific inner expression
                     var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
 
                     var searchParamExpression = new SearchParamTableExpression(
                         queryGenerator,
                         innerExpression,
-                        isChainNestedUnion ? SearchParamTableExpressionKind.Normal : SearchParamTableExpressionKind.Union,
+                        SearchParamTableExpressionKind.Normal,
                         chainLevel);
 
-                    if (isChainNestedUnion)
-                    {
-                        AppendNewTableExpression(StringBuilder, searchParamExpression, ++_tableExpressionCounter, context);
-                        StringBuilder.AppendLine(",");
-                    }
-                    else
-                    {
-                        searchParamExpression.AcceptVisitor(this, context);
-                    }
+                    AppendNewTableExpression(StringBuilder, searchParamExpression, ++_tableExpressionCounter, context);
+                    StringBuilder.AppendLine(",");
                 }
             }
             finally
             {
                 _unionBranchPredecessorIndex = previousUnionBranchPredecessorIndex;
             }
+        }
 
+        // Emits one Union CTE per branch of a top-level union, letting the normal visitor pipeline drive
+        // each branch's restriction against the previous CTE.
+        private void AppendTopLevelUnionBranches(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, int chainLevel)
+        {
+            foreach (Expression innerExpression in unionExpression.Expressions)
+            {
+                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+
+                var searchParamExpression = new SearchParamTableExpression(
+                    queryGenerator,
+                    innerExpression,
+                    SearchParamTableExpressionKind.Union,
+                    chainLevel);
+
+                searchParamExpression.AcceptVisitor(this, context);
+            }
+        }
+
+        // Emits the aggregating CTE that UNION ALLs every branch CTE in [firstInclusiveTableExpressionId,
+        // _tableExpressionCounter] into a single result set, then advances the counter onto that new CTE.
+        private void AppendUnionAggregateCte(int firstInclusiveTableExpressionId)
+        {
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 
-            // Create a final CTE aggregating results from all previous CTEs.
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
             for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
             {
@@ -1489,13 +1548,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
+        }
 
-            if (chainLevel > 0)
-            {
-                return;
-            }
-
-            // check for a previous union all, and if so, join the new union all with the previous one
+        // When a prior top-level union aggregate exists, intersect it with the current one by joining the
+        // two aggregate CTEs on (T1, Sid1) so multiple top-level unions AND together.
+        private void JoinWithPreviousUnionAggregate()
+        {
             if (_unionAggregateCTEIndex > -1)
             {
                 var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
@@ -1519,11 +1577,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(")");
             }
-
-            _unionAggregateCTEIndex = _tableExpressionCounter;
-
-            _unionVisited = true;
-            _firstChainAfterUnionVisited = false;
         }
 
         private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)
@@ -1701,7 +1754,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
+                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
@@ -1715,8 +1768,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return _unionBranchPredecessorIndex;
             }
 
-            // Restrict against the previous CTE except for Concatenation, whose branches use the Normal sibling's predecessor.
-            // Use _tableExpressionCounter, not root expression indices, because unions can add extra CTEs.
+            // Restrict against the immediately previous CTE (_tableExpressionCounter - 1). We track against
+            // _tableExpressionCounter rather than root-expression indices because unions inject extra
+            // aggregate CTEs that those logical indices don't account for.
+            //
+            // Concatenation is the exception: its own Normal sibling sits one CTE back
+            // (_tableExpressionCounter - 1), so we skip past it to reach the shared predecessor that the
+            // sibling restricts against, two CTEs back (_tableExpressionCounter - 2).
             if (currentExpression.Kind == SearchParamTableExpressionKind.Concatenation)
             {
                 return _tableExpressionCounter - 2;
