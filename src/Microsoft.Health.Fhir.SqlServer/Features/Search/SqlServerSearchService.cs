@@ -2271,6 +2271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NotExpressionRewriter.Instance)
                 .AcceptVisitor(_chainFlatteningRewriter)
                 .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
+                .AcceptVisitor(NoSplitUnionPredicateDistributionRewriter.Instance)
                 .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
                 .AcceptVisitor(
                     (SqlExpressionRewriterWithInitialContext<object>)(_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables

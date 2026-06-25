@@ -267,6 +267,48 @@ public class SqlQueryGeneratorTests
         Assert.Contains("cte3", sql);
     }
 
+    [Fact]
+    public void GivenNoSplitUnionAndedWithTypePredicate_WhenRewrittenAndSqlGenerated_ThenResourceTypeIdFoldedIntoEachBranchWithNoSeparateCte()
+    {
+        // The model maps the _type value to a resource type id so ResourceTypeId renders (otherwise the generator emits 0 = 1).
+        _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)103;
+                return true;
+            });
+
+        // Pre-distribution shape produced by ResourceColumnPredicatePushdownRewriter: And(noSplitUnion, _type=Patient).
+        UnionExpression union = BuildDaySplitUnion(doNotSplit: true);
+        var typePredicate = new SearchParameterExpression(
+            new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType),
+            new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false));
+
+        var unionTable = new SearchParamTableExpression(DateTimeQueryGenerator.Instance, Expression.And(union, typePredicate), SearchParamTableExpressionKind.Normal);
+        var siblingTable = new SearchParamTableExpression(
+            StringQueryGenerator.Instance,
+            new SearchParameterExpression(NameParam, Expression.StringEquals(FieldName.String, null, "Smith", false)),
+            SearchParamTableExpressionKind.Normal);
+        SqlRootExpression sqlExpression = new(new[] { unionTable, siblingTable }, new List<SearchParameterExpressionBase>());
+
+        sqlExpression = (SqlRootExpression)sqlExpression.AcceptVisitor(NoSplitUnionPredicateDistributionRewriter.Instance);
+
+        SearchOptions searchOptions = new() { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest };
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // The type predicate is folded into each inline UNION ALL branch, so ResourceTypeId appears in both branches
+        // within the single cte0. There is no separate remainder/aggregating CTE, so cte2 never appears.
+        Assert.Contains("UNION ALL", sql);
+        Assert.Contains("cte0", sql);
+        Assert.Contains("cte1", sql);
+        Assert.DoesNotContain("cte2", sql);
+        Assert.Contains("EXISTS (SELECT * FROM cte0", sql);
+
+        int resourceTypeIdOccurrences = sql.Split("ResourceTypeId = 103").Length - 1;
+        Assert.True(resourceTypeIdOccurrences >= 2, $"Expected ResourceTypeId predicate in both union branches, but found {resourceTypeIdOccurrences} in: {sql}");
+    }
+
     private static UnionExpression BuildDaySplitUnion(bool doNotSplit)
     {
         var endOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero);
