@@ -156,15 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        /// <summary>
-        /// Returns the sort-parameter "found" signal (<c>null</c>) only if every union branch contains the sort parameter.
-        /// Otherwise returns the original union because missing-value sort phases are still needed, and rebuilding with null children would be invalid.
-        /// </summary>
-        public override Expression VisitUnion(UnionExpression expression, SqlSearchOptions context)
-        {
-            bool allBranchesMatch = expression.Expressions.All(e => e.AcceptVisitor(this, context) == null);
-            return allBranchesMatch ? null : expression;
-        }
+        public override Expression VisitUnion(UnionExpression expression, SqlSearchOptions context) =>
+            expression.Expressions.All(e => e.AcceptVisitor(this, context) == null) ? null : expression;
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, SqlSearchOptions context)
         {

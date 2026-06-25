@@ -55,8 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _smartV2UnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
-
-        private int _unionBranchPredecessorIndex = -1; // chain-union predecessor CTE
+        private int _unionBranchPredecessorIndex = -1;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
@@ -1435,9 +1434,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             bool isChainNestedUnion = chainLevel > 0;
 
-            // For a chain-nested union, every branch must restrict against the chain link that precedes the
-            // union (firstInclusiveTableExpressionId - 1), not against the branch generated immediately before
-            // it. Pin that predecessor for the duration of the branch loop and restore it afterwards.
             int previousUnionBranchPredecessorIndex = _unionBranchPredecessorIndex;
             if (isChainNestedUnion)
             {
@@ -1494,41 +1490,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
-            // Only top-level unions should update union state and run the previous-union join below.
-            // Chain-nested unions keep the source in T1/Sid1 and the target to filter in T2/Sid2.
-            // Using top-level state would put same-target predicates on the wrong columns, so they manage their own predecessor.
-            if (chainLevel == 0)
+            if (chainLevel > 0)
             {
-                // check for a previous union all, and if so, join the new union all with the previous one
-                if (_unionAggregateCTEIndex > -1)
+                return;
+            }
+
+            // check for a previous union all, and if so, join the new union all with the previous one
+            if (_unionAggregateCTEIndex > -1)
+            {
+                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                StringBuilder.Append(", ");
+                StringBuilder.AppendLine();
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                using (StringBuilder.Indent())
                 {
-                    var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
-                    var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
-
-                    StringBuilder.Append(", ");
-                    StringBuilder.AppendLine();
-                    StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
-                    using (StringBuilder.Indent())
-                    {
-                        StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
-                        .AppendLine()
-                        .Append("FROM ").Append(prevUnionAggregateTableName)
-                        .AppendLine()
-                        .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
-                        .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
-                        .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
-                        .AppendLine();
-                    }
-
-                    StringBuilder.Append(")");
+                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                    .AppendLine()
+                    .Append("FROM ").Append(prevUnionAggregateTableName)
+                    .AppendLine()
+                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                    .AppendLine();
                 }
 
-                _unionAggregateCTEIndex = _tableExpressionCounter;
-
-                _unionVisited = true;
-                _firstChainAfterUnionVisited = false;
+                StringBuilder.Append(")");
             }
+
+            _unionAggregateCTEIndex = _tableExpressionCounter;
+
+            _unionVisited = true;
+            _firstChainAfterUnionVisited = false;
         }
 
         private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)

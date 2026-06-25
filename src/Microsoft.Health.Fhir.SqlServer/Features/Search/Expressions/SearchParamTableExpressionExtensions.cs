@@ -16,46 +16,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     {
         /// <summary>
         /// Identifies if a <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.
-        /// Handles both the scalar-temporal shape (bare <see cref="UnionExpression"/> as the predicate) and
-        /// the SmartV2 shape (<see cref="UnionExpression"/> nested inside a <see cref="MultiaryExpression"/>).
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
-            // Scalar-temporal shape: the predicate itself is a UnionExpression.
-            if (expression.Predicate is UnionExpression)
-            {
-                return true;
-            }
-
-            // SmartV2 shape: the UnionExpression is a child of a MultiaryExpression container.
-            IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
-            return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
+            return expression.Predicate is UnionExpression ||
+                (expression.Predicate is IExpressionsContainer expressionContainer &&
+                expressionContainer.Expressions.Any(e => e is UnionExpression));
         }
 
         /// <summary>
         /// Split the inner expressions from a <see cref="SearchParamTableExpression"/> into two groups: an existing <see cref="UnionExpression"/> and the other expressions.
-        /// Handles both the scalar-temporal shape (bare <see cref="UnionExpression"/> as the predicate) and
-        /// the SmartV2 shape (<see cref="UnionExpression"/> nested inside a <see cref="MultiaryExpression"/>).
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         /// <param name="unionExpression">Instance of <see cref="UnionExpression"/>.</param>
-        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionExpression"/>. Null when the predicate is a bare union with no sibling expressions.</param>
+        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionExpression"/>.</param>
         /// <returns>Returns TRUE if the <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.</returns>
         public static bool SplitExpressions(this SearchParamTableExpression expression, out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions)
         {
             unionExpression = null;
             allOtherRemainingExpressions = null;
 
-            // Scalar-temporal shape: the predicate itself is a UnionExpression.
-            // There are no remaining sibling expressions, so allOtherRemainingExpressions stays null.
             if (expression.Predicate is UnionExpression bareUnion)
             {
                 unionExpression = bareUnion;
                 return true;
             }
 
-            // SmartV2 shape: union is a child of a MultiaryExpression container.
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
 
             if (expressionContainer != null)
@@ -97,10 +84,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed
         /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
-        /// <remarks>
-        /// <c>SqlQueryGenerator</c>'s predecessor resolution depends on stable partitioning so Concatenation pairs stay adjacent.
-        /// Only top-level unions are hoisted; chain-nested unions must stay after their chain link to preserve predecessor resolution.
-        /// </remarks>
         /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static IReadOnlyList<SearchParamTableExpression> SortExpressionsByQueryLogic(this IReadOnlyList<SearchParamTableExpression> expressions)
         {
@@ -108,12 +91,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             var smartV2Unions = new List<SearchParamTableExpression>();
             var nonUnions = new List<SearchParamTableExpression>();
 
-            // Stable partition: each expression is appended to its group in input order, and the groups are
-            // concatenated below, so relative order within every group is preserved.
             foreach (SearchParamTableExpression tableExpression in expressions)
             {
-                // Only hoist top-level unions. A chain-nested union (ChainLevel > 0) must remain after its chain link,
-                // so it is treated as a non-union and keeps its original position.
                 if (tableExpression.HasUnionAllExpression() && tableExpression.ChainLevel == 0)
                 {
                     if (tableExpression.HasSmartV2UnionExpression())
