@@ -3766,8 +3766,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3805,8 +3805,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3844,8 +3844,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3864,8 +3864,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3903,8 +3903,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3942,8 +3942,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3963,8 +3963,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -3984,8 +3984,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -4005,8 +4005,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-patient-A", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -4027,12 +4027,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-
-            // Only the observation with date > 2000-01-01 should be returned
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-observation-A1", results.Results.First().Resource.ResourceId);
         }
 
         [SkippableFact]
@@ -4053,12 +4049,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-
-            // Only the observation with date < 2000-01-01 should be returned
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Single(results.Results);
+            Assert.Equal("smart-observation-A2", results.Results.First().Resource.ResourceId);
         }
     }
 }

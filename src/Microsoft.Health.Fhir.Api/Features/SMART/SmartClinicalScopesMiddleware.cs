@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     {
                         matches = ClinicalScopeRegEx.Matches(scopeClaims);
                     }
-                    catch (RegexMatchTimeoutException)
+                    catch (Exception)
                     {
                         throw new BadHttpRequestException(string.Format(
                             Api.Resources.SmartScopeInvalidSearchParameters,
@@ -278,11 +278,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                         smartScopeSearchParameters.Add(paramKey, paramValue);
                                     }
                                 }
-                                catch (BadHttpRequestException)
-                                {
-                                    throw;
-                                }
-                                catch (Exception)
+                                catch (Exception ex) when (ex is not BadHttpRequestException)
                                 {
                                     throw new BadHttpRequestException(string.Format(
                                         Api.Resources.SmartScopeInvalidSearchParameters,
