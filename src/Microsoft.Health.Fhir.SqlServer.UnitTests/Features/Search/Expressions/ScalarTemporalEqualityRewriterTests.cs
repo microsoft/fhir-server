@@ -30,6 +30,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
+        public ScalarTemporalEqualityRewriterTests()
+        {
+            // Re-enabling the rewrite inside chained expressions causes the base rewriter to rebuild
+            // the ChainedExpression, whose constructor validates resource types via ModelInfoProvider.
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
+        }
+
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
             { StartOfDay, EndOfDay },
@@ -81,13 +88,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 targetResourceTypes: new[] { "Patient" });
         }
 
-        private static ChainedExpression BuildChainedExpression(Expression inner)
+        private static ChainedExpression BuildChainedExpression(Expression inner, bool reversed = false)
         {
             var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
             SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
             SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
             SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
-            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), reversed);
             SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
             return expression;
         }
@@ -128,14 +135,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough()
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenEmitsDaySplitUnionInsideChain()
         {
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
-            Assert.Same(inner, result.Expression);
+            AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInReverseChainedExpression_WhenRewritten_ThenEmitsDaySplitUnionInsideChain()
+        {
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = BuildChainedExpression(inner, reversed: true);
+
+            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
         }
 
         [Theory]

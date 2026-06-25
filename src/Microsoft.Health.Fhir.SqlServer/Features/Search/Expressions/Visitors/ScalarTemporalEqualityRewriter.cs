@@ -50,24 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitChained(ChainedExpression expression, bool context)
-        {
-            Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
-            if (ReferenceEquals(visitedExpression, expression.Expression))
-            {
-                return expression;
-            }
-
-            return new ChainedExpression(expression.ResourceTypes, expression.ReferenceSearchParameter, expression.TargetResourceTypes, expression.Reversed, visitedExpression);
-        }
-
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
         {
-            if (context)
-            {
-                return expression;
-            }
-
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {
