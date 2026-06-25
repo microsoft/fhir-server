@@ -195,28 +195,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
-            var paramList = searchableDefinitionManager.AllSearchParameters;
+            var paramList = searchableDefinitionManager.AllSearchParameters.ToList();
 
-            Assert.Collection(
-                paramList,
-                pType =>
-                {
-                    // _type (ResourceTypeSearchParameter) is always searchable/supported,
-                    // even without a status store entry.
-                    Assert.Equal("_type", pType.Code);
-                    Assert.True(pType.IsSupported);
-                    Assert.True(pType.IsSearchable);
-                },
-                p =>
-                {
-                    Assert.True(p.IsSupported);
-                    Assert.True(p.IsSearchable);
-                },
-                p2 =>
-                {
-                    Assert.True(p2.IsSupported);
-                    Assert.True(p2.IsSearchable);
-                });
+            Assert.Equal(3, paramList.Count);
+            Assert.All(paramList, p =>
+            {
+                Assert.True(p.IsSupported);
+                Assert.True(p.IsSearchable);
+            });
+
+            // _type (ResourceTypeSearchParameter) is always searchable/supported,
+            // even without a status store entry.
+            Assert.Single(paramList, p => p.Code == SearchParameterNames.ResourceType);
         }
 
         [Fact]
