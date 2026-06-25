@@ -16,10 +16,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// Creates and initializes a new SQL database if it does not already exist.
         /// </summary>
         /// <param name="databaseName">The name of the database to create.</param>
-        /// <param name="maximumSupportedSchemaVersion">The maximum supported schema version.</param>
+        /// <param name="targetSchemaVersion">The target schema version to initialize to.</param>
         /// <param name="forceIncrementalSchemaUpgrade">True if diff SQL files should be applied to upgrade the schema.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default);
+        Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Deletes the specified SQL database.

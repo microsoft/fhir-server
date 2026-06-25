@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
@@ -116,20 +116,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await connection.CloseAsync();
                 });
 
-            if (maximumSupportedSchemaVersion == SchemaVersionConstants.MinForUpgrade || maximumSupportedSchemaVersion == SchemaVersionConstants.Max)
+            if (targetSchemaVersion == SchemaVersionConstants.MinForUpgrade || targetSchemaVersion == SchemaVersionConstants.Max)
             {
-                var (schemaInitializer, _) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, maximumSupportedSchemaVersion, maximumSupportedSchemaVersion);
+                var (schemaInitializer, _) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, targetSchemaVersion, targetSchemaVersion);
                 await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
-                _schemaInformation.Current = maximumSupportedSchemaVersion;
+                _schemaInformation.Current = targetSchemaVersion;
             }
             else
             {
-                var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, SchemaVersionConstants.MinForUpgrade, maximumSupportedSchemaVersion);
+                var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, SchemaVersionConstants.MinForUpgrade, targetSchemaVersion);
                 await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
 
                 _schemaInformation.Current = SchemaVersionConstants.MinForUpgrade;
 
-                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= maximumSupportedSchemaVersion; version++)
+                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= targetSchemaVersion; version++)
                 {
                     await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
                     _schemaInformation.Current = version;
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
             await InitSystem(databaseName);
-            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
+            await _sqlServerFhirModel.Initialize(targetSchemaVersion, cancellationToken);
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
