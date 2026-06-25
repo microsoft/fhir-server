@@ -253,36 +253,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 var searchParamsString = match.Groups["searchParams"].Value;
                                 var searchParamsPairs = searchParamsString.Split('&');
 
-                                try
+                                // iterate through each key-value pair and add them to the SearchParams
+                                foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
                                 {
-                                    // iterate through each key-value pair and add them to the SearchParams
-                                    foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
+                                    var paramKey = parts[0];
+                                    var paramValue = parts[1];
+
+                                    // Check for search modifiers (e.g., category:not, code:text, status:in)
+                                    int colonIndex = paramKey.IndexOf(':', StringComparison.Ordinal);
+                                    if (colonIndex >= 0)
                                     {
-                                        var paramKey = parts[0];
-                                        var paramValue = parts[1];
-
-                                        // Check for search modifiers (e.g., category:not, code:text, status:in)
-                                        int colonIndex = paramKey.IndexOf(':', StringComparison.Ordinal);
-                                        if (colonIndex >= 0)
+                                        var modifier = paramKey.Substring(colonIndex + 1);
+                                        if (KnownSearchModifiers.Contains(modifier))
                                         {
-                                            var modifier = paramKey.Substring(colonIndex + 1);
-                                            if (KnownSearchModifiers.Contains(modifier))
-                                            {
-                                                throw new BadHttpRequestException(string.Format(
-                                                    Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
-                                                    match.Value.Trim(),
-                                                    $"{paramKey}={paramValue}"));
-                                            }
+                                            throw new BadHttpRequestException(string.Format(
+                                                Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                                match.Value.Trim(),
+                                                $"{paramKey}={paramValue}"));
                                         }
-
-                                        smartScopeSearchParameters.Add(paramKey, paramValue);
                                     }
-                                }
-                                catch (Exception ex) when (ex is not BadHttpRequestException)
-                                {
-                                    throw new BadHttpRequestException(string.Format(
-                                        Api.Resources.SmartScopeInvalidSearchParameters,
-                                        match.Value.Trim()));
+
+                                    smartScopeSearchParameters.Add(paramKey, paramValue);
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)
