@@ -151,32 +151,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return Task.CompletedTask;
         }
 
-        private SearchParameter? ConvertToSearchParameter(Core.Models.SearchParameterInfo searchParamInfo)
+        private SearchParameterIdWrapper? ConvertToSearchParameter(Core.Models.SearchParameterInfo searchParamInfo)
         {
             try
             {
                 // Get the SQL search parameter ID using the URL
                 var searchParamId = _sqlServerFhirModel.GetSearchParamId(searchParamInfo.Url);
 
-                // Map SearchParamType to the type string expected by the SQL parser
-                var typeString = MapSearchParamType(searchParamInfo.Type);
-
-                if (string.IsNullOrEmpty(typeString))
+                return new SearchParameterIdWrapper
                 {
-                    _logger.LogDebug(
-                        "Skipping search parameter '{Code}' with unsupported type '{Type}'.",
-                        searchParamInfo.Code,
-                        searchParamInfo.Type);
-                    return null;
-                }
-
-                return new SearchParameter
-                {
-                    Code = searchParamInfo.Code,
-                    Type = typeString,
+                    SearchParameterInfo = searchParamInfo,
                     Id = searchParamId,
-                    ResourceTypes = searchParamInfo.BaseResourceTypes,
-                    TargetResourceTypes = searchParamInfo.TargetResourceTypes,
                 };
             }
             catch (Exception ex)

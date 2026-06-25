@@ -11,15 +11,17 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class SearchParameterSqlParser
     {
         private readonly SearchParameterCollection _parameterCollection;
-        private readonly Dictionary<string, ISqlParser> _sqlParsers;
+        private readonly Dictionary<SearchParamType, ISqlParser> _sqlParsers;
         private readonly SystemSqlParser _systemSqlParser;
         private readonly IdSqlParser _idSqlParser;
         private readonly ISqlServerFhirModel _sqlServerFhirModel;
@@ -33,18 +35,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _sqlServerFhirModel = fhirModel;
             _systemSqlParser = new SystemSqlParser();
             _idSqlParser = new IdSqlParser();
-            _sqlParsers = new Dictionary<string, ISqlParser>(StringComparer.OrdinalIgnoreCase)
+            _sqlParsers = new Dictionary<SearchParamType, ISqlParser>()
             {
-                { "NumberSearchParam", new NumberSqlParser(parameterCollection) },
-                { "DateTimeSearchParam", new DateTimeSqlParser(parameterCollection) },
-                { "StringSearchParam", new StringSqlParser(parameterCollection) },
-                { "TokenSearchParam", new TokenSqlParser(parameterCollection) },
-                { "ReferenceSearchParam", new ReferenceSqlParser(parameterCollection, fhirModel) },
-                { "UriSearchParam", new UriSqlParser(parameterCollection) },
-                { "include", new IncludeSqlParser(parameterCollection) },
+                { SearchParamType.Number, new NumberSqlParser(parameterCollection) },
+                { SearchParamType.Date, new DateTimeSqlParser(parameterCollection) },
+                { SearchParamType.String, new StringSqlParser(parameterCollection) },
+                { SearchParamType.Token, new TokenSqlParser(parameterCollection) },
+                { SearchParamType.Reference, new ReferenceSqlParser(parameterCollection, fhirModel) },
+                { SearchParamType.Uri, new UriSqlParser(parameterCollection) },
+                { SearchParamType.Include, new IncludeSqlParser(parameterCollection) },
             };
 
-            _sqlParsers.Add("chained", new ChainedSqlParser(parameterCollection, _sqlParsers, fhirModel));
+            _sqlParsers.Add(SearchParamType.Chained, new ChainedSqlParser(parameterCollection, _sqlParsers, fhirModel));
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
@@ -358,18 +360,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
-            var parameterType = _parameterCollection.GetParameterType(name, options.ResourceTypes[0]);
-            if (parameterType == null)
+            var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes[0]);
+            if (parameter == null)
             {
                 return null;
             }
 
-            if (!_sqlParsers.TryGetValue(parameterType, out var parser))
+            ISqlParser? parser = null;
+            if (parameter.SearchParameterInfo.Type == SearchParamType.Composite)
+            {
+                BaseCompositeSqlParser.DetermineCompositeType(parameter.SearchParameterInfo, _parameterCollection, options.ResourceTypes[0]);
+            }
+            else if (!_sqlParsers.TryGetValue(parameter.SearchParameterInfo.Type, out parser))
             {
                 return null;
             }
 
-            return parser.Parse(name, value, options);
+            return parser?.Parse(name, value, options);
         }
     }
 }

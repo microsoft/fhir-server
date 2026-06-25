@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 foreach (var v in values)
                 {
                     // Add parameter-specific WHERE conditions
-                    var whereClause = BuildWhereClause(v, modifier);
+                    var whereClause = BuildWhereClause(v, modifier, columnSuffix: null);
 
                     if (!firstClause)
                     {
@@ -108,7 +108,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return sqlBuilder.ToString();
         }
 
-        protected abstract string BuildWhereClause(string value, string modifier);
+        /// <summary>
+        /// Builds the WHERE clause for the search parameter.
+        /// </summary>
+        /// <param name="value">The search value.</param>
+        /// <param name="modifier">The search modifier (if any).</param>
+        /// <param name="columnSuffix">Optional numeric suffix for column names in composite tables (e.g., 2 for "Text2"). Null for non-composite tables.</param>
+        /// <returns>The SQL WHERE clause.</returns>
+        public abstract string BuildWhereClause(string value, string modifier, int? columnSuffix = null);
 
         protected static string EscapeSqlValue(string value)
         {

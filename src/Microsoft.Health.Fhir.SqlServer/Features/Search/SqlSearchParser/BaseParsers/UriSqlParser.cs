@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -29,11 +29,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var escapedUri = EscapeSqlValue(value);
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             if (string.IsNullOrEmpty(modifier))
             {
                 // Exact match (case-sensitive)
-                return $"t.Uri = {escapedUri}";
+                return $"t.Uri{suffix} = {escapedUri}";
             }
 
             if (modifier.Equals("above", StringComparison.OrdinalIgnoreCase))
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 // :above modifier - matches URIs that are hierarchical ancestors
                 // e.g., searching for :above http://example.com/a/b matches http://example.com/a
                 // URN schemes are excluded from hierarchical matching
-                return $"({escapedUri} LIKE t.Uri + '%' AND t.Uri NOT LIKE 'urn:%')";
+                return $"({escapedUri} LIKE t.Uri{suffix} + '%' AND t.Uri{suffix} NOT LIKE 'urn:%')";
             }
 
             if (modifier.Equals("below", StringComparison.OrdinalIgnoreCase))
@@ -49,11 +50,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 // :below modifier - matches URIs that are hierarchical descendants
                 // e.g., searching for :below http://example.com/a matches http://example.com/a/b
                 // URN schemes are excluded from hierarchical matching
-                return $"(t.Uri LIKE {escapedUri} + '%' AND t.Uri NOT LIKE 'urn:%')";
+                return $"(t.Uri{suffix} LIKE {escapedUri} + '%' AND t.Uri{suffix} NOT LIKE 'urn:%')";
             }
 
             // Unknown modifier - treat as exact match
-            return $"t.Uri = {escapedUri}";
+            return $"t.Uri{suffix} = {escapedUri}";
         }
     }
 }

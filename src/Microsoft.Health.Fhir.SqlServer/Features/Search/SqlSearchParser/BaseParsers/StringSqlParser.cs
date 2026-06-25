@@ -15,10 +15,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             var escapedValue = EscapeSqlValue(value);
-            return $"t.Text = {escapedValue}";
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
+            return $"t.Text{suffix} = {escapedValue}";
         }
     }
 }

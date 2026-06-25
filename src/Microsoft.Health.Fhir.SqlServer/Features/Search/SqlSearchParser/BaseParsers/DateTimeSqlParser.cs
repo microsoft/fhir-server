@@ -15,15 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             var escapedValue = ParseValue(value, out var opperator);
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             return opperator switch
             {
-                ">" or ">=" => $"t.StartDateTime {opperator} {escapedValue}",
-                "<" or "<=" => $"t.EndDateTime {opperator} {escapedValue}",
-                "=" => $"t.StartDateTime <= {escapedValue} AND t.EndDateTime >= {escapedValue}",
+                ">" or ">=" => $"t.StartDateTime{suffix} {opperator} {escapedValue}",
+                "<" or "<=" => $"t.EndDateTime{suffix} {opperator} {escapedValue}",
+                "=" => $"t.StartDateTime{suffix} <= {escapedValue} AND t.EndDateTime{suffix} >= {escapedValue}",
                 _ => throw new InvalidOperationException($"Unsupported operator: {opperator}"),
             };
         }

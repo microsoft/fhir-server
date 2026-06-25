@@ -15,15 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             var escapedValue = ParseValue(value, out var opperator);
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             return opperator switch
             {
-                ">" or ">=" => $"t.HighValue {opperator} {escapedValue}",
-                "<" or "<=" => $"t.LowValue {opperator} {escapedValue}",
-                "=" => $"t.SingleValue = {escapedValue}",
+                ">" or ">=" => $"t.HighValue{suffix} {opperator} {escapedValue}",
+                "<" or "<=" => $"t.LowValue{suffix} {opperator} {escapedValue}",
+                "=" => $"t.SingleValue{suffix} = {escapedValue}",
                 _ => throw new InvalidOperationException($"Unsupported operator: {opperator}"),
             };
         }

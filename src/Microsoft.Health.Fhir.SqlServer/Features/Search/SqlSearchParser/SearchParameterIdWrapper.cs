@@ -4,18 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
-    public class SearchParameter
+    public class SearchParameterIdWrapper
     {
-        public required string Code { get; init; }
-
-        public required IReadOnlyList<string> ResourceTypes { get; init; }
-
-        public required IReadOnlyList<string> TargetResourceTypes { get; init; }
-
-        public required string Type { get; init; }
+        public required SearchParameterInfo SearchParameterInfo { get; init; }
 
         public required int Id { get; init; }
     }

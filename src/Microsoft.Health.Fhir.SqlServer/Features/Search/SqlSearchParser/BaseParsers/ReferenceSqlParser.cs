@@ -29,12 +29,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _fhirModel = fhirModel;
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
                 return "1=1";
             }
+
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             // Parse the reference value
             // Formats:
@@ -84,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (!string.IsNullOrEmpty(resourceId))
             {
                 var escapedId = EscapeSqlValue(resourceId);
-                conditions.Append($"t.ReferenceResourceId = {escapedId}");
+                conditions.Append($"t.ReferenceResourceId{suffix} = {escapedId}");
             }
 
             if (!string.IsNullOrEmpty(resourceType))
@@ -97,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         conditions.Append(" AND ");
                     }
 
-                    conditions.Append($"t.ReferenceResourceTypeId = {resourceTypeId}");
+                    conditions.Append($"t.ReferenceResourceTypeId{suffix} = {resourceTypeId}");
                 }
                 else
                 {
@@ -115,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     conditions.Append(" AND ");
                 }
 
-                conditions.Append($"t.BaseUri = {escapedBaseUri}");
+                conditions.Append($"t.BaseUri{suffix} = {escapedBaseUri}");
             }
 
             return conditions.Length > 0 ? conditions.ToString() : "1=1";

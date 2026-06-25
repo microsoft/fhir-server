@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
         }
 
-        protected override string BuildWhereClause(string value, string modifier)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -35,11 +35,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // - "system|" (any code in this system)
 
             var parts = value.Split('|', 2);
+            var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             if (parts.Length == 1)
             {
                 // Just code, no system specified
-                return BuildCodeCondition(parts[0], modifier);
+                return BuildCodeCondition(parts[0], modifier, suffix);
             }
 
             var system = parts[0];
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 // System is specified
                 var escapedSystem = EscapeSqlValue(system);
-                conditions.Append($"t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
+                conditions.Append($"t.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
             }
 
             if (!string.IsNullOrEmpty(code))
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     conditions.Append(" AND ");
                 }
 
-                conditions.Append(BuildCodeCondition(code, modifier));
+                conditions.Append(BuildCodeCondition(code, modifier, suffix));
             }
             else if (conditions.Length == 0)
             {
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return conditions.ToString();
         }
 
-        private static string BuildCodeCondition(string code, string modifier)
+        private static string BuildCodeCondition(string code, string modifier, string suffix)
         {
             const int MaxCodeLength = 256;
 
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 // Code fits in the Code column
                 var escapedCode = EscapeSqlValue(code);
-                return $"t.Code = {escapedCode}";
+                return $"t.Code{suffix} = {escapedCode}";
             }
             else
             {
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var escapedPrefix = EscapeSqlValue(codePrefix);
                 var escapedOverflow = EscapeSqlValue(codeOverflow);
 
-                return $"(t.Code = {escapedPrefix} AND t.CodeOverflow = {escapedOverflow})";
+                return $"(t.Code{suffix} = {escapedPrefix} AND t.CodeOverflow{suffix} = {escapedOverflow})";
             }
         }
     }

@@ -10,14 +10,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "This is a collection of search parameters")]
     public class SearchParameterCollection
     {
-        private readonly Dictionary<int, Dictionary<string, SearchParameter>> _parametersByCode;
-        private readonly Dictionary<int, SearchParameter> _parametersById;
+        private readonly Dictionary<int, Dictionary<string, SearchParameterIdWrapper>> _parametersByCode;
+        private readonly Dictionary<int, SearchParameterIdWrapper> _parametersById;
         private readonly ISqlServerFhirModel _sqlServerFhirModel;
         private readonly IModelInfoProvider _modelInfoProvider;
 
@@ -28,11 +29,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             _sqlServerFhirModel = sqlServerFhirModel;
             _modelInfoProvider = modelInfoProvider;
-            _parametersByCode = new Dictionary<int, Dictionary<string, SearchParameter>>();
-            _parametersById = new Dictionary<int, SearchParameter>();
+            _parametersByCode = new Dictionary<int, Dictionary<string, SearchParameterIdWrapper>>();
+            _parametersById = new Dictionary<int, SearchParameterIdWrapper>();
         }
 
-        public SearchParameterCollection(IEnumerable<SearchParameter> parameters, ISqlServerFhirModel sqlServerFhirModel, IModelInfoProvider modelInfoProvider)
+        public SearchParameterCollection(IEnumerable<SearchParameterIdWrapper> parameters, ISqlServerFhirModel sqlServerFhirModel, IModelInfoProvider modelInfoProvider)
             : this(sqlServerFhirModel, modelInfoProvider)
         {
             foreach (var parameter in parameters)
@@ -43,26 +44,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public int Count => _parametersById.Count;
 
-        public IEnumerable<SearchParameter> All => _parametersById.Values;
+        public IEnumerable<SearchParameterIdWrapper> All => _parametersById.Values;
 
-        public void Add(SearchParameter parameter)
+        public void Add(SearchParameterIdWrapper parameter)
         {
             ArgumentNullException.ThrowIfNull(parameter);
 
-            foreach (var resourceType in GetDerivedResourceTypes(parameter.ResourceTypes))
+            foreach (var resourceType in GetDerivedResourceTypes(parameter.SearchParameterInfo.BaseResourceTypes))
             {
                 var resourceTypeId = _sqlServerFhirModel.GetResourceTypeId(resourceType);
                 if (!_parametersByCode.TryGetValue(resourceTypeId, out var parametersForResourceType))
                 {
-                    parametersForResourceType = new Dictionary<string, SearchParameter>(StringComparer.Ordinal);
+                    parametersForResourceType = new Dictionary<string, SearchParameterIdWrapper>(StringComparer.Ordinal);
                     _parametersByCode[resourceTypeId] = parametersForResourceType;
                 }
 
-                parametersForResourceType[parameter.Code] = parameter;
+                parametersForResourceType[parameter.SearchParameterInfo.Code] = parameter;
             }
         }
 
-        public SearchParameter? GetByCode(string code, int resourceType)
+        public SearchParameterIdWrapper? GetByCode(string code, int resourceType)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -82,13 +83,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return null;
         }
 
-        public SearchParameter? GetById(int id)
+        public SearchParameterIdWrapper? GetById(int id)
         {
             _parametersById.TryGetValue(id, out var parameter);
             return parameter;
         }
 
-        public string? GetParameterType(string code, int resourceType)
+        public SearchParamType? GetParameterType(string code, int resourceType)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var parameter = GetByCode(code, resourceType);
-            return parameter?.Type;
+            return parameter?.SearchParameterInfo.Type;
         }
 
         private HashSet<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
