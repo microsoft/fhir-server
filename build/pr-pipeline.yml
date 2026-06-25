@@ -39,9 +39,7 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      name: '$(DefaultWindowsPool)'
-      demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+      vmImage: '$(WindowsVmImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -93,9 +91,7 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultWindowsPool)'
-      demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+      vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/analyze.yml
 
