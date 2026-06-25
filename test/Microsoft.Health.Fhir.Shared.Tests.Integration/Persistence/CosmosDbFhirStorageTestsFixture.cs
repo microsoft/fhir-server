@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private CosmosClient _cosmosClient;
         private CosmosQueueClient _queueClient;
         private CosmosFhirOperationDataStore _cosmosFhirOperationDataStore;
+        private ISearchIndexer _searchIndexer;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -137,6 +138,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
+
+            // For Cosmos, we need a search indexer that returns at least some indices
+            _searchIndexer = Substitute.For<ISearchIndexer>();
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(callInfo =>
+            {
+                var resource = callInfo.Arg<ResourceElement>();
+                var indices = new List<SearchIndexEntry>();
+
+                if (resource.InstanceType == "SearchParameter")
+                {
+                    var urlValue = resource.Scalar<string>("url");
+                    if (!string.IsNullOrEmpty(urlValue))
+                    {
+                        var urlParam = _searchParameterDefinitionManager.AllSearchParameters
+                            .FirstOrDefault(p => p.Code == "url" && p.BaseResourceTypes?.Contains("SearchParameter") == true);
+                        if (urlParam != null)
+                        {
+                            indices.Add(new SearchIndexEntry(urlParam, new UriSearchValue(urlValue, false)));
+                        }
+                    }
+                }
+
+                var idParam = _searchParameterDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "_id");
+                if (idParam != null)
+                {
+                    indices.Add(new SearchIndexEntry(idParam, new StringSearchValue(resource.Id)));
+                }
+
+                return indices;
+            });
 
             IMediator mediator = Substitute.For<IMediator>();
 
@@ -409,6 +440,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IQueueClient))
             {
                 return _queueClient;
+            }
+
+            if (serviceType == typeof(ISearchIndexer))
+            {
+                return _searchIndexer;
             }
 
             return null;

@@ -67,62 +67,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
-            SqlServerFhirStorageTestHelper testHelper1 = null;
-            SqlServerFhirStorageTestHelper testHelper2 = null;
+            SqlServerFhirStorageTestHelper snapshotHelper = null;
+            SqlServerFhirStorageTestHelper diffHelper = null;
+            SchemaUpgradeRunner diffRunner;
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: false);
+                (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max, false);
 
-                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                    diffDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: true);
+                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version starting from the minimum supported version for upgrade
+                (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade, false);
+                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= SchemaVersionConstants.Max; version++)
+                {
+                    await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                    if (version == SchemaVersionConstants.Max)
+                    {
+                        // Apply the final schema second time to avoid separate test
+                        await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                    }
+                }
 
                 var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
                 Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
             {
-                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
+                await (snapshotHelper?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                await (diffHelper?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
-        }
-
-        [RetryFact]
-        public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
-        {
-            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
-            {
-                // The schema upgrade scripts starting from v7 were made idempotent.
-                if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
-                {
-                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot_Diff");
-
-                    SqlServerFhirStorageTestHelper testHelper = null;
-                    SchemaUpgradeRunner upgradeRunner;
-
-                    try
-                    {
-                        (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
-                            snapshotDatabaseName,
-                            version - 1,
-                            forceIncrementalSchemaUpgrade: false);
-
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                    }
-                    finally
-                    {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
-                    }
-                }
-            });
         }
 
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)

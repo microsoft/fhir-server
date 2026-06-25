@@ -150,6 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             var searchService = Substitute.For<ISearchService>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations = new SearchParameterOperations(
                 _manager,
@@ -159,6 +160,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterDataStoreValidator,
                 () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
+                fhirDataStore.CreateMockScopeProvider(),
+                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
@@ -1026,16 +1029,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenStorageInitializedNotification_WhenDefinitionStageFails_ThenRetriesTotalThreeTimesAndDoesNotPublish()
         {
-            // Simulate definition-stage failure by making the status data store throw,
+            // Simulate definition-stage failure by making the search service throw during SearchAsync,
             // which is called during LoadSearchParamsFromDataStore.
             // Need a fresh definition manager that hasn't been initialized yet
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
-                .Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(_ => throw new InvalidOperationException("Simulated failure"));
-
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             var searchService = Substitute.For<ISearchService>();
             var mediator = Substitute.For<IMediator>();
+
+            searchService.SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>())
+                .Returns<SearchResult>(_ => throw new InvalidOperationException("Simulated search failure"));
 
             var definitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
@@ -1050,7 +1053,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await definitionManager.HandleAsync(notification, CancellationToken.None);
 
             // Should have retried 3 times total and then given up silently
-            await statusDataStore.Received(3).GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>());
+            await searchService.Received(3).SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>());
 
             // SearchParameterDefinitionManagerInitialized should never have been published
             await mediator.DidNotReceive().PublishAsync(

@@ -2212,24 +2212,32 @@ END
 
 GO
 CREATE PROCEDURE dbo.GetActiveJobs
-@QueueType TINYINT, @GroupId BIGINT=NULL, @ReturnParentOnly BIT=0
+@QueueType TINYINT, @GroupId BIGINT=NULL OUTPUT, @ReturnParentOnly BIT=0, @IsExistsCheck BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetActiveJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' R=' + CONVERT (VARCHAR, @ReturnParentOnly), @st AS DATETIME = getUTCdate(), @JobIds AS BigintList, @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0, @Rows AS INT = 0;
+DECLARE @SP AS VARCHAR (100) = 'GetActiveJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' R=' + CONVERT (VARCHAR, @ReturnParentOnly) + ' E=' + CONVERT (VARCHAR, @IsExistsCheck), @st AS DATETIME = getUTCdate(), @JobIds AS BigintList, @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0, @Rows AS INT = 0;
+DECLARE @JobRecords TABLE (
+    Id      BIGINT PRIMARY KEY,
+    GroupId BIGINT);
 BEGIN TRY
     SET @PartitionId = @MaxPartitions * rand();
     WHILE @LookedAtPartitions < @MaxPartitions
+          AND (@IsExistsCheck = 0
+               OR @IsExistsCheck = 1
+                  AND @Rows = 0)
         BEGIN
             IF @GroupId IS NULL
-                INSERT INTO @JobIds
-                SELECT JobId
+                INSERT INTO @JobRecords
+                SELECT JobId,
+                       GroupId
                 FROM   dbo.JobQueue
                 WHERE  PartitionId = @PartitionId
                        AND QueueType = @QueueType
                        AND Status IN (0, 1);
             ELSE
-                INSERT INTO @JobIds
-                SELECT JobId
+                INSERT INTO @JobRecords
+                SELECT JobId,
+                       GroupId
                 FROM   dbo.JobQueue
                 WHERE  PartitionId = @PartitionId
                        AND QueueType = @QueueType
@@ -2239,21 +2247,19 @@ BEGIN TRY
             SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END;
             SET @LookedAtPartitions += 1;
         END
+    SET @GroupId = (SELECT   TOP 1 GroupId
+                    FROM     @JobRecords
+                    ORDER BY GroupId DESC);
+    IF @IsExistsCheck = 1
+        RETURN;
     IF @Rows > 0
         BEGIN
             IF @ReturnParentOnly = 1
-                BEGIN
-                    DECLARE @TopGroupId AS BIGINT;
-                    SELECT   TOP 1 @TopGroupId = GroupId
-                    FROM     dbo.JobQueue
-                    WHERE    JobId IN (SELECT Id
-                                       FROM   @JobIds)
-                    ORDER BY GroupId DESC;
-                    DELETE @JobIds
-                    WHERE  Id NOT IN (SELECT JobId
-                                      FROM   dbo.JobQueue
-                                      WHERE  JobId = @TopGroupId);
-                END
+                DELETE @JobRecords
+                WHERE  Id <> @GroupId;
+            INSERT INTO @JobIds
+            SELECT Id
+            FROM   @JobRecords;
             EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
@@ -4447,59 +4453,21 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesAndSearchParams
-@SearchParams dbo.SearchParamList READONLY, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@SearchParams dbo.SearchParamList READONLY, @ReindexId BIGINT=-1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = CONVERT (DATETIMEOFFSET (7), sysUTCdatetime()), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
-DECLARE @SearchParamsCopy AS dbo.SearchParamList;
-INSERT INTO @SearchParamsCopy
-SELECT *
-FROM   @SearchParams;
-WHILE EXISTS (SELECT *
-              FROM   @SearchParamsCopy)
-    BEGIN
-        SELECT TOP 1 @Uri = Uri,
-                     @Status = Status
-        FROM   @SearchParamsCopy;
-        SET @msg = 'Status=' + @Status + ' Uri=' + @Uri;
-        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
-        DELETE @SearchParamsCopy
-        WHERE  Uri = @Uri;
-    END
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'R=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                         FROM   @Resources)) + ' SP=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0;
 BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
     BEGIN TRANSACTION;
-    SELECT @msg = string_agg(S.Uri, ', ')
-    FROM   (SELECT TOP 60 S.Uri
-            FROM   @SearchParams AS I
-                   INNER JOIN
-                   dbo.SearchParam AS S
-                   ON S.Uri = I.Uri
-            WHERE  I.LastUpdated != S.LastUpdated) AS S;
-    IF @msg IS NOT NULL
-        BEGIN
-            SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
-            ROLLBACK;
-            THROW 50001, @msg, 1;
-        END
+    EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId;
     IF EXISTS (SELECT *
                FROM   @Resources)
-        BEGIN
-            EXECUTE dbo.MergeResources @AffectedRows = @AffectedRows OUTPUT, @RaiseExceptionOnConflict = 1, @IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled, @TransactionId = @TransactionId, @SingleTransaction = 1, @Resources = @Resources, @ResourceWriteClaims = @ResourceWriteClaims, @ReferenceSearchParams = @ReferenceSearchParams, @TokenSearchParams = @TokenSearchParams, @TokenTexts = @TokenTexts, @StringSearchParams = @StringSearchParams, @UriSearchParams = @UriSearchParams, @NumberSearchParams = @NumberSearchParams, @QuantitySearchParams = @QuantitySearchParams, @DateTimeSearchParms = @DateTimeSearchParms, @ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams, @TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams, @TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams, @TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams, @TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams, @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
-            SET @Rows = @Rows + @AffectedRows;
-        END
-    MERGE INTO dbo.SearchParam
-     AS S
-    USING @SearchParams AS I ON I.Uri = S.Uri
-    WHEN MATCHED THEN UPDATE 
-    SET Status               = I.Status,
-        LastUpdated          = @LastUpdated,
-        IsPartiallySupported = I.IsPartiallySupported
-    WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
-    SET @msg = 'LastUpdated=' + CONVERT (VARCHAR (23), @LastUpdated, 126) + ' Merged=' + CONVERT (VARCHAR, @@rowcount);
+        EXECUTE dbo.MergeResources @AffectedRows = @Rows OUTPUT, @RaiseExceptionOnConflict = 1, @IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled, @TransactionId = @TransactionId, @SingleTransaction = 1, @Resources = @Resources, @ResourceWriteClaims = @ResourceWriteClaims, @ReferenceSearchParams = @ReferenceSearchParams, @TokenSearchParams = @TokenSearchParams, @TokenTexts = @TokenTexts, @StringSearchParams = @StringSearchParams, @UriSearchParams = @UriSearchParams, @NumberSearchParams = @NumberSearchParams, @QuantitySearchParams = @QuantitySearchParams, @DateTimeSearchParms = @DateTimeSearchParms, @ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams, @TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams, @TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams, @TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams, @TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams, @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
     COMMIT TRANSACTION;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows, @Text = @msg;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows;
 END TRY
 BEGIN CATCH
     IF @@trancount > 0
@@ -4717,44 +4685,75 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeSearchParams
-@SearchParams dbo.SearchParamList READONLY
+@SearchParams dbo.SearchParamList READONLY, @ReindexId BIGINT=-1
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
-DECLARE @SearchParamsCopy AS dbo.SearchParamList;
-INSERT INTO @SearchParamsCopy
-SELECT *
-FROM   @SearchParams;
-WHILE EXISTS (SELECT *
-              FROM   @SearchParamsCopy)
-    BEGIN
-        SELECT TOP 1 @Uri = Uri,
-                     @Status = Status
-        FROM   @SearchParamsCopy;
-        SET @msg = 'Uri=' + @Uri + ' Status=' + @Status;
-        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
-        DELETE @SearchParamsCopy
-        WHERE  Uri = @Uri;
-    END
-DECLARE @SummaryOfChanges TABLE (
-    Uri       VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Operation VARCHAR (20)  NOT NULL);
+                                                                                                           FROM   @SearchParams)) + ' R=' + CONVERT (VARCHAR, @ReindexId), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = CONVERT (DATETIMEOFFSET (7), sysUTCdatetime()), @MaxLastUpdated AS DATETIMEOFFSET (7), @msg AS VARCHAR (4000), @Rows AS INT, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20), @InputTrancount AS INT = @@trancount, @ActiveJobId AS BIGINT, @ExpectedLastUpdated AS DATETIMEOFFSET (7) = (SELECT max(LastUpdated)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          FROM   @SearchParams);
+SET @Mode = @Mode + ' L=' + isnull(CONVERT (VARCHAR (23), @ExpectedLastUpdated, 126), 'NULL');
 BEGIN TRY
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
-    SELECT @msg = string_agg(S.Uri, ', ')
-    FROM   (SELECT TOP 60 S.Uri
-            FROM   @SearchParams AS I
-                   INNER JOIN
-                   dbo.SearchParam AS S
-                   ON S.Uri = I.Uri
-            WHERE  I.LastUpdated != S.LastUpdated) AS S;
-    IF @msg IS NOT NULL
+    IF @ReindexId IS NULL
+        RAISERROR ('@ReindexId cannot be null', 18, 127);
+    DECLARE @SearchParamsCopy AS dbo.SearchParamList;
+    INSERT INTO @SearchParamsCopy
+    SELECT *
+    FROM   @SearchParams;
+    WHILE EXISTS (SELECT *
+                  FROM   @SearchParamsCopy)
         BEGIN
-            SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
-            ROLLBACK;
-            THROW 50001, @msg, 1;
+            SELECT TOP 1 @Uri = Uri,
+                         @Status = Status
+            FROM   @SearchParamsCopy;
+            SET @msg = 'Status=' + @Status + ' Uri=' + @Uri;
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
+            DELETE @SearchParamsCopy
+            WHERE  Uri = @Uri;
+        END
+    IF @InputTrancount = 0
+        BEGIN
+            SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+            BEGIN TRANSACTION;
+        END
+    IF @ReindexId > 0
+       AND NOT EXISTS (SELECT 1
+                       FROM   dbo.JobQueue
+                       WHERE  PartitionId = @ReindexId % 16
+                              AND QueueType = 6
+                              AND JobId = @ReindexId
+                              AND Status = 1)
+        RAISERROR ('Reindex job is not running', 18, 127);
+    IF @ReindexId < 0
+        BEGIN
+            EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUTPUT;
+            SET @msg = 'Reindex job is in progress. Job Id=' + CONVERT (VARCHAR, @ActiveJobId);
+            IF @ActiveJobId IS NOT NULL
+                THROW 50002, @msg, 1;
+        END
+    IF @ReindexId = 0
+        BEGIN
+            SET @MaxLastUpdated = (SELECT max(LastUpdated)
+                                   FROM   dbo.SearchParam);
+            IF @MaxLastUpdated <> @ExpectedLastUpdated
+                BEGIN
+                    SET @msg = 'Optimistic concurrency conflict detected : expected last updated = ' + CONVERT (VARCHAR (23), @ExpectedLastUpdated, 126) + ' max last updated = ' + CONVERT (VARCHAR (23), @MaxLastUpdated, 126);
+                    THROW 50001, @msg, 1;
+                END
+        END
+    IF @ReindexId = -1
+        BEGIN
+            SELECT @msg = string_agg(S.Uri, ', ')
+            FROM   (SELECT TOP 60 S.Uri
+                    FROM   @SearchParams AS I
+                           INNER JOIN
+                           dbo.SearchParam AS S
+                           ON S.Uri = I.Uri
+                    WHERE  I.LastUpdated != S.LastUpdated) AS S;
+            IF @msg IS NOT NULL
+                BEGIN
+                    SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
+                    THROW 50001, @msg, 1;
+                END
         END
     MERGE INTO dbo.SearchParam
      AS S
@@ -4763,19 +4762,11 @@ BEGIN TRY
     SET Status               = I.Status,
         LastUpdated          = @LastUpdated,
         IsPartiallySupported = I.IsPartiallySupported
-    WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
-    OUTPUT I.Uri, $ACTION INTO @SummaryOfChanges;
+    WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
     SET @Rows = @@rowcount;
-    SELECT S.SearchParamId,
-           S.Uri,
-           S.LastUpdated
-    FROM   dbo.SearchParam AS S
-           INNER JOIN
-           @SummaryOfChanges AS C
-           ON C.Uri = S.Uri
-    WHERE  C.Operation = 'INSERT';
-    SET @msg = 'LastUpdated=' + substring(CONVERT (VARCHAR, @LastUpdated), 1, 23) + ' INSERT=' + CONVERT (VARCHAR, @@rowcount);
-    COMMIT TRANSACTION;
+    SET @msg = 'LastUpdated=' + CONVERT (VARCHAR (23), @LastUpdated, 126);
+    IF @InputTrancount = 0
+        COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows, @Text = @msg;
 END TRY
 BEGIN CATCH

@@ -378,33 +378,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             string continuationToken = null;
             int totalLoaded = 0;
-            int totalPendingDelete = 0;
-
-            // Get all PendingDelete search parameters from the status store
-            var allStatuses = await statusDataStore.Value.GetSearchParameterStatuses(cancellationToken);
-            var pendingDeleteUrls = new HashSet<string>(
-                allStatuses
-                    .Where(s => s.Status == SearchParameterStatus.PendingDelete)
-                    .Select(s => s.Uri.OriginalString),
-                StringComparer.Ordinal);
-
-            _logger.LogInformation(
-                "Found {PendingDeleteCount} search parameters with PendingDelete status in the status store",
-                pendingDeleteUrls.Count);
 
             do
             {
                 var searchOptions = new SearchOptions();
                 searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-                searchOptions.Expression = Expression.SearchParameter(
-                    SearchParameterInfo.ResourceTypeSearchParameter,
-                    Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 searchOptions.MaxItemCount = 10;
-
-                // ✅ Include soft-deleted resources to find PendingDelete search parameters
-                searchOptions.ResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.SoftDeleted;
-
+                searchOptions.ResourceVersionTypes = ResourceVersionType.Latest;
                 if (continuationToken != null)
                 {
                     searchOptions.ContinuationToken = continuationToken;
@@ -413,144 +395,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 var result = await search.Value.SearchAsync(searchOptions, cancellationToken);
                 continuationToken = result?.ContinuationToken;
 
-                if (result?.Results != null && result.Results.Any())
+                if (result?.Results != null)
                 {
-                    foreach (var searchResult in result.Results)
+                    foreach (var searchParam in result.Results.Select(_ => _.Resource.RawResource.ToITypedElement(_modelInfoProvider)))
                     {
-                        var isDeleted = searchResult.Resource.IsDeleted;
-
-                        // For soft-deleted resources, check if they are in PendingDelete status
-                        if (isDeleted)
+                        try
                         {
-                            try
-                            {
-                                // Get the resource ID to fetch its last version before deletion
-                                var resourceId = searchResult.Resource.ResourceId;
+                            SearchParameterDefinitionBuilder.Build(
+                                new List<ITypedElement>() { searchParam },
+                                UrlLookup,
+                                TypeLookup,
+                                _modelInfoProvider,
+                                _searchParameterComparer,
+                                _logger);
 
-                                // Parse the current version and calculate the previous version
-                                if (int.TryParse(searchResult.Resource.Version, out int currentVersion) && currentVersion > 1)
-                                {
-                                    var previousVersion = (currentVersion - 1).ToString();
-                                    var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, resourceId, previousVersion);
-                                    var lastVersion = await fhirDataStore.Value.GetAsync(resourceKey, cancellationToken);
-
-                                    if (lastVersion?.RawResource != null)
-                                    {
-                                        var searchParam = lastVersion.RawResource.ToITypedElement(_modelInfoProvider);
-                                        var urlScalar = searchParam.GetStringScalar("url");
-
-                                        // Only load if this URL is marked as PendingDelete in the status store
-                                        if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
-                                        {
-                                            // Build the search parameter using the last version before deletion
-                                            SearchParameterDefinitionBuilder.Build(
-                                                new List<ITypedElement>() { searchParam },
-                                                UrlLookup,
-                                                TypeLookup,
-                                                _modelInfoProvider,
-                                                _searchParameterComparer,
-                                                _logger);
-
-                                            totalLoaded++;
-
-                                            // Update the status to PendingDelete since the resource is soft-deleted
-                                            if (UrlLookup.TryGetValue(urlScalar, out var loadedParam))
-                                            {
-                                                loadedParam.SearchParameterStatus = SearchParameterStatus.PendingDelete;
-                                                totalPendingDelete++;
-                                                _logger.LogInformation(
-                                                    "Loaded PendingDelete search parameter from last version before deletion: {Url}",
-                                                    urlScalar);
-                                            }
-                                        }
-                                        else if (!string.IsNullOrEmpty(urlScalar))
-                                        {
-                                            _logger.LogDebug(
-                                                "Skipping soft-deleted SearchParameter {ResourceId} with URL {Url} - not in PendingDelete status",
-                                                resourceId,
-                                                urlScalar);
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning(
-                                                "Could not retrieve valid URL for soft-deleted SearchParameter {ResourceId}",
-                                                resourceId);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning(
-                                            "Could not retrieve last version for soft-deleted SearchParameter {ResourceId}",
-                                            resourceId);
-                                    }
-                                }
-                                else
-                                {
-                                    _logger.LogWarning(
-                                        "Could not parse version or version is 1 for soft-deleted SearchParameter {ResourceId}, version: {Version}",
-                                        resourceId,
-                                        searchResult.Resource.Version);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "Error loading last version of soft-deleted SearchParameter {ResourceId}",
-                                    searchResult.Resource.ResourceId);
-                            }
+                            totalLoaded++;
                         }
-                        else
+                        catch (FhirException ex)
                         {
-                            // Normal processing for active resources
-                            var searchParam = searchResult.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-
-                            try
+                            var issueDetails = new StringBuilder();
+                            foreach (OperationOutcomeIssue issue in ex.Issues)
                             {
-                                SearchParameterDefinitionBuilder.Build(
-                                    new List<ITypedElement>() { searchParam },
-                                    UrlLookup,
-                                    TypeLookup,
-                                    _modelInfoProvider,
-                                    _searchParameterComparer,
-                                    _logger);
+                                issueDetails.Append(issue.Diagnostics).Append("; ");
+                            }
 
-                                totalLoaded++;
-                            }
-                            catch (FhirException ex)
-                            {
-                                StringBuilder issueDetails = new StringBuilder();
-                                foreach (OperationOutcomeIssue issue in ex.Issues)
-                                {
-                                    issueDetails.Append(issue.Diagnostics).Append("; ");
-                                }
-
-                                _logger.LogWarning(
-                                    ex,
-                                    "Error loading search parameter {Url} from data store. Issues: {Issues}",
-                                    searchParam.GetStringScalar("url"),
-                                    issueDetails.ToString());
-                            }
-                            catch (Exception ex) when (
-                                !(ex is OutOfMemoryException
-                                || ex is StackOverflowException
-                                || ex is ThreadAbortException))
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "Error loading search parameter {Url} from data store.",
-                                    searchParam.GetStringScalar("url"));
-                            }
+                            _logger.LogWarning(ex, "LoadSearchParamsFromDataStore: Error loading search parameter {Url} from data store. Issues: {Issues}", searchParam.GetStringScalar("url"), issueDetails.ToString());
+                        }
+                        catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException || ex is ThreadAbortException))
+                        {
+                            _logger.LogError(ex, "LoadSearchParamsFromDataStore: Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                     }
                 }
             }
             while (continuationToken != null);
 
-            _logger.LogInformation(
-                "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete search parameters from data store",
-                totalLoaded,
-                totalPendingDelete);
+            _logger.LogInformation($"LoadSearchParamsFromDataStore: Total search parameters loaded = {totalLoaded}");
         }
 
         private bool TryGetFromTypeLookup(string resourceType, string code, out SearchParameterInfo searchParameter)

@@ -327,7 +327,8 @@ namespace Microsoft.Health.Fhir.Web
                         {
                             var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
                             var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
-                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
+                            var exceptionMetricEmissionFilters = sp.GetServices<Microsoft.Health.Fhir.Api.Features.Metrics.IExceptionMetricEmissionFilter>();
+                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler, exceptionMetricEmissionFilters);
                         });
                     });
             }

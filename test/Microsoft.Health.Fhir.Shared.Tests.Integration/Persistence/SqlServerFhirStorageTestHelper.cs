@@ -274,7 +274,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             using var command = new SqlCommand(
                 @"
 UPDATE dbo.SearchParam
-  SET Status = 'PendingDelete', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
+  SET Status = 'Deleted', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
   WHERE Uri = @uri",
                 connection);
             command.Parameters.AddWithValue("@uri", uri);
