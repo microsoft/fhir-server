@@ -144,7 +144,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 MasterDatabaseName,
                 sqlServerFhirModel,
                 defaultSqlConnectionBuilder,
-                null);
+                null,
+                schemaInformation);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
