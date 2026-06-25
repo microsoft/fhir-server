@@ -162,28 +162,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
-            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
-            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
-
-            var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
-            collection.AddScoped(schemaUpgradeRunnerFactory);
-            collection.AddScoped(schemaManagerDataStoreFactory);
-            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-
-            var schemaInitializer = new SchemaInitializer(
-                serviceProviderSchemaInitializer,
-                config,
-                schemaInformation,
-                mediator,
-                NullLogger<SchemaInitializer>.Instance);
-
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
                 maxSchemaVersion,
-                forceIncrementalSchemaUpgrade,
-                schemaInitializer);
+                forceIncrementalSchemaUpgrade);
 
             return (testHelper, schemaUpgradeRunner);
         }

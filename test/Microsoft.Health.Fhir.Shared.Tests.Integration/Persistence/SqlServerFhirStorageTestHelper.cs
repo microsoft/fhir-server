@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
@@ -116,8 +116,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await connection.CloseAsync();
                 });
 
-            schemaInitializer = CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
-            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
+            var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, SchemaVersionConstants.MinForUpgrade, maximumSupportedSchemaVersion);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+
+            _schemaInformation.Current = SchemaVersionConstants.MinForUpgrade;
+
+            for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= maximumSupportedSchemaVersion; version++)
+            {
+                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
+                _schemaInformation.Current = version;
+            }
+
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
             await InitSystem(databaseName);
@@ -364,7 +373,7 @@ UPDATE dbo.SearchParam
             await connection.CloseAsync();
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
+        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
@@ -384,7 +393,9 @@ UPDATE dbo.SearchParam
             collection.AddScoped(schemaManagerDataStoreFactory);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
-            return new SchemaInitializer(serviceProvider, config, _schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
+            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            return (schemaInitializer, schemaUpgradeRunner);
         }
 
         public async Task<SqlConnection> GetSqlConnectionAsync()

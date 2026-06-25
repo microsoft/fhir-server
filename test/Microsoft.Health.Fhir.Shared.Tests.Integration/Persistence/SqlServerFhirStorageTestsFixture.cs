@@ -70,7 +70,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirOperationDataStore _fhirOperationDataStore;
         private SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
         private SqlServerFhirStorageTestHelper _testHelper;
-        private SchemaInitializer _schemaInitializer;
         private SchemaUpgradeRunner _schemaUpgradeRunner;
         private FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private ISearchService _searchService;
@@ -154,17 +153,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, SqlServerDataStoreConfiguration, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
-            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
-            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
-
-            var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
-            collection.AddScoped(schemaUpgradeRunnerFactory);
-            collection.AddScoped(schemaManagerDataStoreFactory);
-            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, _mediator, NullLogger<SchemaInitializer>.Instance);
-
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var fhirDataStore = Substitute.For<IFhirDataStore>();
@@ -212,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient, SchemaInformation);
-            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, CancellationToken.None);
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
@@ -400,11 +388,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(SupportedSearchParameterDefinitionManager))
             {
                 return _supportedSearchParameterDefinitionManager;
-            }
-
-            if (serviceType == typeof(SchemaInitializer))
-            {
-                return _schemaInitializer;
             }
 
             if (serviceType == typeof(SchemaUpgradeRunner))
