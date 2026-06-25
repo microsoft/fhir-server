@@ -461,6 +461,51 @@ public class SqlQueryGeneratorTests
         Assert.Equal(2, CountOccurrences(sql, "JOIN cte0 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2"));
     }
 
+    [Fact]
+    public void GivenTopLevelBirthdateUnionWithResourceTypeConstraint_WhenSqlGenerated_ThenConstraintIsDistributedIntoBranchesAndNoGroundingCteIsEmitted()
+    {
+        // Option A: a top-level (ChainLevel 0) exact-day birthdate becomes a UNION ALL, and the request also carries
+        // a resource-column constraint (_type=Patient). ResourceColumnPredicatePushdownRewriter distributes that
+        // constraint INTO each union branch - Union[And(b1, _type), And(b2, _type)] - instead of wrapping the whole
+        // union - And(Union[b1, b2], _type). Distribution is valid because every branch reads the same table/partition.
+        // The payoff: each branch carries the ResourceTypeId filter directly, so SplitExpressions finds no residual
+        // resource predicate and emits NO extra dbo.Resource grounding CTE; the union aggregate is consumed directly.
+        SetupChainModel();
+
+        SearchParamTableExpression unionTableExpression = BuildBareBirthdateUnionTableExpression();
+        var resourceType = new SearchParameterExpression(
+            new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType),
+            Expression.StringEquals(FieldName.String, null, "Patient", false));
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { unionTableExpression },
+            new List<SearchParameterExpressionBase> { resourceType });
+
+        var pushedDown = (SqlRootExpression)sqlExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
+
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(pushedDown, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // The union is preserved...
+        Assert.Contains("UNION ALL", sql);
+
+        // ...and the resource-type constraint (Patient -> ResourceTypeId = 1 per SetupChainModel) is pushed into BOTH
+        // branches rather than a single trailing grounding CTE.
+        Assert.Equal(2, CountOccurrences(sql, "AND ResourceTypeId = 1"));
+
+        // Generation order with distribution: cte0/cte1 = branches, cte2 = union aggregate. No cte3: the redundant
+        // dbo.Resource grounding CTE that the And(union, _type) shape would have produced is eliminated, and the final
+        // SELECT joins the union aggregate (cte2) directly.
+        Assert.DoesNotContain("cte3", sql);
+        Assert.Contains("JOIN cte2 ON r.ResourceTypeId = cte2.T1 AND r.ResourceSurrogateId = cte2.Sid1", sql);
+    }
+
     private static SearchParamTableExpression BuildFamilyNormalTableExpression(int chainLevel)
     {
         var familyParam = new SearchParameterInfo(
