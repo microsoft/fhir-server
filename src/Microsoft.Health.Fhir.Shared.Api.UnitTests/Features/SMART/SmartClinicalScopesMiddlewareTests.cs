@@ -641,10 +641,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                         // Complex example with all SMART v2 granular permissions and search parameters
             yield return new object[]
             {
-                "user/Patient.cruds?name=Smith&birthdate=2000 user/Observation.rs?category=vital-signs",
+                "user/Patient.cruds?name=Smith&birthdate=ge2000 user/Observation.rs?category=vital-signs",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "2000")),
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "ge2000")),
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs")),
                 },
             };
@@ -759,10 +759,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // Complex example with %2f in scope separator and %2f in URL search parameters
             yield return new object[]
             {
-                "user%2fPatient.cruds?name=Smith&birthdate=2000 user%2fObservation.rs?category=vital-signs&code=http:%2f%2floinc.org|85354-9",
+                "user%2fPatient.cruds?name=Smith&birthdate=ge2000 user%2fObservation.rs?category=vital-signs&code=http:%2f%2floinc.org|85354-9",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "2000")),
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "ge2000")),
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs").Add("code", "http://loinc.org|85354-9")),
                 },
             };
@@ -805,17 +805,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
-
-            // Prefixes on search parameter values (date, number, quantity)
-            yield return new object[] { "patient/Observation.rs?date=gt2024-01-01" };
-            yield return new object[] { "patient/Observation.rs?date=lt2024-12-31" };
-            yield return new object[] { "patient/Observation.rs?date=ge2024-01-01" };
-            yield return new object[] { "patient/Observation.rs?date=le2024-12-31" };
-            yield return new object[] { "patient/Observation.rs?date=ne2024-06-15" };
-            yield return new object[] { "patient/Observation.rs?date=sa2024-01-01" };
-            yield return new object[] { "patient/Observation.rs?date=eb2024-12-31" };
-            yield return new object[] { "patient/Observation.rs?date=ap2024-06-15" };
-            yield return new object[] { "patient/Observation.rs?value-quantity=gt5.4" };
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)

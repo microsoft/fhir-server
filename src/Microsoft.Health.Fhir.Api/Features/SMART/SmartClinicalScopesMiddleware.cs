@@ -49,13 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             "missing", "exact", "contains", "not", "text", "in", "not-in", "below", "above", "type", "of-type", "identifier", "iterate",
         };
 
-        // Regex to detect a FHIR search prefix at the start of a value (prefix followed by digit, dash, or dot for dates/numbers/quantities)
-        // FHIR search prefixes for ordered parameters: https://hl7.org/fhir/R4/search.html#prefix
-        private static readonly Regex SearchPrefixRegex = new Regex(
-            @"^(eq|ne|gt|lt|ge|le|sa|eb|ap)[\d.\-T]",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase,
-            TimeSpan.FromMilliseconds(100));
-
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
             EnsureArg.IsNotNull(next, nameof(next));
@@ -267,15 +260,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                                     match.Value.Trim(),
                                                     $"{paramKey}={paramValue}"));
                                             }
-                                        }
-
-                                        // Check for search prefixes (e.g., gt2024-01-01, le100, ne5.4)
-                                        if (paramValue.Length > 2 && SearchPrefixRegex.IsMatch(paramValue))
-                                        {
-                                            throw new BadHttpRequestException(string.Format(
-                                                Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
-                                                match.Value.Trim(),
-                                                $"{paramKey}={paramValue}"));
                                         }
 
                                         smartScopeSearchParameters.Add(paramKey, paramValue);
