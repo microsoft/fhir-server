@@ -576,13 +576,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            // Chained + Union need special handling.
-            if (searchParamTableExpression.ChainLevel > 0 && _unionBranchPredecessorIndex >= 0)
-            {
-                HandleParamTableUnionChainBranch(searchParamTableExpression, context);
-                return;
-            }
-
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -643,57 +636,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine("),");
         }
 
-        /// <summary>
-        /// Emits a single branch CTE of a chain-nested union (<see cref="SearchParamTableExpression.ChainLevel"/> &gt; 0).
-        /// Mirrors the chained <see cref="HandleTableKindNormal"/> form: it carries the chain link's source columns
-        /// (T1/Sid1) through and joins the branch's own table to the chain link on the target columns (T2/Sid2).
-        /// All branches restrict against the same chain link (<see cref="_unionBranchPredecessorIndex"/>), so the
-        /// lowered union produces the same result shape a plain chained predicate would.
-        /// </summary>
-        private void HandleParamTableUnionChainBranch(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
-        {
-            // NOTE: this always selects FROM the branch's own QueryGenerator.Table. Unlike the top-level union path
-            // (HandleParamTableUnion), it does NOT redirect ResourceTable-located predicates (_type/_id) to the
-            // Resource table. That is safe only because the sole producer of chain-nested unions today is
-            // ScalarTemporalEqualityRewriter, whose branches are all DateTime-table birthdate predicates. If a future
-            // rewriter nests a ResourceTable-located union inside a chain, this method must grow that handling.
-            var tableName = searchParamTableExpression.QueryGenerator.Table;
-            var predecessorCte = TableExpressionName(_unionBranchPredecessorIndex);
-
-            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
-            using (StringBuilder.Indent())
-            {
-                StringBuilder.Append("SELECT T1, Sid1, ")
-                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine(tableName)
-                    .Append(_joinShift).Append("JOIN ").Append(predecessorCte)
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
-
-                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                {
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, tableName);
-
-                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
-                    {
-                        delimited.BeginDelimitedElement();
-                        searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
-                    }
-                }
-            }
-
-            StringBuilder.AppendLine("),");
-        }
-
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
             {
-                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind);
+                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
                 // if this is not sort mode or if it is the first cte
                 if (!IsInSortMode(context) || predecessorIndex < 0)
@@ -717,7 +666,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
                 }
             }
-            else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
+            else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited && _unionBranchPredecessorIndex < 0)
             {
                 // handle special case where we want to Union a specific resource to the results
                 var searchParameterExpressionPredicate = CheckExpressionOrFirstChildIsSearchParam(searchParamTableExpression.Predicate);
@@ -731,7 +680,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(specialCaseTableName)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind)))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
 
@@ -745,7 +694,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind)))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
             }
@@ -783,7 +732,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindAll(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind);
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             // In the case the query contains a UNION operator, the following CTE must join the latest Union CTE
             // where all data is aggregated.
@@ -958,7 +907,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind)))
+                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").AppendLine("Sid2");
             }
@@ -1484,31 +1433,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
+            bool isChainNestedUnion = chainLevel > 0;
 
             // For a chain-nested union, every branch must restrict against the chain link that precedes the
             // union (firstInclusiveTableExpressionId - 1), not against the branch generated immediately before
             // it. Pin that predecessor for the duration of the branch loop and restore it afterwards.
             int previousUnionBranchPredecessorIndex = _unionBranchPredecessorIndex;
-            if (chainLevel > 0)
+            if (isChainNestedUnion)
             {
                 _unionBranchPredecessorIndex = firstInclusiveTableExpressionId - 1;
             }
 
-            foreach (Expression innerExpression in unionExpression.Expressions)
+            try
             {
-                // Determine the appropriate query generator for this specific inner expression
-                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+                foreach (Expression innerExpression in unionExpression.Expressions)
+                {
+                    // Determine the appropriate query generator for this specific inner expression
+                    var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
 
-                var searchParamExpression = new SearchParamTableExpression(
-                    queryGenerator,
-                    innerExpression,
-                    SearchParamTableExpressionKind.Union,
-                    chainLevel);
+                    var searchParamExpression = new SearchParamTableExpression(
+                        queryGenerator,
+                        innerExpression,
+                        isChainNestedUnion ? SearchParamTableExpressionKind.Normal : SearchParamTableExpressionKind.Union,
+                        chainLevel);
 
-                searchParamExpression.AcceptVisitor(this, context);
+                    if (isChainNestedUnion)
+                    {
+                        AppendNewTableExpression(StringBuilder, searchParamExpression, ++_tableExpressionCounter, context);
+                        StringBuilder.AppendLine(",");
+                    }
+                    else
+                    {
+                        searchParamExpression.AcceptVisitor(this, context);
+                    }
+                }
             }
-
-            _unionBranchPredecessorIndex = previousUnionBranchPredecessorIndex;
+            finally
+            {
+                _unionBranchPredecessorIndex = previousUnionBranchPredecessorIndex;
+            }
 
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 
@@ -1717,7 +1680,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind);
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             if (predecessorIndex >= 0)
             {
@@ -1734,7 +1697,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression.Kind);
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             if (predecessorIndex >= 0)
             {
@@ -1750,11 +1713,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private int FindRestrictingPredecessorTableExpressionIndex(SearchParamTableExpressionKind currentKind)
+        private int FindRestrictingPredecessorTableExpressionIndex(SearchParamTableExpression currentExpression)
         {
+            if (_unionBranchPredecessorIndex >= 0 && currentExpression.ChainLevel > 0)
+            {
+                return _unionBranchPredecessorIndex;
+            }
+
             // Restrict against the previous CTE except for Concatenation, whose branches use the Normal sibling's predecessor.
             // Use _tableExpressionCounter, not root expression indices, because unions can add extra CTEs.
-            if (currentKind == SearchParamTableExpressionKind.Concatenation)
+            if (currentExpression.Kind == SearchParamTableExpressionKind.Concatenation)
             {
                 return _tableExpressionCounter - 2;
             }
