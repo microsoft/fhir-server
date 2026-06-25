@@ -116,15 +116,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await connection.CloseAsync();
                 });
 
-            var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, SchemaVersionConstants.MinForUpgrade, maximumSupportedSchemaVersion);
-            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
-
-            _schemaInformation.Current = SchemaVersionConstants.MinForUpgrade;
-
-            for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= maximumSupportedSchemaVersion; version++)
+            if (maximumSupportedSchemaVersion == SchemaVersionConstants.MinForUpgrade || maximumSupportedSchemaVersion == SchemaVersionConstants.Max)
             {
-                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
-                _schemaInformation.Current = version;
+                var (schemaInitializer, _) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, maximumSupportedSchemaVersion, maximumSupportedSchemaVersion);
+                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+                _schemaInformation.Current = maximumSupportedSchemaVersion;
+            }
+            else
+            {
+                var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, SchemaVersionConstants.MinForUpgrade, maximumSupportedSchemaVersion);
+                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+
+                _schemaInformation.Current = SchemaVersionConstants.MinForUpgrade;
+
+                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= maximumSupportedSchemaVersion; version++)
+                {
+                    await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
+                    _schemaInformation.Current = version;
+                }
             }
 
             await InitWatchdogsParameters(databaseName);
