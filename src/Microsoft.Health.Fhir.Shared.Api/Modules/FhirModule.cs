@@ -10,7 +10,7 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
@@ -176,11 +176,23 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf();
+
+            services.AddScoped<IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Create.CreateResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest>>();
+            services.AddScoped<IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProvenanceHeaderPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest>>();
+
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf();
+
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Create.CreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Upsert.UpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Create.ConditionalCreateResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Upsert.ConditionalUpsertResourceRequest, Core.Messages.Upsert.UpsertResourceResponse>>();
+            services.AddSingleton<IPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>, ProfileResourcesPipelineBehavior<Core.Messages.Delete.DeleteResourceRequest, Core.Messages.Delete.DeleteResourceResponse>>();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

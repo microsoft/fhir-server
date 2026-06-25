@@ -3,16 +3,16 @@ sequenceDiagram
     Client->>FhirServer: GET Create Bulk Delete Request
     FhirServer->>Middleware: GET Create Bulk Delete Request
     Middleware->>BulkDeleteController: GET Create Bulk Delete Request
-    BulkDeleteController->>Mediatr: Create Bulk Delete Job
-    Mediatr->>CreateBulkDeleteHandler: CreateBulkDeleteRequest
+    BulkDeleteController->>Medino: Create Bulk Delete Job
+    Medino->>CreateBulkDeleteHandler: CreateBulkDeleteRequest
     CreateBulkDeleteHandler->>AuthorizationService: Check Access
     AuthorizationService-->>CreateBulkDeleteHandler: Access
     CreateBulkDeleteHandler->>QueueClient: Enqueue Bulk Delete Job
     QueueClient->>Database: Enqueue Bulk Delete Job
     Database-->>QueueClient: Enqueued Job
     QueueClient-->>CreateBulkDeleteHandler: Enqueued Job
-    CreateBulkDeleteHandler-->>Mediatr: CreateBulkDeleteResponse
-    Mediatr-->>BulkDeleteController: CreateBulkDeleteResponse
+    CreateBulkDeleteHandler-->>Medino: CreateBulkDeleteResponse
+    Medino-->>BulkDeleteController: CreateBulkDeleteResponse
     BulkDeleteController-->>Middleware: JobResult
     Middleware-->>FhirServer: JobResult
     FhirServer-->>Client: JobResult

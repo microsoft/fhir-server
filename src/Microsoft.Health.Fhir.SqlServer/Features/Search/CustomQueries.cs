@@ -15,18 +15,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal static class CustomQueries
     {
         private static DateTimeOffset _lastUpdatedQueryCache = DateTimeOffset.MinValue;
-        private static object lockObject = new object();
+        private static readonly object LockObject = new object();
 
-        public static Dictionary<string, string> QueryStore { get; set; } = new Dictionary<string, string>();
+        private static Dictionary<string, string> QueryStore { get; set; } = new Dictionary<string, string>();
 
         public static int WaitTime { get; set; } = 60;
+
+        public static int QueryStoreCount
+        {
+            get
+            {
+                lock (LockObject)
+                {
+                    return QueryStore.Count;
+                }
+            }
+        }
+
+        public static void ClearQueryStore()
+        {
+            lock (LockObject)
+            {
+                QueryStore = new Dictionary<string, string>();
+            }
+        }
 
         public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
             DateTimeOffset now = Clock.UtcNow;
             if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
             {
-                lock (lockObject)
+                lock (LockObject)
                 {
                     if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
                     {
@@ -62,8 +81,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            QueryStore.TryGetValue(hash, out var storedProcName);
-            return storedProcName;
+            lock (LockObject)
+            {
+                QueryStore.TryGetValue(hash, out var storedProcName);
+                return storedProcName;
+            }
         }
     }
 }

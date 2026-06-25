@@ -6,7 +6,6 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
-using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
@@ -89,7 +88,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private static ManagedIdentityCredential CreateManagedIdentityCredential()
         {
-            return new ManagedIdentityCredential();
+            return new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned);
         }
     }
 }

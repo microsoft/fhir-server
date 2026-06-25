@@ -9,6 +9,18 @@ parameters:
 
 steps:
 - task: UseDotNet@2
+  displayName: 'Use .NET 8 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '8.0.422'
+
+- task: UseDotNet@2
+  displayName: 'Use .NET 9 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '9.0.315'
+
+- task: UseDotNet@2
   displayName: 'Use .NET SDK'
   inputs:
     useGlobalJson: true
@@ -37,6 +49,20 @@ steps:
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
       testRunTitle: 'Unit Tests'
+      # Disable the task's built-in VSTest logger injection so Microsoft.Testing.Platform
+      # owns TRX generation through --report-trx.
+      publishTestResults: false
+    env:
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/unit-tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish unit test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/unit-tests/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: 'Unit Tests'
+      failTaskOnFailedTests: true
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: DotNetCoreCLI@2

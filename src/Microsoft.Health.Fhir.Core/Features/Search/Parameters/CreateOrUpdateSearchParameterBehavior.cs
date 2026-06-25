@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -18,14 +18,16 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class CreateOrUpdateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
+    public class CreateOrUpdateSearchParameterBehavior<TResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<TResourceRequest, TUpsertResourceResponse>
+        where TResourceRequest : BaseBundleInnerRequest, IRequest<TUpsertResourceResponse>
+        where TUpsertResourceResponse : UpsertResourceResponse
     {
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IFhirDataStore _fhirDataStore;
@@ -53,7 +55,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<TUpsertResourceResponse> HandleAsync(TResourceRequest request, RequestHandlerDelegate<TUpsertResourceResponse> next, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            return request switch
+            {
+                CreateResourceRequest createRequest => await HandleCreateAsync(createRequest, next, cancellationToken),
+                UpsertResourceRequest upsertRequest => await HandleUpsertAsync(upsertRequest, next, cancellationToken),
+                _ => throw new InvalidOperationException($"Unsupported request type '{request.GetType().FullName}'."),
+            };
+        }
+
+        private async Task<TUpsertResourceResponse> HandleCreateAsync(CreateResourceRequest request, RequestHandlerDelegate<TUpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
@@ -63,14 +77,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
 
                 // Allow the resource to be updated with the normal handler
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next(cancellationToken);
+            return await next();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        private async Task<TUpsertResourceResponse> HandleUpsertAsync(UpsertResourceRequest request, RequestHandlerDelegate<TUpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
@@ -112,11 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 // Now allow the resource to updated per the normal behavior
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next(cancellationToken);
+            return await next();
         }
 
         private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)

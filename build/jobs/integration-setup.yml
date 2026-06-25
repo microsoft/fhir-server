@@ -7,5 +7,11 @@ steps:
       artifactName: 'IntegrationTests'
 
   - task: UseDotNet@2
+    displayName: Use .NET 9 SDK
+    inputs:
+      packageType: 'sdk'
+      version: '9.0.315'
+
+  - task: UseDotNet@2
     inputs:
       useGlobalJson: true

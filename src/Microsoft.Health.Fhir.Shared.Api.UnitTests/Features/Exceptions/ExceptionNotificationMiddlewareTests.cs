@@ -6,7 +6,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
         }
 
         [Fact]
-        public async Task GivenAnHttpContextWithException_WhenExecutingExceptionNotificationMiddleware_MediatRShouldEmitNotification()
+        public async Task GivenAnHttpContextWithException_WhenExecutingExceptionNotificationMiddleware_MediatorShouldEmitNotification()
         {
             var exceptionMessage = "Test exception";
             var exceptionNotificationMiddleware = CreateExceptionNotificationMiddleware(innerHttpContext => throw new Exception(exceptionMessage));
@@ -45,29 +45,29 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             }
             catch (Exception e)
             {
-                await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
+                await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
                 Assert.Equal(exceptionMessage, e.Message);
             }
         }
 
         [Fact]
-        public async Task GivenAnHttpContextWithNoException_WhenExecutingExceptionNotificationMiddleware_MediatRShouldNotEmitNotification()
+        public async Task GivenAnHttpContextWithNoException_WhenExecutingExceptionNotificationMiddleware_MediatorShouldNotEmitNotification()
         {
             var exceptionNotificationMiddleware = CreateExceptionNotificationMiddleware(innerHttpContext => Task.CompletedTask);
 
             await exceptionNotificationMiddleware.Invoke(_context);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task WhenMediatRFails_OriginalExceptionStillThrown()
+        public async Task WhenMediatorFails_OriginalExceptionStillThrown()
         {
             var exceptionMessage = "Test exception";
             var mediatorExceptionMessage = "Mediator Failure";
 
             var exceptionNotificationMiddleware = CreateExceptionNotificationMiddleware(innerHttpContext => throw new Exception(exceptionMessage));
-            _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ExceptionNotificationMiddleware>(), Arg.Any<CancellationToken>())).Throw(new System.Exception(mediatorExceptionMessage));
+            _mediator.WhenForAnyArgs(async x => await x.PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception(mediatorExceptionMessage));
 
             try
             {
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             }
             catch (Exception e)
             {
-                await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+                await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ExceptionNotification>(), Arg.Any<CancellationToken>());
                 Assert.Equal(exceptionMessage, e.Message);
             }
         }

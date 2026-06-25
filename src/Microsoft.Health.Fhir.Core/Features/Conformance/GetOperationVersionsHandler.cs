@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -24,8 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _provider = provider;
         }
 
-        Task<GetOperationVersionsResponse> IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>.
-            Handle(GetOperationVersionsRequest request, CancellationToken cancellationToken)
+        public Task<GetOperationVersionsResponse> HandleAsync(GetOperationVersionsRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult(Handle(request));
         }

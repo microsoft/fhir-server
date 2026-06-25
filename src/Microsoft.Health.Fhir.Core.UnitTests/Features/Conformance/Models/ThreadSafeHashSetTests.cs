@@ -218,6 +218,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
+        public void GivenArraySizedBeforeConcurrentAdd_WhenCopiedToArray_ThenArgumentExceptionShouldBeThrown()
+        {
+            // Arrange
+            var hashSet = new ThreadSafeHashSet<int>();
+            hashSet.Add(1);
+
+            var array = new int[hashSet.Count];
+            hashSet.Add(2);
+
+            // Act
+            Exception exception = Record.Exception(() => hashSet.CopyTo(array, 0));
+
+            // Assert
+            Assert.IsType<ArgumentException>(exception);
+        }
+
+        [Fact]
         public void GivenConcurrentAdds_WhenExecuted_ThenAllItemsShouldBeAddedWithoutDataLoss()
         {
             // Arrange
@@ -385,8 +402,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var enumerationTasks = Enumerable.Range(0, 10).Select(_ =>
                 Task.Run(() =>
                 {
-                    var snapshot = hashSet.ToList();
-                    return snapshot.Count;
+                    var count = 0;
+                    foreach (var item in hashSet)
+                    {
+                        count++;
+                    }
+
+                    return count;
                 }));
 
             var allTasks = addTasks

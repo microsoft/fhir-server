@@ -123,9 +123,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
 
-            SearchResourceResponse response = await behavior.Handle(
+            SearchResourceResponse response = await behavior.HandleAsync(
                 getResourceRequest,
-                (ct) => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); },
+                () => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); },
                 CancellationToken.None);
 
             Assert.Equal(_nonEmptyBundle, response.Bundle);
@@ -152,9 +152,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             };
 
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
-            SearchResourceResponse response = await behavior.Handle(
+            SearchResourceResponse response = await behavior.HandleAsync(
                 getResourceRequest,
-                (ct) =>
+                () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },
@@ -181,9 +181,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
             Assert.True(getResourceRequest.Queries.Count == 3);
 
-            SearchResourceResponse response = await behavior.Handle(
+            SearchResourceResponse response = await behavior.HandleAsync(
                 getResourceRequest,
-                (ct) =>
+                () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },
@@ -207,9 +207,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("_list", getResourceRequest.Queries[0].Item1);
             Assert.Equal("existing-list", getResourceRequest.Queries[0].Item2);
 
-            SearchResourceResponse response = await behavior.Handle(
+            SearchResourceResponse response = await behavior.HandleAsync(
                 getResourceRequest,
-                (ct) =>
+                () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },

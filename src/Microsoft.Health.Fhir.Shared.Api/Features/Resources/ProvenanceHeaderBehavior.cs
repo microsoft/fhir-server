@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -23,11 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
     /// Intercepts create/update requests and checks presence of "X-Provenance" header.
     /// If header present it proceed normal work with target request and then create provenance object with provenance.target equal to that object.
     /// </summary>
-    public sealed class ProvenanceHeaderBehavior :
-        IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public sealed class ProvenanceHeaderBehavior
     {
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -46,28 +42,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _state = state;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+            => await HandleCoreAsync(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+            => await HandleCoreAsync(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+            => await HandleCoreAsync(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(next, cancellationToken);
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+            => await HandleCoreAsync(next, cancellationToken);
 
-        private async Task<UpsertResourceResponse> GenericHandle(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        internal async Task<UpsertResourceResponse> HandleCoreAsync(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (_state.Intercepted)
             {
-                return await next(cancellationToken);
+                return await next();
             }
 
             _state.Intercepted = true;
             Provenance provenance = GetProvenanceFromHeader();
-            var response = await next(cancellationToken);
+            var response = await next();
 
             if (response != null && provenance != null)
             {
@@ -79,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
                 // Create Provenance resource.
                 // TODO: It should probaby go through controller to trigger audit events, but it's quite tricky to do now.
-                await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleResourceContext: null), cancellationToken);
+                await _mediator.SendAsync<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleResourceContext: null), cancellationToken);
             }
 
             return response;

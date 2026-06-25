@@ -7,8 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using MediatR;
-using MediatR.Pipeline;
+using Medino;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,6 +18,9 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -210,7 +212,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
-            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Handler registrations are Transient by default; this extension ensures any prior transient registration is removed before re-registering as Singleton
                     .Add<WatchdogsBackgroundService>()
                     .Singleton()
                     .AsSelf() // this is needed to create the instance the delegates resolve
@@ -221,12 +223,13 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+            // Register SQL-specific IJob implementations. Core jobs are registered once by Startup when task hosting is enabled.
+            IEnumerable<TypeRegistrationBuilder> sqlServerJobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
 
-            foreach (TypeRegistrationBuilder job in jobs)
+            foreach (TypeRegistrationBuilder job in sqlServerJobs)
             {
                 job.AsDelegate<Func<IJob>>();
             }

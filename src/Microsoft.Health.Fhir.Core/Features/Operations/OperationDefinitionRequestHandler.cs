@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<OperationDefinitionResponse> Handle(OperationDefinitionRequest request, CancellationToken cancellationToken)
+        public async Task<OperationDefinitionResponse> HandleAsync(OperationDefinitionRequest request, CancellationToken cancellationToken)
         {
             using Stream stream = DataLoader.OpenOperationDefinitionFileStream($"{request.OperationName}.json");
             using TextReader reader = new StreamReader(stream);

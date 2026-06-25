@@ -11,7 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             {
                 var typedHandler = (IRequestHandler<TRequest, TResponse>)handler;
                 var request = (TRequest)CreateObject(typeof(TRequest));
-                await typedHandler.Handle(request, CancellationToken.None);
+                await typedHandler.HandleAsync(request, CancellationToken.None);
             }
 
             static IEnumerable<FieldInfo> GetFieldsIncludingFromBaseTypes(Type t)

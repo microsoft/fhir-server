@@ -6,7 +6,7 @@
 using System;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public OperationDefinitionControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<OperationDefinitionResponse>(
+            _mediator.SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new OperationDefinitionResponse(new OperationDefinition().ToResourceElement()));
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Always enabled
             await _controller.MemberMatchOperationDefinition();
 
-            await _mediator.Received(1).Send<OperationDefinitionResponse>(
+            await _mediator.Received(1).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Always enabled
             await _controller.PurgeHistoryOperationDefinition();
 
-            await _mediator.Received(1).Send<OperationDefinitionResponse>(
+            await _mediator.Received(1).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Always disabled
             await Assert.ThrowsAnyAsync<RequestNotValidException>(() => _controller.BulkDeleteSoftDeletedOperationDefinition());
 
-            await _mediator.DidNotReceive().Send<OperationDefinitionResponse>(
+            await _mediator.DidNotReceive().SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<OperationDefinitionResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
                 Arg.Any<CancellationToken>());
         }

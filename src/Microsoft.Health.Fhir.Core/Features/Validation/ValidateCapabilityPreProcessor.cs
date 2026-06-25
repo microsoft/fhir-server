@@ -7,13 +7,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR.Pipeline;
+using Medino;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ValidateCapabilityPreProcessor<TRequest> : IRequestPreProcessor<TRequest>
+    public class ValidateCapabilityPreProcessor<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+        where TRequest : notnull
     {
         private readonly IConformanceProvider _conformanceProvider;
 
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _conformanceProvider = conformanceProvider;
         }
 
-        public async Task Process(TRequest request, CancellationToken cancellationToken)
+        public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             if (request is IRequireCapability provider)
             {
@@ -33,6 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     throw new MethodNotAllowedException(Core.Resources.RequestedActionNotAllowed);
                 }
             }
+
+            return await next();
         }
     }
 }

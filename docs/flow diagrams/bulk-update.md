@@ -3,16 +3,16 @@ sequenceDiagram
     Client->>FhirServer: PATCH Create Bulk Update Request
     FhirServer->>Middleware: PATCH Create Bulk Update Request
     Middleware->>BulkUpdateController: PATCH Create Bulk Update Request
-    BulkUpdateController->>Mediatr: Create Bulk Update Job
-    Mediatr->>CreateBulkUpdateHandler: CreateBulkUpdateRequest
+    BulkUpdateController->>Medino: Create Bulk Update Job
+    Medino->>CreateBulkUpdateHandler: CreateBulkUpdateRequest
     CreateBulkUpdateHandler->>AuthorizationService: Check Access
     AuthorizationService-->>CreateBulkUpdateHandler: Access
     CreateBulkUpdateHandler->>QueueClient: Enqueue Bulk Update Job
     QueueClient->>Database: Enqueue Bulk Update Job
     Database-->>QueueClient: Enqueued Job
     QueueClient-->>CreateBulkUpdateHandler: Enqueued Job
-    CreateBulkUpdateHandler-->>Mediatr: CreateBulkUpdateResponse
-    Mediatr-->>BulkUpdateController: CreateBulkUpdateResponse
+    CreateBulkUpdateHandler-->>Medino: CreateBulkUpdateResponse
+    Medino-->>BulkUpdateController: CreateBulkUpdateResponse
     BulkUpdateController-->>Middleware: JobResult
     Middleware-->>FhirServer: JobResult
     FhirServer-->>Client: JobResult

@@ -3,8 +3,8 @@ sequenceDiagram
     Client->>FhirServer: GET
     FhirServer->>Middleware: GET
     Middleware->>FhirController: GET
-    FhirController->>Mediatr: Search Resource
-    Mediatr->>SearchResourceHandler: SearchResourceRequest
+    FhirController->>Medino: Search Resource
+    Medino->>SearchResourceHandler: SearchResourceRequest
     SearchResourceHandler->>AuthorizationService: CheckAccess
     AuthorizationService-->>SearchResourceHandler: Access
     SearchResourceHandler->>SearchService: Search by ResourceType, queries
@@ -15,8 +15,8 @@ sequenceDiagram
     SearchService-->>SearchResourceHandler: SearchResult
     SearchResourceHandler->>BundleFactory: SearchResult
     BundleFactory-->>SearchResourceHandler: ResourceElement bundle
-    SearchResourceHandler-->>Mediatr: SearchResourceResponse
-    Mediatr-->>FhirController: ResourceElement
+    SearchResourceHandler-->>Medino: SearchResourceResponse
+    Medino-->>FhirController: ResourceElement
     FhirController-->>Middleware: FhirResult
     Middleware-->>FhirServer: FhirResult
     FhirServer-->>Client: FhirResult

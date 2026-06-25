@@ -28,13 +28,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class CompartmentQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
+    [Collection(ModelInfoProviderCollection.Name)]
+    public class CompartmentQueryGeneratorTests
     {
         private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
 
         public CompartmentQueryGeneratorTests(ModelInfoProviderFixture fixture)
         {
+            fixture.SetCompartmentProvider();
             _model = Substitute.For<ISqlServerFhirModel>();
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;

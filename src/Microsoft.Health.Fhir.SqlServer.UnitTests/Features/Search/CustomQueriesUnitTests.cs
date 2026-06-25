@@ -70,5 +70,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             Assert.Equal("CustomQuery_hash2", CustomQueries.CheckQueryHash(connection, "hash2", logger));
         }
+
+        [Fact]
+        public async Task GivenCustomQueryClass_WhenQueryStoreIsCleared_CachedStoredProceduresAreRemoved()
+        {
+            try
+            {
+                CustomQueries.WaitTime = 1;
+
+                await Task.Delay(1100);
+
+                var connection = Substitute.For<IDbConnection>();
+                var command = Substitute.For<IDbCommand>();
+                var reader = Substitute.For<IDataReader>();
+                reader.Read().Returns(x => true, x => false);
+                reader.GetString(0).Returns("CustomQuery_hash1");
+                command.ExecuteReader().Returns(reader);
+                connection.CreateCommand().Returns(command);
+
+                var logger = NullLogger<SqlServerSearchService>.Instance;
+                Assert.Equal("CustomQuery_hash1", CustomQueries.CheckQueryHash(connection, "hash1", logger));
+
+                CustomQueries.WaitTime = 60;
+                CustomQueries.ClearQueryStore();
+                Assert.Null(CustomQueries.CheckQueryHash(connection, "hash1", logger));
+            }
+            finally
+            {
+                CustomQueries.WaitTime = 60;
+                CustomQueries.ClearQueryStore();
+            }
+        }
     }
 }
