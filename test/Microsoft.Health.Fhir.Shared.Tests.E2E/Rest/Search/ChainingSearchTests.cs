@@ -96,6 +96,73 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionOverBirthdateMonthPrecision_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate=1990-05";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionOverBirthdateDayWithAdditionalCriteriaOnTheSameTarget_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate={Fixture.SmithPatientBirthDate}&subject:Patient.family=Smith";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedExactDayBirthdateWithBaseResourceSortAndSecondChainedPredicate_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            // Matches previous error shape:
+            // MedicationDispense?patient:Patient.birthdate=<day>&_sort=-whenhandedover&patient:Patient.identifier=...
+            string tag = Guid.NewGuid().ToString();
+            var meta = new Meta { Tag = new List<Coding> { new Coding("testTag", tag) } };
+            const string exactDay = "1951-06-08";
+
+            Patient matchingPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = exactDay, Name = new List<HumanName> { new HumanName { Family = "Smith" } } })).Resource;
+            Patient wrongFamilyPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = exactDay, Name = new List<HumanName> { new HumanName { Family = "Jones" } } })).Resource;
+            Patient wrongDayPatient = (await Client.CreateAsync(
+                new Patient { Meta = meta, BirthDate = "1951-06-09", Name = new List<HumanName> { new HumanName { Family = "Smith" } } })).Resource;
+
+            var code = new CodeableConcept("http://loinc.org", "4548-4");
+
+            Observation matchA = await CreateObservationWithEffective(matchingPatient, "2021-03-03");
+            Observation matchB = await CreateObservationWithEffective(matchingPatient, "2021-01-01");
+            await CreateObservationWithEffective(wrongFamilyPatient, "2021-02-02");
+            await CreateObservationWithEffective(wrongDayPatient, "2021-04-04");
+
+            // Exact-day birthdate (UNION path) + a second chained predicate on the same target + a base-resource date sort.
+            string query = $"_tag={tag}&subject:Patient.birthdate={exactDay}&subject:Patient.family=Smith&_sort=-date&_count=100";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(bundle, matchA, matchB);
+
+            async Task<Observation> CreateObservationWithEffective(Patient patient, string effective)
+            {
+                return (await Client.CreateAsync(
+                    new Observation
+                    {
+                        Meta = meta,
+                        Status = ObservationStatus.Final,
+                        Code = code,
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                        Effective = new FhirDateTime(effective),
+                    })).Resource;
+            }
+        }
+
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
@@ -143,6 +210,86 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(bundle, Fixture.TrumanPatient);
         }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned(bool includeAccurateTotal)
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}";
+            if (includeAccurateTotal)
+            {
+                query += "&_total=accurate";
+            }
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            if (includeAccurateTotal)
+            {
+                Assert.Equal(1, bundle.Total.GetValueOrDefault());
+            }
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+#if !Stu3
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAReverseChainSearchExpressionOverImagingStudyStartedCombinedWithAnExactDayBirthdateAndTag_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        {
+            string tenantTagCode = Guid.NewGuid().ToString("N");
+            var tenantMeta = new Meta
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding(Fixture.TenantTagSystem, tenantTagCode),
+                },
+            };
+
+            Patient imagingStudyExactDayPatient = (await Client.CreateAsync(
+                new Patient
+                {
+                    Meta = tenantMeta,
+                    BirthDate = Fixture.ImagingStudyPatientBirthDate,
+                })).Resource;
+
+            Patient imagingStudyMonthPrecisionPatient = (await Client.CreateAsync(
+                new Patient
+                {
+                    Meta = tenantMeta,
+                    BirthDate = Fixture.ImagingStudyMonthPrecisionPatientBirthDate,
+                })).Resource;
+
+            await Client.CreateAsync(
+                new ImagingStudy
+                {
+                    Meta = tenantMeta,
+                    Status = ImagingStudy.ImagingStudyStatus.Available,
+                    Subject = new ResourceReference($"Patient/{imagingStudyExactDayPatient.Id}"),
+                    Started = Fixture.ImagingStudyStarted,
+                });
+
+            await Client.CreateAsync(
+                new ImagingStudy
+                {
+                    Meta = tenantMeta,
+                    Status = ImagingStudy.ImagingStudyStatus.Available,
+                    Subject = new ResourceReference($"Patient/{imagingStudyMonthPrecisionPatient.Id}"),
+                    Started = Fixture.ImagingStudyStarted,
+                });
+
+            Bundle bundle = await Client.SearchPostAsync(
+                ResourceType.Patient.ToString(),
+                null,
+                default,
+                ("_has:ImagingStudy:patient:started", Fixture.ImagingStudyStarted),
+                ("birthdate", Fixture.ImagingStudyPatientBirthDate),
+                ("_tag", $"{Fixture.TenantTagSystem}|{tenantTagCode}"));
+
+            ValidateBundle(bundle, imagingStudyExactDayPatient, imagingStudyMonthPrecisionPatient);
+        }
+#endif
 
         [Fact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
@@ -399,6 +546,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             public string OrganizationCity { get; } = Guid.NewGuid().ToString();
 
             public string OrganizationIdentifier { get; } = Guid.NewGuid().ToString();
+
+#if !Stu3
+            public string TenantTagSystem { get; } = "urn:tenantId";
+
+            public string ImagingStudyPatientBirthDate { get; } = "2018-06-06";
+
+            public string ImagingStudyMonthPrecisionPatientBirthDate { get; } = "2018-06";
+
+            public string ImagingStudyStarted { get; } = "2018-02-02T05:00:00.000";
+#endif
 
             public Patient SmithPatient { get; private set; }
 

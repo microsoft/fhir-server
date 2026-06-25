@@ -86,15 +86,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
                 else
                 {
-                    Expression predicate = tableExpression.Predicate == null
-                        ? extractedCommonResourceExpressions
-                        : Expression.And(tableExpression.Predicate, extractedCommonResourceExpressions);
+                    Expression predicate;
+
+                    if (extractedCommonResourceExpressions != null
+                        && tableExpression.Predicate is UnionExpression unionPredicate
+                        && !tableExpression.HasSmartV2UnionExpression())
+                    {
+                        // A top-level UNION ALL leaf (e.g. the exact-day birthdate day-split) cannot absorb the
+                        // common resource predicate (ResourceTypeId / _id) as a sibling AND: SplitExpressions would
+                        // later peel that sibling back out into its own ResourceTypeId-grounding CTE that joins
+                        // dbo.Resource against the union aggregate. Instead, fold the resource predicate into every
+                        // branch so it lands directly in each leaf CTE (where ResourceTypeId is the partition /
+                        // clustered-index lead column) and the extra grounding CTE is never emitted. Chain-nested
+                        // unions never reach this branch (they are Normal with ChainLevel > 0 and pass through
+                        // above), so this optimization stays scoped to top-level unions.
+                        predicate = DistributeResourcePredicateIntoUnionBranches(unionPredicate, extractedCommonResourceExpressions);
+                    }
+                    else
+                    {
+                        predicate = tableExpression.Predicate == null
+                            ? extractedCommonResourceExpressions
+                            : Expression.And(tableExpression.Predicate, extractedCommonResourceExpressions);
+                    }
 
                     newTableExpressions.Add(new SearchParamTableExpression(tableExpression.QueryGenerator, predicate, tableExpression.Kind, tableExpression.ChainLevel));
                 }
             }
 
             return new SqlRootExpression(newTableExpressions, Array.Empty<SearchParameterExpressionBase>());
+        }
+
+        // Rewrites Union[b1, b2, ...] into Union[And(b1, common), And(b2, common), ...] so a common resource
+        // predicate is pushed into each branch leaf instead of wrapping the whole union (which would force a
+        // separate grounding CTE). Distributivity holds because every branch reads the same table/partition:
+        // (b1 ∪ b2) ∩ common == (b1 ∩ common) ∪ (b2 ∩ common).
+        private static UnionExpression DistributeResourcePredicateIntoUnionBranches(UnionExpression unionExpression, Expression commonResourceExpression)
+        {
+            var distributedBranches = new List<Expression>(unionExpression.Expressions.Count);
+            foreach (Expression branch in unionExpression.Expressions)
+            {
+                distributedBranches.Add(Expression.And(branch, commonResourceExpression));
+            }
+
+            return new UnionExpression(unionExpression.Operator, distributedBranches);
         }
     }
 }

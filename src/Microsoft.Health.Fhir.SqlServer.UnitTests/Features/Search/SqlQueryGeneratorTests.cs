@@ -213,4 +213,206 @@ public class SqlQueryGeneratorTests
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
+
+    [Fact]
+    public void GivenUnionFollowedByConcatenationPair_WhenSqlGenerated_ThenBothBranchesShareUnionAggregatePredecessor()
+    {
+        // Reproduces the ScalarTemporalEqualityRewriter union + ConcatenationRewriter (DateTimeBoundedRangeRewriter)
+        // interaction. The union inflates the CTE counter; the Normal/Concatenation pair that follows must both
+        // restrict against the union aggregate, not against each other.
+        SearchParamTableExpression unionTableExpression = BuildBareBirthdateUnionTableExpression();
+        (SearchParamTableExpression normal, SearchParamTableExpression concatenation) = BuildBoundedDateRangePair();
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { unionTableExpression, normal, concatenation },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Generation order: cte0/cte1 = union branches, cte2 = union aggregate,
+        // cte3 = Normal (long-range) sibling, cte4 = Concatenation (short-range) sibling.
+        // Both the Normal sibling and the Concatenation must restrict against the shared union
+        // aggregate (cte2). Before the fix, the Concatenation incorrectly restricted against its
+        // own sibling cte3 because the union had inflated the CTE counter.
+        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte2"));
+        Assert.DoesNotContain("EXISTS (SELECT * FROM cte3", sql);
+
+        // The Concatenation still unions in its Normal sibling (cte3) as a data source - that reference is correct.
+        Assert.Contains("SELECT * FROM cte3", sql);
+    }
+
+    [Fact]
+    public void GivenNormalFilterFollowedByConcatenationPair_WhenSqlGenerated_ThenBothBranchesShareLeadingPredecessor()
+    {
+        // Regression guard for the non-union path: a leading Normal filter followed by a Normal/Concatenation pair.
+        // The predecessor finder must resolve both pair branches to the leading filter (cte0), matching the
+        // behavior that existed before the union-aware rewrite.
+        var leadingStart = new DateTimeOffset(2010, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var leadingPredicate = new SearchParameterExpression(BuildBirthdateParam(), Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, leadingStart));
+        var leading = new SearchParamTableExpression(DateTimeQueryGenerator.Instance, leadingPredicate, SearchParamTableExpressionKind.Normal);
+        (SearchParamTableExpression normal, SearchParamTableExpression concatenation) = BuildBoundedDateRangePair();
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { leading, normal, concatenation },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // Generation order: cte0 = leading Normal, cte1 = Normal (long-range) sibling,
+        // cte2 = Concatenation (short-range) sibling. With no union inflating the counter, both the
+        // Normal sibling and the Concatenation restrict against the shared leading predecessor (cte0).
+        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte0"));
+        Assert.DoesNotContain("EXISTS (SELECT * FROM cte1", sql);
+        Assert.Contains("SELECT * FROM cte1", sql);
+    }
+
+    [Fact]
+    public void GivenTwoConsecutiveConcatenationPairs_WhenSqlGenerated_ThenSecondPairRestrictsAgainstFirstPairResult()
+    {
+        // Stacked pairs: cte0/cte1 = first (Normal, Concatenation) pair, cte2/cte3 = second pair. The predecessor
+        // of the second pair is the second branch of the FIRST pair (cte1), exercising the case where a
+        // Concatenation's predecessor is itself a Concatenation. Both second-pair branches must resolve to cte1,
+        // never to the second pair's own Normal sibling (cte2).
+        (SearchParamTableExpression normalA, SearchParamTableExpression concatA) = BuildBoundedDateRangePair();
+        (SearchParamTableExpression normalB, SearchParamTableExpression concatB) = BuildBoundedDateRangePair();
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { normalA, concatA, normalB, concatB },
+            new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        Assert.Equal(2, CountOccurrences(sql, "EXISTS (SELECT * FROM cte1"));
+        Assert.DoesNotContain("EXISTS (SELECT * FROM cte2", sql);
+        Assert.Contains("SELECT * FROM cte2", sql); // concatB unions in its Normal sibling (cte2) as a data source
+    }
+
+    private static SearchParameterInfo BuildBirthdateParam() =>
+        new SearchParameterInfo(
+            "birthdate",
+            "birthdate",
+            SearchParamType.Date,
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+            expression: "Patient.birthDate",
+            baseResourceTypes: new[] { "Patient" });
+
+    private static SearchParamTableExpression BuildBareBirthdateUnionTableExpression() =>
+        BuildBirthdateUnionTableExpression(chainLevel: 0);
+
+    private static SearchParamTableExpression BuildBirthdateUnionTableExpression(int chainLevel)
+    {
+        var startOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
+        var endOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero);
+        var shortBranch = new SearchParameterExpression(BuildBirthdateParam(), Expression.Equals(FieldName.DateTimeEnd, null, endOfDay));
+        var longBranch = new SearchParameterExpression(BuildBirthdateParam(), Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, startOfDay));
+        UnionExpression union = Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
+
+        return new SearchParamTableExpression(DateTimeQueryGenerator.Instance, union, SearchParamTableExpressionKind.Normal, chainLevel);
+    }
+
+    private void SetupChainModel()
+    {
+        _fhirModel.TryGetResourceTypeId("MedicationDispense", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)10;
+                return true;
+            });
+        _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)1;
+                return true;
+            });
+        _fhirModel.GetSearchParamId(Arg.Any<Uri>()).Returns((short)100);
+    }
+
+    // Produces a [Normal, Concatenation] pair from a bounded date range using the real DateTimeBoundedRangeRewriter,
+    // preserving DateTimeQueryGenerator on both expressions so the SQL generator emits predecessor restrictions.
+    private static (SearchParamTableExpression Normal, SearchParamTableExpression Concatenation) BuildBoundedDateRangePair()
+    {
+        var rangeStart = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        var rangeEnd = new DateTimeOffset(2024, 1, 16, 0, 0, 0, TimeSpan.Zero);
+        var rangeAnd = Expression.And(
+            Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, rangeStart),
+            Expression.LessThan(FieldName.DateTimeStart, null, rangeEnd));
+        var predicate = new SearchParameterExpression(BuildBirthdateParam(), rangeAnd);
+
+        SqlRootExpression root = new(
+            new List<SearchParamTableExpression> { new(DateTimeQueryGenerator.Instance, predicate, SearchParamTableExpressionKind.Normal) },
+            new List<SearchParameterExpressionBase>());
+
+        var rewritten = (SqlRootExpression)root.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+        Assert.Equal(2, rewritten.SearchParamTableExpressions.Count);
+        Assert.Equal(SearchParamTableExpressionKind.Normal, rewritten.SearchParamTableExpressions[0].Kind);
+        Assert.Equal(SearchParamTableExpressionKind.Concatenation, rewritten.SearchParamTableExpressions[1].Kind);
+
+        return (rewritten.SearchParamTableExpressions[0], rewritten.SearchParamTableExpressions[1]);
+    }
+
+    [Fact]
+    public void GivenTopLevelBirthdateUnionWithResourceTypeConstraint_WhenSqlGenerated_ThenConstraintIsDistributedIntoBranchesAndNoGroundingCteIsEmitted()
+    {
+        // Option A: a top-level (ChainLevel 0) exact-day birthdate becomes a UNION ALL, and the request also carries
+        // a resource-column constraint (_type=Patient). ResourceColumnPredicatePushdownRewriter distributes that
+        // constraint INTO each union branch - Union[And(b1, _type), And(b2, _type)] - instead of wrapping the whole
+        // union - And(Union[b1, b2], _type). Distribution is valid because every branch reads the same table/partition.
+        // The payoff: each branch carries the ResourceTypeId filter directly, so SplitExpressions finds no residual
+        // resource predicate and emits NO extra dbo.Resource grounding CTE; the union aggregate is consumed directly.
+        SetupChainModel();
+
+        SearchParamTableExpression unionTableExpression = BuildBareBirthdateUnionTableExpression();
+        var resourceType = new SearchParameterExpression(
+            new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType),
+            Expression.StringEquals(FieldName.String, null, "Patient", false));
+
+        SqlRootExpression sqlExpression = new(
+            new List<SearchParamTableExpression> { unionTableExpression },
+            new List<SearchParameterExpressionBase> { resourceType });
+
+        var pushedDown = (SqlRootExpression)sqlExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
+
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(pushedDown, searchOptions);
+        string sql = _strBuilder.ToString();
+
+        // The union is preserved...
+        Assert.Contains("UNION ALL", sql);
+
+        // ...and the resource-type constraint (Patient -> ResourceTypeId = 1 per SetupChainModel) is pushed into BOTH
+        // branches rather than a single trailing grounding CTE.
+        Assert.Equal(2, CountOccurrences(sql, "AND ResourceTypeId = 1"));
+
+        // Generation order with distribution: cte0/cte1 = branches, cte2 = union aggregate. No cte3: the redundant
+        // dbo.Resource grounding CTE that the And(union, _type) shape would have produced is eliminated, and the final
+        // SELECT joins the union aggregate (cte2) directly.
+        Assert.DoesNotContain("cte3", sql);
+        Assert.Contains("JOIN cte2 ON r.ResourceTypeId = cte2.T1 AND r.ResourceSurrogateId = cte2.Sid1", sql);
+    }
+
+    private static int CountOccurrences(string haystack, string needle) => haystack.Split(needle).Length - 1;
 }

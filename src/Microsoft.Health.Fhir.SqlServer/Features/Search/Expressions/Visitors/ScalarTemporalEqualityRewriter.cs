@@ -50,6 +50,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
+        /// <summary>
+        /// Pipeline entry point. Applies the day-split rewrite, EXCEPT when the expression tree contains any
+        /// chained or reverse-chained (<c>_has</c>) expression. A day-split <see cref="UnionExpression"/> in the
+        /// presence of a chain — nested inside it or sitting beside it as a top-level sibling — generates SQL the
+        /// chained generator joins incorrectly (the union aggregate is restricted on the chain SOURCE columns
+        /// instead of the chain TARGET), returning zero rows. In that case we skip the rewrite entirely and let
+        /// the date predicate fall back to its range form, which the chained generator handles correctly. See ADR-2605.
+        /// </summary>
+        public static Expression Rewrite(Expression expression)
+        {
+            if (expression == null)
+            {
+                return null;
+            }
+
+            if (expression.AcceptVisitor(ContainsChainedExpressionVisitor.Instance, (object)null))
+            {
+                return expression;
+            }
+
+            return expression.AcceptVisitor(Instance);
+        }
+
+        // Defense-in-depth: Rewrite() already skips the whole tree when any chain is present, so in the normal
+        // pipeline this is not reached with a rewritable date nested inside a chain. If the rewriter is ever
+        // invoked directly (not via Rewrite), recursing with context=true still prevents a date param nested in
+        // a chain from being rewritten into a union.
         public override Expression VisitChained(ChainedExpression expression, bool context)
         {
             Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
@@ -208,5 +235,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private static bool IsUtc(DateTimeOffset value) => value.Offset == TimeSpan.Zero;
 
         private static bool IsUtcMidnight(DateTimeOffset value) => IsUtc(value) && value.TimeOfDay == TimeSpan.Zero;
+
+        /// <summary>
+        /// Returns <c>true</c> if the expression tree contains any <see cref="ChainedExpression"/>, covering both
+        /// forward chains and reverse chains (<c>_has</c>, distinguished by <see cref="ChainedExpression.Reversed"/>).
+        /// Used by <see cref="Rewrite"/> to suppress the day-split union whenever the query involves a chain.
+        /// </summary>
+        private sealed class ContainsChainedExpressionVisitor : DefaultExpressionVisitor<object, bool>
+        {
+            internal static readonly ContainsChainedExpressionVisitor Instance = new ContainsChainedExpressionVisitor();
+
+            private ContainsChainedExpressionVisitor()
+                : base((accumulated, current) => accumulated || current)
+            {
+            }
+
+            public override bool VisitChained(ChainedExpression expression, object context) => true;
+        }
     }
 }

@@ -20,8 +20,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
-            IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
-            return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
+            // The exact-day birthdate day-split surfaces as a UNION ALL in two shapes: a bare UnionExpression
+            // sitting directly on the predicate (top-level birthdate on its own), or a UnionExpression nested
+            // inside a multi-predicate container (birthdate ANDed with other filters). Detect both.
+            return expression.Predicate is UnionExpression ||
+                (expression.Predicate is IExpressionsContainer expressionContainer &&
+                expressionContainer.Expressions.Any(e => e is UnionExpression));
         }
 
         /// <summary>
@@ -35,6 +39,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         {
             unionExpression = null;
             allOtherRemainingExpressions = null;
+
+            // Bare union: the predicate IS the UnionExpression with no ANDed siblings, so there is nothing to
+            // split out — hand the union back directly. The container path below handles the case where the
+            // union is one of several predicates combined together.
+            if (expression.Predicate is UnionExpression bareUnion)
+            {
+                unionExpression = bareUnion;
+                return true;
+            }
 
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
 

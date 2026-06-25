@@ -640,7 +640,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchParamTableExpression.ChainLevel == 0)
             {
-                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
                 // if this is not sort mode or if it is the first cte
                 if (!IsInSortMode(context) || predecessorIndex < 0)
@@ -678,7 +678,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(specialCaseTableName)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
 
@@ -692,7 +692,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
             }
@@ -730,7 +730,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindAll(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             // In the case the query contains a UNION operator, the following CTE must join the latest Union CTE
             // where all data is aggregated.
@@ -905,7 +905,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression)))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").AppendLine("Sid2");
             }
@@ -1645,7 +1645,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             if (predecessorIndex >= 0)
             {
@@ -1662,7 +1662,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex(searchParamTableExpression);
 
             if (predecessorIndex >= 0)
             {
@@ -1671,52 +1671,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
+                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
             }
         }
 
-        private int FindRestrictingPredecessorTableExpressionIndex()
+        private int FindRestrictingPredecessorTableExpressionIndex(SearchParamTableExpression currentExpression)
         {
-            int FindImpl(int currentIndex)
+            // Restrict against the immediately previous CTE (_tableExpressionCounter - 1). We track against
+            // _tableExpressionCounter rather than root-expression indices because unions inject extra
+            // aggregate CTEs that those logical indices don't account for.
+            //
+            // Concatenation is the exception: its own Normal sibling sits one CTE back
+            // (_tableExpressionCounter - 1), so we skip past it to reach the shared predecessor that the
+            // sibling restricts against, two CTEs back (_tableExpressionCounter - 2).
+            if (currentExpression.Kind == SearchParamTableExpressionKind.Concatenation)
             {
-                // Due to the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
-                // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
-                if (currentIndex >= _rootExpression.SearchParamTableExpressions.Count)
-                {
-                    return currentIndex - 1;
-                }
-
-                SearchParamTableExpression currentSearchParamTableExpression = _rootExpression.SearchParamTableExpressions[currentIndex];
-
-                // Include all the required SearchParamTableExpressionKind here
-                switch (currentSearchParamTableExpression.Kind)
-                {
-                    case SearchParamTableExpressionKind.NotExists:
-                    case SearchParamTableExpressionKind.Normal:
-                    case SearchParamTableExpressionKind.Chain:
-                    case SearchParamTableExpressionKind.Top:
-                        return currentIndex - 1;
-                    case SearchParamTableExpressionKind.Concatenation:
-                        return FindImpl(currentIndex - 1);
-                    case SearchParamTableExpressionKind.Sort:
-                    case SearchParamTableExpressionKind.SortWithFilter:
-                        return currentIndex - 1;
-                    case SearchParamTableExpressionKind.All:
-                        return currentIndex - 1;
-                    case SearchParamTableExpressionKind.Include:
-                    case SearchParamTableExpressionKind.IncludeLimit:
-                    case SearchParamTableExpressionKind.Union:
-                    case SearchParamTableExpressionKind.IncludeUnionAll:
-                        return currentIndex - 1;
-                    default:
-                        throw new ArgumentOutOfRangeException(currentSearchParamTableExpression.Kind.ToString());
-                }
+                return _tableExpressionCounter - 2;
             }
 
-            return FindImpl(_tableExpressionCounter);
+            return _tableExpressionCounter - 1;
         }
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, string tableAlias = null)

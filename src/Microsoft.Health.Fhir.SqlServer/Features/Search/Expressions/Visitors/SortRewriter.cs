@@ -156,6 +156,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
+        // Follows VisitSearchParameter's null contract: returning null signals "this predicate is the sort
+        // parameter" so the caller can lift it into a dedicated Sort/SortWithFilter CTE. A union qualifies
+        // only when every branch is itself the sort parameter; if any branch is something else, return the
+        // union unchanged so it stays a normal filter. Needed because the exact-day birthdate day-split can
+        // produce a bare UnionExpression the base visitor would otherwise leave unhandled.
+        public override Expression VisitUnion(UnionExpression expression, SqlSearchOptions context) =>
+            expression.Expressions.All(e => e.AcceptVisitor(this, context) == null) ? null : expression;
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, SqlSearchOptions context)
         {
             if (context.Sort.Count > 0)

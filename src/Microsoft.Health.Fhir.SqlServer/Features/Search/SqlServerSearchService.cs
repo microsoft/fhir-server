@@ -2254,7 +2254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
             Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
-                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
+                ? ScalarTemporalEqualityRewriter.Rewrite(afterSmartCompartment)
                 : afterSmartCompartment;
 
             return (SqlRootExpression)afterScalarTemporal

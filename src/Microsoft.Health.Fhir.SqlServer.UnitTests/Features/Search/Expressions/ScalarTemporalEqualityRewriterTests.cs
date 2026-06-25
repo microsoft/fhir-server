@@ -81,13 +81,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 targetResourceTypes: new[] { "Patient" });
         }
 
-        private static ChainedExpression BuildChainedExpression(Expression inner)
+        private static ChainedExpression BuildChainedExpression(Expression inner, bool reversed = false)
         {
             var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
             SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
             SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
             SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
-            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), reversed);
             SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
             return expression;
         }
@@ -136,6 +136,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(inner, result.Expression);
+        }
+
+        [Fact]
+        public void GivenTopLevelBirthdateExactDayBesideForwardChain_WhenRewritten_ThenPassThroughWithoutUnion()
+        {
+            // The failing-shape: an eligible top-level birthdate equality sitting BESIDE a chain (not nested in it).
+            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var chain = BuildChainedExpression(Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), reversed: false);
+            var tree = Expression.And(birthdate, chain);
+
+            var result = ScalarTemporalEqualityRewriter.Rewrite(tree);
+
+            // Any chain in the tree makes the whole query ineligible: nothing is rewritten, no UNION is produced.
+            Assert.Same(tree, result);
+        }
+
+        [Fact]
+        public void GivenTopLevelBirthdateExactDayBesideReverseChain_WhenRewritten_ThenPassThroughWithoutUnion()
+        {
+            // Reverse chains (_has) are ChainedExpression with Reversed=true; the same suppression must apply.
+            var birthdate = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var reverseChain = BuildChainedExpression(Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), reversed: true);
+            var tree = Expression.And(birthdate, reverseChain);
+
+            var result = ScalarTemporalEqualityRewriter.Rewrite(tree);
+
+            Assert.Same(tree, result);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayWithoutChain_WhenRewrittenViaRewrite_ThenEmitsDaySplitUnion()
+        {
+            // No chain present, so Rewrite must still apply the day-split optimization (high-volume path preserved).
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = ScalarTemporalEqualityRewriter.Rewrite(expr);
+
+            AssertDaySplitUnion(result, StartOfDay, EndOfDay);
         }
 
         [Theory]
