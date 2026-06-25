@@ -1162,10 +1162,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 results.Add(VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name);
             }
-            else if (table == VLatest.UriSearchParam.TableName)
-            {
-                results.Add(VLatest.UriSearchParam.Uri.Metadata.Name);
-            }
 
             return results;
         }

@@ -303,7 +303,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         {
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
             yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
-            yield return new object[] { VLatest.UriSearchParam.TableName, VLatest.UriSearchParam.Uri.Metadata.Name };
             yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name };
         }
 

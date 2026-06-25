@@ -143,51 +143,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSearchByUriParam_NormalPath_StatsAreCreated()
-        {
-            // Arrange — ValueSet.url is a URI search parameter stored in dbo.UriSearchParam
-            const string resourceType = "ValueSet";
-#if Stu3
-            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/ValueSet-url";
-#elif R5
-            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/CanonicalResource-url";
-#else
-            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/conformance-url";
-#endif
-            var query = new[] { Tuple.Create("url", "http://example.com/fhir/ValueSet/test") };
-            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
-            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
-            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
-
-            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
-                s.TableName == VLatest.UriSearchParam.TableName
-                && s.ColumnName == VLatest.UriSearchParam.Uri.Metadata.Name
-                && s.ResourceTypeId == resourceTypeId
-                && s.SearchParamId == searchParamId;
-
-            // Capture stats before the search so we can assert on the delta.
-            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
-            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
-
-            // Act
-            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
-
-            // Assert — filtered statistics must be created for the Uri column
-            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
-            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
-
-            // Cache
-            Assert.True(
-                cacheAfter.Count(MatchesStat) > cacheBefore.Count(MatchesStat),
-                "Expected the search to add a filtered statistics entry in the cache for Uri.");
-
-            // Database
-            Assert.True(
-                databaseAfter.Count(MatchesStat) > databaseBefore.Count(MatchesStat),
-                "Expected the search to add a filtered statistics entry in the database for Uri.");
-        }
-
-        [Fact]
         public async Task GivenSearchByReferenceParam_NotExistsPath_NoReferenceStatsAreCreated()
         {
             // Arrange — searching with :missing=true produces a NotExists table expression;
