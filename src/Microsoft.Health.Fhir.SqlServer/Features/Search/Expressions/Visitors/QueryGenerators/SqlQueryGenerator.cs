@@ -651,32 +651,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.AppendLine();
                     }
 
-                    StringBuilder.Append("SELECT ")
-                        .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                        .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
-
-                    if (UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
-                    {
-                        AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
-                    }
-
-                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                    {
-                        AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
-
-                        if (!UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
-                        {
-                            AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
-                        }
-
-                        Expression branchPredicate = CombinePredicates(noSplitUnion.Expressions[branchIndex], remainderPredicate);
-                        delimited.BeginDelimitedElement();
-                        CheckForIdentifierSearchParams(branchPredicate);
-                        branchPredicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
-                    }
+                    Expression branchPredicate = CombinePredicates(noSplitUnion.Expressions[branchIndex], remainderPredicate);
+                    AppendChainLevelZeroNonSortNormalQuery(searchParamTableExpression, context, specialCaseTableName, branchPredicate);
                 }
 
+                return;
+            }
+
+            if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
+            {
+                AppendChainLevelZeroNonSortNormalQuery(searchParamTableExpression, context, specialCaseTableName, searchParamTableExpression.Predicate);
                 return;
             }
 
@@ -766,6 +750,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     delimited.BeginDelimitedElement();
                     CheckForIdentifierSearchParams(searchParamTableExpression.Predicate);
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                }
+            }
+        }
+
+        private void AppendChainLevelZeroNonSortNormalQuery(
+            SearchParamTableExpression searchParamTableExpression,
+            SearchOptions context,
+            string specialCaseTableName,
+            Expression predicate)
+        {
+            StringBuilder.Append("SELECT ")
+                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+
+            if (UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
+            {
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
+            }
+
+            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            {
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
+
+                if (!UseAppendWithJoin() && !context.SkipAppendIntersectionWithPredecessor)
+                {
+                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                }
+
+                if (predicate != null)
+                {
+                    delimited.BeginDelimitedElement();
+                    CheckForIdentifierSearchParams(predicate);
+                    predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
         }
