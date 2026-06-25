@@ -574,64 +574,75 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
             using (StringBuilder.Indent())
             {
-                StringBuilder.Append("SELECT ")
-                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
-
-                var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
-
-                // handle special case where we want to Union a specific resource to the results
-                if (searchParameterExpressionPredicate != null &&
-                    searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
-                {
-                    specialCaseTableName = VLatest.Resource;
-                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
-                }
-                else
-                {
-                    // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
-                    // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
-                    // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
-                    // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
-                    if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
-                    {
-                        bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
-                            e is SearchParameterExpression spe &&
-                            (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
-
-                        if (allAreResourceTypeOrId)
-                        {
-                            specialCaseTableName = VLatest.Resource;
-                        }
-                    }
-
-                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
-                }
-
-                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                {
-                    // Apply History and Delete clause when querying from Resource table in case of compartment unions
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
-
-                    if (specialCaseTableName.Equals(VLatest.Resource))
-                    {
-                        AppendDeletedClause(delimited, context.ResourceVersionTypes);
-                    }
-
-                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
-                    {
-                        delimited.BeginDelimitedElement();
-                        searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
-                    }
-                }
+                AppendUnionBranchSelectBody(searchParamTableExpression, context);
             }
 
             StringBuilder.AppendLine("),");
+        }
+
+        /// <summary>
+        /// Emits a single union-branch projection (<c>SELECT ... FROM ... WHERE ...</c>) without any surrounding CTE wrapper.
+        /// Shared by <see cref="HandleParamTableUnion"/>, which wraps each branch in its own CTE, and by the no-split union
+        /// path in <see cref="HandleTableKindNormal"/>, which inlines the branches into a single CTE separated by <c>UNION ALL</c>.
+        /// </summary>
+        private void AppendUnionBranchSelectBody(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
+        {
+            var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
+
+            StringBuilder.Append("SELECT ")
+                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
+
+            var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
+
+            // handle special case where we want to Union a specific resource to the results
+            if (searchParameterExpressionPredicate != null &&
+                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
+            {
+                specialCaseTableName = VLatest.Resource;
+                StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+            }
+            else
+            {
+                // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
+                // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
+                // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
+                if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
+                {
+                    bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
+                        e is SearchParameterExpression spe &&
+                        (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
+
+                    if (allAreResourceTypeOrId)
+                    {
+                        specialCaseTableName = VLatest.Resource;
+                    }
+                }
+
+                StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
+            }
+
+            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            {
+                // Apply History and Delete clause when querying from Resource table in case of compartment unions
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
+
+                if (specialCaseTableName.Equals(VLatest.Resource))
+                {
+                    AppendDeletedClause(delimited, context.ResourceVersionTypes);
+                }
+
+                if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
+                {
+                    delimited.BeginDelimitedElement();
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                }
+            }
         }
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
@@ -651,8 +662,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.AppendLine();
                     }
 
+                    // Fold the remainder predicate (for example the ResourceType filter) into each branch and reuse the
+                    // exact same union-branch projection that HandleParamTableUnion uses, so the branches are produced by
+                    // a single shared code path. The branches are emitted directly into the current CTE separated by
+                    // UNION ALL instead of each getting its own CTE.
                     Expression branchPredicate = CombinePredicates(noSplitUnion.Expressions[branchIndex], remainderPredicate);
-                    AppendChainLevelZeroNonSortNormalQuery(searchParamTableExpression, context, specialCaseTableName, branchPredicate);
+                    var branchTableExpression = new SearchParamTableExpression(
+                        searchParamTableExpression.QueryGenerator,
+                        branchPredicate,
+                        SearchParamTableExpressionKind.Union);
+
+                    AppendUnionBranchSelectBody(branchTableExpression, context);
                 }
 
                 return;

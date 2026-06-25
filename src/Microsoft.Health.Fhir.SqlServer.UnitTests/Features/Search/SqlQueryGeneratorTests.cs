@@ -260,5 +260,13 @@ public class SqlQueryGeneratorTests
         Assert.Contains("UNION ALL", generatedSql);
         Assert.DoesNotContain(" OR (SearchParamId = 690", generatedSql);
         Assert.DoesNotContain("EndDateTime = @p0 SearchParamId", generatedSql);
+
+        // The no-split union must be a single CTE with both branches inlined via UNION ALL.
+        // It must NOT be re-aggregated from per-branch CTEs (the old "SELECT * FROM cteN UNION ALL SELECT * FROM cteM" shape).
+        Assert.DoesNotContain("SELECT * FROM cte", generatedSql);
+
+        // Both branches emit a complete "SELECT ... AS Sid1" projection inside the single union CTE.
+        int branchSelectCount = generatedSql.Split("AS Sid1").Length - 1;
+        Assert.True(branchSelectCount >= 2, $"Expected at least 2 inlined branch SELECTs, found {branchSelectCount} in: {generatedSql}");
     }
 }
