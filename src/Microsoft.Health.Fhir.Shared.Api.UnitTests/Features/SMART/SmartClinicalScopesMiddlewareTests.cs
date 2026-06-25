@@ -200,6 +200,43 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithModifiersOrPrefixes))]
+        public async Task GivenSmartScopeWithModifierOrPrefix_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            }
+        }
+
+        [Theory]
         [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
@@ -604,10 +641,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                         // Complex example with all SMART v2 granular permissions and search parameters
             yield return new object[]
             {
-                "user/Patient.cruds?name=Smith&birthdate=ge2000 user/Observation.rs?category=vital-signs",
+                "user/Patient.cruds?name=Smith&birthdate=2000 user/Observation.rs?category=vital-signs",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "ge2000")),
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "2000")),
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs")),
                 },
             };
@@ -722,10 +759,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // Complex example with %2f in scope separator and %2f in URL search parameters
             yield return new object[]
             {
-                "user%2fPatient.cruds?name=Smith&birthdate=ge2000 user%2fObservation.rs?category=vital-signs&code=http:%2f%2floinc.org|85354-9",
+                "user%2fPatient.cruds?name=Smith&birthdate=2000 user%2fObservation.rs?category=vital-signs&code=http:%2f%2floinc.org|85354-9",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "ge2000")),
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "2000")),
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs").Add("code", "http://loinc.org|85354-9")),
                 },
             };
@@ -749,6 +786,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Patient.all patient/Patient.cruds" };
             yield return new object[] { "system/Patient.all user/Patient.r" };
             yield return new object[] { "system/Patient.* user/Patient.r" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithModifiersOrPrefixes()
+        {
+            // Modifiers on search parameter names
+            yield return new object[] { "patient/Patient.rs?gender:not=male" };
+            yield return new object[] { "patient/Patient.rs?gender:missing=true" };
+            yield return new object[] { "patient/Patient.rs?name:exact=Smith" };
+            yield return new object[] { "patient/Patient.rs?name:contains=mit" };
+            yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/condition-category" };
+            yield return new object[] { "user/Condition.rs?category:not-in=http://hl7.org/fhir/ValueSet/condition-category" };
+            yield return new object[] { "user/Condition.rs?code:text=diabetes" };
+            yield return new object[] { "patient/Observation.rs?code:above=http://loinc.org|LP29693-6" };
+            yield return new object[] { "patient/Observation.rs?code:below=http://loinc.org|LP29693-6" };
+            yield return new object[] { "patient/Observation.rs?subject:identifier=http://example.com|123" };
+            yield return new object[] { "patient/Observation.rs?value-quantity:of-type=http://unitsofmeasure.org|mg" };
+
+            // Modifier combined with normal param
+            yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
+
+            // Prefixes on search parameter values (date, number, quantity)
+            yield return new object[] { "patient/Observation.rs?date=gt2024-01-01" };
+            yield return new object[] { "patient/Observation.rs?date=lt2024-12-31" };
+            yield return new object[] { "patient/Observation.rs?date=ge2024-01-01" };
+            yield return new object[] { "patient/Observation.rs?date=le2024-12-31" };
+            yield return new object[] { "patient/Observation.rs?date=ne2024-06-15" };
+            yield return new object[] { "patient/Observation.rs?date=sa2024-01-01" };
+            yield return new object[] { "patient/Observation.rs?date=eb2024-12-31" };
+            yield return new object[] { "patient/Observation.rs?date=ap2024-06-15" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=gt5.4" };
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)

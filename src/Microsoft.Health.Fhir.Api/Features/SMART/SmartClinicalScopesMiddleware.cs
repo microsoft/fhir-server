@@ -37,9 +37,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
+        // Note: search parameter names include ':' to support detection of FHIR search modifiers (e.g., category:in, code:text, category:not)
         private static readonly Regex ClinicalScopeRegEx = new Regex(
-            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-]+=[^&\s]+)(?>&[a-zA-Z0-9_\-]+=[^&\s]+)*))?",
+            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:]+=[^&\s]+)*))?",
             RegexOptions.Compiled,
+            TimeSpan.FromMilliseconds(100));
+
+        // FHIR search modifiers: https://hl7.org/fhir/R4/search.html#modifiers
+        private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "missing", "exact", "contains", "not", "text", "in", "not-in", "below", "above", "type", "of-type", "identifier", "iterate",
+        };
+
+        // Regex to detect a FHIR search prefix at the start of a value (prefix followed by digit, dash, or dot for dates/numbers/quantities)
+        // FHIR search prefixes for ordered parameters: https://hl7.org/fhir/R4/search.html#prefix
+        private static readonly Regex SearchPrefixRegex = new Regex(
+            @"^(eq|ne|gt|lt|ge|le|sa|eb|ap)[\d.\-T]",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase,
             TimeSpan.FromMilliseconds(100));
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
@@ -233,10 +247,49 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 var searchParamsString = match.Groups["searchParams"].Value;
                                 var searchParamsPairs = searchParamsString.Split('&');
 
-                                // iterate through each key-value pair and add them to the SearchParams
-                                foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
+                                try
                                 {
-                                    smartScopeSearchParameters.Add(parts[0], parts[1]);
+                                    // iterate through each key-value pair and add them to the SearchParams
+                                    foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
+                                    {
+                                        var paramKey = parts[0];
+                                        var paramValue = parts[1];
+
+                                        // Check for search modifiers (e.g., category:not, code:text, status:in)
+                                        int colonIndex = paramKey.IndexOf(':', StringComparison.Ordinal);
+                                        if (colonIndex >= 0)
+                                        {
+                                            var modifier = paramKey.Substring(colonIndex + 1);
+                                            if (KnownSearchModifiers.Contains(modifier))
+                                            {
+                                                throw new BadHttpRequestException(string.Format(
+                                                    Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                                    match.Value.Trim(),
+                                                    $"{paramKey}={paramValue}"));
+                                            }
+                                        }
+
+                                        // Check for search prefixes (e.g., gt2024-01-01, le100, ne5.4)
+                                        if (paramValue.Length > 2 && SearchPrefixRegex.IsMatch(paramValue))
+                                        {
+                                            throw new BadHttpRequestException(string.Format(
+                                                Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                                match.Value.Trim(),
+                                                $"{paramKey}={paramValue}"));
+                                        }
+
+                                        smartScopeSearchParameters.Add(paramKey, paramValue);
+                                    }
+                                }
+                                catch (BadHttpRequestException)
+                                {
+                                    throw;
+                                }
+                                catch (Exception)
+                                {
+                                    throw new BadHttpRequestException(string.Format(
+                                        Api.Resources.SmartScopeInvalidSearchParameters,
+                                        match.Value.Trim()));
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)
