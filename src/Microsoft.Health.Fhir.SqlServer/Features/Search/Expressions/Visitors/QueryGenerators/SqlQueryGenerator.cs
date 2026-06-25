@@ -62,11 +62,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
 
-        // Tracks the restricting predecessor CTE index computed for each generated CTE, keyed by CTE index. Used so a
-        // Concatenation can reuse its sibling's predecessor instead of recomputing it from the (counter-misaligned)
-        // table-expression list.
-        private readonly Dictionary<int, int> _ctePredecessorByCteIndex = new Dictionary<int, int>();
-        private SearchParamTableExpressionKind? _currentTableExpressionKind;
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -513,10 +508,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
-
-                // Remember the kind of the CTE currently being generated so FindRestrictingPredecessorTableExpressionIndex
-                // can special-case a Concatenation (date-overlap second branch).
-                _currentTableExpressionKind = searchParamTableExpression.Kind;
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -1790,26 +1781,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            int predResult;
-
-            // A Concatenation is the second branch of a date-overlap split (e.g. DateTimeEqualityRewriter emits a
-            // "longer than a day = true" CTE followed by a Concatenation for the "= false" rows). Both branches must
-            // restrict against the SAME predecessor. The sibling is always the immediately-preceding CTE
-            // (cte{counter-1}); reuse the predecessor we already computed for it. FindImpl cannot be relied on here
-            // because, when a UNION ALL precedes these CTEs (e.g. a scalar date day-split), the CTE counter no longer
-            // lines up with the (unsorted) table-expression list it indexes, so the Concatenation skip-back is missed.
-            if (_currentTableExpressionKind == SearchParamTableExpressionKind.Concatenation
-                && _ctePredecessorByCteIndex.TryGetValue(_tableExpressionCounter - 1, out int siblingPredecessorIndex))
-            {
-                predResult = siblingPredecessorIndex;
-            }
-            else
-            {
-                predResult = FindImpl(_tableExpressionCounter);
-            }
-
-            _ctePredecessorByCteIndex[_tableExpressionCounter] = predResult;
-            return predResult;
+            return FindImpl(_tableExpressionCounter);
         }
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, string tableAlias = null)
