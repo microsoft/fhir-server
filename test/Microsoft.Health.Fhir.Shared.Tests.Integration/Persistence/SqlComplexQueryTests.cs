@@ -255,7 +255,7 @@ END CATCH
 
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-            Assert.Empty(CustomQueries.QueryStore);
+            Assert.Equal(0, CustomQueries.QueryStoreCount);
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
             var spName = "CustomQuery_" + hash;
 
@@ -272,14 +272,14 @@ END CATCH
             {
                 await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-                if (CustomQueries.QueryStore.Count > 0)
+                if (CustomQueries.QueryStoreCount > 0)
                 {
                     break;
                 }
             }
 
             Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
-            Assert.Single(CustomQueries.QueryStore);
+            Assert.Equal(1, CustomQueries.QueryStoreCount);
 
             // Check if stored procedure was used
             Assert.True(await CheckIfSprocUsed(spName));
@@ -294,7 +294,7 @@ END CATCH
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
-            CustomQueries.QueryStore.Clear();
+            CustomQueries.ClearQueryStore();
         }
 
         private async Task<bool> CheckIfSprocUsed(string name)
