@@ -9,15 +9,17 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
+namespace Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor
 {
-    public sealed class JobMonitorMetricHandler : BaseMeterMetricHandler, INotificationHandler<JobMonitorMetricsNotification>
+    public sealed class JobMonitorMetricNotifier : INotificationHandler<JobMonitorMetricsNotification>
     {
         /// <summary>
         /// Maximum age of a published snapshot before gauge callbacks suppress all measurements.
@@ -25,28 +27,16 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
         /// </summary>
         internal const int SnapshotStaleCutoffSeconds = 300;
 
-        private readonly ObservableGauge<double> _ageGauge;
-        private readonly ObservableGauge<long> _depthGauge;
+        private readonly IJobMonitorMetricHandler _metricHandler;
 
         private Snapshot _snapshot = new Snapshot(
             new Dictionary<QueueType, double>(),
             new Dictionary<QueueType, QueueDepth>(),
             DateTimeOffset.MinValue);
 
-        public JobMonitorMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory)
+        public JobMonitorMetricNotifier(IJobMonitorMetricHandler metricHandler)
         {
-            _ageGauge = MetricMeter.CreateObservableGauge(
-                "Jobs.OldestQueuedAge",
-                ObserveAgeValues,
-                unit: "s",
-                description: "Age in seconds of the oldest pending (Created) job per queue type.");
-
-            _depthGauge = MetricMeter.CreateObservableGauge(
-                "Jobs.QueueDepth",
-                ObserveDepthValues,
-                unit: "{job}",
-                description: "Number of active jobs per queue type, separated by state (pending or running).");
+            _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
         }
 
         internal IReadOnlyDictionary<QueueType, double> QueueAges => Volatile.Read(ref _snapshot).Ages;
@@ -56,6 +46,10 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
         public Task Handle(JobMonitorMetricsNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
+
+            _metricHandler.RegisterQueueDepth(10);
+
+            _metricHandler.RegisterQueueAge(10);
 
             Volatile.Write(
                 ref _snapshot,

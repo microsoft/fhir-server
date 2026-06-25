@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
@@ -22,7 +23,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
@@ -213,7 +214,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new JobMonitorMetricHandler(factory);
+            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             var ages = new Dictionary<QueueType, double>
             {
@@ -221,10 +223,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 [QueueType.Import] = 0.0,
             };
 
-            await handler.Handle(MakeNotification(ages), CancellationToken.None);
+            await notifier.Handle(MakeNotification(ages), CancellationToken.None);
 
-            Assert.Equal(754.0, handler.QueueAges[QueueType.Export]);
-            Assert.Equal(0.0, handler.QueueAges[QueueType.Import]);
+            Assert.Equal(754.0, notifier.QueueAges[QueueType.Export]);
+            Assert.Equal(0.0, notifier.QueueAges[QueueType.Import]);
         }
 
         [Fact]
@@ -234,17 +236,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new JobMonitorMetricHandler(factory);
+            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-            await handler.Handle(
+            await notifier.Handle(
                 MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 500.0 }),
                 CancellationToken.None);
 
-            await handler.Handle(
+            await notifier.Handle(
                 MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 0.0 }),
                 CancellationToken.None);
 
-            Assert.Equal(0.0, handler.QueueAges[QueueType.Export]);
+            Assert.Equal(0.0, notifier.QueueAges[QueueType.Export]);
         }
 
         // ---- JobMonitorMetricHandler (depths) ----
@@ -256,7 +259,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new JobMonitorMetricHandler(factory);
+            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             var depths = new Dictionary<QueueType, QueueDepth>
             {
@@ -264,10 +268,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 [QueueType.Import] = new QueueDepth(Pending: 0, Running: 0),
             };
 
-            await handler.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
+            await notifier.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
 
-            Assert.Equal(new QueueDepth(3, 1), handler.QueueDepths[QueueType.Export]);
-            Assert.Equal(new QueueDepth(0, 0), handler.QueueDepths[QueueType.Import]);
+            Assert.Equal(new QueueDepth(3, 1), notifier.QueueDepths[QueueType.Export]);
+            Assert.Equal(new QueueDepth(0, 0), notifier.QueueDepths[QueueType.Import]);
         }
 
         [Fact]
@@ -277,21 +281,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new JobMonitorMetricHandler(factory);
+            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-            await handler.Handle(
+            await notifier.Handle(
                 MakeNotification(
                     new Dictionary<QueueType, double>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(5, 2) }),
                 CancellationToken.None);
 
-            await handler.Handle(
+            await notifier.Handle(
                 MakeNotification(
                     new Dictionary<QueueType, double>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(0, 0) }),
                 CancellationToken.None);
 
-            Assert.Equal(new QueueDepth(0, 0), handler.QueueDepths[QueueType.Export]);
+            Assert.Equal(new QueueDepth(0, 0), notifier.QueueDepths[QueueType.Export]);
         }
 
         [Fact]
@@ -301,13 +306,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             services.AddMetrics();
             using var provider = services.BuildServiceProvider();
             var factory = provider.GetRequiredService<IMeterFactory>();
-            var handler = new JobMonitorMetricHandler(factory);
+            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             var depths = new Dictionary<QueueType, QueueDepth>
             {
                 [QueueType.Export] = new QueueDepth(Pending: 4, Running: 2),
             };
-            await handler.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
+            await notifier.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
 
             var collected = new List<(string Name, long Value, IDictionary<string, object> Tags)>();
             using var listener = new MeterListener();
@@ -352,14 +358,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 services.AddMetrics();
                 using var provider = services.BuildServiceProvider();
                 var factory = provider.GetRequiredService<IMeterFactory>();
-                var handler = new JobMonitorMetricHandler(factory);
+                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+                var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
                 var ages = new Dictionary<QueueType, double>
                 {
                     [QueueType.Export] = 754.0,
                     [QueueType.Import] = 120.0,
                 };
-                await handler.Handle(MakeNotification(ages), CancellationToken.None);
+                await notifier.Handle(MakeNotification(ages), CancellationToken.None);
 
                 var collected = new List<(string Name, double Value, IDictionary<string, object> Tags)>();
                 using var listener = new MeterListener();
@@ -404,14 +411,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 services.AddMetrics();
                 using var provider = services.BuildServiceProvider();
                 var factory = provider.GetRequiredService<IMeterFactory>();
-                var handler = new JobMonitorMetricHandler(factory);
+                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+                var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
                 var ages = new Dictionary<QueueType, double> { [QueueType.Export] = 60.0 };
                 var depths = new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(1, 0) };
-                await handler.Handle(MakeNotification(ages, depths), CancellationToken.None);
+                await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
 
                 // Advance past the staleness cutoff.
-                fakeTime.Advance(TimeSpan.FromSeconds(JobMonitorMetricHandler.SnapshotStaleCutoffSeconds + 1));
+                fakeTime.Advance(TimeSpan.FromSeconds(JobMonitorMetricNotifier.SnapshotStaleCutoffSeconds + 1));
 
                 var collectedStale = new List<(string Name, IDictionary<string, object> Tags)>();
                 using var listenerStale = new MeterListener();
@@ -448,7 +456,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Empty(collectedStale);
 
                 // Publish a fresh snapshot; measurements must resume.
-                await handler.Handle(MakeNotification(ages, depths), CancellationToken.None);
+                await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
 
                 var collectedFresh = new List<string>();
                 using var listenerFresh = new MeterListener();
@@ -479,20 +487,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 services.AddMetrics();
                 using var provider = services.BuildServiceProvider();
                 var factory = provider.GetRequiredService<IMeterFactory>();
-                var handler = new JobMonitorMetricHandler(factory);
+                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+                var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
                 // First snapshot: Export only.
-                await handler.Handle(
+                await notifier.Handle(
                     MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 100.0 }),
                     CancellationToken.None);
 
                 // Second snapshot: Import only — Export must not survive the replacement.
-                await handler.Handle(
+                await notifier.Handle(
                     MakeNotification(new Dictionary<QueueType, double> { [QueueType.Import] = 50.0 }),
                     CancellationToken.None);
 
-                Assert.False(handler.QueueAges.ContainsKey(QueueType.Export), "Export key must not survive after snapshot replacement with Import-only data.");
-                Assert.True(handler.QueueAges.ContainsKey(QueueType.Import));
+                Assert.False(notifier.QueueAges.ContainsKey(QueueType.Export), "Export key must not survive after snapshot replacement with Import-only data.");
+                Assert.True(notifier.QueueAges.ContainsKey(QueueType.Import));
 
                 // Confirm the gauge only emits Import, not Export.
                 var collectedQueueTypes = new List<string>();

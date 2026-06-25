@@ -19,12 +19,12 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
-using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -215,8 +215,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
 
-            services.RemoveServiceTypeExact<JobMonitorMetricHandler, INotificationHandler<JobMonitorMetricsNotification>>()
-                    .Add<JobMonitorMetricHandler>()
+            services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
+                    .Add<JobMonitorMetricNotifier>()
                     .Singleton()
                     .AsSelf()
                     .AsService<INotificationHandler<JobMonitorMetricsNotification>>();
