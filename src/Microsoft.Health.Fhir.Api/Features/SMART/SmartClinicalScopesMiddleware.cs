@@ -45,12 +45,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(100));
 
-        // FHIR search modifiers built from the SearchModifierCode enum: https://hl7.org/fhir/R4/search.html#modifiers
-        // Note: "of-type" is the FHIR modifier syntax (the enum literal is "ofType"), and "iterate" is also a valid modifier not in the enum.
+        // FHIR search modifiers built from the SearchModifierCode enum: https://hl7.org/fhir/R4/codesystem-search-modifier-code.html
         private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(
             Enum.GetValues<SearchModifierCode>()
-                .Select(m => m.GetLiteral())
-                .Concat(new[] { "of-type", "iterate" }),
+                .Select(m => m.GetLiteral()),
             StringComparer.OrdinalIgnoreCase);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)

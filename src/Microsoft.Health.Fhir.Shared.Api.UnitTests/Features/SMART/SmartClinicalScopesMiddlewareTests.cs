@@ -801,7 +801,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.rs?code:above=http://loinc.org|LP29693-6" };
             yield return new object[] { "patient/Observation.rs?code:below=http://loinc.org|LP29693-6" };
             yield return new object[] { "patient/Observation.rs?subject:identifier=http://example.com|123" };
-            yield return new object[] { "patient/Observation.rs?value-quantity:of-type=http://unitsofmeasure.org|mg" };
+            yield return new object[] { "patient/Observation.rs?value-quantity:ofType=http://unitsofmeasure.org|mg" };
 
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
