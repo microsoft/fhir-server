@@ -30,13 +30,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
-        public ScalarTemporalEqualityRewriterTests()
-        {
-            // Re-enabling the rewrite inside chained expressions causes the base rewriter to rebuild
-            // the ChainedExpression, whose constructor validates resource types via ModelInfoProvider.
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
-        }
-
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
             { StartOfDay, EndOfDay },
@@ -135,25 +128,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenEmitsDaySplitUnionInsideChain()
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassesThrough()
         {
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
-            AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
+            Assert.Same(inner, result.Expression);
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInReverseChainedExpression_WhenRewritten_ThenEmitsDaySplitUnionInsideChain()
+        public void GivenAllowListedBirthdateExactDayInReverseChainedExpression_WhenRewritten_ThenPassesThrough()
         {
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner, reversed: true);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
-            AssertDaySplitUnion(result.Expression, StartOfDay, EndOfDay);
+            Assert.Same(inner, result.Expression);
         }
 
         [Theory]

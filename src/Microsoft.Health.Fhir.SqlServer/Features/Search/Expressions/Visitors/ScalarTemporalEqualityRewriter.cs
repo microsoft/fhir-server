@@ -50,8 +50,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
+        public override Expression VisitChained(ChainedExpression expression, bool context)
+        {
+            Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
+            if (ReferenceEquals(visitedExpression, expression.Expression))
+            {
+                return expression;
+            }
+
+            return new ChainedExpression(expression.ResourceTypes, expression.ReferenceSearchParameter, expression.TargetResourceTypes, expression.Reversed, visitedExpression);
+        }
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
         {
+            // Temporal rewrites are unsafe inside chained/reverse-chained expressions: the day-split UnionExpression
+            // would be lowered to per-branch CTEs that the generator cannot wire to the chain predecessor, so the
+            // chained intersection collapses to zero rows. Inside a chain (context == true), pass through unchanged
+            // and let the standard range path handle the predicate.
+            if (context)
+            {
+                return expression;
+            }
+
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {
