@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Smart
 {
@@ -43,11 +45,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(100));
 
-        // FHIR search modifiers: https://hl7.org/fhir/R4/search.html#modifiers
-        private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "missing", "exact", "contains", "not", "text", "in", "not-in", "below", "above", "type", "of-type", "identifier", "iterate",
-        };
+        // FHIR search modifiers built from the SearchModifierCode enum: https://hl7.org/fhir/R4/search.html#modifiers
+        // Note: "of-type" is the FHIR modifier syntax (the enum literal is "ofType"), and "iterate" is also a valid modifier not in the enum.
+        private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(
+            Enum.GetValues<SearchModifierCode>()
+                .Select(m => m.GetLiteral())
+                .Concat(new[] { "of-type", "iterate" }),
+            StringComparer.OrdinalIgnoreCase);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -186,7 +190,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     // We decode them here before processing with the regex
                     scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
 
-                    var matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    MatchCollection matches;
+                    try
+                    {
+                        matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        throw new BadHttpRequestException(string.Format(
+                            Api.Resources.SmartScopeInvalidSearchParameters,
+                            scopeClaims));
+                    }
+
                     bool smartV1AccessLevelUsed = false;
                     bool smartV2AccessLevelUsed = false;
                     foreach (Match match in matches)
