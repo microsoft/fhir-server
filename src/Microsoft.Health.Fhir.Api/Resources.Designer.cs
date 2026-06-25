@@ -655,7 +655,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search parameter modifiers and prefixes are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier or prefix in parameter &apos;{1}&apos;..
+        ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
         /// </summary>
         public static string SmartScopeSearchParameterModifiersNotSupported {
             get {

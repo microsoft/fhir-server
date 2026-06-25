@@ -410,7 +410,7 @@
     <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
   </data>
   <data name="SmartScopeSearchParameterModifiersNotSupported" xml:space="preserve">
-    <value>Search parameter modifiers and prefixes are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier or prefix in parameter '{1}'.</value>
+    <value>Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier in parameter '{1}'.</value>
     <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
   </data>
   <data name="SmartScopeInvalidSearchParameters" xml:space="preserve">

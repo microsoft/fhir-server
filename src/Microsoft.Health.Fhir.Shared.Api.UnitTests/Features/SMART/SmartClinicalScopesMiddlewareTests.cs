@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
         [Theory]
         [MemberData(nameof(GetScopesWithModifiersOrPrefixes))]
-        public async Task GivenSmartScopeWithModifierOrPrefix_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        public async Task GivenSmartScopeWithModifier_WhenInvoked_ThenBadRequestIsThrownWithModifierMessage(string scopes)
         {
             HttpContext httpContext = new DefaultHttpContext();
 
@@ -231,8 +231,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
                     _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+
+                Assert.Contains("modifiers are not supported", exception.Message);
+                Assert.Contains("unsupported modifier", exception.Message);
             }
         }
 
