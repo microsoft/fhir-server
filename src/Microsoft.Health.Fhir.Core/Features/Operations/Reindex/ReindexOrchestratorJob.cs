@@ -226,10 +226,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var start = Stopwatch.StartNew();
                 var maxWaitTime = TimeSpan.FromSeconds(_operationsConfiguration.Reindex.CacheUpdateMaxWaitMultiplier * _searchParameterCacheRefreshIntervalSeconds);
                 var waitInterval = TimeSpan.FromSeconds(_searchParameterCacheRefreshIntervalSeconds);
-                var activeHostsSince = DateTime.UtcNow.AddSeconds((-1) * _operationsConfiguration.Reindex.ActiveHostsEventsMultiplier * _searchParameterCacheRefreshIntervalSeconds);
                 CacheConsistencyResult result = null;
                 while (start.Elapsed < maxWaitTime)
                 {
+                    var activeHostsSince = DateTime.UtcNow.AddSeconds((-1) * _operationsConfiguration.Reindex.ActiveHostsEventsMultiplier * _searchParameterCacheRefreshIntervalSeconds);
                     result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
 
                     if (result.IsConsistent)
