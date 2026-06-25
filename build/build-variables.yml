@@ -38,7 +38,7 @@ variables:
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'oss-service-connection-with-workloadidentity'
   WindowsVmImage: 'windows-latest'
-  LinuxVmImage: 'VanillaUbuntu22.04-1ESPT-v2'
+  LinuxVmImage: 'ubuntu-latest'
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
