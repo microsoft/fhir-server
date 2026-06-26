@@ -132,12 +132,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         }
 
         // Returns true when the search parameter key uses a FHIR search modifier (e.g., :not, :exact, :missing),
-        // which is not supported in SMART on FHIR clinical scopes. The key may chain ('.') and/or carry
-        // type/reverse-chaining/modifier components (':'). Only tokens in modifier position (after a ':') are
-        // evaluated; the base parameter name (before the first ':') is excluded because it may legitimately
-        // equal a modifier literal (e.g., "identifier" or "type" are valid search parameter names). Likewise,
-        // reference type targets and _has components (e.g., "Patient", "Observation") simply do not match any
-        // modifier literal, so they pass through unaffected.
+        // which is not supported in SMART on FHIR clinical scopes. Only tokens in modifier position (after a ':')
+        // are evaluated; the base parameter name (before the first ':') is excluded because it may legitimately
+        // equal a modifier literal (e.g., "identifier" or "type" are valid search parameter names). Reference type
+        // targets (e.g., "subject:Patient") simply do not match any modifier literal, so they pass through. Chained
+        // keys (containing '.') are rejected earlier by IsChainedSearchParameter and never reach this method.
         private static bool ContainsSearchModifier(string paramKey)
         {
             var colonSeparatedTokens = paramKey.Split(':');
@@ -145,14 +144,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             // Skip index 0 (the base parameter name); every later token is in modifier position.
             for (int i = 1; i < colonSeparatedTokens.Length; i++)
             {
-                // A modifier-position token may carry a chained continuation (e.g., "Patient.name"),
-                // so inspect each dot-separated piece individually.
-                foreach (var token in colonSeparatedTokens[i].Split('.'))
+                if (KnownSearchModifiers.Contains(colonSeparatedTokens[i]))
                 {
-                    if (KnownSearchModifiers.Contains(token))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
