@@ -331,7 +331,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 searchParameterSupportResolver,
                 dataStoreSearchParameterValidator,
-                () => OperationDataStore.CreateMockScope(),
                 () => SearchService.CreateMockScope(),
                 DataStore.CreateMockScopeProvider(),
                 resourceWrapperFactory,

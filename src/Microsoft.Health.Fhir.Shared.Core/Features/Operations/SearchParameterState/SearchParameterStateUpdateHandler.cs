@@ -59,8 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             await _authorizationService.CheckAccess(DataActions.SearchParameter, true, cancellationToken);
 
-            await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
-
             _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
 

@@ -111,7 +111,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
-            _searchParameterOperations.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
             _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()).Returns(Task.CompletedTask);
 
             var searchParamDefinitionStore = new List<SearchParameterInfo>
@@ -333,16 +332,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             Assert.Single(loggers.logger.LogRecords);
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
-        }
-
-        [Fact]
-        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenJobConflictIsThrown()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()

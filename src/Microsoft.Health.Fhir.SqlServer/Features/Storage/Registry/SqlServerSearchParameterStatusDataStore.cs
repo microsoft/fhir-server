@@ -151,6 +151,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 _logger.LogWarning(ex, $"Optimistic concurrency conflict occurred while calling dbo.MergeSearchParams. ReindexId={reindexId ?? 0}");
                 throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
             }
+            catch (SqlException ex) when (ex.IsReindexJobConflict())
+            {
+                _logger.LogWarning(ex, $"Reindex job conflict occurred while calling dbo.MergeSearchParams. ReindexId={reindexId ?? 0}");
+                throw new JobConflictException(ex.Message);
+            }
         }
 
         // Synchronize the FHIR model dictionary with the data in SQL search parameter status table

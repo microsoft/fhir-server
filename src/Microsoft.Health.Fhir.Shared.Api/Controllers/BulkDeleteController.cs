@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class BulkDeleteController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IUrlResolver _urlResolver;
 
@@ -55,12 +54,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public BulkDeleteController(
             IMediator mediator,
-            ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchService,
             IUrlResolver urlResolver)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
-            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
@@ -158,33 +155,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 excludedResourceTypesList = excludedResourceTypes.Split(',').ToList();
             }
 
-            if (await CanAffectSearchParametersAsync(typeParameter, excludedResourceTypesList))
-            {
-                await _searchParameterOperations.EnsureNoActiveReindexJobAsync(HttpContext.RequestAborted);
-            }
-
             CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, softDeleteCleanup, excludedResourceTypesList, removeReferences, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());
             return response;
-        }
-
-        private async Task<bool> CanAffectSearchParametersAsync(string resourceType, IList<string> excludedResourceTypes)
-        {
-            if (excludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) == true)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resourceType))
-            {
-                return resourceType.SplitByOrSeparator().Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
-            }
-
-            using IScoped<ISearchService> searchService = _searchService.Invoke();
-            IReadOnlyList<string> usedResourceTypes = await searchService.Value.GetUsedResourceTypes(HttpContext.RequestAborted);
-            return usedResourceTypes.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

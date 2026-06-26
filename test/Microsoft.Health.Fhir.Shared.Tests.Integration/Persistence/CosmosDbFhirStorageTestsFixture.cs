@@ -248,10 +248,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_container);
 
+            var mockQueueClientForSearchParams = Substitute.For<IQueueClient>();
+            mockQueueClientForSearchParams.GetActiveJobsByQueueTypeAsync(Arg.Any<byte>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult((IReadOnlyList<JobInfo>)Array.Empty<JobInfo>()));
+
             _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
                 () => documentClient,
                 _cosmosDataStoreConfiguration,
-                cosmosDocumentQueryFactory);
+                cosmosDocumentQueryFactory,
+                mockQueueClientForSearchParams);
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
