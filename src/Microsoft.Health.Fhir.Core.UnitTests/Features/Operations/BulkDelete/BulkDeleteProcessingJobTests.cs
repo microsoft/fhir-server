@@ -121,19 +121,46 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
-        public async Task GivenBulkDeleteWithSearchParameterLaterInTheChain_WhenReindexStartsBeforeExecution_ThenConflictIsThrownBeforeAnyDelete()
+        public async Task GivenBulkDeleteWithSearchParameterFirst_WhenReindexIsActive_ThenConflictIsThrownImmediately()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "SearchParameter,Patient", new List<Tuple<string, string>>(), new List<string>(), "https:\\\\test.com", "https:\\\\test.com", "test");
+            var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            // SearchParameter processed first - database layer throws conflict due to active reindex
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
+
+            // The conflict should propagate through the workflow, preventing any deletions
+            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteWithSearchParameterSecond_WhenReindexStartsBetweenDeletes_ThenFollowUpJobFails()
         {
             var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient,SearchParameter", new List<Tuple<string, string>>(), new List<string>(), "https:\\\\test.com", "https:\\\\test.com", "test");
             var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
 
-            // First resource type (Patient) succeeds
+            // Patient processed first and succeeds (reindex hasn't started yet)
             var patientResults = new Dictionary<string, long> { { "Patient", 5 } };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns(Task.FromResult<IDictionary<string, long>>(patientResults));
 
-            // Second resource type (SearchParameter) fails due to active reindex - database layer throws conflict
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns(x => Task.FromResult<IDictionary<string, long>>(patientResults), x => throw new FhirJobConflictException("A reindex job is currently running."));
+            // Execute the first job - should succeed and enqueue follow-up job for SearchParameter
+            var result = await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            var bulkDeleteResult = JsonConvert.DeserializeObject<BulkDeleteResult>(result);
+            Assert.Equal(5, bulkDeleteResult.ResourcesDeleted["Patient"]);
 
-            // The conflict should propagate through the workflow
-            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            // Verify a follow-up job was queued for SearchParameter
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = (string[])calls.First().GetArguments()[1];
+            Assert.Single(definitions);
+            var followUpDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
+            Assert.Equal("SearchParameter", followUpDefinition.Type);
+
+            // Now simulate the follow-up job running, but reindex has started between the two jobs
+            _deleter.ClearReceivedCalls();
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
+
+            var followUpJobInfo = new JobInfo() { Id = 2, Definition = definitions[0] };
+            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(followUpJobInfo, CancellationToken.None));
         }
     }
 }
