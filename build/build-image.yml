@@ -15,8 +15,7 @@ stages:
   - job: Semver
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - powershell: |
         Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]0.0.1"

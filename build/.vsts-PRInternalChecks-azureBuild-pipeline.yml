@@ -13,8 +13,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   pool:
     name: '$(InternalWindowsPool)'
-    demands:
-      - Agent.OS -equals Windows
+    os: windows
 
   steps:
   - checkout: self

@@ -7,8 +7,7 @@ jobs:
   displayName: "Delete ${{ parameters.version }} Images"
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
     - task: AzureCLI@2
       displayName: 'Delete Images'

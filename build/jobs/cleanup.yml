@@ -3,8 +3,7 @@ jobs:
   displayName: 'Delete resource group'
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Delete resource group'
@@ -140,8 +139,7 @@ jobs:
   displayName: 'Delete Image'
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzureCLI@2
     displayName: 'Delete Image'

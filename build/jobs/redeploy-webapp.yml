@@ -14,8 +14,7 @@ jobs:
 - job: provisionEnvironment
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzureCLI@2
     displayName: 'Update Container App Image'

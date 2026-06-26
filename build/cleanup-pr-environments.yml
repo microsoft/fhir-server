@@ -15,8 +15,7 @@ stages:
     displayName: 'Delete resource group'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - task: AzurePowerShell@5
       displayName: 'Delete resource group'

@@ -22,8 +22,7 @@ jobs:
   timeoutInMinutes: 75
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -111,8 +110,7 @@ jobs:
   dependsOn: []
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -130,8 +128,7 @@ jobs:
     dependsOn: []
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -150,8 +147,7 @@ jobs:
     dependsOn: []
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:

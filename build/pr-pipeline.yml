@@ -17,13 +17,13 @@ stages:
       jobName: InspectDefaultLinuxPool
       displayName: 'Inspect DefaultLinuxPool capabilities (Linux agent)'
       poolName: $(DefaultLinuxPool)
-      osDemand: Linux
+      osValue: linux
   - template: ./jobs/diagnostics-agent-capabilities.yml
     parameters:
       jobName: InspectInternalWindowsPool
       displayName: 'Inspect InternalWindowsPool capabilities (Windows agent)'
       poolName: $(InternalWindowsPool)
-      osDemand: Windows
+      osValue: windows
 
 - stage: UpdateVersion
   displayName: 'Determine Semver'
@@ -32,8 +32,7 @@ stages:
   - job: Semver
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
@@ -58,8 +57,7 @@ stages:
   - job: Windows_dotnet9
     pool:
       name: '$(InternalWindowsPool)'
-      demands:
-        - Agent.OS -equals Windows
+      os: windows
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -71,8 +69,7 @@ stages:
   - job: Linux_dotnet8
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -94,8 +91,7 @@ stages:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -114,8 +110,7 @@ stages:
   - job: Guardian
     pool:
       name: '$(InternalWindowsPool)'
-      demands:
-        - Agent.OS -equals Windows
+      os: windows
     steps:
     - template: ./jobs/analyze.yml
 
@@ -140,8 +135,7 @@ stages:
     displayName: 'Delete Old Resource Groups'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - template: ./tasks/delete-resource-groups.yml
 
@@ -153,8 +147,7 @@ stages:
     displayName: 'Create Resource Group'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
@@ -195,8 +188,7 @@ stages:
     displayName: 'Delete and Purge Key Vaults'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - template: ./tasks/delete-keyvaults.yml
   - job: setup
@@ -206,16 +198,14 @@ stages:
     - deleteKeyVaults
     pool:
       name: '$(InternalWindowsPool)'
-      demands:
-        - Agent.OS -equals Windows
+      os: windows
     steps:
     - template: ./jobs/add-aad-test-environment.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - task: AzurePowerShell@5
       displayName: 'Create ACA Managed Environment'
@@ -498,7 +488,6 @@ stages:
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - template: ./jobs/aggregate-coverage.yml

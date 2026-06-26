@@ -5,7 +5,7 @@ parameters:
   type: string
 - name: poolName
   type: string
-- name: osDemand
+- name: osValue
   type: string
 
 jobs:
@@ -14,8 +14,7 @@ jobs:
   continueOnError: true
   pool:
     name: '${{ parameters.poolName }}'
-    demands:
-      - Agent.OS -equals ${{ parameters.osDemand }}
+    os: ${{ parameters.osValue }}
   steps:
   - pwsh: |
       $ErrorActionPreference = 'Stop'

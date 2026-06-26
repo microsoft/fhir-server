@@ -11,8 +11,7 @@ jobs:
   displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzureCLI@2
     displayName: 'Set minReplicas=${{ parameters.minReplicas }} on all CI container apps'

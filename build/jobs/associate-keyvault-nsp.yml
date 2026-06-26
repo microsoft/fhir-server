@@ -14,8 +14,7 @@ jobs:
   displayName: 'Associate KeyVault with NSP'
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Associate KeyVault with Network Security Perimeter'

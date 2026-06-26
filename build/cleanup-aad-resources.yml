@@ -28,8 +28,7 @@ stages:
     displayName: 'Cleanup AAD Resources'
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     timeoutInMinutes: 0
     steps:
     - task: AzureKeyVault@1

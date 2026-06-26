@@ -24,8 +24,7 @@ stages:
   - job: Linux
     pool:
       name: '$(DefaultLinuxPool)'
-      demands:
-        - Agent.OS -equals Linux
+      os: linux
     steps:
     - task: UseDotNet@2
       displayName: 'Use .NET sdk'

@@ -18,8 +18,7 @@ variables:
 # Note: ARMory currently only works on Windows
 pool:
   name: '$(InternalWindowsPool)'
-  demands:
-    - Agent.OS -equals Windows
+  os: windows
 
 steps:
   - task: AzureResourceManagerTemplateDeployment@3

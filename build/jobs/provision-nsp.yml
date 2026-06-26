@@ -11,8 +11,7 @@ jobs:
 - job: 'provisionNsp'
   pool:
     name: '$(DefaultLinuxPool)'
-    demands:
-      - Agent.OS -equals Linux
+    os: linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Create Network Security Perimeter'
