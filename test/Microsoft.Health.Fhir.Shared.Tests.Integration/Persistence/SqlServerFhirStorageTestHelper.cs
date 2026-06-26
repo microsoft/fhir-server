@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, bool forceIncrementalSchemaUpgrade, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
 

@@ -73,10 +73,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max, false);
+                (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max);
 
                 // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version starting from the minimum supported version for upgrade
-                (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade, false);
+                (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade);
                 for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= SchemaVersionConstants.Max; version++)
                 {
                     await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
@@ -164,8 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
-                maxSchemaVersion,
-                forceIncrementalSchemaUpgrade);
+                maxSchemaVersion);
 
             return (testHelper, schemaUpgradeRunner);
         }

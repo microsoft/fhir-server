@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient, SchemaInformation);
-            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, CancellationToken.None);
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, CancellationToken.None);
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
