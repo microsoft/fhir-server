@@ -12,8 +12,7 @@ parameters:
 jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
-    name: '$(DefaultPool)'
-    os: linux
+    vmImage: '$(DefaultPoolLinuxImage)'
   steps:
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'

@@ -6,6 +6,9 @@ variables:
   publicDockerImagePlatforms: 'linux/amd64,linux/arm64'
   testDockerImagePlatforms: 'linux/amd64'
   defaultBuildFramework: 'net9.0' 
+  DefaultPool: 'DevOps1ESSharedPool'
+  DefaultPoolLinuxImage: 'MMSUbuntu24.04-g2-vNext'
+  DefaultPoolWindowsImage: 'MMSWindows2025-g2-vNext'
   azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
@@ -38,7 +41,8 @@ variables:
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'oss-service-connection-with-workloadidentity'
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
-  # The following is set by a build Pipeline variable:
-  # DefaultPool: 'Azure Pipelines'
-  # Pool selection uses os: linux or os: windows in pool blocks
+  # Centralized pool/image settings for all build pipelines:
+  # DefaultPool: 'DevOps1ESSharedPool'
+  # DefaultPoolLinuxImage: 'MMSUbuntu24.04-g2-vNext'
+  # DefaultPoolWindowsImage: 'MMSWindows2025-g2-vNext'
   #-----------------------------------------------------------------------------------------

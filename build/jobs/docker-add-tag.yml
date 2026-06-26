@@ -8,8 +8,7 @@ parameters:
 jobs:
 - job: DockerAddTag
   pool:
-    name: '$(DefaultPool)'
-    os: linux
+    vmImage: '$(DefaultPoolLinuxImage)'
   steps:
   - task: AzureCLI@2
     displayName: 'Azure CLI: InlineScript'

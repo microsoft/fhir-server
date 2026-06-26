@@ -14,8 +14,7 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - powershell: |
         Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]0.0.1"

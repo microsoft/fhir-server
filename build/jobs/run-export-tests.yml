@@ -12,8 +12,7 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultPool)'
-    os: linux
+    vmImage: '$(DefaultPoolLinuxImage)'
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -153,8 +152,7 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultPool)'
-    os: linux
+    vmImage: '$(DefaultPoolLinuxImage)'
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:

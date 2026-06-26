@@ -20,31 +20,13 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
 
-- stage: InspectAgentCapabilities
-  displayName: 'Inspect Agent Pool Capabilities'
-  dependsOn: []
-  jobs:
-  - template: ./jobs/diagnostics-agent-capabilities.yml
-    parameters:
-      jobName: InspectDefaultPoolLinux
-      displayName: 'Inspect DefaultPool capabilities (Linux)'
-      poolName: $(DefaultPool)
-      osValue: linux
-  - template: ./jobs/diagnostics-agent-capabilities.yml
-    parameters:
-      jobName: InspectDefaultPoolWindows
-      displayName: 'Inspect DefaultPool capabilities (Windows)'
-      poolName: $(DefaultPool)
-      osValue: windows
-
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./jobs/update-semver.yml  
 
@@ -62,8 +44,7 @@ stages:
   jobs:
   - job: cleanup
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - task: AzurePowerShell@5
       displayName: 'Azure PowerShell script: InlineScript'
@@ -95,8 +76,7 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      name: '$(DefaultPool)'
-      os: windows
+      vmImage: '$(DefaultPoolWindowsImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -107,8 +87,7 @@ stages:
         codeCoverage: true
   - job: Linux_dotnet8
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -129,8 +108,7 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -148,8 +126,7 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultPool)'
-      os: windows
+      vmImage: '$(DefaultPoolWindowsImage)'
       
     steps:
     - template: ./jobs/analyze.yml
@@ -324,8 +301,7 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./jobs/aggregate-coverage.yml
 

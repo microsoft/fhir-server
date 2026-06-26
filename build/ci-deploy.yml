@@ -17,8 +17,7 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./jobs/update-semver.yml 
 
@@ -64,8 +63,7 @@ stages:
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - task: AzurePowerShell@5
       displayName: 'Create ACA Managed Environment'
@@ -118,15 +116,13 @@ stages:
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./tasks/purge-soft-deleted-keyvaults.yml
   - job: setup
     dependsOn: deleteKeyVaults
     pool:
-      name: '$(DefaultPool)'
-      os: linux
+      vmImage: '$(DefaultPoolLinuxImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
