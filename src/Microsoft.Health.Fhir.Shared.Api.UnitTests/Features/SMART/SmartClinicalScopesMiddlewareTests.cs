@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
-        [MemberData(nameof(GetScopesWithModifiersOrPrefixes))]
+        [MemberData(nameof(GetScopesWithModifiers))]
         public async Task GivenSmartScopeWithModifier_WhenInvoked_ThenBadRequestIsThrownWithModifierMessage(string scopes)
         {
             HttpContext httpContext = new DefaultHttpContext();
@@ -662,6 +662,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
+            // Base parameter names that collide with modifier literals must NOT be rejected (they are valid search params, not modifiers)
+            yield return new object[]
+            {
+                "patient/Patient.rs?identifier=http://example.com|123",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "http://example.com|123")),
+                },
+            };
+
+            // Chained search parameter (dot, no modifier) must be allowed and captured intact
+            yield return new object[]
+            {
+                "patient/Observation.rs?subject.name=Smith",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("subject.name", "Smith")),
+                },
+            };
+
+            // Reference type modifier and reverse-chaining (_has) without a named modifier must be allowed
+            yield return new object[]
+            {
+                "patient/Observation.rs?subject:Patient.name=Smith",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("subject:Patient.name", "Smith")),
+                },
+            };
+
             // URL-encoded scopes with %2f (for Azure Entra ID compatibility)
             // Basic test with %2f in scope separator
             yield return new object[] { "patient%2fPatient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
@@ -791,7 +821,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "system/Patient.* user/Patient.r" };
         }
 
-        public static IEnumerable<object[]> GetScopesWithModifiersOrPrefixes()
+        public static IEnumerable<object[]> GetScopesWithModifiers()
         {
             // Modifiers on search parameter names
             yield return new object[] { "patient/Patient.rs?gender:not=male" };
@@ -808,6 +838,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
+
+            // Modifier on a chained parameter (dot + colon combinations)
+            yield return new object[] { "patient/Observation.rs?subject:Patient.name:exact=Smith" };
+            yield return new object[] { "user/Observation.rs?patient.birthdate:missing=true" };
+            yield return new object[] { "user/Patient.rs?general-practitioner:Practitioner.name:contains=Smith" };
+
+            // Modifier on the search parameter of a reverse-chained (_has) expression
+            yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)

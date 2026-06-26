@@ -39,9 +39,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
-        // Note: search parameter names include ':' to support detection of FHIR search modifiers (e.g., category:in, code:text, category:not)
+        // Note: search parameter names include ':' and '.' so the full key is captured for chained params
+        // (e.g., subject.name), type/reverse-chaining (e.g., subject:Patient, _has:Observation:patient:code)
+        // and detection of FHIR search modifiers (e.g., category:in, code:text, category:not).
         private static readonly Regex ClinicalScopeRegEx = new Regex(
-            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:]+=[^&\s]+)*))?",
+            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:.]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:.]+=[^&\s]+)*))?",
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(100));
 
@@ -120,6 +122,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             return permissions;
         }
 
+        // Returns true when the search parameter key uses a FHIR search modifier (e.g., :not, :exact, :missing),
+        // which is not supported in SMART on FHIR clinical scopes. The key may chain ('.') and/or carry
+        // type/reverse-chaining/modifier components (':'). Only tokens in modifier position (after a ':') are
+        // evaluated; the base parameter name (before the first ':') is excluded because it may legitimately
+        // equal a modifier literal (e.g., "identifier" or "type" are valid search parameter names). Likewise,
+        // reference type targets and _has components (e.g., "Patient", "Observation") simply do not match any
+        // modifier literal, so they pass through unaffected.
+        private static bool ContainsSearchModifier(string paramKey)
+        {
+            var colonSeparatedTokens = paramKey.Split(':');
+
+            // Skip index 0 (the base parameter name); every later token is in modifier position.
+            for (int i = 1; i < colonSeparatedTokens.Length; i++)
+            {
+                // A modifier-position token may carry a chained continuation (e.g., "Patient.name"),
+                // so inspect each dot-separated piece individually.
+                foreach (var token in colonSeparatedTokens[i].Split('.'))
+                {
+                    if (KnownSearchModifiers.Contains(token))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public async Task Invoke(
             HttpContext context,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -193,7 +223,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     {
                         matches = ClinicalScopeRegEx.Matches(scopeClaims);
                     }
-                    catch (Exception)
+                    catch (RegexMatchTimeoutException)
                     {
                         throw new BadHttpRequestException(string.Format(
                             Api.Resources.SmartScopeInvalidSearchParameters,
@@ -259,18 +289,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     var paramKey = parts[0];
                                     var paramValue = parts[1];
 
-                                    // Check for search modifiers (e.g., category:not, code:text, status:in)
-                                    int colonIndex = paramKey.IndexOf(':', StringComparison.Ordinal);
-                                    if (colonIndex >= 0)
+                                    // Detect FHIR search modifiers anywhere in the parameter key. A key may combine
+                                    // chaining ('.') with type/reverse-chaining/modifier components (':'), e.g.
+                                    // "name:exact", "subject:Patient.name:contains", "patient.birthdate:missing" or
+                                    // "_has:Observation:patient:code:in".
+                                    if (ContainsSearchModifier(paramKey))
                                     {
-                                        var modifier = paramKey.Substring(colonIndex + 1);
-                                        if (KnownSearchModifiers.Contains(modifier))
-                                        {
-                                            throw new BadHttpRequestException(string.Format(
-                                                Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
-                                                match.Value.Trim(),
-                                                $"{paramKey}={paramValue}"));
-                                        }
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
                                     }
 
                                     smartScopeSearchParameters.Add(paramKey, paramValue);
