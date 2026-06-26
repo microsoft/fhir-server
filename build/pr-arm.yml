@@ -17,7 +17,9 @@ variables:
 
 # Note: ARMory currently only works on Windows
 pool:
-  vmImage: 'windows-latest'
+  name: '$(InternalWindowsPool)'
+  demands:
+    - Agent.OS -equals Windows
 
 steps:
   - task: AzureResourceManagerTemplateDeployment@3

@@ -24,7 +24,8 @@ stages:
   - job: Linux
     pool:
       name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      demands:
+        - Agent.OS -equals Linux
     steps:
     - task: UseDotNet@2
       displayName: 'Use .NET sdk'

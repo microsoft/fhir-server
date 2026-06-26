@@ -13,7 +13,8 @@ jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
     name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'

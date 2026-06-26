@@ -21,8 +21,9 @@ parameters:
 jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
   pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(DefaultLinuxPool)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'

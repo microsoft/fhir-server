@@ -6,13 +6,15 @@ jobs:
 - job: deleteImage
   displayName: "Delete ${{ parameters.version }} Images"
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
     - task: AzureCLI@2
       displayName: 'Delete Images'
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        scriptType: ps
+        scriptType: pscore
         scriptLocation: InlineScript
         inlineScript: |
           $version = "${{ parameters.version }}"

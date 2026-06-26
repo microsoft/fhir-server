@@ -2,7 +2,9 @@ jobs:
 - job: cleanupAad
   displayName: 'Cleanup AAD'
   pool:
-    vmImage: '$(WindowsVmImage)'
+    name: '$(DefaultLinuxPool)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'

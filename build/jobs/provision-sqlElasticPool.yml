@@ -27,8 +27,9 @@ parameters:
 jobs:
 - job: provisionSqlPool
   pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(DefaultLinuxPool)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Ensure SQL elastic pool ${{ parameters.elasticPoolName }} exists'

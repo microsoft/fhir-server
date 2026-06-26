@@ -31,7 +31,8 @@ stages:
     displayName: 'Extract PR and Build Info'
     pool:
       name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      demands:
+        - Agent.OS -equals Linux
     steps:
     - powershell: |
         $sourceBranch = "$(resources.pipeline.prPipeline.sourceBranch)"

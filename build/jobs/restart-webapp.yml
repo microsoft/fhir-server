@@ -10,7 +10,8 @@ jobs:
 - job: provisionEnvironment
   pool:
     name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzureCLI@2
     displayName: 'Restart Container App'

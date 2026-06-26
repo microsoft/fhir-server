@@ -14,8 +14,9 @@ stages:
   - job: DeleteResourceGroup
     displayName: 'Delete resource group'
     pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(DefaultLinuxPool)'
+      demands:
+        - Agent.OS -equals Linux
     steps:
     - task: AzurePowerShell@5
       displayName: 'Delete resource group'

@@ -5,7 +5,9 @@ parameters:
 jobs:
 - job: "cleanStorageAccounts"
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    demands:
+      - Agent.OS -equals Linux
   steps:
   - task: AzurePowerShell@5
     displayName: 'Clean Storage Accounts'
