@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -115,6 +116,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
                 });
 
+            var isEmpty = await IsEmpty();
+
             var minVersion = targetSchemaVersion == SchemaVersionConstants.Max ? SchemaVersionConstants.Max : SchemaVersionConstants.MinForUpgrade;
             var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
@@ -125,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _schemaInformation.Current = targetSchemaVersion;
 
-            await CheckSchemaVersion();
+            await CheckSchemaVersion(isEmpty);
 
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
@@ -133,7 +136,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _sqlServerFhirModel.Initialize(targetSchemaVersion, cancellationToken);
         }
 
-        private async Task CheckSchemaVersion()
+        private async Task<bool> IsEmpty()
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT CASE WHEN object_id('dbo.SchemaVersion') IS NOT NULL THEN 1 ELSE 0 END";
+            var count = (int)await cmd.ExecuteScalarAsync(CancellationToken.None);
+            return count == 0;
+        }
+
+        private async Task CheckSchemaVersion(bool doCountCheck)
         {
             await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             await conn.OpenAsync(CancellationToken.None);
@@ -143,6 +156,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (version != _schemaInformation.Current)
             {
                 throw new InvalidOperationException($"Database schema version {version} does not match expected version {_schemaInformation.Current}");
+            }
+
+            if (!doCountCheck)
+            {
+                return;
             }
 
             await using var cmd2 = conn.CreateCommand();
