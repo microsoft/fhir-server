@@ -91,7 +91,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     if (version == SchemaVersionConstants.Max)
                     {
                         // Apply the final schema second time to avoid separate test
-                        var reapplyStopwatch = System.Diagnostics.Stopwatch.StartNew();
                         await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
                     }
                 }
