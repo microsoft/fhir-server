@@ -26,8 +26,9 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
 
@@ -45,8 +46,9 @@ stages:
   jobs:
   - job: cleanup
     pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: 'Azure PowerShell script: InlineScript'
@@ -78,7 +80,9 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      vmImage: '$(WindowsVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -89,8 +93,9 @@ stages:
         codeCoverage: true
   - job: Linux_dotnet8
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -111,8 +116,9 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -130,8 +136,9 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      vmImage: '$(WindowsVmImage)'
-      
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -305,8 +312,9 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml
 
