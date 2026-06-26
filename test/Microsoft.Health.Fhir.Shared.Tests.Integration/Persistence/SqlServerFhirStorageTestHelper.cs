@@ -411,7 +411,8 @@ UPDATE dbo.SearchParam
 
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), _sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+            using var sqlTransactionHandler = new SqlTransactionHandler();
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, _sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(new ScriptProvider<SchemaVersion>(), new BaseScriptProvider(), NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
