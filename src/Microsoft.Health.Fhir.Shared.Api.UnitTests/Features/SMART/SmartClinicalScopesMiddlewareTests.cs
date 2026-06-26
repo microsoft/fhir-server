@@ -240,6 +240,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithChainedSearch))]
+        public async Task GivenSmartScopeWithChainedSearch_WhenInvoked_ThenBadRequestIsThrownWithChainedSearchMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+
+                Assert.Contains("Chained search parameters are not supported", exception.Message);
+                Assert.Contains("chained search parameter", exception.Message);
+            }
+        }
+
+        [Theory]
         [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
@@ -672,26 +712,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-            // Chained search parameter (dot, no modifier) must be allowed and captured intact
-            yield return new object[]
-            {
-                "patient/Observation.rs?subject.name=Smith",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("subject.name", "Smith")),
-                },
-            };
-
-            // Reference type modifier and reverse-chaining (_has) without a named modifier must be allowed
-            yield return new object[]
-            {
-                "patient/Observation.rs?subject:Patient.name=Smith",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("subject:Patient.name", "Smith")),
-                },
-            };
-
             // URL-encoded scopes with %2f (for Azure Entra ID compatibility)
             // Basic test with %2f in scope separator
             yield return new object[] { "patient%2fPatient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
@@ -838,13 +858,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
+        }
 
-            // Modifier on a chained parameter (dot + colon combinations)
+        public static IEnumerable<object[]> GetScopesWithChainedSearch()
+        {
+            // Forward chaining (dot in the key), with and without an additional modifier
+            yield return new object[] { "patient/Observation.rs?subject.name=Smith" };
+            yield return new object[] { "patient/Observation.rs?subject:Patient.name=Smith" };
             yield return new object[] { "patient/Observation.rs?subject:Patient.name:exact=Smith" };
             yield return new object[] { "user/Observation.rs?patient.birthdate:missing=true" };
             yield return new object[] { "user/Patient.rs?general-practitioner:Practitioner.name:contains=Smith" };
 
-            // Modifier on the search parameter of a reverse-chained (_has) expression
+            // Chained search combined with a normal param
+            yield return new object[] { "patient/Observation.rs?subject.name=Smith&status=final" };
+
+            // Reverse chaining (_has), with and without an additional modifier
+            yield return new object[] { "user/Patient.rs?_has:Observation:patient:code=http://loinc.org|1234-5" };
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
         }
 

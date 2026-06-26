@@ -122,6 +122,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             return permissions;
         }
 
+        // Returns true when the search parameter key represents a chained search, which is not supported in SMART
+        // on FHIR clinical scopes. Forward chaining uses a '.' in the key (e.g., "subject.name",
+        // "subject:Patient.name"); reverse chaining uses the "_has" prefix (e.g., "_has:Observation:patient:code").
+        private static bool IsChainedSearchParameter(string paramKey)
+        {
+            return paramKey.Contains('.', StringComparison.Ordinal)
+                   || paramKey.StartsWith("_has:", StringComparison.OrdinalIgnoreCase);
+        }
+
         // Returns true when the search parameter key uses a FHIR search modifier (e.g., :not, :exact, :missing),
         // which is not supported in SMART on FHIR clinical scopes. The key may chain ('.') and/or carry
         // type/reverse-chaining/modifier components (':'). Only tokens in modifier position (after a ':') are
@@ -289,10 +298,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     var paramKey = parts[0];
                                     var paramValue = parts[1];
 
-                                    // Detect FHIR search modifiers anywhere in the parameter key. A key may combine
-                                    // chaining ('.') with type/reverse-chaining/modifier components (':'), e.g.
-                                    // "name:exact", "subject:Patient.name:contains", "patient.birthdate:missing" or
-                                    // "_has:Observation:patient:code:in".
+                                    // Chained search parameters are not enforceable as SMART clinical scope
+                                    // constraints, so reject them rather than silently dropping the constraint.
+                                    // Forward chaining uses a '.' in the key (e.g., "subject.name",
+                                    // "subject:Patient.name"); reverse chaining uses the "_has" prefix
+                                    // (e.g., "_has:Observation:patient:code").
+                                    if (IsChainedSearchParameter(paramKey))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterChainedSearchNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Detect FHIR search modifiers anywhere in the parameter key (e.g.
+                                    // "name:exact", "category:not", "value-quantity:ofType").
                                     if (ContainsSearchModifier(paramKey))
                                     {
                                         throw new BadHttpRequestException(string.Format(

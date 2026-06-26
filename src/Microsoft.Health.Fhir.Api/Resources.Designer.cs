@@ -664,6 +664,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains a chained search parameter &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterChainedSearchNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterChainedSearchNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid search parameters in SMART on FHIR clinical scope &apos;{0}&apos;. The search parameter constraints could not be parsed..
         /// </summary>
         public static string SmartScopeInvalidSearchParameters {
