@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
@@ -10,24 +11,30 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
     public sealed class DefaultJobMonitorMetricHandler : BaseMeterMetricHandler, IJobMonitorMetricHandler
     {
         private readonly Gauge<long> _jobAgeGauge;
-
-        private readonly Gauge<long> _jobDepthGauge;
+        private readonly Gauge<long> _jobPendingGauge;
+        private readonly Gauge<long> _jobRunningGauge;
 
         public DefaultJobMonitorMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _jobAgeGauge = MetricMeter.CreateGauge<long>("Jobs.OldestQueuedAge");
-            _jobDepthGauge = MetricMeter.CreateGauge<long>("Jobs.QueueDepth");
+            _jobAgeGauge = MetricMeter.CreateGauge<long>("Jobs.JobQueue.JobsAge");
+            _jobPendingGauge = MetricMeter.CreateGauge<long>("Jobs.JobQueue.PendingJobs");
+            _jobRunningGauge = MetricMeter.CreateGauge<long>("Jobs.JobQueue.RunningJobs");
         }
 
-        public void RegisterQueueAge(long age)
+        public void ReportJobQueueAge(string queueName, long value)
         {
-            _jobAgeGauge.Record(age);
+            _jobAgeGauge.Record(value, KeyValuePair.Create<string, object>("QueueName", queueName));
         }
 
-        public void RegisterQueueDepth(long depth)
+        public void ReportJobQueuePending(string queueName, long value)
         {
-            _jobAgeGauge.Record(depth);
+            _jobPendingGauge.Record(value, KeyValuePair.Create<string, object>("QueueName", queueName));
+        }
+
+        public void ReportJobQueueRunning(string queueName, long value)
+        {
+            _jobRunningGauge.Record(value, KeyValuePair.Create<string, object>("QueueName", queueName));
         }
     }
 }

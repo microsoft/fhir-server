@@ -195,6 +195,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IExportMetricHandler, DefaultExportMetricHandler>();
             services.TryAddSingleton<IImportMetricHandler, DefaultImportMetricHandler>();
             services.TryAddSingleton<IReindexMetricHandler, DefaultReindexMetricHandler>();
+            services.TryAddSingleton<IJobMonitorMetricHandler, DefaultJobMonitorMetricHandler>();
 
             // Factory metric handlers.
             services.TryAddSingleton<Health.JobManagement.IJobMetricFactory, JobMetricFactory>();

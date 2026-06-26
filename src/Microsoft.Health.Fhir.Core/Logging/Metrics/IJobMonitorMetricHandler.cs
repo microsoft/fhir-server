@@ -3,12 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
+using Microsoft.Health.Fhir.Core.Features.Operations;
+
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public interface IJobMonitorMetricHandler
     {
-        void RegisterQueueAge(long age);
+        void ReportJobQueueAge(string queueName, long value);
 
-        void RegisterQueueDepth(long depth);
+        void ReportJobQueuePending(string queueName, long value);
+
+        void ReportJobQueueRunning(string queueName, long value);
     }
 }

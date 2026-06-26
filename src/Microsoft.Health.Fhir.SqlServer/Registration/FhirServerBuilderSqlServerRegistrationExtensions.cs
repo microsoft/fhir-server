@@ -204,16 +204,15 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            // Watchdogs
             services.Add<DefragWatchdog>().Singleton().AsSelf();
             services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-            services.Add<TransactionWatchdog>().Scoped().AsSelf();
-            services.AddFactory<IScoped<TransactionWatchdog>>();
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
             services.Add<ExpiredResourceCleanupWatchdog>().Singleton().AsSelf();
-
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
-
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
+            services.Add<TransactionWatchdog>().Scoped().AsSelf();
+            services.AddFactory<IScoped<TransactionWatchdog>>();
 
             services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
                     .Add<JobMonitorMetricNotifier>()

@@ -129,12 +129,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 isReadOnly: true);
         }
 
-        internal static Dictionary<QueueType, double> ComputeQueueAges(
+        internal static Dictionary<QueueType, long> ComputeQueueAges(
             IReadOnlyList<QueueStatusAggregate> aggregates,
             DateTime utcNow)
         {
             // Seed every actionable queue type so empty queues are still reported (age 0).
-            var result = MonitoredQueueTypes.ToDictionary(q => q, _ => 0d);
+            var result = MonitoredQueueTypes.ToDictionary(q => q, _ => 0L);
 
             foreach (var queueType in MonitoredQueueTypes)
             {
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 if (created.Count > 0)
                 {
                     // Clamp to 0 to absorb clock skew between SQL-stamped CreateDate and app-server utcNow.
-                    result[queueType] = Math.Max(0, (utcNow - created.OldestCreateDate).TotalSeconds);
+                    result[queueType] = Math.Max(0L, (long)(utcNow - created.OldestCreateDate).TotalSeconds);
                 }
             }
 

@@ -12,14 +12,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages
     public class JobMonitorMetricsNotification : INotification
     {
         public JobMonitorMetricsNotification(
-            IReadOnlyDictionary<QueueType, double> queueAges,
+            IReadOnlyDictionary<QueueType, long> queueAges,
             IReadOnlyDictionary<QueueType, QueueDepth> queueDepths)
         {
             QueueAges = EnsureArg.IsNotNull(queueAges, nameof(queueAges));
             QueueDepths = EnsureArg.IsNotNull(queueDepths, nameof(queueDepths));
         }
 
-        public IReadOnlyDictionary<QueueType, double> QueueAges { get; }
+        public IReadOnlyDictionary<QueueType, long> QueueAges { get; }
 
         public IReadOnlyDictionary<QueueType, QueueDepth> QueueDepths { get; }
     }

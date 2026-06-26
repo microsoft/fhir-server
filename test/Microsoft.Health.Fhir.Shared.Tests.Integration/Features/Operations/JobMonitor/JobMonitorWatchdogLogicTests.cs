@@ -6,12 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Time.Testing;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
@@ -21,6 +18,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
@@ -32,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
         private static readonly DateTime _now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
         private static JobMonitorMetricsNotification MakeNotification(
-            Dictionary<QueueType, double> ages,
+            Dictionary<QueueType, long> ages,
             Dictionary<QueueType, QueueDepth> depths = null)
         {
             return new JobMonitorMetricsNotification(
@@ -217,10 +215,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-            var ages = new Dictionary<QueueType, double>
+            var ages = new Dictionary<QueueType, long>
             {
-                [QueueType.Export] = 754.0,
-                [QueueType.Import] = 0.0,
+                [QueueType.Export] = 754,
+                [QueueType.Import] = 0,
             };
 
             await notifier.Handle(MakeNotification(ages), CancellationToken.None);
@@ -240,11 +238,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             await notifier.Handle(
-                MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 500.0 }),
+                MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 500 }),
                 CancellationToken.None);
 
             await notifier.Handle(
-                MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 0.0 }),
+                MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 0 }),
                 CancellationToken.None);
 
             Assert.Equal(0.0, notifier.QueueAges[QueueType.Export]);
@@ -268,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
                 [QueueType.Import] = new QueueDepth(Pending: 0, Running: 0),
             };
 
-            await notifier.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
+            await notifier.Handle(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
 
             Assert.Equal(new QueueDepth(3, 1), notifier.QueueDepths[QueueType.Export]);
             Assert.Equal(new QueueDepth(0, 0), notifier.QueueDepths[QueueType.Import]);
@@ -286,13 +284,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
 
             await notifier.Handle(
                 MakeNotification(
-                    new Dictionary<QueueType, double>(),
+                    new Dictionary<QueueType, long>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(5, 2) }),
                 CancellationToken.None);
 
             await notifier.Handle(
                 MakeNotification(
-                    new Dictionary<QueueType, double>(),
+                    new Dictionary<QueueType, long>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(0, 0) }),
                 CancellationToken.None);
 
@@ -302,233 +300,97 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
         [Fact]
         public async Task JobMonitorMetricHandler_ObserveDepthValues_EmitsPendingAndRunningMeasurements()
         {
-            var services = new ServiceCollection();
-            services.AddMetrics();
-            using var provider = services.BuildServiceProvider();
-            var factory = provider.GetRequiredService<IMeterFactory>();
-            var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
+            var notificationHandler = Substitute.For<IJobMonitorMetricHandler>();
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             var depths = new Dictionary<QueueType, QueueDepth>
             {
                 [QueueType.Export] = new QueueDepth(Pending: 4, Running: 2),
             };
-            await notifier.Handle(MakeNotification(new Dictionary<QueueType, double>(), depths), CancellationToken.None);
+            await notifier.Handle(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
 
-            var collected = new List<(string Name, long Value, IDictionary<string, object> Tags)>();
-            using var listener = new MeterListener();
-            listener.InstrumentPublished = (instrument, l) =>
-            {
-                // Scope to this test's meter: every handler registers same-named instruments on the
-                // process-global "FhirServer" meter name, so name-only filtering leaks across parallel tests.
-                if (instrument.Name == "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
-                {
-                    l.EnableMeasurementEvents(instrument);
-                }
-            };
-            listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
-            {
-                var tagDict = new Dictionary<string, object>();
-                foreach (var tag in tags)
-                {
-                    tagDict[tag.Key] = tag.Value;
-                }
+            notificationHandler.Received(1).ReportJobQueuePending("Export", 4);
+            notificationHandler.Received(1).ReportJobQueueRunning("Export", 2);
 
-                collected.Add((instrument.Name, value, tagDict));
-            });
-            listener.Start();
-            listener.RecordObservableInstruments();
-
-            var exportMeasurements = collected.Where(m => m.Tags["queue_type"]?.ToString() == "Export").ToList();
-            Assert.Equal(2, exportMeasurements.Count);
-
-            var pending = exportMeasurements.Single(m => m.Tags["state"]?.ToString() == "pending");
-            var running = exportMeasurements.Single(m => m.Tags["state"]?.ToString() == "running");
-            Assert.Equal(4L, pending.Value);
-            Assert.Equal(2L, running.Value);
+            notificationHandler.DidNotReceive().ReportJobQueueAge(Arg.Any<string>(), Arg.Any<long>());
         }
 
         [Fact]
         public async Task JobMonitorMetricHandler_ObserveAgeValues_EmitsPerQueueMeasurementsWithQueueTypeTag()
         {
-            var fakeTime = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-            using (Mock.Property(() => ClockResolver.TimeProvider, fakeTime))
+            var services = new ServiceCollection();
+            services.AddMetrics();
+            var notificationHandler = Substitute.For<IJobMonitorMetricHandler>();
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
+
+            var ages = new Dictionary<QueueType, long>
             {
-                var services = new ServiceCollection();
-                services.AddMetrics();
-                using var provider = services.BuildServiceProvider();
-                var factory = provider.GetRequiredService<IMeterFactory>();
-                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
-                var notifier = new JobMonitorMetricNotifier(notificationHandler);
+                [QueueType.Export] = 754L,
+                [QueueType.Import] = 120L,
+            };
+            var depths = new Dictionary<QueueType, QueueDepth>
+            {
+                [QueueType.Export] = new QueueDepth(Pending: 4, Running: 2),
+                [QueueType.Import] = new QueueDepth(Pending: 5, Running: 1),
+            };
+            await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
 
-                var ages = new Dictionary<QueueType, double>
-                {
-                    [QueueType.Export] = 754.0,
-                    [QueueType.Import] = 120.0,
-                };
-                await notifier.Handle(MakeNotification(ages), CancellationToken.None);
+            notificationHandler.Received(1).ReportJobQueueAge("Export", 754L);
+            notificationHandler.Received(1).ReportJobQueueAge("Import", 120L);
 
-                var collected = new List<(string Name, double Value, IDictionary<string, object> Tags)>();
-                using var listener = new MeterListener();
-                listener.InstrumentPublished = (instrument, l) =>
-                {
-                    if (instrument.Name == "Jobs.OldestQueuedAge" && ReferenceEquals(instrument.Meter.Scope, factory))
-                    {
-                        l.EnableMeasurementEvents(instrument);
-                    }
-                };
-                listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
-                {
-                    var tagDict = new Dictionary<string, object>();
-                    foreach (var tag in tags)
-                    {
-                        tagDict[tag.Key] = tag.Value;
-                    }
+            notificationHandler.Received(1).ReportJobQueuePending("Export", 4);
+            notificationHandler.Received(1).ReportJobQueueRunning("Export", 2);
 
-                    collected.Add((instrument.Name, value, tagDict));
-                });
-                listener.Start();
-                listener.RecordObservableInstruments();
-
-                Assert.Equal(2, collected.Count);
-                Assert.All(collected, m => Assert.Equal("Jobs.OldestQueuedAge", m.Name));
-                Assert.All(collected, m => Assert.True(m.Tags.ContainsKey("queue_type")));
-
-                var exportMeasurement = collected.Single(m => m.Tags["queue_type"]?.ToString() == "Export");
-                var importMeasurement = collected.Single(m => m.Tags["queue_type"]?.ToString() == "Import");
-                Assert.Equal(754.0, exportMeasurement.Value);
-                Assert.Equal(120.0, importMeasurement.Value);
-            }
+            notificationHandler.Received(1).ReportJobQueuePending("Import", 5);
+            notificationHandler.Received(1).ReportJobQueueRunning("Import", 1);
         }
 
         [Fact]
-        public async Task JobMonitorMetricHandler_WhenSnapshotIsStale_EmitsNoMeasurements_ThenResumesAfterFreshPublish()
+        public async Task JobMonitorMetricHandler_ObserveAgeAndDepthValues_EmitsPerQueueMeasurementsWithQueueTypeTag()
         {
-            var fakeTime = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-            using (Mock.Property(() => ClockResolver.TimeProvider, fakeTime))
+            var services = new ServiceCollection();
+            services.AddMetrics();
+            var notificationHandler = Substitute.For<IJobMonitorMetricHandler>();
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
+
+            var ages = new Dictionary<QueueType, long>
             {
-                var services = new ServiceCollection();
-                services.AddMetrics();
-                using var provider = services.BuildServiceProvider();
-                var factory = provider.GetRequiredService<IMeterFactory>();
-                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
-                var notifier = new JobMonitorMetricNotifier(notificationHandler);
+                [QueueType.Export] = 754L,
+                [QueueType.Import] = 120L,
+            };
 
-                var ages = new Dictionary<QueueType, double> { [QueueType.Export] = 60.0 };
-                var depths = new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(1, 0) };
-                await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
+            await notifier.Handle(MakeNotification(ages), CancellationToken.None);
 
-                // Advance past the staleness cutoff.
-                fakeTime.Advance(TimeSpan.FromSeconds(JobMonitorMetricNotifier.SnapshotStaleCutoffSeconds + 1));
+            notificationHandler.Received(1).ReportJobQueueAge("Export", 754L);
+            notificationHandler.Received(1).ReportJobQueueAge("Import", 120L);
 
-                var collectedStale = new List<(string Name, IDictionary<string, object> Tags)>();
-                using var listenerStale = new MeterListener();
-                listenerStale.InstrumentPublished = (instrument, l) =>
-                {
-                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
-                    {
-                        l.EnableMeasurementEvents(instrument);
-                    }
-                };
-                listenerStale.SetMeasurementEventCallback<double>((instrument, _, tags, _) =>
-                {
-                    var tagDict = new Dictionary<string, object>();
-                    foreach (var tag in tags)
-                    {
-                        tagDict[tag.Key] = tag.Value;
-                    }
-
-                    collectedStale.Add((instrument.Name, tagDict));
-                });
-                listenerStale.SetMeasurementEventCallback<long>((instrument, _, tags, _) =>
-                {
-                    var tagDict = new Dictionary<string, object>();
-                    foreach (var tag in tags)
-                    {
-                        tagDict[tag.Key] = tag.Value;
-                    }
-
-                    collectedStale.Add((instrument.Name, tagDict));
-                });
-                listenerStale.Start();
-                listenerStale.RecordObservableInstruments();
-
-                Assert.Empty(collectedStale);
-
-                // Publish a fresh snapshot; measurements must resume.
-                await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
-
-                var collectedFresh = new List<string>();
-                using var listenerFresh = new MeterListener();
-                listenerFresh.InstrumentPublished = (instrument, l) =>
-                {
-                    if (instrument.Name is "Jobs.OldestQueuedAge" or "Jobs.QueueDepth" && ReferenceEquals(instrument.Meter.Scope, factory))
-                    {
-                        l.EnableMeasurementEvents(instrument);
-                    }
-                };
-                listenerFresh.SetMeasurementEventCallback<double>((instrument, _, _, _) => collectedFresh.Add(instrument.Name));
-                listenerFresh.SetMeasurementEventCallback<long>((instrument, _, _, _) => collectedFresh.Add(instrument.Name));
-                listenerFresh.Start();
-                listenerFresh.RecordObservableInstruments();
-
-                Assert.Contains("Jobs.OldestQueuedAge", collectedFresh);
-                Assert.Contains("Jobs.QueueDepth", collectedFresh);
-            }
+            notificationHandler.DidNotReceive().ReportJobQueueRunning(Arg.Any<string>(), Arg.Any<long>());
         }
 
         [Fact]
         public async Task JobMonitorMetricHandler_Handle_ReplacesSnapshotNotMerges()
         {
-            var fakeTime = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-            using (Mock.Property(() => ClockResolver.TimeProvider, fakeTime))
-            {
-                var services = new ServiceCollection();
-                services.AddMetrics();
-                using var provider = services.BuildServiceProvider();
-                var factory = provider.GetRequiredService<IMeterFactory>();
-                var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
-                var notifier = new JobMonitorMetricNotifier(notificationHandler);
+            var notificationHandler = Substitute.For<IJobMonitorMetricHandler>();
+            var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-                // First snapshot: Export only.
-                await notifier.Handle(
-                    MakeNotification(new Dictionary<QueueType, double> { [QueueType.Export] = 100.0 }),
-                    CancellationToken.None);
+            // First snapshot: Export only.
+            await notifier.Handle(
+                MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 100 }),
+                CancellationToken.None);
+            notificationHandler.Received(1).ReportJobQueueAge("Export", 100);
+            notificationHandler.DidNotReceive().ReportJobQueuePending(Arg.Any<string>(), Arg.Any<long>());
+            notificationHandler.DidNotReceive().ReportJobQueueRunning(Arg.Any<string>(), Arg.Any<long>());
 
-                // Second snapshot: Import only — Export must not survive the replacement.
-                await notifier.Handle(
-                    MakeNotification(new Dictionary<QueueType, double> { [QueueType.Import] = 50.0 }),
-                    CancellationToken.None);
+            // Second snapshot: Import only — Export must not survive the replacement.
+            await notifier.Handle(
+                MakeNotification(new Dictionary<QueueType, long> { [QueueType.Import] = 50 }),
+                CancellationToken.None);
+            notificationHandler.Received(1).ReportJobQueueAge("Import", 50);
+            notificationHandler.DidNotReceive().ReportJobQueuePending(Arg.Any<string>(), Arg.Any<long>());
+            notificationHandler.DidNotReceive().ReportJobQueueRunning(Arg.Any<string>(), Arg.Any<long>());
 
-                Assert.False(notifier.QueueAges.ContainsKey(QueueType.Export), "Export key must not survive after snapshot replacement with Import-only data.");
-                Assert.True(notifier.QueueAges.ContainsKey(QueueType.Import));
-
-                // Confirm the gauge only emits Import, not Export.
-                var collectedQueueTypes = new List<string>();
-                using var listener = new MeterListener();
-                listener.InstrumentPublished = (instrument, l) =>
-                {
-                    if (instrument.Name == "Jobs.OldestQueuedAge" && ReferenceEquals(instrument.Meter.Scope, factory))
-                    {
-                        l.EnableMeasurementEvents(instrument);
-                    }
-                };
-                listener.SetMeasurementEventCallback<double>((instrument, _, tags, _) =>
-                {
-                    foreach (var tag in tags)
-                    {
-                        if (tag.Key == "queue_type")
-                        {
-                            collectedQueueTypes.Add(tag.Value?.ToString());
-                        }
-                    }
-                });
-                listener.Start();
-                listener.RecordObservableInstruments();
-
-                Assert.DoesNotContain("Export", collectedQueueTypes);
-                Assert.Contains("Import", collectedQueueTypes);
-            }
+            Assert.False(notifier.QueueAges.ContainsKey(QueueType.Export), "Export key must not survive after snapshot replacement with Import-only data.");
+            Assert.True(notifier.QueueAges.ContainsKey(QueueType.Import));
         }
     }
 }
