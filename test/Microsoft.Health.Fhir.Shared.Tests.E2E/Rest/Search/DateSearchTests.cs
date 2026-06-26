@@ -243,19 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenCurrentOverlapBehaviorIsPreserved()
         {
             string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientBirthDate(p, "2000", tag),
-                p => SetPatientBirthDate(p, "2000-03", tag),
-                p => SetPatientBirthDate(p, "2000-03-03", tag),
-                p => SetPatientBirthDate(p, "1999-12-31", tag),
-                p => SetPatientBirthDate(p, "2000-04-01", tag),
-                p => SetPatientBirthDate(p, "2000-12", tag),
-                p => SetPatientBirthDate(p, "2000-03-31", tag),
-                p => SetPatientBirthDate(p, "2001", tag),
-                p => SetPatientBirthDate(p, "2001-11-30", tag),
-                p => SetPatientBirthDate(p, "2001-12", tag),
-                p => SetPatientBirthDate(p, "2001-12-31", tag),
-                p => SetPatientBirthDate(p, "2002-01-01", tag));
+            Patient[] patients = await CreatePartialBirthdatePatientsAsync(tag);
             Patient patient2000 = patients[0];
             Patient patient2000March = patients[1];
             Patient patient2000March03 = patients[2];
@@ -299,6 +287,94 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
+        }
+
+        // Companion to the overlap test above, but with EnableFhirDateContainment forced ON for the request via the
+        // TEST-ONLY request-configuration-override middleware. Under FHIR R4 equality containment
+        // (https://hl7.org/fhir/R4/search.html#prefix) a stored value matches only when its range is fully contained by
+        // the search range, so the "container" Patients whose stored range is wider than the query range drop out.
+        // The override only takes effect on the in-proc test server (the master SupportsRequestConfigurationOverrides
+        // feature is off on deployed servers, which would ignore the _config.* parameters and run the default overlap
+        // behavior), so the test is skipped elsewhere. EnableScalarTemporalEqualityRewriter only changes the birthdate
+        // SQL shape (an End-only index predicate for exact-day queries) and must produce identical rows; both InlineData
+        // rows assert the same containment result set, proving both ON-path SQL shapes generate valid SQL.
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEqualityWithContainmentEnabled_ThenOnlyContainedValuesMatch(bool enableScalarRewriter)
+        {
+            Skip.If(!Fixture.IsUsingInProcTestServer, "Per-request configuration overrides are only enabled on the in-proc test server.");
+
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePartialBirthdatePatientsAsync(tag);
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+            Patient patient2000April01 = patients[4];
+            Patient patient2000December = patients[5];
+            Patient patient2000March31 = patients[6];
+            Patient patient2001December = patients[9];
+            Patient patient2001December31 = patients[10];
+
+            string overrideFragment = BuildContainmentOverride(enableScalarRewriter);
+
+            try
+            {
+                // Whole-year query: every stored range below is within 2000, so the row set is identical to overlap.
+                Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}{overrideFragment}");
+                ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
+
+                // Month query: the whole-year "2000" Patient is no longer contained by March 2000 and drops out.
+                Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}{overrideFragment}");
+                ValidateBundle(monthBundle, patient2000March, patient2000March03, patient2000March31);
+
+                // Exact-day query: only the exact-day "2000-03-03" Patient remains; "2000" and "2000-03" are wider.
+                Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}{overrideFragment}");
+                ValidateBundle(dayBundle, patient2000March03);
+
+                // Month query at a year boundary: the whole-year "2001" Patient drops out.
+                Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}{overrideFragment}");
+                ValidateBundle(decemberEdgeBundle, patient2001December, patient2001December31);
+
+                // Last-day-of-month query: only the exact-day "2000-03-31" Patient remains. The "2000-03" month range
+                // shares the same end instant but is longer than a day, so it is not contained by the one-day query.
+                Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}{overrideFragment}");
+                ValidateBundle(lastDayBundle, patient2000March31);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task<Patient[]> CreatePartialBirthdatePatientsAsync(string tag)
+        {
+            return await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag),
+                p => SetPatientBirthDate(p, "2001", tag),
+                p => SetPatientBirthDate(p, "2001-11-30", tag),
+                p => SetPatientBirthDate(p, "2001-12", tag),
+                p => SetPatientBirthDate(p, "2001-12-31", tag),
+                p => SetPatientBirthDate(p, "2002-01-01", tag));
+        }
+
+        // Builds the query-string fragment consumed by the TEST-ONLY request-configuration-override middleware, which
+        // reads "_config.<FhirSqlServerConfiguration property>" parameters, applies them as per-request flag overrides,
+        // and strips them before the FHIR search parser runs (in-proc test server only).
+        private static string BuildContainmentOverride(bool enableScalarRewriter)
+        {
+            return $"&_config.EnableFhirDateContainment=true&_config.EnableScalarTemporalEqualityRewriter={enableScalarRewriter.ToString().ToLowerInvariant()}";
         }
 
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)

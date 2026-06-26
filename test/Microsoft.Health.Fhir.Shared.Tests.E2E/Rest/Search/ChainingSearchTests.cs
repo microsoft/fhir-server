@@ -199,6 +199,66 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient);
         }
 
+        // Containment-ON variants of the three date-eq chain/sort/_has shapes above. These force EnableFhirDateContainment
+        // ON for the request via the TEST-ONLY request-configuration-override middleware (in-proc test server only), so
+        // they exercise Core's spec-compliant containment predicates flowing through the chain-join, reverse-_has, and
+        // _sort SQL paths — exactly the shapes that previously failed to generate SQL when the date eq emitted a temporal
+        // UNION. The stored birthdates are exact days, so the row results are identical to overlap; the value here is
+        // proving the containment SQL path is valid. EnableScalarTemporalEqualityRewriter (the bool parameter) only
+        // changes the birthdate SQL shape (End-only index predicate) and must return the same rows.
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAChainedSearchExpressionOverBirthdateWithContainmentEnabled_WhenSearched_ThenCorrectBundleShouldBeReturned(bool enableScalarRewriter)
+        {
+            Skip.If(!Fixture.IsUsingInProcTestServer, "Per-request configuration overrides are only enabled on the in-proc test server.");
+
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate={Fixture.SmithPatientBirthDate}{BuildContainmentOverride(enableScalarRewriter)}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdateWithContainmentEnabled_WhenSearched_ThenCorrectBundleShouldBeReturned(bool enableScalarRewriter)
+        {
+            Skip.If(!Fixture.IsUsingInProcTestServer, "Per-request configuration overrides are only enabled on the in-proc test server.");
+
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}{BuildContainmentOverride(enableScalarRewriter)}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnExactDayBirthdateSearchWithSortWithContainmentEnabled_WhenSearched_ThenCorrectBundleShouldBeReturned(bool enableScalarRewriter)
+        {
+            Skip.If(!Fixture.IsUsingInProcTestServer, "Per-request configuration overrides are only enabled on the in-proc test server.");
+
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_sort=birthdate{BuildContainmentOverride(enableScalarRewriter)}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+        // Builds the query-string fragment consumed by the TEST-ONLY request-configuration-override middleware, which
+        // reads "_config.<FhirSqlServerConfiguration property>" parameters, applies them as per-request flag overrides,
+        // and strips them before the FHIR search parser runs (in-proc test server only).
+        private static string BuildContainmentOverride(bool enableScalarRewriter)
+        {
+            return $"&_config.EnableFhirDateContainment=true&_config.EnableScalarTemporalEqualityRewriter={enableScalarRewriter.ToString().ToLowerInvariant()}";
+        }
+
         [Fact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
