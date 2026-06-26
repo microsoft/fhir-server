@@ -3,7 +3,8 @@ jobs:
   displayName: 'Delete resource group'
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzurePowerShell@5
     displayName: 'Delete resource group'

@@ -13,7 +13,8 @@ jobs:
   dependsOn: []
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -154,7 +155,8 @@ jobs:
   dependsOn: []
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:

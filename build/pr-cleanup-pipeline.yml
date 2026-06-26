@@ -31,7 +31,8 @@ stages:
     displayName: 'Extract PR and Build Info'
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - powershell: |
         $sourceBranch = "$(resources.pipeline.prPipeline.sourceBranch)"

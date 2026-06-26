@@ -11,7 +11,8 @@ jobs:
   displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Set minReplicas=${{ parameters.minReplicas }} on all CI container apps'

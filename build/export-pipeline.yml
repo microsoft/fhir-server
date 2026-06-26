@@ -24,7 +24,8 @@ stages:
   - job: Linux
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: UseDotNet@2
       displayName: 'Use .NET sdk'

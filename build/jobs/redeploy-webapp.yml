@@ -14,7 +14,8 @@ jobs:
 - job: provisionEnvironment
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Update Container App Image'

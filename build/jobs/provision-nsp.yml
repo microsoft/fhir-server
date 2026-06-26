@@ -11,7 +11,8 @@ jobs:
 - job: 'provisionNsp'
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzurePowerShell@5
     displayName: 'Create Network Security Perimeter'

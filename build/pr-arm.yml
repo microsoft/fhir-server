@@ -17,6 +17,7 @@ variables:
 
 # Note: ARMory currently only works on Windows
 pool:
+  name: '$(AzurePipelinesPool)'
   vmImage: '$(WindowsVmImage)'
 
 steps:

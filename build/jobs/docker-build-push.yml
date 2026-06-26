@@ -13,7 +13,8 @@ jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'

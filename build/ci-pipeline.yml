@@ -27,7 +27,8 @@ stages:
   - job: Semver
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
 
@@ -46,7 +47,8 @@ stages:
   - job: cleanup
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: 'Azure PowerShell script: InlineScript'
@@ -79,7 +81,8 @@ stages:
   - job: Windows_dotnet9
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalWindowsImage)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -91,7 +94,8 @@ stages:
   - job: Linux_dotnet8
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -113,7 +117,8 @@ stages:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -132,8 +137,8 @@ stages:
   - job: Guardian
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalWindowsImage)'
-      
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -308,7 +313,8 @@ stages:
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml
 

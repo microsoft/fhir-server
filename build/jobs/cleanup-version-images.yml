@@ -6,6 +6,7 @@ jobs:
 - job: deleteImage
   displayName: "Delete ${{ parameters.version }} Images"
   pool:
+    name: '$(AzurePipelinesPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
     - task: AzureCLI@2

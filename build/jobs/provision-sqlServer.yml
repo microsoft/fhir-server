@@ -22,7 +22,8 @@ jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
   pool:
     name: '$(InternalPool)'
-    vmImage: '$(InternalLinuxImage)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'

@@ -15,7 +15,8 @@ stages:
   - job: Semver
     pool:
       name: '$(InternalPool)'
-      vmImage: '$(InternalLinuxImage)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - powershell: |
         Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]0.0.1"

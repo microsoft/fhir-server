@@ -27,6 +27,7 @@ stages:
   - job: cleanupAADResources
     displayName: 'Cleanup AAD Resources'
     pool:
+      name: '$(AzurePipelinesPool)'
       vmImage: '$(LinuxVmImage)'
     timeoutInMinutes: 0
     steps:
