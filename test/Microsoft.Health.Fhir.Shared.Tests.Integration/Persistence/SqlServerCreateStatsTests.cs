@@ -171,5 +171,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.Empty(newReferenceStats);
         }
+
+        [Fact]
+        public async Task GivenMissingTrueSearchForPatientByGender_NotExistsStatsAreCreated()
+        {
+            // :missing=true translates to a SQL NotExists table expression. The owning search parameter
+            // (gender) must resolve to the single concrete resource type carried by the predicate (Patient)
+            // and must NOT fan out a stat for every base resource type of the parameter.
+            const string resourceType = "Patient";
+            var query = new[] { Tuple.Create("gender:missing", "true") };
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            foreach (var stat in statsFromCache)
+            {
+                _output.WriteLine($"cache {stat}");
+            }
+
+            var model = ((SqlServerSearchService)_fixture.SearchService).Model;
+            var genderParamId = model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/individual-gender"));
+            var patientResourceTypeId = model.GetResourceTypeId(resourceType);
+
+            // A value-column stat on the owning parameter column is created for exactly one (concrete) resource type.
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == patientResourceTypeId
+                  && _.SearchParamId == genderParamId);
+
+            // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
+            // never created for any resource type other than the one in the search URL.
+            Assert.DoesNotContain(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId != patientResourceTypeId
+                  && _.SearchParamId == genderParamId);
+        }
     }
 }

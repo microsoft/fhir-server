@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\ExpiredResourceCleanupWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\QueryPlanReuseCheckerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterCachePopulationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterOptimisticConcurrencyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlComplexQueryTests.cs" />
@@ -41,6 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerCreateStatsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerColumnTypeChangeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerWatchdogTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\JobMonitor\JobMonitorWatchdogLogicTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSearchParameterInitializationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />

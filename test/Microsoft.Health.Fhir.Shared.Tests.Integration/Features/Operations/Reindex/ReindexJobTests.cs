@@ -153,6 +153,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
@@ -514,6 +516,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             Assert.NotNull(secondResponse);
             Assert.Equal(originalJobId, secondResponse.Job.JobRecord.Id);
+        }
+
+        [Fact]
+        public async Task GivenPendingDeleteWithoutResource_AfterReindex_ThenStatusIsDeleted()
+        {
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
+
+            try
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [searchParam.Url],
+                    SearchParameterStatus.PendingDelete,
+                    CancellationToken.None,
+                    lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
+
+                var key = new ResourceKey("SearchParameter", searchParam.Id);
+                var resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.NotNull(resource);
+                await _fixture.DataStore.HardDeleteAsync(key, false, false, CancellationToken.None);
+                resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.Null(resource);
+
+                var request = new CreateReindexRequest(new List<string>(), new List<string>());
+                var response = await SetUpForReindexing(request);
+                using var cancellationTokenSource = new CancellationTokenSource();
+                await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+
+                var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
+                var paramStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParam.Url);
+                Assert.NotNull(paramStatus);
+                Assert.Equal(SearchParameterStatus.Deleted, paramStatus.Status);
+            }
+            finally
+            {
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+            }
         }
 
         [Fact]
@@ -1497,6 +1537,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

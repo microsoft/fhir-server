@@ -1,69 +1,71 @@
--- Update CreateResourceSearchParamStats to support optional ReferenceResourceTypeId filter (Approach B).
--- When @ReferenceResourceTypeId is provided, creates a filtered stat with a 3-column WHERE clause
--- (ResourceTypeId, SearchParamId, ReferenceResourceTypeId) so each target type gets its own histogram.
-
-GO
-CREATE OR ALTER PROCEDURE dbo.CreateResourceSearchParamStats @Table varchar(100), @Column varchar(100), @ResourceTypeId smallint, @SearchParamId smallint, @ReferenceResourceTypeId smallint = NULL
-WITH EXECUTE AS 'dbo'
+ALTER PROCEDURE dbo.MergeResourcesAndSearchParams 
+     @SearchParams dbo.SearchParamList READONLY
+    ,@ReindexId bigint = -1
+    ,@IsResourceChangeCaptureEnabled bit = 0
+    ,@TransactionId bigint = NULL
+    ,@Resources dbo.ResourceList READONLY
+    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
+    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
+    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
+    ,@TokenTexts dbo.TokenTextList READONLY
+    ,@StringSearchParams dbo.StringSearchParamList READONLY
+    ,@UriSearchParams dbo.UriSearchParamList READONLY
+    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
+    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
+    ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+    ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
+    ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
+    ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
+    ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
+    ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
+    ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' C='+isnull(@Column,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')+' RRT='+isnull(convert(varchar,@ReferenceResourceTypeId),'NULL')
+       ,@Mode varchar(200) = 'R='+convert(varchar,(SELECT count(*) FROM @Resources))+' SP='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
+       ,@Rows int = 0
 
 BEGIN TRY
-  IF @Table IS NULL OR @Column IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL
-    RAISERROR('@TableName IS NULL OR @KeyColumn IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL',18,127)
+  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+  BEGIN TRANSACTION
   
-  IF @ReferenceResourceTypeId IS NOT NULL
-    EXECUTE('CREATE STATISTICS ST_'+@Column+'_WHERE_ResourceTypeId_'+@ResourceTypeId+'_SearchParamId_'+@SearchParamId+'_ReferenceResourceTypeId_'+@ReferenceResourceTypeId+' ON dbo.'+@Table+' ('+@Column+') WHERE ResourceTypeId = '+@ResourceTypeId+' AND SearchParamId = '+@SearchParamId+' AND ReferenceResourceTypeId = '+@ReferenceResourceTypeId)
+  EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId
+
+  IF EXISTS (SELECT * FROM @Resources)
+    EXECUTE dbo.MergeResources
+             @AffectedRows = @Rows OUTPUT
+            ,@RaiseExceptionOnConflict = 1
+            ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
+            ,@TransactionId = @TransactionId
+            ,@SingleTransaction = 1
+            ,@Resources = @Resources
+            ,@ResourceWriteClaims = @ResourceWriteClaims
+            ,@ReferenceSearchParams = @ReferenceSearchParams
+            ,@TokenSearchParams = @TokenSearchParams
+            ,@TokenTexts = @TokenTexts
+            ,@StringSearchParams = @StringSearchParams
+            ,@UriSearchParams = @UriSearchParams
+            ,@NumberSearchParams = @NumberSearchParams
+            ,@QuantitySearchParams = @QuantitySearchParams
+            ,@DateTimeSearchParms = @DateTimeSearchParms
+            ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
+            ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
+            ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
+            ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
+            ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
+            ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
   ELSE
-    EXECUTE('CREATE STATISTICS ST_'+@Column+'_WHERE_ResourceTypeId_'+@ResourceTypeId+'_SearchParamId_'+@SearchParamId+' ON dbo.'+@Table+' ('+@Column+') WHERE ResourceTypeId = '+@ResourceTypeId+' AND SearchParamId = '+@SearchParamId)
+    IF @TransactionId IS NOT NULL
+      EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text='Stats created'
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows
 END TRY
 BEGIN CATCH
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  IF error_number() = 1927 -- stats already exists
-  BEGIN
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
-    RETURN
-  END
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
-  THROW
-END CATCH
-GO
-
--- Update GetResourceSearchParamStats to support optional ReferenceResourceTypeId filter
--- and match stat names where SearchParamId is not at the end
--- (Approach B stats have _ReferenceResourceTypeId_N after SearchParamId).
-
-GO
-CREATE OR ALTER PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL, @ReferenceResourceTypeId smallint = NULL
-WITH EXECUTE AS 'dbo'
-AS
-set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')+' RRT='+isnull(convert(varchar,@ReferenceResourceTypeId),'NULL')
-       ,@st datetime = getUTCdate()
-
-BEGIN TRY
-  SELECT TableName = T.name
-        ,StatsName = S.name
-        ,DatabaseName = db_name()
-    FROM sys.stats S
-         JOIN sys.tables T ON T.object_id = S.object_id
-    WHERE T.name LIKE '%SearchParam' AND T.name <> 'SearchParam'
-      AND S.name LIKE 'ST[_]%'
-      AND (T.name LIKE @Table OR @Table IS NULL)
-      AND (S.name LIKE '%ResourceTypeId[_]'+convert(varchar,@ResourceTypeId)+'[_]%' OR @ResourceTypeId IS NULL)
-      AND (S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId)+'%' OR @SearchParamId IS NULL)
-      AND (S.name LIKE '%ReferenceResourceTypeId[_]'+convert(varchar,@ReferenceResourceTypeId) OR @ReferenceResourceTypeId IS NULL)
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
-END TRY
-BEGIN CATCH
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  IF @@trancount > 0 ROLLBACK TRANSACTION;
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH

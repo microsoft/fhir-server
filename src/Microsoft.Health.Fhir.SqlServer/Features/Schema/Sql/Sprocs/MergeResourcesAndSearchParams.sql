@@ -56,6 +56,9 @@ BEGIN TRY
             ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
             ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
             ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+  ELSE
+    IF @TransactionId IS NOT NULL
+      EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
   COMMIT TRANSACTION
 

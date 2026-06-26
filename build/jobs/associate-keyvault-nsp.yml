@@ -13,8 +13,9 @@ jobs:
 - job: associateKeyVaultNsp
   displayName: 'Associate KeyVault with NSP'
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzurePowerShell@5
     displayName: 'Associate KeyVault with Network Security Perimeter'

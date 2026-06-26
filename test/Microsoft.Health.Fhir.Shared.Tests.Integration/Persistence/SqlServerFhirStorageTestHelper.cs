@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
+        private readonly SchemaInformation _schemaInformation;
         private static readonly SemaphoreSlim DbSetupSemaphore = new(14); // max number of concurrent requests to the master database is 64 and we run 4 FHIR versions in parallel
 
         public SqlServerFhirStorageTestHelper(
@@ -48,16 +50,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string masterDatabaseName,
             SqlServerFhirModel sqlServerFhirModel,
             ISqlConnectionBuilder sqlConnectionBuilder,
-            TestQueueClient queueClient)
+            TestQueueClient queueClient,
+            SchemaInformation schemaInformation)
         {
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _queueClient = queueClient;
+            _schemaInformation = schemaInformation;
 
             _dbSetupRetryPolicy = Policy
                 .Handle<SqlException>()
@@ -67,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
@@ -109,15 +114,63 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await using SqlCommand sqlCommand = connection.CreateCommand();
                     sqlCommand.CommandText = "IF object_id('sp_changedbowner') IS NOT NULL EXECUTE sp_changedbowner 'sa'";
                     await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
-                    await connection.CloseAsync();
                 });
 
-            schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
-            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
+            var isEmpty = await IsEmpty();
+
+            var minVersion = targetSchemaVersion == SchemaVersionConstants.Max ? SchemaVersionConstants.Max : SchemaVersionConstants.MinForUpgrade;
+            var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+            for (var version = minVersion + 1; version <= targetSchemaVersion; version++)
+            {
+                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
+            }
+
+            _schemaInformation.Current = targetSchemaVersion;
+
+            await CheckSchemaVersion(isEmpty);
+
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
             await InitSystem(databaseName);
-            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
+            await _sqlServerFhirModel.Initialize(targetSchemaVersion, cancellationToken);
+        }
+
+        private async Task<bool> IsEmpty()
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT CASE WHEN object_id('dbo.SchemaVersion') IS NOT NULL THEN 1 ELSE 0 END";
+            var count = (int)await cmd.ExecuteScalarAsync(CancellationToken.None);
+            return count == 0;
+        }
+
+        private async Task CheckSchemaVersion(bool doCountCheck)
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT TOP 1 Version FROM dbo.SchemaVersion ORDER BY Version DESC";
+            var version = (int)await cmd.ExecuteScalarAsync(CancellationToken.None);
+            if (version != _schemaInformation.Current)
+            {
+                throw new InvalidOperationException($"Database schema version {version} does not match expected version {_schemaInformation.Current}");
+            }
+
+            if (!doCountCheck)
+            {
+                return;
+            }
+
+            await using var cmd2 = conn.CreateCommand();
+            cmd2.CommandText = "SELECT count(*) FROM dbo.SchemaVersion";
+            var actual = (int)await cmd2.ExecuteScalarAsync(CancellationToken.None);
+            var expected = _schemaInformation.Current == SchemaVersionConstants.Max ? 1 : _schemaInformation.Current - SchemaVersionConstants.MinForUpgrade + 1;
+            if (actual != expected)
+            {
+                throw new InvalidOperationException($"SchemaVersion number of rows: expected = {expected}, but actual = {actual}");
+            }
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
@@ -132,7 +185,6 @@ INSERT INTO Parameters (Id,Char) SELECT name,'LogEvent' FROM sys.objects WHERE t
 INSERT INTO Parameters (Id,Char) SELECT 'Search','LogEvent'
                     ";
                 await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
-                await connection.CloseAsync();
             });
         }
 
@@ -205,8 +257,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             cmd4.Parameters.AddWithValue("@PeriodSecId", invisibleHistoryCleanupWatchdog.PeriodSecId);
             cmd4.Parameters.AddWithValue("@LeasePeriodSecId", invisibleHistoryCleanupWatchdog.LeasePeriodSecId);
             await cmd4.ExecuteNonQueryAsync(CancellationToken.None);
-
-            await conn.CloseAsync();
         }
 
         public async Task ExecuteSqlCmd(string sql)
@@ -215,7 +265,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             using SqlCommand command = new SqlCommand(sql, connection);
             await connection.OpenAsync(CancellationToken.None);
             await command.ExecuteNonQueryAsync(CancellationToken.None);
-            await connection.CloseAsync();
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
@@ -239,7 +288,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                         command.CommandTimeout = 300;
                         command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
                         await command.ExecuteNonQueryAsync(cancellationToken);
-                        await connection.CloseAsync();
                     }
                     finally
                     {
@@ -274,7 +322,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             using var command = new SqlCommand(
                 @"
 UPDATE dbo.SearchParam
-  SET Status = 'PendingDelete', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
+  SET Status = 'Deleted', LastUpdated = convert(datetimeoffset(7), sysUTCdatetime())
   WHERE Uri = @uri",
                 connection);
             command.Parameters.AddWithValue("@uri", uri);
@@ -290,7 +338,6 @@ UPDATE dbo.SearchParam
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
         }
 
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
@@ -303,7 +350,6 @@ UPDATE dbo.SearchParam
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
@@ -356,37 +402,32 @@ UPDATE dbo.SearchParam
                     }
                 }
             }
-
-            await connection.CloseAsync();
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
+        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
 
-            var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
-            SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
-            var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
+            using var sqlTransactionHandler = new SqlTransactionHandler();
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, _sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(new ScriptProvider<SchemaVersion>(), new BaseScriptProvider(), NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
-            ////Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProvider = p => sqlConnectionString;
             Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
 
             var collection = new ServiceCollection();
-            ////collection.AddScoped(sqlConnectionStringProvider);
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaManagerDataStoreFactory);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
-            return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
+            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            return (schemaInitializer, schemaUpgradeRunner);
         }
 
         public async Task<SqlConnection> GetSqlConnectionAsync()

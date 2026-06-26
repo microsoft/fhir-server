@@ -132,20 +132,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             return parameterStatuses;
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
+        public async Task UpsertStatuses(IReadOnlyList<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
-
-            if (!statuses.Any())
-            {
-                return;
-            }
 
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
             cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
-            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses));
 
             try
             {
@@ -172,11 +167,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            if (_schemaInformation.Current < (int)SchemaVersion.V109) // Pre-V109 schemas don't have the sproc; assume inconsistent
-            {
-                return new CacheConsistencyResult { IsConsistent = false, ActiveHosts = 0, ConvergedHosts = 0 };
-            }
-
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetSearchParamCacheUpdateEvents";
