@@ -12,7 +12,7 @@ jobs:
   displayName: PR Internal Checks for fhir-server - build and restore phase
   cancelTimeoutInMinutes: 1
   pool:
-    name: '$(InternalWindowsPool)'
+    name: '$(DefaultPool)'
     os: windows
 
   steps:

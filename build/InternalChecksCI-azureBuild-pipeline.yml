@@ -29,7 +29,7 @@ jobs:
   displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
-    name: '$(InternalWindowsPool)'
+    name: '$(DefaultPool)'
     os: windows
   steps:
   - checkout: self
@@ -135,7 +135,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    name: '$(InternalWindowsPool)'
+    name: '$(DefaultPool)'
     os: windows
 
   steps:

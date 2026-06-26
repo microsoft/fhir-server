@@ -13,7 +13,7 @@ jobs:
 - job: associateKeyVaultNsp
   displayName: 'Associate KeyVault with NSP'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzurePowerShell@5

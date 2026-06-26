@@ -27,7 +27,7 @@ jobs:
 
       $org = "$(System.CollectionUri)".TrimEnd('/')
       $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
-      $poolNames = @('$(DefaultLinuxPool)', '$(InternalWindowsPool)') | Select-Object -Unique
+      $poolNames = @('$(DefaultPool)', '$(DefaultPool)') | Select-Object -Unique
 
       foreach ($poolName in $poolNames) {
         Write-Host "##[group]Pool capability snapshot: $poolName"

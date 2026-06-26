@@ -21,7 +21,7 @@ jobs:
 - job: "SqlIntegrationTests"
   timeoutInMinutes: 75
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
@@ -109,7 +109,7 @@ jobs:
   timeoutInMinutes: 120
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
@@ -127,7 +127,7 @@ jobs:
     timeoutInMinutes: 120
     dependsOn: []
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
@@ -146,7 +146,7 @@ jobs:
     timeoutInMinutes: 120
     dependsOn: []
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true

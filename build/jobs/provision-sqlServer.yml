@@ -21,7 +21,7 @@ parameters:
 jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzurePowerShell@5

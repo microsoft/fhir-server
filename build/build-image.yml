@@ -14,7 +14,7 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - powershell: |

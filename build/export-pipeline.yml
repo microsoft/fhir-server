@@ -23,7 +23,7 @@ stages:
   jobs:
   - job: Linux
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - task: UseDotNet@2

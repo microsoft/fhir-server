@@ -30,7 +30,7 @@ stages:
   - job: ExtractVariables
     displayName: 'Extract PR and Build Info'
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - powershell: |

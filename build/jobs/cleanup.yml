@@ -2,7 +2,7 @@ jobs:
 - job: DeleteResourceGroup
   displayName: 'Delete resource group'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzurePowerShell@5
@@ -138,7 +138,7 @@ jobs:
 - job: deleteImage
   displayName: 'Delete Image'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzureCLI@2

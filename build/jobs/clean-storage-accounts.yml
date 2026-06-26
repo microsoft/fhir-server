@@ -5,7 +5,7 @@ parameters:
 jobs:
 - job: "cleanStorageAccounts"
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzurePowerShell@5

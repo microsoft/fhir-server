@@ -12,7 +12,7 @@ parameters:
 jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzureCLI@2

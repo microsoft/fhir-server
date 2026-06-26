@@ -26,15 +26,15 @@ stages:
   jobs:
   - template: ./jobs/diagnostics-agent-capabilities.yml
     parameters:
-      jobName: InspectDefaultLinuxPool
-      displayName: 'Inspect DefaultLinuxPool capabilities (Linux agent)'
-      poolName: $(DefaultLinuxPool)
+      jobName: InspectDefaultPoolLinux
+      displayName: 'Inspect DefaultPool capabilities (Linux)'
+      poolName: $(DefaultPool)
       osValue: linux
   - template: ./jobs/diagnostics-agent-capabilities.yml
     parameters:
-      jobName: InspectInternalWindowsPool
-      displayName: 'Inspect InternalWindowsPool capabilities (Windows agent)'
-      poolName: $(InternalWindowsPool)
+      jobName: InspectDefaultPoolWindows
+      displayName: 'Inspect DefaultPool capabilities (Windows)'
+      poolName: $(DefaultPool)
       osValue: windows
 
 - stage: UpdateVersion
@@ -43,7 +43,7 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - template: ./jobs/update-semver.yml  
@@ -62,7 +62,7 @@ stages:
   jobs:
   - job: cleanup
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - task: AzurePowerShell@5
@@ -95,7 +95,7 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      name: '$(InternalWindowsPool)'
+      name: '$(DefaultPool)'
       os: windows
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
@@ -107,7 +107,7 @@ stages:
         codeCoverage: true
   - job: Linux_dotnet8
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
@@ -129,7 +129,7 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - template: ./jobs/build.yml
@@ -148,7 +148,7 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(InternalWindowsPool)'
+      name: '$(DefaultPool)'
       os: windows
       
     steps:
@@ -324,7 +324,7 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     steps:
     - template: ./jobs/aggregate-coverage.yml

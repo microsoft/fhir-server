@@ -39,6 +39,6 @@ variables:
   ConnectedServiceName: 'oss-service-connection-with-workloadidentity'
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
   # The following is set by a build Pipeline variable:
-  # DefaultLinuxPool: 'Azure Pipelines'
-  # InternalWindowsPool: 'Azure Pipelines'
+  # DefaultPool: 'Azure Pipelines'
+  # Pool selection uses os: linux or os: windows in pool blocks
   #-----------------------------------------------------------------------------------------

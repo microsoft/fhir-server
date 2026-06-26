@@ -16,7 +16,7 @@ jobs:
 - job: "CosmosIntegrationTests"
   timeoutInMinutes: 75
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
@@ -119,7 +119,7 @@ jobs:
   timeoutInMinutes: 75
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
@@ -137,7 +137,7 @@ jobs:
     timeoutInMinutes: 75
     dependsOn: []
     pool:
-      name: '$(DefaultLinuxPool)'
+      name: '$(DefaultPool)'
       os: linux
     variables:
       AllowPtrToDetectTestRunRetryFiles: true

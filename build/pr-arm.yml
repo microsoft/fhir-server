@@ -17,7 +17,7 @@ variables:
 
 # Note: ARMory currently only works on Windows
 pool:
-  name: '$(InternalWindowsPool)'
+  name: '$(DefaultPool)'
   os: windows
 
 steps:

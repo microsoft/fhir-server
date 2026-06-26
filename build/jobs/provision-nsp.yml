@@ -10,7 +10,7 @@ parameters:
 jobs:
 - job: 'provisionNsp'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzurePowerShell@5

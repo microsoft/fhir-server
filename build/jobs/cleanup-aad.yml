@@ -2,7 +2,7 @@ jobs:
 - job: cleanupAad
   displayName: 'Cleanup AAD'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzureKeyVault@1

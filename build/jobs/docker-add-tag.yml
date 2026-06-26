@@ -8,7 +8,7 @@ parameters:
 jobs:
 - job: DockerAddTag
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzureCLI@2

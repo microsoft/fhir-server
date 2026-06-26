@@ -10,7 +10,7 @@ jobs:
 - job: scaleContainerApps
   displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(DefaultPool)'
     os: linux
   steps:
   - task: AzureCLI@2
