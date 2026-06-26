@@ -146,8 +146,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
 
-        public SchemaInitializer SchemaInitializer => _fixture.GetRequiredService<SchemaInitializer>();
-
         public SchemaUpgradeRunner SchemaUpgradeRunner => _fixture.GetRequiredService<SchemaUpgradeRunner>();
 
         public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
