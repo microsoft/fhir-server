@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,6 +19,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -30,6 +32,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
@@ -706,6 +709,130 @@ RAISERROR('Test',18,127)
             }
 
             return coordCompleted && coordArchived && workArchived;
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_WhenQueueIsEmpty_PublishesNotificationWithAllQueueTypes()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+            foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
+            {
+                Assert.True(captured.QueueAges.TryGetValue(queueType, out var age), $"Missing queue type in QueueAges: {queueType}");
+                Assert.Equal(0, age);
+
+                Assert.True(captured.QueueDepths.TryGetValue(queueType, out var depth), $"Missing queue type in QueueDepths: {queueType}");
+                Assert.Equal(0, depth.Pending);
+                Assert.Equal(0, depth.Running);
+            }
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_WhenQueueHasPendingJob_ReportsDepthAndAgeForThatQueueOnly()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "job1" }, null, false, CancellationToken.None);
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // The Export queue has one pending (Created) job.
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Export].Running);
+            var exportAge = captured.QueueAges[QueueType.Export];
+            Assert.InRange(exportAge, 0, 120); // enqueued moments ago, so the age must be near zero
+
+            // Another queue type must still report empty.
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Running);
+            Assert.Equal(0, captured.QueueAges[QueueType.Import]);
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_RunningJobInOneQueue_DoesNotZeroStaleCreatedJobInAnotherQueue()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            // Queue A (Export): a Running job that is recent.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "running-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET Status = 1 WHERE QueueType = {(byte)QueueType.Export}");
+
+            // Queue B (Import): a Created job stamped 900 seconds in the past.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Import, new[] { "stale-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET CreateDate = DATEADD(SECOND, -900, SYSUTCDATETIME()) WHERE QueueType = {(byte)QueueType.Import}");
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // Export has no Created jobs (its only job is Running) ⇒ age 0.
+            Assert.Equal(0, captured.QueueAges[QueueType.Export]);
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Running);
+
+            // The stale Created job in Import must still surface a non-trivial age (cross-queue isolation).
+            var importAge = captured.QueueAges[QueueType.Import];
+            Assert.True(importAge >= 800, $"Stale Import job age was suppressed: {importAge}");
+            Assert.Equal(1, captured.QueueDepths[QueueType.Import].Pending);
+        }
+
+        private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
+        {
+            var wd = new JobMonitorWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                mediator)
+            {
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+                AllowRebalance = true,
+            };
+
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{wd.PeriodSecId}', '{wd.LeasePeriodSecId}')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.PeriodSecId}', 1)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.LeasePeriodSecId}', 2)");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cts.Token);
+            }
+
+            await cts.CancelAsync();
+            await wdTask;
         }
     }
 }
