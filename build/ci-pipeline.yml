@@ -20,6 +20,23 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
 
+- stage: InspectAgentCapabilities
+  displayName: 'Inspect Agent Pool Capabilities'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/diagnostics-agent-capabilities.yml
+    parameters:
+      jobName: InspectDefaultLinuxPool
+      displayName: 'Inspect DefaultLinuxPool capabilities (Linux agent)'
+      poolName: $(DefaultLinuxPool)
+      osDemand: Linux
+  - template: ./jobs/diagnostics-agent-capabilities.yml
+    parameters:
+      jobName: InspectInternalWindowsPool
+      displayName: 'Inspect InternalWindowsPool capabilities (Windows agent)'
+      poolName: $(InternalWindowsPool)
+      osDemand: Windows
+
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
