@@ -2246,21 +2246,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
-            // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
-            // fix in AB#191826 lands. When disabled, the original two-predicate equality form flows
-            // straight through to DateTimeEqualityRewriter and the rest of the pipeline.
             Expression afterSmartCompartment = rootExpression
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
-                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
-                : afterSmartCompartment;
+            // Date/time equality semantics resolve to exactly ONE of three mutually-exclusive paths
+            // (the scalar-temporal optimization and the containment range form are never layered):
+            //   * Containment OFF (any scalar-temporal value): legacy overlap (DateTimeEqualityRewriter),
+            //     identical to main. The scalar-temporal rewriter NEVER runs in this state because it
+            //     cannot return non-contained rows without the removed temporal UNION ALL.
+            //   * Containment ON + scalar-temporal ON: the scalar-temporal rewriter OVERRIDES containment
+            //     for allow-listed params (birthdate only), collapsing exact-day equality to a single
+            //     End-only DateTimeEnd predicate; all other date params keep Core's containment range.
+            //   * Containment ON + scalar-temporal OFF: Core's spec-compliant containment predicates
+            //     (DateTimeStart >= lo AND DateTimeEnd <= hi) flow straight to SQL for all date params.
+            // No path emits a temporal UNION ALL.
+            Expression afterDateEquality = ApplyDateEqualitySemantics(
+                afterSmartCompartment,
+                _fhirSqlServerConfiguration.EnableFhirDateContainment,
+                _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter);
 
-            return (SqlRootExpression)afterScalarTemporal
-                ?.AcceptVisitor(DateTimeEqualityRewriter.Instance)
-                .AcceptVisitor(FlatteningRewriter.Instance)
+            return (SqlRootExpression)afterDateEquality
+                ?.AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)
                 .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
@@ -2279,6 +2287,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        /// <summary>
+        /// Resolves the date/time equality semantics to exactly one of three mutually-exclusive paths.
+        /// The scalar-temporal equality optimization and the spec-compliant containment range form are
+        /// never layered: each branch invokes a single visitor (or none) so the two strategies stay
+        /// independent code paths.
+        /// <list type="bullet">
+        /// <item><description>
+        /// Containment disabled (any scalar-temporal value): <see cref="DateTimeEqualityRewriter"/>
+        /// weakens equality to the legacy non-spec overlap form (DateTimeStart &lt;= hi AND DateTimeEnd
+        /// &gt;= lo), identical to main. The scalar-temporal rewriter never runs because it cannot return
+        /// non-contained rows without the removed temporal UNION ALL.
+        /// </description></item>
+        /// <item><description>
+        /// Containment enabled and scalar-temporal enabled: <see cref="ScalarTemporalEqualityRewriter"/>
+        /// overrides containment for allow-listed params (birthdate only), collapsing exact-day equality to a
+        /// single End-only DateTimeEnd predicate (an index optimization). All other date params keep Core's
+        /// containment range. For partial-precision stored birthdates the End-only predicate equals
+        /// containment, not overlap, so tying it to the containment flag keeps the behavior change scoped.
+        /// </description></item>
+        /// <item><description>
+        /// Containment enabled and scalar-temporal disabled: Core's spec-compliant containment predicates
+        /// (DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi) are preserved and flow straight to SQL for all
+        /// date params.
+        /// </description></item>
+        /// </list>
+        /// No path emits a temporal UNION ALL.
+        /// </summary>
+        /// <param name="expression">The expression tree to transform. May be null.</param>
+        /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
+        /// <param name="enableScalarTemporalRewriter">Whether the scalar-temporal rewriter is enabled.</param>
+        /// <returns>The expression with the selected date-equality semantics applied.</returns>
+        internal static Expression ApplyDateEqualitySemantics(Expression expression, bool enableFhirDateContainment, bool enableScalarTemporalRewriter)
+        {
+            if (expression == null)
+            {
+                return null;
+            }
+
+            if (!enableFhirDateContainment)
+            {
+                // Legacy overlap (== main). The scalar-temporal rewriter never runs without containment.
+                return expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            }
+
+            if (enableScalarTemporalRewriter)
+            {
+                // Birthdate End-only optimization overrides containment for allow-listed params only.
+                return expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+            }
+
+            // Core's containment range form flows straight to SQL for all date params.
+            return expression;
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)

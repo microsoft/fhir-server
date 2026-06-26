@@ -13,25 +13,26 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// For allow-listed FHIR date search parameters (parameters where each resource stores a single
-    /// date element, e.g. <c>birthdate</c>), every stored row has <c>StartDateTime</c> and
-    /// <c>EndDateTime</c> that represent the date value expanded to period boundaries. The two-predicate
-    /// containment form emitted by Core for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>)
-    /// can be collapsed to predicates on <c>DateTimeEnd</c> only for precisions where the rewrite is safe.
+    /// For allow-listed FHIR date search parameters where each resource stores a single date element
+    /// (currently <c>birthdate</c>), every stored row has <c>DateTimeStart</c> and <c>DateTimeEnd</c>
+    /// representing the date value expanded to its period boundaries. Core emits the spec-compliant
+    /// containment form for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>):
+    /// the resource's stored period must sit inside the query window.
     ///
-    /// <list type="bullet">
-    ///   <item>Exact UTC calendar day: emits a <see cref="UnionExpression"/> (lowered to SQL <c>UNION ALL</c>)
-    ///     with two branches split on <c>IsLongerThanADay</c>. The <c>false</c> branch becomes
-    ///     <c>DateTimeEnd = endOfDay</c>; the <c>true</c> branch keeps the original two predicates so
-    ///     <see cref="DateTimeEqualityRewriter"/> expands them into the overlap form. This lets the planner
-    ///     pick the appropriate filtered index per branch.</item>
-    ///   <item>Exact UTC calendar month: passes through unchanged until month-precision rewrite safety has
-    ///     dedicated analysis and coverage; the generic containment predicates preserve existing behavior.</item>
-    ///   <item>Approximate (<c>ap</c>) expressions with non-boundary constants pass through unchanged.</item>
-    /// </list>
+    /// For an exact UTC calendar day, this rewriter collapses that containment to a single predicate on
+    /// <c>DateTimeEnd</c> combined with <c>IsLongerThanADay = false</c>. A stored period longer than one
+    /// day can never be contained within a one-day window, so those rows are excluded by construction —
+    /// no <see cref="UnionExpression"/> / day-split is required, and the planner can use the filtered index
+    /// on single-day rows. Month/year-precision queries, single-sided predicates, range operators,
+    /// approximate (<c>ap</c>) expressions, composite parameters, and non-allow-listed parameters all pass
+    /// through unchanged.
     ///
-    /// This rewriter must run BEFORE <see cref="DateTimeEqualityRewriter"/> so the input pattern still has only two
-    /// predicates. Composite parameters and range operators are out of scope and pass through unchanged.
+    /// This rewriter runs on the Core expression tree before the Core-&gt;SQL conversion, and only when BOTH
+    /// the scalar-temporal flag and the system-wide FHIR date containment flag are enabled. Its End-only
+    /// output is result-equivalent to the legacy overlap form only for exact-day stored birthdates; for
+    /// partial-precision stored values it equals containment (not overlap), which is why it is gated on the
+    /// containment flag. Because its output is a terminal <c>DateTimeEnd</c> equality (not the start/end
+    /// containment shape), <see cref="DateTimeEqualityRewriter"/> never re-touches it.
     /// </summary>
     internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
@@ -50,24 +51,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitChained(ChainedExpression expression, bool context)
-        {
-            Expression visitedExpression = expression.Expression.AcceptVisitor(this, context: true);
-            if (ReferenceEquals(visitedExpression, expression.Expression))
-            {
-                return expression;
-            }
-
-            return new ChainedExpression(expression.ResourceTypes, expression.ReferenceSearchParameter, expression.TargetResourceTypes, expression.Reversed, visitedExpression);
-        }
-
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
         {
-            if (context)
-            {
-                return expression;
-            }
-
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {
@@ -90,10 +75,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // 4. Classify precision and build the matching rewrite, or pass through.
-            //    Day-precision returns a UnionExpression directly (lowered to SQL UNION ALL).
+            //    Day-precision collapses to a single DateTimeEnd predicate (no UNION).
             return ClassifyPrecision(startValue, endValue) switch
             {
-                Precision.ExactDay => BuildDaySplitUnion(expression.Parameter, startPredicate, endPredicate),
+                Precision.ExactDay => BuildEndOnlyPredicate(expression.Parameter, endPredicate),
                 _ => expression,
             };
         }
@@ -169,34 +154,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return Precision.NotRewritable;
         }
 
-        // Split along IsLongerThanADay so we only optimize the day-stored subset (longer=false).
-        // Stored month/year rows (longer=true) keep the original two predicates, which
-        // DateTimeEqualityRewriter then transforms into the overlap form that preserves
-        // today's behavior. Emitting as a UnionExpression rather than an OR lets the
-        // SQL generator lower this to two sub-SELECTs combined by UNION ALL, so the planner
-        // picks the appropriate filtered index per branch instead of relying on OR-expansion.
-        // Once the FHIR-containment fix (AB#191826) lands, the longer=true branch becomes
-        // dead and this can collapse back to a single SearchParameterExpression on the
-        // longer=false predicate.
-        private static UnionExpression BuildDaySplitUnion(
+        // Under FHIR-spec containment, an exact-day eq matches only resources whose stored period is
+        // contained within the one-day query window. Birthdate rows are stored as exactly one full UTC
+        // day, so the containment predicates collapse to a single equality on DateTimeEnd combined with
+        // IsLongerThanADay = false. A stored period longer than one day can never be contained within a
+        // single-day window, so those rows are excluded by construction — no UNION ALL / day-split is
+        // needed, and the planner can use the filtered index on single-day rows.
+        private static SearchParameterExpression BuildEndOnlyPredicate(
             SearchParameterInfo parameter,
-            BinaryExpression startPredicate,
             BinaryExpression endPredicate)
         {
-            var shortBranch = new SearchParameterExpression(
+            return new SearchParameterExpression(
                 parameter,
                 Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false),
                     new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value)));
-
-            var longBranch = new SearchParameterExpression(
-                parameter,
-                Expression.And(
-                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, true),
-                    startPredicate,
-                    endPredicate));
-
-            return Expression.Union(UnionOperator.All, new Expression[] { shortBranch, longBranch });
         }
 
         private static bool IsStartGe(BinaryExpression be) =>

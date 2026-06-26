@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -400,6 +401,147 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Single(missingParams);
             Assert.Equal("gender", missingParams[0].Parameter.Name);
             Assert.True(foundSurrogateId);
+        }
+
+        [Fact]
+        public void ApplyDateEqualitySemantics_WhenContainmentEnabled_PreservesContainmentAndEmitsNoOverlap()
+        {
+            SearchParameterExpression containment = BuildDateEqualityContainmentExpression();
+
+            Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: true, enableScalarTemporalRewriter: false);
+
+            // Containment ON (scalar-temporal OFF) => DateTimeEqualityRewriter is bypassed and the expression flows through unchanged.
+            Assert.Same(containment, result);
+            Assert.False(
+                ContainsPredicate(result, e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual }),
+                "Containment must not emit the overlap (DateTimeStart <= hi) predicate.");
+            Assert.False(ContainsPredicate(result, e => e is UnionExpression), "Containment must not emit a temporal UNION.");
+        }
+
+        [Fact]
+        public void ApplyDateEqualitySemantics_WhenContainmentDisabled_WeakensToOverlapWithoutUnion()
+        {
+            SearchParameterExpression containment = BuildDateEqualityContainmentExpression();
+
+            Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: false, enableScalarTemporalRewriter: false);
+
+            // Containment OFF => legacy overlap is applied (adds DateTimeStart <= hi) but never a UNION.
+            Assert.NotSame(containment, result);
+            Assert.True(
+                ContainsPredicate(result, e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual }),
+                "Legacy overlap must add the (DateTimeStart <= hi) predicate.");
+            Assert.False(ContainsPredicate(result, e => e is UnionExpression), "Neither date-equality path may emit a temporal UNION.");
+        }
+
+        [Fact]
+        public void ApplyDateEqualitySemantics_WhenExpressionIsNull_ReturnsNull()
+        {
+            Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: true));
+            Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: false));
+            Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: false, enableScalarTemporalRewriter: false));
+        }
+
+        // Full date-equality flag matrix for an EXACT-DAY birthdate query, exercising the single mutually-exclusive
+        // dispatch (ApplyDateEqualitySemantics) exactly as CreateDefaultSearchExpression wires it. The scalar-temporal
+        // optimization and the containment range form are never layered: each flag combination resolves to exactly one
+        // path. VP2: a partial-precision stored birthdate (e.g. year-only '1990', stored as a multi-day range with
+        // IsLongerThanADay = true and DateTimeEnd = 1990-12-31T23:59) MATCHES under the overlap form
+        // (DateTimeStart <= hi AND DateTimeEnd >= lo) but is DROPPED under containment. The overlap predicate is
+        // present iff legacy overlap is applied; the IsLongerThanADay=false collapse appears only when the
+        // rewriter runs. No path may emit a temporal UNION.
+        [Theory]
+        [InlineData(true, true, true, false)] // both ON => End-only collapse (containment); year-only dropped
+        [InlineData(false, true, false, false)] // containment ON, rewriter OFF => containment two-predicate; year-only dropped
+        [InlineData(true, false, false, true)] // containment OFF => legacy overlap; year-only matched
+        [InlineData(false, false, false, true)] // both OFF => legacy overlap; year-only matched
+        public void DateEqualityPipeline_AcrossFlagMatrix_AppliesExpectedSemanticsAndNeverUnions(
+            bool enableScalarTemporalRewriter,
+            bool enableFhirDateContainment,
+            bool expectEndOnlyCollapse,
+            bool expectLegacyOverlap)
+        {
+            SearchParameterExpression query = BuildExactDayBirthdateEquality();
+
+            Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(
+                query, enableFhirDateContainment, enableScalarTemporalRewriter);
+
+            bool hasEndOnlyCollapse = ContainsPredicate(
+                result,
+                e => e is BinaryExpression { FieldName: SqlFieldName.DateTimeIsLongerThanADay, BinaryOperator: BinaryOperator.Equal, Value: false });
+            bool hasOverlapPredicate = ContainsPredicate(
+                result,
+                e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual });
+
+            Assert.Equal(expectEndOnlyCollapse, hasEndOnlyCollapse);
+            Assert.Equal(expectLegacyOverlap, hasOverlapPredicate);
+            Assert.False(ContainsPredicate(result, e => e is UnionExpression), "No date-equality flag combination may emit a temporal UNION.");
+        }
+
+        private static SearchParameterExpression BuildExactDayBirthdateEquality()
+        {
+            var dateParam = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            // Exact UTC calendar day (end-of-day to the tick) so the scalar-temporal rewriter collapses it.
+            var lo = new DateTimeOffset(1990, 5, 15, 0, 0, 0, TimeSpan.Zero);
+            var hi = new DateTimeOffset(1990, 5, 15, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+
+            return (SearchParameterExpression)Expression.SearchParameter(
+                dateParam,
+                Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, lo),
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, hi)));
+        }
+
+        private static SearchParameterExpression BuildDateEqualityContainmentExpression()
+        {
+            var dateParam = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                expression: "Patient.birthDate",
+                baseResourceTypes: new[] { "Patient" });
+
+            var lo = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var hi = new DateTimeOffset(2020, 1, 1, 23, 59, 59, TimeSpan.Zero);
+
+            // Core's spec-compliant containment shape: DateTimeStart >= lo AND DateTimeEnd <= hi.
+            return (SearchParameterExpression)Expression.SearchParameter(
+                dateParam,
+                Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, lo),
+                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, hi)));
+        }
+
+        private static bool ContainsPredicate(Expression expression, Func<Expression, bool> predicate)
+        {
+            if (expression == null)
+            {
+                return false;
+            }
+
+            if (predicate(expression))
+            {
+                return true;
+            }
+
+            switch (expression)
+            {
+                case SearchParameterExpression searchParameter:
+                    return ContainsPredicate(searchParameter.Expression, predicate);
+                case MultiaryExpression multiary:
+                    return multiary.Expressions.Any(e => ContainsPredicate(e, predicate));
+                case UnionExpression union:
+                    return union.Expressions.Any(e => ContainsPredicate(e, predicate));
+                default:
+                    return false;
+            }
         }
     }
 }

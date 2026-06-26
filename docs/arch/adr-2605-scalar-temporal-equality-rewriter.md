@@ -26,7 +26,9 @@ There is also discussion on if the data returned by this query is matching the F
 
 ## Status
 
- Accepted
+ Superseded by [ADR-2606](adr-2606-date-eq-containment-no-union.md)
+
+The `UnionExpression` day-split described below was a stopgap to keep legacy overlap semantics index-friendly. ADR-2606 replaces it with spec-compliant `eq` containment, under which `IsLongerThanADay = 1` rows can never be contained by a one-day window and the long branch is dead by construction — exactly the collapse this ADR anticipated. The scalar rewriter now emits the single End-only short predicate (no union) and only when both `EnableScalarTemporalEqualityRewriter` and `EnableFhirDateContainment` are enabled.
 
 ## Consequences
 
