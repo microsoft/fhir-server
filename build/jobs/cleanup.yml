@@ -2,7 +2,8 @@ jobs:
 - job: DeleteResourceGroup
   displayName: 'Delete resource group'
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   steps:
   - task: AzurePowerShell@5
     displayName: 'Delete resource group'
@@ -137,7 +138,8 @@ jobs:
 - job: deleteImage
   displayName: 'Delete Image'
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   steps:
   - task: AzureCLI@2
     displayName: 'Delete Image'

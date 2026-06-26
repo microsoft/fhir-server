@@ -17,7 +17,7 @@ variables:
 
 # Note: ARMory currently only works on Windows
 pool:
-  vmImage: '$(DefaultPoolWindowsImage)'
+  vmImage: '$(WindowsVmImage)'
 
 steps:
   - task: AzureResourceManagerTemplateDeployment@3

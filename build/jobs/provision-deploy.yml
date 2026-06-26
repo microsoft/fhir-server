@@ -37,7 +37,8 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'

@@ -27,7 +27,7 @@ stages:
   - job: cleanupAADResources
     displayName: 'Cleanup AAD Resources'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      vmImage: '$(LinuxVmImage)'
     timeoutInMinutes: 0
     steps:
     - task: AzureKeyVault@1

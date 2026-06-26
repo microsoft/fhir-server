@@ -32,7 +32,7 @@ jobs:
   displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: '$(DefaultPoolWindowsImage)'
+    vmImage: '$(WindowsVmImage)'
   steps:
   - checkout: self
     persistCredentials: True
@@ -137,7 +137,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    vmImage: '$(DefaultPoolWindowsImage)'
+    vmImage: '$(WindowsVmImage)'
 
   steps:
   - checkout: self

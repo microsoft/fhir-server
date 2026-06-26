@@ -30,7 +30,8 @@ stages:
   - job: ExtractVariables
     displayName: 'Extract PR and Build Info'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - powershell: |
         $sourceBranch = "$(resources.pipeline.prPipeline.sourceBranch)"

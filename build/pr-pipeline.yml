@@ -14,7 +14,8 @@ stages:
   jobs:
   - job: Semver
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
@@ -38,7 +39,8 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      vmImage: '$(DefaultPoolWindowsImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalWindowsImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -49,7 +51,8 @@ stages:
         codeCoverage: true
   - job: Linux_dotnet8
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -70,7 +73,8 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -88,7 +92,8 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      vmImage: '$(DefaultPoolWindowsImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalWindowsImage)'
     steps:
     - template: ./jobs/analyze.yml
 
@@ -112,7 +117,8 @@ stages:
   - job: deleteOldResourceGroups
     displayName: 'Delete Old Resource Groups'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - template: ./tasks/delete-resource-groups.yml
 
@@ -123,7 +129,8 @@ stages:
   - job: provision
     displayName: 'Create Resource Group'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
@@ -163,7 +170,8 @@ stages:
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - template: ./tasks/delete-keyvaults.yml
   - job: setup
@@ -172,13 +180,14 @@ stages:
     - cleanupAad
     - deleteKeyVaults
     pool:
-      vmImage: '$(DefaultPoolWindowsImage)'
+      vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - task: AzurePowerShell@5
       displayName: 'Create ACA Managed Environment'
@@ -460,6 +469,7 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - template: ./jobs/aggregate-coverage.yml

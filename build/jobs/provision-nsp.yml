@@ -10,7 +10,8 @@ parameters:
 jobs:
 - job: 'provisionNsp'
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   steps:
   - task: AzurePowerShell@5
     displayName: 'Create Network Security Perimeter'

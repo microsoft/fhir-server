@@ -14,7 +14,8 @@ stages:
   - job: DeleteResourceGroup
     displayName: 'Delete resource group'
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     steps:
     - task: AzurePowerShell@5
       displayName: 'Delete resource group'

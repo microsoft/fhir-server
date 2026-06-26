@@ -10,7 +10,8 @@ jobs:
 - job: scaleContainerApps
   displayName: 'Scale container apps to min=${{ parameters.minReplicas }}'
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   steps:
   - task: AzureCLI@2
     displayName: 'Set minReplicas=${{ parameters.minReplicas }} on all CI container apps'

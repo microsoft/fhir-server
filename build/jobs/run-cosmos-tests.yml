@@ -16,7 +16,8 @@ jobs:
 - job: "CosmosIntegrationTests"
   timeoutInMinutes: 75
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -118,7 +119,8 @@ jobs:
   timeoutInMinutes: 75
   dependsOn: []
   pool:
-    vmImage: '$(DefaultPoolLinuxImage)'
+    name: '$(InternalPool)'
+    vmImage: '$(InternalLinuxImage)'
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -135,7 +137,8 @@ jobs:
     timeoutInMinutes: 75
     dependsOn: []
     pool:
-      vmImage: '$(DefaultPoolLinuxImage)'
+      name: '$(InternalPool)'
+      vmImage: '$(InternalLinuxImage)'
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
