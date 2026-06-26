@@ -491,7 +491,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var lo = new DateTimeOffset(1990, 5, 15, 0, 0, 0, TimeSpan.Zero);
             var hi = new DateTimeOffset(1990, 5, 15, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
-            return (SearchParameterExpression)Expression.SearchParameter(
+            return Expression.SearchParameter(
                 dateParam,
                 Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, lo),
@@ -512,7 +512,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var hi = new DateTimeOffset(2020, 1, 1, 23, 59, 59, TimeSpan.Zero);
 
             // Core's spec-compliant containment shape: DateTimeStart >= lo AND DateTimeEnd <= hi.
-            return (SearchParameterExpression)Expression.SearchParameter(
+            return Expression.SearchParameter(
                 dateParam,
                 Expression.And(
                     Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, lo),
