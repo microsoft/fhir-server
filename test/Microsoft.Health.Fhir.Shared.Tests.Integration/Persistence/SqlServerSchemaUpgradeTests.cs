@@ -41,6 +41,7 @@ using Microsoft.SqlServer.Dac.Compare;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -50,9 +51,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerSchemaUpgradeTests
     {
         private const string MasterDatabaseName = "master";
+        private readonly ITestOutputHelper _output;
 
-        public SqlServerSchemaUpgradeTests()
+        public SqlServerSchemaUpgradeTests(ITestOutputHelper output)
         {
+            _output = output;
         }
 
         [Fact]
@@ -73,21 +76,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max);
+                _output.WriteLine($"Snapshot database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
 
                 // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version starting from the minimum supported version for upgrade
+                sw = System.Diagnostics.Stopwatch.StartNew();
                 (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade);
+
                 for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= SchemaVersionConstants.Max; version++)
                 {
                     await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+
                     if (version == SchemaVersionConstants.Max)
                     {
                         // Apply the final schema second time to avoid separate test
+                        var reapplyStopwatch = System.Diagnostics.Stopwatch.StartNew();
                         await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
                     }
                 }
 
+                _output.WriteLine($"Diff database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
+                sw = System.Diagnostics.Stopwatch.StartNew();
                 var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                _output.WriteLine($"Schema comparison completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
                 Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
