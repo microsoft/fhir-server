@@ -184,8 +184,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
 
-            // the test queue client may not be enough for these tests. will need to look back into this.
-            var queueClient = new TestQueueClient();
+            // Create the real SqlQueueClient to use throughout the fixture
+            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            _sqlQueueClient = sqlQueueClient;
+
+            // TestQueueClient is still used by test helper for export job cleanup
+            var testQueueClient = new TestQueueClient();
 
             // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
             string federatedClientID = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
@@ -199,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity, new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(azurePipelinesCredential));
             }
 
-            _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient, SchemaInformation);
+            _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, testQueueClient, SchemaInformation);
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, CancellationToken.None);
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
@@ -247,10 +251,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 importErrorSerializer,
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
-
-            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            // Create both operation data stores using the real SqlQueueClient
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+
+            // Use the real SqlQueueClient instead of TestQueueClient for IFhirOperationDataStore
+            _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");

@@ -602,12 +602,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
             };
 
-            // Start a reindex job using real queue client
+            // Create a reindex job using OperationDataStore
             var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
-            var definition = JsonConvert.SerializeObject(reindexJobRecord);
-            var jobInfos = await _fixture.QueueClient.EnqueueAsync((byte)QueueType.Reindex, [definition], null, false, CancellationToken.None);
-            var jobId = jobInfos[0].Id;
-            var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test", 0, CancellationToken.None, jobId);
+            var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
+            var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
 
             try
             {
@@ -622,7 +620,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                // Cleanup
+                // Cleanup - Cancel the reindex job
+                var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test-cleanup", 0, CancellationToken.None, jobId);
                 if (jobInfo != null)
                 {
                     jobInfo.Status = JobStatus.Cancelled;
@@ -644,13 +643,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Enabled,
                 IsPartiallySupported = false,
-                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
+                LastUpdated = DateTimeOffset.UtcNow, // no need to set value to SearchParamLastUpdated because reindex is excluded from concurrency checks
             };
 
-            // Start a reindex job using real queue client
-            var definition = JsonConvert.SerializeObject(new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>()));
-            var jobInfos = await _fixture.QueueClient.EnqueueAsync((byte)QueueType.Reindex, [definition], null, false, CancellationToken.None);
-            var jobId = jobInfos[0].Id;
+            // Start a reindex job using OperationDataStore
+            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
+            var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
+            var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
             var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test", 0, CancellationToken.None, jobId);
             Assert.NotNull(jobInfo);
 
