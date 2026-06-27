@@ -1,9 +1,9 @@
-ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint
--- @ReindexId = 0 - new code but not reindex. @ReindexId > 0 - new code and reindex.
+ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL
+-- @ReindexId IS NULL - not reindex. @ReindexId IS NOT NULL - reindex.
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' R='+convert(varchar,@ReindexId)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' R='+isnull(convert(varchar,@ReindexId),'NULL')
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@MaxLastUpdated datetimeoffset(7)
@@ -18,8 +18,6 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 SET @Mode = @Mode +' L='+isnull(convert(varchar(23),@ExpectedLastUpdated,126),'NULL')
 
 BEGIN TRY
-  IF @ReindexId IS NULL OR @ReindexId < 0 RAISERROR('@ReindexId cannot be null or negative', 18, 127)
-
   DECLARE @SearchParamsCopy dbo.SearchParamList
   INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
   WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
@@ -38,11 +36,11 @@ BEGIN TRY
   END
 
   -- check if job id is valid
-  IF @ReindexId > 0
+  IF @ReindexId IS NOT NULL AND @ReindexId <> 0 -- TODO: remove AND @ReindexId <> 0 after deployment
      AND NOT EXISTS (SELECT 1 FROM dbo.JobQueue WHERE PartitionId = @ReindexId % 16 AND QueueType = 6 AND JobId = @ReindexId AND Status = 1)
     RAISERROR('Reindex job is not running', 18, 127)
 
-  IF @ReindexId = 0
+  IF @ReindexId IS NULL OR @ReindexId = 0 -- TODO: remove OR @ReindexId = 0 after deployment
   BEGIN
     -- Check if reindex job is running
     EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUT
@@ -82,3 +80,4 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
