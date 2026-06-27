@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint
+ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint
 -- @ReindexId = 0 - new code but not reindex. @ReindexId > 0 - new code and reindex.
 AS
 set nocount on
@@ -82,16 +82,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
-GO
---DECLARE @SearchParams dbo.SearchParamList
---INSERT INTO @SearchParams
---  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---INSERT INTO @SearchParams
---  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---SELECT * FROM @SearchParams
---EXECUTE dbo.MergeSearchParams @SearchParams
---SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
---DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
---SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC
