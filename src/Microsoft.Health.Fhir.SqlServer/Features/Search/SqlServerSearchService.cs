@@ -2262,10 +2262,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             //   * Containment ON + scalar-temporal OFF: Core's spec-compliant containment predicates
             //     (DateTimeStart >= lo AND DateTimeEnd <= hi) flow straight to SQL for all date params.
             // No path emits a temporal UNION ALL.
+            //
+            // The effective flag values default to the server configuration, but may be overridden per
+            // request by the TEST-ONLY request-configuration-override middleware (no-op in production).
+            IFhirRequestContext fhirRequestContext = _requestContextAccessor.RequestContext;
+            bool enableFhirDateContainment =
+                fhirRequestContext.GetBooleanConfigurationOverride(nameof(FhirSqlServerConfiguration.EnableFhirDateContainment))
+                ?? _fhirSqlServerConfiguration.EnableFhirDateContainment;
+            bool enableScalarTemporalRewriter =
+                fhirRequestContext.GetBooleanConfigurationOverride(nameof(FhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter))
+                ?? _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter;
+
             Expression afterDateEquality = ApplyDateEqualitySemantics(
                 afterSmartCompartment,
-                _fhirSqlServerConfiguration.EnableFhirDateContainment,
-                _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter);
+                enableFhirDateContainment,
+                enableScalarTemporalRewriter);
 
             return (SqlRootExpression)afterDateEquality
                 ?.AcceptVisitor(FlatteningRewriter.Instance)

@@ -242,6 +242,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();
 
+                    // TEST-ONLY: honor per-request server configuration overrides (no-op unless explicitly enabled).
+                    // Must run after UseFhirRequestContext so the request context (and its Properties bag) exists.
+                    app.UseRequestConfigurationOverrides();
+
                     // Adding the notification here makes sure that we are publishing all the unknown/unhandled errors e.g 500 errors should be logged in RequestMetric
                     app.UseApiNotifications();
 

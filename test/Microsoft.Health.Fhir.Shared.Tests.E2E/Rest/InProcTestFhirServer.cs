@@ -89,6 +89,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
             configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
 
+            // TEST-ONLY: allow E2E tests to override allow-listed server configuration values per request
+            // (e.g. ?_config.EnableFhirDateContainment=true). Never enable this outside the test environment.
+            configuration["FhirServer:Features:SupportsRequestConfigurationOverrides"] = "true";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.
