@@ -96,10 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
-        // Month-precision QUERY over exact-day STORED birthdates. The query range (all of May 1990) both contains and
-        // overlaps every exact-day value inside it, so the result is identical under containment and overlap (default
-        // independent). The query is wider than a day, so the scalar-temporal rewriter never collapses it; this exercises
-        // the non-collapsed two-predicate date path inside a chain, which previously rode the temporal UNION.
+        // Month-precision birthdate query inside a chain exercises the non-collapsed two-predicate date path (default-independent result).
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenAChainedSearchExpressionOverBirthdateMonthPrecision_WhenSearched_ThenCorrectBundleShouldBeReturned()
@@ -159,10 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanPatient);
         }
 
-        // Reverse _has chain combined with an exact-day birthdate equality on the same (top-level) resource. Smith's
-        // stored birthdate is the exact day queried, so it matches under both containment and overlap (default
-        // independent); Truman is one day later and is excluded by the birthdate predicate. This shape — a date eq sitting
-        // beside a reverse-chain join — is one that previously broke SQL generation when the eq emitted a UNION.
+        // Reverse _has chain beside an exact-day birthdate eq — a shape that previously broke SQL generation when the eq emitted a UNION (default-independent result).
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Theory]
         [InlineData(false)]
@@ -185,9 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient);
         }
 
-        // Exact-day birthdate equality combined with _sort. Only Smith's exact-day value matches the eq under both
-        // containment and overlap (default independent). _sort drives the sort rewriter, another path that previously
-        // failed to generate SQL when the date eq produced a UNION.
+        // Exact-day birthdate eq combined with _sort — a path that previously failed SQL generation when the date eq produced a UNION (default-independent result).
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenAnExactDayBirthdateSearchWithSort_WhenSearched_ThenCorrectBundleShouldBeReturned()

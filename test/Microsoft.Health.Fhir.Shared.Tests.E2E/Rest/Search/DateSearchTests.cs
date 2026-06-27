@@ -273,9 +273,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // Tracked by AB#191826. The current default implementation instead matches partial birthdates using range overlap. For example,
                 // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
                 // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
-                // Spec-compliant containment is implemented behind the EnableFhirDateContainment flag (default off); when it is
-                // enabled, these queries return only values whose stored range is fully contained by the search range, and the
-                // container Patients ("2000", "2000-03") drop out. This test asserts the shipped default (overlap) behavior.
+                // Spec-compliant containment is available behind the EnableFhirDateContainment flag (default off); this test asserts the shipped default (overlap) behavior.
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
                 ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
 

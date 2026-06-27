@@ -13,26 +13,13 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// For allow-listed FHIR date search parameters where each resource stores a single date element
-    /// (currently <c>birthdate</c>), every stored row has <c>DateTimeStart</c> and <c>DateTimeEnd</c>
-    /// representing the date value expanded to its period boundaries. Core emits the spec-compliant
-    /// containment form for equality (<c>DateTimeStart &gt;= periodStart AND DateTimeEnd &lt;= periodEnd</c>):
-    /// the resource's stored period must sit inside the query window.
-    ///
-    /// For an exact UTC calendar day, this rewriter collapses that containment to a single predicate on
-    /// <c>DateTimeEnd</c> combined with <c>IsLongerThanADay = false</c>. A stored period longer than one
-    /// day can never be contained within a one-day window, so those rows are excluded by construction —
-    /// no <see cref="UnionExpression"/> / day-split is required, and the planner can use the filtered index
-    /// on single-day rows. Month/year-precision queries, single-sided predicates, range operators,
-    /// approximate (<c>ap</c>) expressions, composite parameters, and non-allow-listed parameters all pass
-    /// through unchanged.
-    ///
-    /// This rewriter runs on the Core expression tree before the Core-&gt;SQL conversion, and only when BOTH
-    /// the scalar-temporal flag and the system-wide FHIR date containment flag are enabled. Its End-only
-    /// output is result-equivalent to the legacy overlap form only for exact-day stored birthdates; for
-    /// partial-precision stored values it equals containment (not overlap), which is why it is gated on the
-    /// containment flag. Because its output is a terminal <c>DateTimeEnd</c> equality (not the start/end
-    /// containment shape), <see cref="DateTimeEqualityRewriter"/> never re-touches it.
+    /// For allow-listed scalar date parameters (currently <c>birthdate</c>), collapses Core's exact-day
+    /// equality containment (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) into a single
+    /// <c>DateTimeEnd</c> predicate with <c>IsLongerThanADay = false</c> — an index optimization. A stored
+    /// period longer than one day can never be contained in a one-day window, so no
+    /// <see cref="UnionExpression"/> / day-split is needed. Other precisions, range/<c>ap</c> operators, and
+    /// composite or non-allow-listed parameters pass through unchanged. Runs before the Core-&gt;SQL
+    /// conversion, and only when both the scalar-temporal and FHIR date containment flags are enabled.
     /// </summary>
     internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
@@ -154,12 +141,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return Precision.NotRewritable;
         }
 
-        // Under FHIR-spec containment, an exact-day eq matches only resources whose stored period is
-        // contained within the one-day query window. Birthdate rows are stored as exactly one full UTC
-        // day, so the containment predicates collapse to a single equality on DateTimeEnd combined with
-        // IsLongerThanADay = false. A stored period longer than one day can never be contained within a
-        // single-day window, so those rows are excluded by construction — no UNION ALL / day-split is
-        // needed, and the planner can use the filtered index on single-day rows.
+        // Birthdate rows are stored as exactly one full UTC day, so containment collapses to a single
+        // DateTimeEnd equality with IsLongerThanADay = false. A period longer than one day can never be
+        // contained in a one-day window, so those rows are excluded by construction (no UNION ALL).
         private static SearchParameterExpression BuildEndOnlyPredicate(
             SearchParameterInfo parameter,
             BinaryExpression endPredicate)

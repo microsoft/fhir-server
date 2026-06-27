@@ -2251,17 +2251,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            // Date/time equality semantics resolve to exactly ONE of three mutually-exclusive paths
-            // (the scalar-temporal optimization and the containment range form are never layered):
-            //   * Containment OFF (any scalar-temporal value): legacy overlap (DateTimeEqualityRewriter),
-            //     identical to main. The scalar-temporal rewriter NEVER runs in this state because it
-            //     cannot return non-contained rows without the removed temporal UNION ALL.
-            //   * Containment ON + scalar-temporal ON: the scalar-temporal rewriter OVERRIDES containment
-            //     for allow-listed params (birthdate only), collapsing exact-day equality to a single
-            //     End-only DateTimeEnd predicate; all other date params keep Core's containment range.
-            //   * Containment ON + scalar-temporal OFF: Core's spec-compliant containment predicates
-            //     (DateTimeStart >= lo AND DateTimeEnd <= hi) flow straight to SQL for all date params.
-            // No path emits a temporal UNION ALL.
+            // Date/time equality resolves to exactly one of three mutually-exclusive paths — legacy overlap,
+            // birthdate End-only optimization, or Core containment range — none of which emits a temporal
+            // UNION ALL. See ApplyDateEqualitySemantics for the matrix.
             Expression afterDateEquality = ApplyDateEqualitySemantics(
                 afterSmartCompartment,
                 _fhirSqlServerConfiguration.EnableFhirDateContainment,
@@ -2290,31 +2282,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Resolves the date/time equality semantics to exactly one of three mutually-exclusive paths.
-        /// The scalar-temporal equality optimization and the spec-compliant containment range form are
-        /// never layered: each branch invokes a single visitor (or none) so the two strategies stay
-        /// independent code paths.
-        /// <list type="bullet">
-        /// <item><description>
-        /// Containment disabled (any scalar-temporal value): <see cref="DateTimeEqualityRewriter"/>
-        /// weakens equality to the legacy non-spec overlap form (DateTimeStart &lt;= hi AND DateTimeEnd
-        /// &gt;= lo), identical to main. The scalar-temporal rewriter never runs because it cannot return
-        /// non-contained rows without the removed temporal UNION ALL.
-        /// </description></item>
-        /// <item><description>
-        /// Containment enabled and scalar-temporal enabled: <see cref="ScalarTemporalEqualityRewriter"/>
-        /// overrides containment for allow-listed params (birthdate only), collapsing exact-day equality to a
-        /// single End-only DateTimeEnd predicate (an index optimization). All other date params keep Core's
-        /// containment range. For partial-precision stored birthdates the End-only predicate equals
-        /// containment, not overlap, so tying it to the containment flag keeps the behavior change scoped.
-        /// </description></item>
-        /// <item><description>
-        /// Containment enabled and scalar-temporal disabled: Core's spec-compliant containment predicates
-        /// (DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi) are preserved and flow straight to SQL for all
-        /// date params.
-        /// </description></item>
-        /// </list>
-        /// No path emits a temporal UNION ALL.
+        /// Applies date/time equality semantics via exactly one of three mutually-exclusive paths: legacy
+        /// overlap (<see cref="DateTimeEqualityRewriter"/>) when containment is off; the birthdate End-only
+        /// optimization (<see cref="ScalarTemporalEqualityRewriter"/>) when containment and the scalar-temporal
+        /// flag are both on; otherwise Core's containment range form. The two strategies are never layered, and
+        /// no path emits a temporal UNION ALL.
         /// </summary>
         /// <param name="expression">The expression tree to transform. May be null.</param>
         /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
