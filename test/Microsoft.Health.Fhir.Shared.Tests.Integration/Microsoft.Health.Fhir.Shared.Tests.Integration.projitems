@@ -23,7 +23,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\DateEqualityContainmentIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlServerSearchServiceIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchSharedFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
