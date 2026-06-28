@@ -162,9 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
                                                 DisabledFhirAuthorizationService.Instance,
-                                                _optionsReindexConfig,
-                                                _searchParameterDefinitionManager,
-                                                _searchParameterOperations);
+                                                _optionsReindexConfig);
 
             _reindexSingleResourceRequestHandler = new ReindexSingleResourceRequestHandler(
                                                     DisabledFhirAuthorizationService.Instance,
