@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterStatusManager _searchParameterStatusManager;
         private CosmosClient _cosmosClient;
         private CosmosQueueClient _queueClient;
+        private TestQueueClient _testQueueClient;
         private CosmosFhirOperationDataStore _cosmosFhirOperationDataStore;
         private ISearchIndexer _searchIndexer;
 
@@ -335,6 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var queueClient = new TestQueueClient();
+            _testQueueClient = queueClient;
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 queueClient,
                 documentClient,
@@ -450,6 +452,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(ISearchIndexer))
             {
                 return _searchIndexer;
+            }
+
+            if (serviceType == typeof(TestQueueClient))
+            {
+                return _testQueueClient;
             }
 
             return null;
