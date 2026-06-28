@@ -79,15 +79,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<string>())
                 .Returns(new Uri(OperationResultUrl));
 
-            var searchService = Substitute.For<ISearchService>();
-            searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<IReadOnlyList<string>>(new List<string> { KnownResourceTypes.Patient }));
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-
             _controller = new BulkDeleteController(
                 _mediator,
-                () => scopedSearchService,
                 urlResolver);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(

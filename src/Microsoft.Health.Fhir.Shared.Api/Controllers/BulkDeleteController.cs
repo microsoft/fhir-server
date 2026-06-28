@@ -11,7 +11,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -26,8 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -40,7 +37,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class BulkDeleteController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IUrlResolver _urlResolver;
 
         private readonly HashSet<string> _excludedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
@@ -54,11 +50,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public BulkDeleteController(
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchService,
             IUrlResolver urlResolver)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
-            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
 
