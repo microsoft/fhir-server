@@ -159,7 +159,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterDataStoreValidator,
                 () => searchService.CreateMockScope(),
                 fhirDataStore.CreateMockScopeProvider(),
-                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

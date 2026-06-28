@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -16,12 +15,10 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
@@ -37,7 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
-        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
@@ -51,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
-            IResourceWrapperFactory resourceWrapperFactory,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -61,7 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
-            EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -71,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
-            _resourceWrapperFactory = resourceWrapperFactory;
             _logger = logger;
             _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
