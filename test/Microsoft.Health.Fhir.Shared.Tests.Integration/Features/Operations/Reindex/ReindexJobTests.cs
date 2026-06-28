@@ -84,14 +84,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
-        private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager2;
         private SearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;
         private IScoped<ISearchService> _searchService;
 
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
@@ -1522,7 +1520,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _fixture.DataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
-            _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 
             _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, _searchParameterSupportResolver, mediator, NullLogger<SearchParameterStatusManager>.Instance);
             await _searchParameterStatusManager2.EnsureInitializedAsync(CancellationToken.None);
