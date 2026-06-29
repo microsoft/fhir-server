@@ -217,6 +217,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _logger.LogWarning(sqlEx, "Optimistic concurrency conflict occurred while calling dbo.MergeResourcesAndSearchParams");
                             throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
                         }
+                        else if (sqlEx.IsReindexJobConflict())
+                        {
+                            _logger.LogWarning(sqlEx, "Reindex job conflict occurred while calling dbo.MergeResourcesAndSearchParams");
+                            throw new JobConflictException(sqlEx.Message);
+                        }
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
