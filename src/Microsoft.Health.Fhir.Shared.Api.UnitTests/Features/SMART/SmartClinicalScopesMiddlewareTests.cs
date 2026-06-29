@@ -856,6 +856,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.rs?subject:identifier=http://example.com|123" };
             yield return new object[] { "patient/Observation.rs?value-quantity:ofType=http://unitsofmeasure.org|mg" };
 
+            // Include/revinclude modifiers (_include:iterate is R4, _revinclude:recurse is STU3)
+            yield return new object[] { "patient/Patient.rs?_include:iterate=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?_revinclude:recurse=Observation:patient" };
+
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
         }
