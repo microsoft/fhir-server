@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 });
                 var aggregateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<Dictionary<string, long>>(aggregateException, resourceTypesDeleted);
+                throw new IncompleteOperationException<IDictionary<string, long>>(aggregateException, resourceTypesDeleted);
             }
 
             return resourceTypesDeleted;

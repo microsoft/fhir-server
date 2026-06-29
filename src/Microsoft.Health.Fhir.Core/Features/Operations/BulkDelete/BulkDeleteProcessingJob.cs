@@ -98,7 +98,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    result.Issues.Add(ex.Message);
+
+                    if (ex.InnerException is AggregateException aggEx && aggEx.InnerExceptions.Any(ie => ie is JobConflictException))
+                    {
+                        var conflictEx = aggEx.InnerExceptions.OfType<JobConflictException>().First();
+                        result.Issues.Add($"JobConflictException: {conflictEx.Message}");
+                    }
+                    else
+                    {
+                        result.Issues.Add(ex.Message);
+                    }
+
                     exception = ex;
                 }
 

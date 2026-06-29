@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Threading;
@@ -1155,6 +1156,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GivenSearchParamBulkDelete_WhenReindexIsRunning_ThenJobFailsWithConflict()
+        {
+            var code = "bulk-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"SearchParameter/$bulk-delete?url={Uri.EscapeDataString(searchParam.Url)}");
+            bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
+
+            var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var location = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location);
+
+            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
+            Assert.Equal(HttpStatusCode.Conflict, jobResult.Response.StatusCode);
+
+            var issuesParam = jobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "Issues");
+            Assert.NotNull(issuesParam);
+            var issueResource = issuesParam.Resource as OperationOutcome;
+            Assert.NotNull(issueResource);
+            Assert.NotEmpty(issueResource.Issue);
+
+            var conflictIssue = issueResource.Issue.FirstOrDefault(i => i.Code == OperationOutcome.IssueType.Conflict);
+            Assert.NotNull(conflictIssue);
+            Assert.Contains("reindex", conflictIssue.Details.Text, StringComparison.OrdinalIgnoreCase);
         }
 
         // left as async to minimize changes
