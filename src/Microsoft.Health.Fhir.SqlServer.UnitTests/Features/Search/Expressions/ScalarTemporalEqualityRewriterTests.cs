@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -67,6 +69,35 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 baseResourceTypes: new[] { "Patient" });
         }
 
+        private static SearchParameterInfo BuildReferenceParam()
+        {
+            return new SearchParameterInfo(
+                "Observation-patient",
+                "patient",
+                SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/Observation-patient"),
+                expression: "Observation.subject",
+                baseResourceTypes: new[] { "Observation" },
+                targetResourceTypes: new[] { "Patient" });
+        }
+
+        private static ChainedExpression BuildChainedExpression(Expression inner)
+        {
+            var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
+            SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
+            SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
+            SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
+            return expression;
+        }
+
+        private static void SetBackingField<T>(ChainedExpression expression, string propertyName, T value)
+        {
+            FieldInfo field = typeof(ChainedExpression).GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+            field.SetValue(expression, value);
+        }
+
         private static MultiaryExpression EqualityPattern(DateTimeOffset start, DateTimeOffset end) =>
             Expression.And(
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
@@ -78,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(start, end));
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
 
             AssertDaySplitUnion(result, start, end);
         }
@@ -91,9 +122,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
             var expr = new SearchParameterExpression(BuildBirthdateParam(), reversedPattern);
 
-            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null);
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
 
             AssertDaySplitUnion(result, StartOfDay, EndOfDay);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough()
+        {
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = BuildChainedExpression(inner);
+
+            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.Same(inner, result.Expression);
         }
 
         [Theory]
@@ -102,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), inner);
 
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(expr, result);
         }
@@ -113,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var expr = new SearchParameterExpression(param, EqualityPattern(StartOfDay, EndOfDay));
 
-            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, null));
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
             Assert.Same(expr, result);
         }

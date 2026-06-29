@@ -11,9 +11,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class SearchParamListRowGenerator : ITableValuedParameterRowGenerator<List<ResourceSearchParameterStatus>, SearchParamListRow>
+    internal class SearchParamListRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceSearchParameterStatus>, SearchParamListRow>
     {
-        public IEnumerable<SearchParamListRow> GenerateRows(List<ResourceSearchParameterStatus> searchParameterStatuses)
+        public IEnumerable<SearchParamListRow> GenerateRows(IReadOnlyList<ResourceSearchParameterStatus> searchParameterStatuses)
         {
             return searchParameterStatuses.Select(searchParameterStatus => new SearchParamListRow(
                     searchParameterStatus.Uri.OriginalString,

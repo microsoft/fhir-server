@@ -136,42 +136,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
-            if (searchParameterUris.Count == 0)
-            {
-                return;
-            }
-
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri.OriginalString, StringComparer.Ordinal);
-
+            var statuses = new List<ResourceSearchParameterStatus>();
             foreach (string uri in searchParameterUris)
             {
                 _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                // Validate that the search parameter exists in the definition manager
-                _searchParameterDefinitionManager.GetSearchParameter(uri);
+                // Validate that the search parameter exists in the definition manager.
+                // This makes sense only for status other than Deleted.
+                if (status != SearchParameterStatus.Deleted)
+                {
+                    _searchParameterDefinitionManager.GetSearchParameter(uri);
+                }
 
-                if (parameters.TryGetValue(uri, out var existingStatus))
+                // It does not make sense to keep any of existing ResourceSearchParameterStatus components as results do not depend on them.
+                statuses.Add(new ResourceSearchParameterStatus
                 {
-                    existingStatus.Status = status;
-                    searchParameterStatusList.Add(existingStatus);
-                }
-                else
-                {
-                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
-                    {
-                        Status = status,
-                        Uri = new Uri(uri),
-                    });
-                }
+                    Status = status,
+                    Uri = new Uri(uri),
+                    LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow,
+                });
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken, reindexId);
+            await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken, reindexId);
         }
 
         public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)

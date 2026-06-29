@@ -14,8 +14,9 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
@@ -39,9 +40,9 @@ stages:
   jobs:
   - job: Windows_dotnet9
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -52,8 +53,9 @@ stages:
         codeCoverage: true
   - job: Linux_dotnet8
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -74,8 +76,9 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -96,9 +99,9 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -122,8 +125,9 @@ stages:
   - job: deleteOldResourceGroups
     displayName: 'Delete Old Resource Groups'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-resource-groups.yml
 
@@ -134,8 +138,9 @@ stages:
   - job: provision
     displayName: 'Create Resource Group'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
@@ -175,15 +180,17 @@ stages:
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-keyvaults.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: 'Create ACA Managed Environment'
@@ -252,6 +259,7 @@ stages:
     dependsOn:
     - cleanupAad
     pool:
+      name: '$(AzurePipelinesPool)'
       vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
@@ -614,7 +622,8 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml

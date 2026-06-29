@@ -9,8 +9,9 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Restart Container App'

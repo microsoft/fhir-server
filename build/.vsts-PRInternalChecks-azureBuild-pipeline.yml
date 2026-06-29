@@ -7,16 +7,16 @@ parameters:
   default: none   
 
 variables:
-- name: vmImage
-  value: windows-latest
-  
+- template: build-variables.yml
+
 jobs:
 
 - job: Phase_1
   displayName: PR Internal Checks for fhir-server - build and restore phase
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: $(vmImage)
+    name: '$(AzurePipelinesPool)'
+    vmImage: '$(WindowsVmImage)'
 
   steps:
   - checkout: self

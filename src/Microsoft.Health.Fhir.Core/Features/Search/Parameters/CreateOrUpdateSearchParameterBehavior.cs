@@ -15,6 +15,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -28,26 +29,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IFhirDataStore _fhirDataStore;
-        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public CreateOrUpdateSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
             IFhirDataStore fhirDataStore,
-            ISearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchParameterOperations = searchParameterOperations;
             _fhirDataStore = fhirDataStore;
-            _searchParameterStatusManager = searchParameterStatusManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _requestContextAccessor = requestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
         }
@@ -56,13 +57,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
-
                 // Before committing the SearchParameter resource to the data store, validate the parameter type
-                await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                var url = request.Resource.Instance.GetStringScalar("url");
-                await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
+                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+
+                // Allow the resource to be updated with the normal handler
+                return await next(cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -90,38 +91,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     prevSearchParamResource = null;
                 }
 
-                var refreshCache = request.BundleResourceContext == null || !request.BundleResourceContext.IsParallelBundle;
+                var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
-                    // Validate any changes to the fhirpath or the datatype
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
-
                     var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        await QueueStatusAsync(previousUrl, SearchParameterStatus.Deleted, cancellationToken);
+                        QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
                     }
 
-                    await QueueStatusAsync(newUrl, SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
                 }
                 else
                 {
                     // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, refreshCache);
-
-                    var url = request.Resource.Instance.GetStringScalar("url");
-                    await QueueStatusAsync(url, SearchParameterStatus.Supported, cancellationToken);
+                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
                 }
+
+                // Now allow the resource to updated per the normal behavior
+                return await next(cancellationToken);
             }
 
             // Now allow the resource to updated per the normal behavior
             return await next(cancellationToken);
         }
 
-        private async Task QueueStatusAsync(string url, SearchParameterStatus status, CancellationToken cancellationToken)
+        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -134,30 +132,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
-                value is not List<ResourceSearchParameterStatus> pendingStatuses)
-            {
-                pendingStatuses = new List<ResourceSearchParameterStatus>();
-                context.Properties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] = pendingStatuses;
-            }
-
-            var currentStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var existing = currentStatuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
+            _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(url),
                 Status = status,
-                LastUpdated = existing?.LastUpdated ?? DateTimeOffset.UtcNow,
+                LastUpdated = lastUpdated,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
             };
 
-            lock (pendingStatuses)
-            {
-                pendingStatuses.RemoveAll(s => string.Equals(s.Uri?.OriginalString, url, StringComparison.Ordinal));
-                pendingStatuses.Add(update);
-            }
+            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }

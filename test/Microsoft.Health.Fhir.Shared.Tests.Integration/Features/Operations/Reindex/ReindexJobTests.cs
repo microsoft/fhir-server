@@ -153,6 +153,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
@@ -328,7 +330,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     try
                     {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
                     }
                     catch (Exception)
                     {
@@ -517,6 +519,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenPendingDeleteWithoutResource_AfterReindex_ThenStatusIsDeleted()
+        {
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
+
+            try
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    [searchParam.Url],
+                    SearchParameterStatus.PendingDelete,
+                    CancellationToken.None,
+                    lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
+
+                var key = new ResourceKey("SearchParameter", searchParam.Id);
+                var resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.NotNull(resource);
+                await _fixture.DataStore.HardDeleteAsync(key, false, false, CancellationToken.None);
+                resource = await _fixture.DataStore.GetAsync(key, CancellationToken.None);
+                Assert.Null(resource);
+
+                var request = new CreateReindexRequest(new List<string>(), new List<string>());
+                var response = await SetUpForReindexing(request);
+                using var cancellationTokenSource = new CancellationTokenSource();
+                await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+
+                var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
+                var paramStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParam.Url);
+                Assert.NotNull(paramStatus);
+                Assert.Equal(SearchParameterStatus.Deleted, paramStatus.Status);
+            }
+            finally
+            {
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+            }
+        }
+
+        [Fact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -542,7 +582,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 #else
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/CanonicalResource-name");
 #endif
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default);
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default, lastUpdated: _searchParameterOperations.SearchParamLastUpdated);
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
@@ -1240,6 +1282,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterStatusManager,
                 NullLogger<ReindexProcessingJob>.Instance);
 
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
             var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(resultJson);
 
@@ -1372,40 +1416,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _fixture.Mediator.UpsertResourceAsync(searchParam.ToResourceElement());
 
-            if (!_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
-            {
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
-            }
-
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
-                new List<string> { searchParam.Url },
-                SearchParameterStatus.Supported,
-                CancellationToken.None);
-
-            // These tests start a background cache refresh loop, so a zero-wait refresh can
-            // skip the one apply that populates the SQL search-parameter URI->ID mapping.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
             return searchParam;
-        }
-
-        private async Task<SearchResult> SearchForSearchParameterByUrlAsync(string searchParamUrl, CancellationToken cancellationToken, int maxAttempts = 10, int delayMilliseconds = 200)
-        {
-            SearchResult result = null;
-            var queryParams = new List<Tuple<string, string>> { new("url", searchParamUrl) };
-
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                result = await _searchService.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (result.Results.Any())
-                {
-                    return result;
-                }
-
-                await Task.Delay(delayMilliseconds, cancellationToken);
-            }
-
-            return result;
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
@@ -1524,6 +1537,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                _resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

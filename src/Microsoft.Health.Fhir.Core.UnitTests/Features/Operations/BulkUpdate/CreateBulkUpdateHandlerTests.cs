@@ -348,6 +348,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     new Tuple<string, string>("_lastUpdated", "value3"),
                 },
             };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>(),
+            };
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
 
         private readonly int _maxExecutionTimeInSeconds;
-        private readonly bool _ensureAtomicOperations = false;
+        private readonly bool _isBundleTransaction = false;
 
         /// <summary>
         /// List of resource to be sent to the data layer.
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _dataStore = null;
 
             _maxExecutionTimeInSeconds = maxExecutionTimeInSeconds;
-            _ensureAtomicOperations = type == BundleOrchestratorOperationType.Transaction;
+            _isBundleTransaction = type == BundleOrchestratorOperationType.Transaction;
         }
 
         public Guid Id { get; private set; }
@@ -399,8 +399,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     // Bundle Orchestrator operations will not enlist to C# transactions.
                     // The database will be responsible for handling it internally.
-                    // For Transaction, atomicity will be ensured based on the 'ensureAtomicOperations' flag.
-                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, ensureAtomicOperations: _ensureAtomicOperations);
+                    // For Transaction, atomicity will be ensured based on the 'isBundleTransaction' flag.
+                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, isBundleTransaction: _isBundleTransaction);
 
                     // 2 - Merge all resources in the database.
                     MergeOutcome mergeOutcome = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);

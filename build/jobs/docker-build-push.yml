@@ -12,8 +12,9 @@ parameters:
 jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'

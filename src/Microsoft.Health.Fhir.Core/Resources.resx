@@ -444,6 +444,9 @@
   <data name="TypeNotPresent" xml:space="preserve">
     <value>Bundle type is not present. Possible values are: transaction or batch</value>
   </data>
+  <data name="UnsupportedBundleType" xml:space="preserve">
+    <value>The provided Bundle type is not supported. Supported values are: batch and transaction.</value>
+  </data>
   <data name="UnableToDeleteSecret" xml:space="preserve">
     <value>Unable to delete secret from SecretStore</value>
   </data>
@@ -875,5 +878,11 @@
   </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
+  </data>
+  <data name="SearchParameterConcurrencyConflict" xml:space="preserve">
+    <value>Optimistic concurrency conflict detected while writing custom search parameter(s). Make sure that custom search parameters are not written in parallel. Consider sequential writes or a bundle.</value>
+  </data>
+  <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
+    <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
   </data>
 </root>

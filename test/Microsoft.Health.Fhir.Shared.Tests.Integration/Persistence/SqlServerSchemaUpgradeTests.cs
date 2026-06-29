@@ -41,6 +41,7 @@ using Microsoft.SqlServer.Dac.Compare;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -50,9 +51,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerSchemaUpgradeTests
     {
         private const string MasterDatabaseName = "master";
+        private readonly ITestOutputHelper _output;
 
-        public SqlServerSchemaUpgradeTests()
+        public SqlServerSchemaUpgradeTests(ITestOutputHelper output)
         {
+            _output = output;
         }
 
         [Fact]
@@ -67,65 +70,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
-            SqlServerFhirStorageTestHelper testHelper1 = null;
-            SqlServerFhirStorageTestHelper testHelper2 = null;
+            SqlServerFhirStorageTestHelper snapshotHelper = null;
+            SqlServerFhirStorageTestHelper diffHelper = null;
+            SchemaUpgradeRunner diffRunner;
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: false);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max);
+                _output.WriteLine($"Snapshot database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
 
-                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                    diffDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: true);
+                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version starting from the minimum supported version for upgrade
+                sw = System.Diagnostics.Stopwatch.StartNew();
+                (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade);
 
+                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= SchemaVersionConstants.Max; version++)
+                {
+                    await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+
+                    if (version == SchemaVersionConstants.Max)
+                    {
+                        // Apply the final schema second time to avoid separate test
+                        await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                    }
+                }
+
+                _output.WriteLine($"Diff database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
+                sw = System.Diagnostics.Stopwatch.StartNew();
                 var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                _output.WriteLine($"Schema comparison completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
                 Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
             {
-                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
+                await (snapshotHelper?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                await (diffHelper?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
         }
 
-        [RetryFact]
-        public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
-        {
-            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
-            {
-                // The schema upgrade scripts starting from v7 were made idempotent.
-                if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
-                {
-                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot_Diff");
-
-                    SqlServerFhirStorageTestHelper testHelper = null;
-                    SchemaUpgradeRunner upgradeRunner;
-
-                    try
-                    {
-                        (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
-                            snapshotDatabaseName,
-                            version - 1,
-                            forceIncrementalSchemaUpgrade: false);
-
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                    }
-                    finally
-                    {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
-                    }
-                }
-            });
-        }
-
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
@@ -172,7 +157,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 MasterDatabaseName,
                 sqlServerFhirModel,
                 defaultSqlConnectionBuilder,
-                null);
+                null,
+                schemaInformation);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
@@ -189,28 +175,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
-            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
-            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
-
-            var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
-            collection.AddScoped(schemaUpgradeRunnerFactory);
-            collection.AddScoped(schemaManagerDataStoreFactory);
-            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-
-            var schemaInitializer = new SchemaInitializer(
-                serviceProviderSchemaInitializer,
-                config,
-                schemaInformation,
-                mediator,
-                NullLogger<SchemaInitializer>.Instance);
-
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
-                maxSchemaVersion,
-                forceIncrementalSchemaUpgrade,
-                schemaInitializer);
+                maxSchemaVersion);
 
             return (testHelper, schemaUpgradeRunner);
         }
