@@ -18,7 +18,7 @@ The insight that removes it: under **containment**, a stored period longer than 
 
 Add **`EnableFhirDateContainment`** to `FhirSqlServerConfiguration` (config key `FhirSqlServer:EnableFhirDateContainment`, env override `FhirSqlServer__EnableFhirDateContainment`) and pair it with the existing **`EnableScalarTemporalEqualityRewriter`**. The temporal `UNION ALL` is removed regardless of flag values.
 
-| `EnableScalarTemporalEqualityRewriter` | `EnableFhirDateContainment` | `ScalarTemporalEqualityRewriter` | `DateTimeEqualityRewriter` (overlap) | birthdate `eq` | other date `eq`/`ap` | union |
+| `EnableScalarTemporalEqualityRewriter` | `EnableFhirDateContainment` | `ScalarTemporalEqualityRewriter` | `DateTimeEqualityRewriter` (overlap) | birthdate `eq` | other date `eq` | union |
 |---|---|---|---|---|---|---|
 | on | on | runs → End-only predicate | skipped | End-only seek (containment) | containment | none |
 | off | on | does not run | skipped | Core containment | containment | none |
@@ -27,11 +27,13 @@ Add **`EnableFhirDateContainment`** to `FhirSqlServerConfiguration` (config key 
 
 The rewriter runs **only when both flags are on**, emitting a single `IsLongerThanADay = 0 AND DateTimeEnd = endOfDay` predicate (the index optimization above) — never a `UnionExpression`. Overlap weakening is skipped iff containment is on, so Core's containment flows to SQL for every date parameter.
 
+`ap` is independent of both flags. Per spec `ap` means *overlap*, so `SearchValueExpressionBuilderHelper` now emits the overlap shape (`DateTimeStart <= hi′ AND DateTimeEnd >= lo′`, widened bounds) for `ap` directly. It never relies on `DateTimeEqualityRewriter`, so skipping that rewriter under containment leaves `ap` unchanged — always overlap, in every flag combination.
+
 Both flags gate the rewriter on purpose: the End-only predicate equals containment, not overlap, for partial-precision stored birthdates (e.g. `birthDate = '1990'`, stored as `IsLongerThanADay = 1`). Tying it to the containment flag keeps the off path a true legacy kill-switch identical to `main`.
 
 **Defaults are `false`.** Off removes the union out of the box and behaves identically to `main` (SQL and Cosmos); containment is a one-line opt-in. `EnableScalarTemporalEqualityRewriter` (shipped `true` on `main`) is also defaulted off here, so enabling containment alone yields pure Core containment and the birthdate End-only optimization stays a further explicit opt-in.
 
-**Scope is SQL-only.** The flag lives in `FhirSqlServerConfiguration`; Cosmos stays on overlap (a Core-level containment flag is a follow-up). `ap` shares `eq`'s expression shape by the time the rewriter runs, so it rides the same flag — acceptable since `ap` is fuzzy by spec.
+**Scope is SQL-only.** The flag lives in `FhirSqlServerConfiguration`; Cosmos stays on overlap (a Core-level containment flag is a follow-up). `ap` is unaffected: Core emits it as spec overlap directly (see the Decision note above), so only `eq` rides this flag.
 
 ## Status
 

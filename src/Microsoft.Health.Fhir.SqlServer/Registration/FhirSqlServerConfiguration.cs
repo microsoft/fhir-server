@@ -34,12 +34,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         public bool EnableScalarTemporalEqualityRewriter { get; set; } = false;
 
         /// <summary>
-        /// When true, date/time equality (<c>eq</c>, and the equivalently-shaped <c>ap</c>) uses the FHIR-spec
-        /// containment form Core already emits (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) instead
-        /// of the legacy overlap form, so no temporal <c>UNION ALL</c> is emitted. This is a search-result
-        /// behavior change: a finer-precision query (e.g. an exact day) no longer matches a coarser stored
-        /// value (e.g. a month or year). Disabled by default so out-of-the-box behavior matches the legacy
-        /// overlap semantics; opt in via <c>FhirSqlServer:EnableFhirDateContainment=true</c> (or env var
+        /// When true, date/time <c>eq</c> equality uses the FHIR-spec containment form Core already emits
+        /// (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) instead of the legacy overlap form, so no
+        /// temporal <c>UNION ALL</c> is emitted. (<c>ap</c> is unaffected — Core emits it as spec overlap
+        /// directly.) This is a search-result behavior change: a finer-precision query (e.g. an exact day)
+        /// no longer matches a coarser stored value (e.g. a month or year). Disabled by default so
+        /// out-of-the-box behavior matches the legacy overlap semantics; opt in via
+        /// <c>FhirSqlServer:EnableFhirDateContainment=true</c> (or env var
         /// <c>FhirSqlServer__EnableFhirDateContainment=true</c>). Tracked alongside AB#191826.
         /// </summary>
         public bool EnableFhirDateContainment { get; set; } = false;
