@@ -48,9 +48,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             TimeSpan.FromMilliseconds(100));
 
         // FHIR search modifiers built from the SearchModifierCode enum: https://hl7.org/fhir/R4/codesystem-search-modifier-code.html
+        // The "iterate" (R4) and "recurse" (STU3) literals are the _include/_revinclude modifiers, which are not part of
+        // the SearchModifierCode value set, so they are added explicitly to ensure scopes like "_include:iterate=..." are rejected.
         private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(
             Enum.GetValues<SearchModifierCode>()
-                .Select(m => m.GetLiteral()),
+                .Select(m => m.GetLiteral())
+                .Concat(new[] { "iterate", "recurse" }),
             StringComparer.OrdinalIgnoreCase);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
