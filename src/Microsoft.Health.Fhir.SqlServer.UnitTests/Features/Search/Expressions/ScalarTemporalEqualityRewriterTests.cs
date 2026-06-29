@@ -138,6 +138,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inner, result.Expression);
         }
 
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInsideUnionExpression_WhenRewritten_ThenPassThroughWithoutNestedUnion()
+        {
+            // The day-split rewrite emits a UnionExpression, which cannot be nested inside another
+            // UnionExpression (e.g. the SMART v2 scope union built in SearchOptionsFactory). When the
+            // eligible birthdate equality is already inside a union, the rewrite must be suppressed so no
+            // invalid nested union is produced.
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var union = Expression.Union(UnionOperator.All, new Expression[] { Expression.And(inner) });
+
+            var result = Assert.IsType<UnionExpression>(union.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.Same(union, result);
+            Assert.DoesNotContain(result.Expressions, e => e is UnionExpression);
+        }
+
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
         public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)

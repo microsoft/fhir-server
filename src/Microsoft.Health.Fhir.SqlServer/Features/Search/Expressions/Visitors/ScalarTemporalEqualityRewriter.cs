@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new ChainedExpression(expression.ResourceTypes, expression.ReferenceSearchParameter, expression.TargetResourceTypes, expression.Reversed, visitedExpression);
         }
 
+        public override Expression VisitUnion(UnionExpression expression, bool context)
+        {
+            // The day-split rewrite emits a UnionExpression, which cannot be nested inside another
+            // UnionExpression (e.g. the SMART v2 scope union built in SearchOptionsFactory). Suppress the
+            // rewrite for anything inside an existing union by visiting children with context: true so the
+            // scalar date equality passes through unchanged and no invalid nested union is produced.
+            return base.VisitUnion(expression, context: true);
+        }
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
         {
             if (context)
