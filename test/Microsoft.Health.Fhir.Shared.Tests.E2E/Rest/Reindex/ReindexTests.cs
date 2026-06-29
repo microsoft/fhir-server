@@ -1183,8 +1183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             var issuesParam = jobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "Issues");
             Assert.NotNull(issuesParam);
-            var issueResource = issuesParam.Resource as OperationOutcome;
-            Assert.NotNull(issueResource);
+            var issueResource = Assert.IsType<OperationOutcome>(issuesParam.Resource);
             Assert.NotEmpty(issueResource.Issue);
 
             var conflictIssue = issueResource.Issue.FirstOrDefault(i => i.Code == OperationOutcome.IssueType.Conflict);
