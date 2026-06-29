@@ -2282,11 +2282,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Applies date/time equality semantics via exactly one of three mutually-exclusive paths: legacy
-        /// overlap (<see cref="DateTimeEqualityRewriter"/>) when containment is off; the birthdate End-only
-        /// optimization (<see cref="ScalarTemporalEqualityRewriter"/>) when containment and the scalar-temporal
-        /// flag are both on; otherwise Core's containment range form. The two strategies are never layered, and
-        /// no path emits a temporal UNION ALL.
+        /// Selects exactly one of three mutually-exclusive date/time equality strategies — legacy overlap
+        /// (<see cref="DateTimeEqualityRewriter"/>), the birthdate End-only optimization
+        /// (<see cref="ScalarTemporalEqualityRewriter"/>), or Core's containment range. The strategies are
+        /// never layered and no path emits a temporal UNION ALL.
         /// </summary>
         /// <param name="expression">The expression tree to transform. May be null.</param>
         /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
