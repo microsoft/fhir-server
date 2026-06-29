@@ -1145,14 +1145,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
 
             FhirClientException exception;
-            if (hardDelete)
-            {
-                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.HardDeleteAsync(created.Resource));
-            }
-            else
-            {
-                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync(created.Resource));
-            }
+            exception = hardDelete
+                ? await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.HardDeleteAsync(created.Resource))
+                : await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync(created.Resource));
 
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
