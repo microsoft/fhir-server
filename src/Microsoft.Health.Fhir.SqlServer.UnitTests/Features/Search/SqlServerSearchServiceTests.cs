@@ -404,41 +404,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void ApplyDateEqualitySemantics_WhenContainmentEnabled_PreservesContainmentAndEmitsNoOverlap()
+        public void ApplyDateEqualitySemantics_WhenContainmentEnabledAndScalarOff_PassesExpressionThroughUnchanged()
         {
-            SearchParameterExpression containment = BuildDateEqualityContainmentExpression();
+            SearchParameterExpression containment = BuildExactDayBirthdateEquality();
 
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: true, enableScalarTemporalRewriter: false);
 
-            // Containment ON (scalar-temporal OFF) => DateTimeEqualityRewriter is bypassed and the expression flows through unchanged.
+            // Behavior unique to this combination: no rewriter runs, so Core's containment range reaches SQL
+            // by reference. The no-overlap / no-union semantics are already covered by the flag matrix below.
             Assert.Same(containment, result);
-            Assert.False(
-                ContainsPredicate(result, e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual }),
-                "Containment must not emit the overlap (DateTimeStart <= hi) predicate.");
-            Assert.False(ContainsPredicate(result, e => e is UnionExpression), "Containment must not emit a temporal UNION.");
-        }
-
-        [Fact]
-        public void ApplyDateEqualitySemantics_WhenContainmentDisabled_WeakensToOverlapWithoutUnion()
-        {
-            SearchParameterExpression containment = BuildDateEqualityContainmentExpression();
-
-            Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: false, enableScalarTemporalRewriter: false);
-
-            // Containment OFF => legacy overlap is applied (adds DateTimeStart <= hi) but never a UNION.
-            Assert.NotSame(containment, result);
-            Assert.True(
-                ContainsPredicate(result, e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual }),
-                "Legacy overlap must add the (DateTimeStart <= hi) predicate.");
-            Assert.False(ContainsPredicate(result, e => e is UnionExpression), "Neither date-equality path may emit a temporal UNION.");
         }
 
         [Fact]
         public void ApplyDateEqualitySemantics_WhenExpressionIsNull_ReturnsNull()
         {
+            // The null guard short-circuits before either flag is read, so one combination proves the contract
+            // the caller relies on: a filterless search passes its null expression straight through.
             Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: true));
-            Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: false));
-            Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: false, enableScalarTemporalRewriter: false));
         }
 
         // Full date-equality flag matrix for an EXACT-DAY birthdate query, exercising the single mutually-exclusive
@@ -491,27 +473,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var lo = new DateTimeOffset(1990, 5, 15, 0, 0, 0, TimeSpan.Zero);
             var hi = new DateTimeOffset(1990, 5, 15, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
-            return Expression.SearchParameter(
-                dateParam,
-                Expression.And(
-                    Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, lo),
-                    Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, hi)));
-        }
-
-        private static SearchParameterExpression BuildDateEqualityContainmentExpression()
-        {
-            var dateParam = new SearchParameterInfo(
-                "birthdate",
-                "birthdate",
-                SearchParamType.Date,
-                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-                expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" });
-
-            var lo = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            var hi = new DateTimeOffset(2020, 1, 1, 23, 59, 59, TimeSpan.Zero);
-
-            // Core's spec-compliant containment shape: DateTimeStart >= lo AND DateTimeEnd <= hi.
             return Expression.SearchParameter(
                 dateParam,
                 Expression.And(
