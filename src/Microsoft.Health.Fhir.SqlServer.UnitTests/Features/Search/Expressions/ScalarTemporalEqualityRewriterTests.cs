@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class ScalarTemporalEqualityRewriterTests
+    public class ScalarTemporalEqualityRewriterTests : IClassFixture<ModelInfoProviderFixture>
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
@@ -29,6 +30,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+
+        // The shared fixture initializes the static ModelInfoProvider with a compartment-aware
+        // provider. The ChainedExpression rewrite test below relies on that provider being set,
+        // and using the shared fixture (rather than mutating the global inline) keeps this class
+        // from clobbering the provider other parallel test classes depend on.
+        public ScalarTemporalEqualityRewriterTests(ModelInfoProviderFixture fixture)
+        {
+            _ = fixture;
+        }
 
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
@@ -143,9 +153,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicate()
         {
             // Rewriting the inner predicate forces the base visitor to rebuild the ChainedExpression,
-            // whose constructor validates resource/target types against the static ModelInfoProvider.
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
-
+            // whose constructor validates resource/target types against the static ModelInfoProvider
+            // (initialized by the shared ModelInfoProviderFixture).
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner);
 
