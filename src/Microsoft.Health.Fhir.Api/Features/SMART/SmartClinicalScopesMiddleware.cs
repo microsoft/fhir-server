@@ -296,6 +296,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         else
                         {
                             smartV2AccessLevelUsed = true;
+
+                            // A v2 access level is a set of distinct permission letters from "cruds". The regex
+                            // ([cruds]+) also matches repeated letters (e.g. "rrrrrs"), which are malformed even
+                            // though they would idempotently OR the same DataActions flag. Reject duplicates so a
+                            // malformed access level is not silently accepted.
+                            if (accessLevel.Distinct().Count() != accessLevel.Length)
+                            {
+                                throw new BadHttpRequestException(string.Format(
+                                    Api.Resources.SmartScopeInvalidSearchParameters,
+                                    match.Value.Trim()));
+                            }
                         }
 
                         // If both types are detected, throw an error.

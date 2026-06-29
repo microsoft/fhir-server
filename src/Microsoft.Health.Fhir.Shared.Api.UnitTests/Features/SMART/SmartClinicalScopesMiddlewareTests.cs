@@ -1008,6 +1008,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // modifier/chained checks and were silently dropped (fail-open).
             yield return new object[] { "patient/Observation.rs?code:exact=a=b" };          // modifier hidden behind extra '='
             yield return new object[] { "patient/Observation.rs?identifier=x?mrn=12345" };  // extra '=' in value
+
+            // v2 access level with duplicate permission letters (e.g. "rrrrrs"): the regex [cruds]+ accepts
+            // repeats, but a duplicated letter is malformed and must be rejected.
+            yield return new object[] { "patient/Observation.rrrrrs" }; // duplicate 'r'
+            yield return new object[] { "patient/Observation.rss" };    // duplicate 's'
+            yield return new object[] { "user/Patient.crudss" };        // duplicate 's'
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
