@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
                 .Returns(_ => throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict));
 
-            var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(async () =>
                 await _service.DeleteMultipleAsync(request, CancellationToken.None));
 
             Assert.Contains(" Deletion.3", exception.InnerException.Message);
