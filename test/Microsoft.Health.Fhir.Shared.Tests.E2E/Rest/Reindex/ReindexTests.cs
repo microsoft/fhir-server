@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 foreach (var code in codes)
                 {
-                    var searchParam = CreateSearchParameterForPerson(code, $"{urlPrefix}{code}");
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
                 }
 
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             async Task<FhirResponse> CreatePersonSearchParamAsync(string code, bool isBundle, bool isParal)
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-                var searchParam = CreateSearchParameterForPerson(code, $"{urlPrefix}{code}");
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
 
                 if (isBundle)
                 {
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 foreach (var code in codes)
                 {
-                    var searchParam = CreateSearchParameterForPerson(code, $"{urlPrefix}{code}");
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
                 }
 
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
                 var id = ids[0];
-                var searchParam = CreateSearchParameterForPerson(code, $"{urlPrefix}c-1", id);
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}c-1", id);
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
                 id = ids[1];
@@ -544,7 +544,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     var code = codes[i];
                     var id = ids[i];
-                    var searchParam = CreateSearchParameterForPerson(code, urls[i], id);
+                    var searchParam = CreatePersonSearchParam(code, urls[i], id);
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
                 }
 
@@ -1116,6 +1116,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
+        [Fact]
+        public async Task GivenSearchParamCreate_WhenReindexIsRunning_ThenConflictIsReturned()
+        {
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var code = "conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.CreateAsync(searchParam));
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
         // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
@@ -1206,7 +1220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private SearchParameter CreateSearchParameterForPerson(string code, string url, string id = null)
+        private SearchParameter CreatePersonSearchParam(string code, string url, string id = null)
         {
 #if R5
             var resourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
