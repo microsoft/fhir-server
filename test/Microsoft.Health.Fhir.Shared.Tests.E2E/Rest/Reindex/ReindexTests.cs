@@ -1130,6 +1130,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamDelete_WhenReindexIsRunning_ThenConflictIsReturned(bool hardDelete)
+        {
+            var code = hardDelete ? "hard-delete-conflict-test" : "soft-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            FhirClientException exception;
+            if (hardDelete)
+            {
+                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.HardDeleteAsync(created.Resource));
+            }
+            else
+            {
+                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync(created.Resource));
+            }
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
         // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
