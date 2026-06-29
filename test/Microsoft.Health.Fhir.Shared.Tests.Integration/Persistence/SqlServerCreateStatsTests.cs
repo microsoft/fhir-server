@@ -113,10 +113,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
             short patientTypeId = sqlSearchService.Model.GetResourceTypeId("Patient");
 
-            // Capture stats before the search so we can assert on the delta.
-            var cacheBefore = SqlServerSearchService.GetStatsFromCache().ToList();
-            var databaseBefore = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
-
             // Act
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
