@@ -1003,6 +1003,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.read-only" };   // "-only" not consumed
             yield return new object[] { "patient/Observation.rs?active" };    // "?active" has no '=', not consumed
             yield return new object[] { "patient/Observation.rsXYZ" };        // "XYZ" not consumed
+            yield return new object[] { "patient/Observation.rssszz" };       // matches "rsss", trailing "zz" not consumed
 
             // Malformed search-parameter constraints with an extra '=' that previously bypassed the
             // modifier/chained checks and were silently dropped (fail-open).
@@ -1011,9 +1012,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // v2 access level with duplicate permission letters (e.g. "rrrrrs"): the regex [cruds]+ accepts
             // repeats, but a duplicated letter is malformed and must be rejected.
-            yield return new object[] { "patient/Observation.rrrrrs" }; // duplicate 'r'
-            yield return new object[] { "patient/Observation.rss" };    // duplicate 's'
-            yield return new object[] { "user/Patient.crudss" };        // duplicate 's'
+            yield return new object[] { "patient/Observation.rrrrrs" };     // duplicate 'r'
+            yield return new object[] { "patient/Observation.rss" };        // duplicate 's'
+            yield return new object[] { "patient/Observation.rrrrssssss" }; // multiple duplicates
+            yield return new object[] { "user/Patient.crudss" };            // duplicate 's' after a full set
+            yield return new object[] { "user/Patient.crudsc" };            // duplicate 'c' wrapping a full set
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
