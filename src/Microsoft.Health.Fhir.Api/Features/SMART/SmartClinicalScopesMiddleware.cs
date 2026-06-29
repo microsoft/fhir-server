@@ -221,8 +221,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     // Decode URL-encoded forward slashes (%2f) to support Azure Entra ID scopes
                     // Azure Entra ID doesn't allow '/' in scopes, so users encode them as '%2f'
-                    // We decode them here before processing with the regex
-                    scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+                    // We decode them here before processing with the regex. Uri.UnescapeDataString is lenient
+                    // on malformed percent-encoding (it leaves invalid sequences as-is), but guard defensively
+                    // so any decode failure surfaces as a BadRequest rather than an unhandled 500.
+                    try
+                    {
+                        scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+                    }
+                    catch (Exception ex) when (ex is UriFormatException || ex is FormatException || ex is ArgumentException)
+                    {
+                        throw new BadHttpRequestException(string.Format(
+                            Api.Resources.SmartScopeInvalidSearchParameters,
+                            scopeClaims));
+                    }
 
                     MatchCollection matches;
                     try
@@ -294,6 +305,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
                             {
                                 resource = KnownResourceTypes.All;
+                            }
+
+                            // Reject scopes that reference a resource type the running FHIR version does not
+                            // recognize (e.g. a typo like "Observaton"). Without this, a malformed type is
+                            // silently stored as a ScopeRestriction that matches nothing, masking client
+                            // misconfiguration. The "all" wildcard is not a concrete resource type, so it is
+                            // excluded from the check.
+                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase)
+                                && !ModelInfoProvider.IsKnownResource(resource))
+                            {
+                                throw new BadHttpRequestException(string.Format(
+                                    Api.Resources.SmartScopeUnknownResourceType,
+                                    match.Value.Trim(),
+                                    resource));
                             }
 
                             // If Finer-grained resource constraints using search parameters present

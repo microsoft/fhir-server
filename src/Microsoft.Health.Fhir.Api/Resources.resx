@@ -421,6 +421,10 @@
     <value>Invalid search parameters in SMART on FHIR clinical scope '{0}'. The search parameter constraints could not be parsed.</value>
     <comment>{0} is the scope string</comment>
   </data>
+  <data name="SmartScopeUnknownResourceType" xml:space="preserve">
+    <value>Invalid SMART on FHIR clinical scope '{0}'. The resource type '{1}' is not a supported FHIR resource type.</value>
+    <comment>{0} is the scope string; {1} is the unknown resource type</comment>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>

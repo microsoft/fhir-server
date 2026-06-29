@@ -682,6 +682,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid SMART on FHIR clinical scope &apos;{0}&apos;. The resource type &apos;{1}&apos; is not a supported FHIR resource type..
+        /// </summary>
+        public static string SmartScopeUnknownResourceType {
+            get {
+                return ResourceManager.GetString("SmartScopeUnknownResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
