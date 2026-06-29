@@ -2009,7 +2009,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> GetStatsFromCache()
         {
-            return _resourceSearchParamStats.GetStatsFromCache();
+            return _resourceSearchParamStats?.GetStatsFromCache()
+                ?? Array.Empty<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
         }
 
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(CancellationToken cancel)
@@ -2030,10 +2031,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 var stats = reader.GetString(1);
                                 var split = stats.Split("_");
                                 var column = split[1];
-                                var resorceTypeId = short.Parse(split[4]);
+                                var resourceTypeId = short.Parse(split[4]);
                                 var searchParamId = short.Parse(split[6]);
                                 short? referenceResourceTypeId = split.Length > 8 ? short.Parse(split[8]) : null;
-                                return ("dbo." + table, column, resorceTypeId, searchParamId, referenceResourceTypeId);
+                                return ("dbo." + table, column, resourceTypeId, searchParamId, referenceResourceTypeId);
                             },
                             logger,
                             cancel);

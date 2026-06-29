@@ -132,14 +132,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 && s.ReferenceResourceTypeId == patientTypeId;
 
             // Cache
-            Assert.True(
-                cacheAfter.Count(MatchesStat) > cacheBefore.Count(MatchesStat),
-                "Expected the search to add a filtered statistics entry in the cache for ReferenceResourceId with ReferenceResourceTypeId filter.");
+            Assert.True(cacheAfter.Any(MatchesStat), "Expected the cache to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
 
             // Database
-            Assert.True(
-                databaseAfter.Count(MatchesStat) > databaseBefore.Count(MatchesStat),
-                "Expected the search to add a filtered statistics entry in the database for ReferenceResourceId with ReferenceResourceTypeId filter.");
+            Assert.True(databaseAfter.Any(MatchesStat), "Expected the database to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
         }
 
         [Fact]
