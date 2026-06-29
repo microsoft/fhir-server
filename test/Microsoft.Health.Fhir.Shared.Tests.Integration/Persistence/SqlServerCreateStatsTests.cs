@@ -139,10 +139,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSearchByReferenceParam_NotExistsPath_NoReferenceStatsAreCreated()
+        public async Task GivenSearchByReferenceParam_NotExistsPath_NoReferenceTypedStatsAreCreated()
         {
             // Arrange — searching with :missing=true produces a NotExists table expression;
-            // the stats pipeline must NOT emit entries for that expression kind.
+            // the stats pipeline may create a 2-column filter stat (ResourceTypeId + SearchParamId)
+            // on ReferenceSearchParam for the anti-join, but must NOT create a 3-column
+            // ReferenceResourceTypeId-filtered stat (Approach B) because the :missing predicate
+            // doesn't know the reference target type.
             const string resourceType = "DiagnosticReport";
             var query = new[] { Tuple.Create("subject:missing", "true") };
 
@@ -154,9 +157,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var statsAfter = SqlServerSearchService.GetStatsFromCache().ToList();
 
-            // Assert — a NotExists expression must never produce ReferenceSearchParam stats.
-            var newReferenceStats = statsAfter
+            // Assert — a NotExists expression must never produce ReferenceResourceTypeId-filtered stats.
+            var newTypedReferenceStats = statsAfter
                 .Where(s => s.TableName == VLatest.ReferenceSearchParam.TableName
+                    && s.ReferenceResourceTypeId != null
                     && !statsBefore.Any(b =>
                         b.TableName == s.TableName
                         && b.ColumnName == s.ColumnName
@@ -165,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         && b.ReferenceResourceTypeId == s.ReferenceResourceTypeId))
                 .ToList();
 
-            Assert.Empty(newReferenceStats);
+            Assert.Empty(newTypedReferenceStats);
         }
 
         [Fact]
