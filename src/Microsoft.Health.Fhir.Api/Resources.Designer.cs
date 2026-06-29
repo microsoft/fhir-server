@@ -691,6 +691,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterIncludesNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterIncludesNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {

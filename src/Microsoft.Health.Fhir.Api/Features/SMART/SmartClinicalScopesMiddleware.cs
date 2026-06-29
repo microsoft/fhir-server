@@ -156,6 +156,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             return false;
         }
 
+        // Returns true when the search parameter key is a result parameter that pulls in additional resources
+        // (_include / _revinclude). These are not enforceable as SMART on FHIR clinical scope constraints and can
+        // broaden the response to include resource types the scope does not otherwise grant, so they are rejected.
+        // The base name (before any ':') is compared so both the plain form ("_include") and the modifier form
+        // ("_include:iterate") are covered; the modifier form is also caught earlier by ContainsSearchModifier.
+        private static bool IsIncludeParameter(string paramKey)
+        {
+            var baseName = paramKey.Split(':')[0];
+            return baseName.Equals("_include", StringComparison.OrdinalIgnoreCase)
+                   || baseName.Equals("_revinclude", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task Invoke(
             HttpContext context,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -359,6 +371,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     {
                                         throw new BadHttpRequestException(string.Format(
                                             Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Result parameters that pull in additional resources (_include/_revinclude)
+                                    // are not enforceable as scope constraints and can broaden the response to
+                                    // resource types the scope does not grant, so reject them.
+                                    if (IsIncludeParameter(paramKey))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterIncludesNotSupported,
                                             match.Value.Trim(),
                                             $"{paramKey}={paramValue}"));
                                     }

@@ -413,6 +413,10 @@
     <value>Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier in parameter '{1}'.</value>
     <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
   </data>
+  <data name="SmartScopeSearchParameterIncludesNotSupported" xml:space="preserve">
+    <value>Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
   <data name="SmartScopeSearchParameterChainedSearchNotSupported" xml:space="preserve">
     <value>Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains a chained search parameter '{1}'.</value>
     <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>

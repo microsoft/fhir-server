@@ -280,6 +280,45 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithIncludes))]
+        public async Task GivenSmartScopeWithIncludeParameter_WhenInvoked_ThenBadRequestIsThrownWithIncludeMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+
+                Assert.Contains("_include and _revinclude are not supported", exception.Message);
+            }
+        }
+
+        [Theory]
         [MemberData(nameof(GetMalformedScopes))]
         public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
@@ -731,26 +770,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-            // With _include parameter
-            yield return new object[]
-            {
-                "patient/Observation.rs?code=http://loinc.org|55233-1&_include=Observation:subject",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "http://loinc.org|55233-1").Add("_include", "Observation:subject")),
-                },
-            };
-
-                        // With _revinclude parameter
-            yield return new object[]
-            {
-                "patient/Patient.rs?name=SMARTGivenName1&_revinclude=Observation:subject",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "SMARTGivenName1").Add("_revinclude", "Observation:subject")),
-                },
-            };
-
                         // Multiple scopes with search parameters
             yield return new object[]
             {
@@ -960,6 +979,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // Reverse chaining (_has), with and without an additional modifier
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code=http://loinc.org|1234-5" };
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithIncludes()
+        {
+            // _include / _revinclude result parameters (plain form) are not enforceable scope constraints
+            yield return new object[] { "patient/Observation.rs?_include=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?_revinclude=Observation:subject" };
+
+            // Combined with a normal search parameter
+            yield return new object[] { "patient/Observation.rs?code=http://loinc.org|55233-1&_include=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?name=SMARTGivenName1&_revinclude=Observation:subject" };
+
+            // Case-insensitive key
+            yield return new object[] { "patient/Observation.rs?_INCLUDE=Observation:subject" };
         }
 
         public static IEnumerable<object[]> GetMalformedScopes()
