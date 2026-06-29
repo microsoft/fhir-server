@@ -246,6 +246,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             continue;
                         }
 
+                        // The regex finds clinical-scope substrings rather than matching whole tokens, so a
+                        // malformed scope whose token is only partially valid (e.g. "patient/Observation.read-only",
+                        // "patient/Observation.rs?active", "patient/Observation.rsXYZ") still produces a match for
+                        // the valid prefix. If the match is immediately followed by a non-whitespace character the
+                        // token was not fully consumed; reject it rather than silently enforcing the truncated
+                        // prefix, which would grant broader-than-intended access (fail-open).
+                        int matchEnd = match.Index + match.Length;
+                        if (matchEnd < scopeClaims.Length && !char.IsWhiteSpace(scopeClaims[matchEnd]))
+                        {
+                            throw new BadHttpRequestException(string.Format(
+                                Api.Resources.SmartScopeInvalidSearchParameters,
+                                scopeClaims));
+                        }
+
                         // Detect v1 vs v2 based on the accessLevel value.
                         // v1 uses: "read", "write", "*", "all"
                         // v2 uses: letters from "cruds" (e.g., "c", "r", "u", "d", "s" or any combination)
@@ -290,10 +304,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 var searchParamsPairs = searchParamsString.Split('&');
 
                                 // iterate through each key-value pair and add them to the SearchParams
-                                foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
+                                foreach (var kvPair in searchParamsPairs)
                                 {
+                                    // Split on the first '=' only. A well-formed constraint is a single
+                                    // "key=value" pair; anything with a missing '=' or an extra '=' (e.g.
+                                    // "code:exact=a=b" or "identifier=x?mrn=12345") is malformed and must be
+                                    // rejected rather than silently dropped, which would broaden the granted
+                                    // access (fail-open).
+                                    var parts = kvPair.Split('=', 2);
                                     var paramKey = parts[0];
-                                    var paramValue = parts[1];
+                                    var paramValue = parts.Length == 2 ? parts[1] : string.Empty;
 
                                     // Chained search parameters are not enforceable as SMART clinical scope
                                     // constraints, so reject them rather than silently dropping the constraint.
@@ -316,6 +336,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                             Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
                                             match.Value.Trim(),
                                             $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Reject malformed key-value pairs (a missing '=' or a value that still
+                                    // contains '=') instead of silently dropping the constraint (fail-open).
+                                    if (parts.Length != 2 || paramValue.Contains('=', StringComparison.Ordinal))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeInvalidSearchParameters,
+                                            match.Value.Trim()));
                                     }
 
                                     smartScopeSearchParameters.Add(paramKey, paramValue);

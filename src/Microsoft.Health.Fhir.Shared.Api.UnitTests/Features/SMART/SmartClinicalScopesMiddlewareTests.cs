@@ -280,6 +280,43 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetMalformedScopes))]
+        public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            }
+        }
+
+        [Theory]
         [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
@@ -879,6 +916,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // Reverse chaining (_has), with and without an additional modifier
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code=http://loinc.org|1234-5" };
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
+        }
+
+        public static IEnumerable<object[]> GetMalformedScopes()
+        {
+            // Trailing junk on an otherwise valid scope token: the regex finds the valid prefix but the
+            // token is not fully consumed, so the scope must be rejected rather than silently enforcing
+            // the truncated prefix (over-broad / fail-open).
+            yield return new object[] { "patient/Observation.read-only" };   // "-only" not consumed
+            yield return new object[] { "patient/Observation.rs?active" };    // "?active" has no '=', not consumed
+            yield return new object[] { "patient/Observation.rsXYZ" };        // "XYZ" not consumed
+
+            // Malformed search-parameter constraints with an extra '=' that previously bypassed the
+            // modifier/chained checks and were silently dropped (fail-open).
+            yield return new object[] { "patient/Observation.rs?code:exact=a=b" };          // modifier hidden behind extra '='
+            yield return new object[] { "patient/Observation.rs?identifier=x?mrn=12345" };  // extra '=' in value
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
