@@ -1169,7 +1169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
 
-            var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"SearchParameter/$bulk-delete?url={Uri.EscapeDataString(searchParam.Url)}");
+            using var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"SearchParameter/$bulk-delete?url={Uri.EscapeDataString(searchParam.Url)}");
             bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
 
             var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
