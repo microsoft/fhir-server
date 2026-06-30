@@ -6,11 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +21,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
@@ -177,9 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                // Use a fresh context with a readable body stream per iteration since the middleware writes the response directly.
                 HttpContext httpContext = new DefaultHttpContext();
-                httpContext.Response.Body = new MemoryStream();
 
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -196,16 +198,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                // Intercept the result execution so the test does not depend on the full MVC formatter pipeline,
+                // mirroring how BaseExceptionMiddlewareTests verifies the OperationOutcomeResult that is produced.
+                var middleware = Substitute.ForPartsOf<SmartClinicalScopesMiddleware>((RequestDelegate)(innerContext => Task.CompletedTask), _logger);
+                middleware.ExecuteResultAsync(Arg.Any<HttpContext>(), Arg.Any<IActionResult>()).Returns(Task.CompletedTask);
 
-                // The middleware must short-circuit with a 400 OperationOutcome rather than throwing (which would surface as a 500).
-                Assert.Equal(StatusCodes.Status400BadRequest, httpContext.Response.StatusCode);
+                await middleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
 
-                httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-                string body = await new StreamReader(httpContext.Response.Body).ReadToEndAsync();
-                Assert.Contains("OperationOutcome", body, StringComparison.Ordinal);
-                Assert.Contains("\"code\":\"invalid\"", body, StringComparison.Ordinal);
-                Assert.Contains(Microsoft.Health.Fhir.Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed, body, StringComparison.Ordinal);
+                // The middleware must short-circuit through the normal FHIR error flow with a 400 OperationOutcome
+                // rather than throwing (which would surface as a 500).
+                await middleware
+                    .Received(1)
+                    .ExecuteResultAsync(
+                        Arg.Any<HttpContext>(),
+                        Arg.Is<OperationOutcomeResult>(x =>
+                            x.StatusCode == HttpStatusCode.BadRequest &&
+                            x.Result.Issue[0].Severity == OperationOutcome.IssueSeverity.Error &&
+                            x.Result.Issue[0].Code == OperationOutcome.IssueType.Invalid &&
+                            x.Result.Issue[0].Diagnostics == Microsoft.Health.Fhir.Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed));
             }
         }
 

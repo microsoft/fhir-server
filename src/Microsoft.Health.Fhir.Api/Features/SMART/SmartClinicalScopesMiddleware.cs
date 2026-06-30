@@ -6,18 +6,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,9 +37,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
-
-        // Hard-coded to minimize allocations when writing the error response, mirroring ThrottlingMiddleware.
-        private const string BadRequestContentType = "application/json; charset=utf-8";
 
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
@@ -212,11 +212,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         // If both SMART v1 and v2 access levels are present the scopes are ambiguous and not allowed.
                         // This middleware runs before MVC, so a thrown FhirException would not be mapped to a 400 by
                         // OperationOutcomeExceptionFilterAttribute (an MVC action filter) and would instead surface as
-                        // a generic 500. Write a 400 OperationOutcome directly and short-circuit the pipeline instead.
+                        // a generic 500. Execute a 400 OperationOutcome result through the normal FHIR error flow
+                        // (the same path BaseExceptionMiddleware uses) and short-circuit the pipeline instead.
                         if (smartV1AccessLevelUsed && smartV2AccessLevelUsed)
                         {
                             _logger.LogInformation("Mixed SMART v1 and v2 scopes detected. Returning a 400 Bad Request.");
-                            await WriteBadRequestOperationOutcomeAsync(context, Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed);
+
+                            var operationOutcome = new OperationOutcome
+                            {
+                                Id = fhirRequestContext.CorrelationId,
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.Invalid,
+                                        Diagnostics = Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed,
+                                    },
+                                },
+                            };
+
+                            await ExecuteResultAsync(context, new OperationOutcomeResult(operationOutcome, HttpStatusCode.BadRequest));
                             return;
                         }
 
@@ -307,27 +323,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         }
 
         /// <summary>
-        /// Writes a FHIR <c>OperationOutcome</c> with an HTTP 400 status code directly to the response and
-        /// short-circuits the pipeline. Used for failures detected in middleware (before MVC), where a thrown
-        /// <c>FhirException</c> would otherwise be mapped to a 500 because the MVC OperationOutcome exception
-        /// filter never runs for middleware-thrown exceptions.
+        /// Executes a FHIR action result (e.g. an <see cref="OperationOutcomeResult"/>) through the standard MVC
+        /// result pipeline. This reuses the FHIR output formatters and content negotiation so errors detected in
+        /// middleware are written exactly like errors raised in the normal request flow. Marked virtual so unit
+        /// tests can intercept it, mirroring <c>BaseExceptionMiddleware</c>.
         /// </summary>
-        private static async Task WriteBadRequestOperationOutcomeAsync(HttpContext context, string diagnostics)
+        protected internal virtual async Task ExecuteResultAsync(HttpContext context, IActionResult result)
         {
-            ReadOnlyMemory<byte> body = CreateBadRequestBody(diagnostics);
-
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            context.Response.ContentType = BadRequestContentType;
-            context.Response.ContentLength = body.Length;
-
-            await context.Response.Body.WriteAsync(body);
-        }
-
-        private static ReadOnlyMemory<byte> CreateBadRequestBody(string diagnostics)
-        {
-            // JSON-encode the diagnostics so any special characters in the message are escaped safely.
-            string encodedDiagnostics = JsonEncodedText.Encode(diagnostics).ToString();
-            return Encoding.UTF8.GetBytes($@"{{""resourceType"":""OperationOutcome"",""issue"":[{{""severity"":""error"",""code"":""invalid"",""diagnostics"":""{encodedDiagnostics}""}}]}}").AsMemory();
+            await result.ExecuteResultAsync(new ActionContext { HttpContext = context });
         }
     }
 }
