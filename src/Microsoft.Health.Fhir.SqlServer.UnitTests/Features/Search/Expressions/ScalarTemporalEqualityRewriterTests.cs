@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class ScalarTemporalEqualityRewriterTests
+    public class ScalarTemporalEqualityRewriterTests : IClassFixture<ModelInfoProviderFixture>
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
@@ -29,6 +30,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+
+        // The shared fixture initializes the static ModelInfoProvider with a compartment-aware
+        // provider. The ChainedExpression rewrite test below relies on that provider being set,
+        // and using the shared fixture (rather than mutating the global inline) keeps this class
+        // from clobbering the provider other parallel test classes depend on.
+        public ScalarTemporalEqualityRewriterTests(ModelInfoProviderFixture fixture)
+        {
+            _ = fixture;
+        }
 
         public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
         {
@@ -105,17 +115,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(ExactDayDates))]
-        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenEmitsDaySplitUnion(DateTimeOffset start, DateTimeOffset end)
+        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenEmitsEndOnlyPredicate(DateTimeOffset start, DateTimeOffset end)
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(start, end));
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
 
-            AssertDaySplitUnion(result, start, end);
+            AssertEndOnlyPredicate(result, end);
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsDaySplitUnion()
+        public void GivenAllowListedBirthdateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsEndOnlyPredicate()
         {
             var reversedPattern = Expression.And(
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
@@ -124,18 +134,34 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
 
-            AssertDaySplitUnion(result, StartOfDay, EndOfDay);
+            AssertEndOnlyPredicate(result, EndOfDay);
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenPassThrough()
+        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenNoUnionExpressionIsEmitted()
         {
+            var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.IsNotType<UnionExpression>(result);
+            var searchParameter = Assert.IsType<SearchParameterExpression>(result);
+            Assert.IsNotType<UnionExpression>(searchParameter.Expression);
+        }
+
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicate()
+        {
+            // Rewriting the inner predicate forces the base visitor to rebuild the ChainedExpression,
+            // whose constructor validates resource/target types against the static ModelInfoProvider
+            // (initialized by the shared ModelInfoProviderFixture).
             var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
             var expr = BuildChainedExpression(inner);
 
             var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
 
-            Assert.Same(inner, result.Expression);
+            Assert.NotSame(inner, result.Expression);
+            AssertEndOnlyPredicate(result.Expression, EndOfDay);
         }
 
         [Theory]
@@ -160,49 +186,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(expr, result);
         }
 
-        private static void AssertDaySplitUnion(Expression result, DateTimeOffset expectedStart, DateTimeOffset expectedEnd)
+        private static void AssertEndOnlyPredicate(Expression result, DateTimeOffset expectedEnd)
         {
-            var union = Assert.IsType<UnionExpression>(result);
-            Assert.Equal(UnionOperator.All, union.Operator);
-            Assert.Collection(
-                union.Expressions,
-                shortBranch => AssertSearchParameterAnd(
-                    shortBranch,
-                    and =>
-                    {
-                        Assert.Collection(
-                            and.Expressions,
-                            longerFlag => AssertIsLongerThanADayEquals(longerFlag, false),
-                            endEq =>
-                            {
-                                var binary = Assert.IsType<BinaryExpression>(endEq);
-                                Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                                Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
-                                Assert.Equal(expectedEnd, binary.Value);
-                            });
-                    }),
-                longerBranch => AssertSearchParameterAnd(
-                    longerBranch,
-                    and =>
-                    {
-                        Assert.Collection(
-                            and.Expressions,
-                            longerFlag => AssertIsLongerThanADayEquals(longerFlag, true),
-                            startGe =>
-                            {
-                                var binary = Assert.IsType<BinaryExpression>(startGe);
-                                Assert.Equal(FieldName.DateTimeStart, binary.FieldName);
-                                Assert.Equal(BinaryOperator.GreaterThanOrEqual, binary.BinaryOperator);
-                                Assert.Equal(expectedStart, binary.Value);
-                            },
-                            endLe =>
-                            {
-                                var binary = Assert.IsType<BinaryExpression>(endLe);
-                                Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
-                                Assert.Equal(BinaryOperator.LessThanOrEqual, binary.BinaryOperator);
-                                Assert.Equal(expectedEnd, binary.Value);
-                            });
-                    }));
+            Assert.IsNotType<UnionExpression>(result);
+            AssertSearchParameterAnd(
+                result,
+                and =>
+                {
+                    Assert.Collection(
+                        and.Expressions,
+                        longerFlag => AssertIsLongerThanADayEquals(longerFlag, false),
+                        endEq =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(endEq);
+                            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+                            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                            Assert.Equal(expectedEnd, binary.Value);
+                        });
+                });
         }
 
         private static void AssertSearchParameterAnd(Expression branch, Action<MultiaryExpression> assertAnd)

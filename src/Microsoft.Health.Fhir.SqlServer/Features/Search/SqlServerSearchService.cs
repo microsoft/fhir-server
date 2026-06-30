@@ -2246,21 +2246,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
-            // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
-            // fix in AB#191826 lands. When disabled, the original two-predicate equality form flows
-            // straight through to DateTimeEqualityRewriter and the rest of the pipeline.
             Expression afterSmartCompartment = rootExpression
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
-                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
-                : afterSmartCompartment;
+            // Date/time equality resolves to exactly one of three mutually-exclusive paths — legacy overlap,
+            // birthdate End-only optimization, or Core containment range — none of which emits a temporal
+            // UNION ALL. See ApplyDateEqualitySemantics for the matrix.
+            Expression afterDateEquality = ApplyDateEqualitySemantics(
+                afterSmartCompartment,
+                _fhirSqlServerConfiguration.EnableFhirDateContainment,
+                _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter);
 
-            return (SqlRootExpression)afterScalarTemporal
-                ?.AcceptVisitor(DateTimeEqualityRewriter.Instance)
-                .AcceptVisitor(FlatteningRewriter.Instance)
+            return (SqlRootExpression)afterDateEquality
+                ?.AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)
                 .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
@@ -2279,6 +2279,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        /// <summary>
+        /// Selects exactly one of three mutually-exclusive date/time equality strategies — legacy overlap
+        /// (<see cref="DateTimeEqualityRewriter"/>), the birthdate End-only optimization
+        /// (<see cref="ScalarTemporalEqualityRewriter"/>), or Core's containment range. The strategies are
+        /// never layered and no path emits a temporal UNION ALL.
+        /// </summary>
+        /// <param name="expression">The expression tree to transform. May be null.</param>
+        /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
+        /// <param name="enableScalarTemporalRewriter">Whether the scalar-temporal rewriter is enabled.</param>
+        /// <returns>The expression with the selected date-equality semantics applied.</returns>
+        internal static Expression ApplyDateEqualitySemantics(Expression expression, bool enableFhirDateContainment, bool enableScalarTemporalRewriter)
+        {
+            if (expression == null)
+            {
+                return null;
+            }
+
+            if (!enableFhirDateContainment)
+            {
+                // Legacy overlap (== main). The scalar-temporal rewriter never runs without containment.
+                return expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            }
+
+            if (enableScalarTemporalRewriter)
+            {
+                // Birthdate End-only optimization overrides containment for allow-listed params only.
+                return expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+            }
+
+            // Core's containment range form flows straight to SQL for all date params.
+            return expression;
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)

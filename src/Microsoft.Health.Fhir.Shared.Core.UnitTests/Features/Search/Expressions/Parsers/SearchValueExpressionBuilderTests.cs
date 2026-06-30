@@ -392,8 +392,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e => ValidateMultiaryExpression(
                         e,
                         MultiaryOperator.And,
-                        e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeStart, BinaryOperator.GreaterThanOrEqual, DateTimeOffset.Parse(expectedStartValue)),
-                        e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeEnd, BinaryOperator.LessThanOrEqual, DateTimeOffset.Parse(expectedEndValue))));
+                        e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, DateTimeOffset.Parse(expectedEndValue)),
+                        e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, DateTimeOffset.Parse(expectedStartValue))));
             }
         }
 
