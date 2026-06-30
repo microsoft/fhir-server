@@ -44,7 +44,7 @@ BEGIN TRY
   BEGIN
     -- Check if reindex job is running
     EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUT
-    SET @msg = 'Reindex job is in progress. Job Id='+convert(varchar,@ActiveJobId)
+    SET @msg = 'Changes to search parameters are not allowed while a reindex job is ongoing. Wait for the reindex job with Id: '+convert(varchar,@ActiveJobId)+' to finish, or cancel it'
     IF @ActiveJobId IS NOT NULL THROW 50002, @msg, 1
 
     -- Check for concurrency conflicts using LastUpdated
