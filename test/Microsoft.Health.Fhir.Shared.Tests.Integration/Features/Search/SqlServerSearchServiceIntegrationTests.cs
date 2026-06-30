@@ -320,7 +320,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 
             // Assert
             Assert.NotNull(stats);
-            Assert.IsAssignableFrom<ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>>(stats);
+            Assert.IsAssignableFrom<ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>>(stats);
 
             // Verify that stats were actually created for the Patient identifier search
             // The cache should contain at least one entry for Patient with identifier search parameter
