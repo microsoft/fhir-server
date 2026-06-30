@@ -12,8 +12,9 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:
@@ -153,8 +154,9 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
   steps:

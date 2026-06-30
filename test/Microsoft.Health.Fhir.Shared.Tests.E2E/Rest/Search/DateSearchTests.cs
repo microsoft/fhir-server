@@ -270,9 +270,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 // FHIR R4 search prefixes define equality for ranges as: "the range of the search value fully contains
                 // the range of the target value." See https://hl7.org/fhir/R4/search.html#prefix.
-                // Tracked by AB#191826. The current implementation instead matches partial birthdates using range overlap. For example,
+                // Tracked by AB#191826. The current default implementation instead matches partial birthdates using range overlap. For example,
                 // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
                 // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
+                // Spec-compliant containment is available behind the EnableFhirDateContainment flag (default off); this test asserts the shipped default (overlap) behavior.
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
                 ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
 

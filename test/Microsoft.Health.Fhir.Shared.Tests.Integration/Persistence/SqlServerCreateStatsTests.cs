@@ -102,6 +102,73 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenSearchByReferenceParam_NormalPath_StatsAreCreated()
+        {
+            // Arrange — DiagnosticReport.subject is a reference search parameter stored in dbo.ReferenceSearchParam
+            const string resourceType = "DiagnosticReport";
+            const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject";
+            var query = new[] { Tuple.Create("subject", "Patient/test-patient-1") };
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            short resourceTypeId = sqlSearchService.Model.GetResourceTypeId(resourceType);
+            short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
+            short patientTypeId = sqlSearchService.Model.GetResourceTypeId("Patient");
+
+            // Act
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            // Assert — a filtered stat on ReferenceResourceId with ReferenceResourceTypeId in the filter
+            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+
+            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
+                s.TableName == VLatest.ReferenceSearchParam.TableName
+                && s.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name
+                && s.ResourceTypeId == resourceTypeId
+                && s.SearchParamId == searchParamId
+                && s.ReferenceResourceTypeId == patientTypeId;
+
+            // Cache
+            Assert.True(cacheAfter.Any(MatchesStat), "Expected the cache to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
+
+            // Database
+            Assert.True(databaseAfter.Any(MatchesStat), "Expected the database to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
+        }
+
+        [Fact]
+        public async Task GivenSearchByReferenceParam_NotExistsPath_NoReferenceTypedStatsAreCreated()
+        {
+            // Arrange — searching with :missing=true produces a NotExists table expression;
+            // the stats pipeline may create a 2-column filter stat (ResourceTypeId + SearchParamId)
+            // on ReferenceSearchParam for the anti-join, but must NOT create a 3-column
+            // ReferenceResourceTypeId-filtered stat (Approach B) because the :missing predicate
+            // doesn't know the reference target type.
+            const string resourceType = "DiagnosticReport";
+            var query = new[] { Tuple.Create("subject:missing", "true") };
+
+            // Record the cache before the search so we can detect any new entries added only by this query.
+            var statsBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+
+            // Act
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+            var statsAfter = SqlServerSearchService.GetStatsFromCache().ToList();
+
+            // Assert — a NotExists expression must never produce ReferenceResourceTypeId-filtered stats.
+            var newTypedReferenceStats = statsAfter
+                .Where(s => s.TableName == VLatest.ReferenceSearchParam.TableName
+                    && s.ReferenceResourceTypeId != null
+                    && !statsBefore.Any(b =>
+                        b.TableName == s.TableName
+                        && b.ColumnName == s.ColumnName
+                        && b.ResourceTypeId == s.ResourceTypeId
+                        && b.SearchParamId == s.SearchParamId
+                        && b.ReferenceResourceTypeId == s.ReferenceResourceTypeId))
+                .ToList();
+
+            Assert.Empty(newTypedReferenceStats);
+        }
+
+        [Fact]
         public async Task GivenMissingTrueSearchForPatientByGender_NotExistsStatsAreCreated()
         {
             // :missing=true translates to a SQL NotExists table expression. The owning search parameter
