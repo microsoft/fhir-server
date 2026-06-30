@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor
 
         internal IReadOnlyDictionary<QueueType, QueueDepth> QueueDepths => Volatile.Read(ref _snapshot).Depths;
 
-        public Task Handle(JobMonitorMetricsNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(JobMonitorMetricsNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 

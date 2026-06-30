@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     await QueuePendingDeleteStatusAsync(typed.GetStringScalar("url"), deleteRequest.DeleteOperation, cancellationToken);
                 }
 
-                return await next(cancellationToken);
+                return await next();
             }
 
             return await next();

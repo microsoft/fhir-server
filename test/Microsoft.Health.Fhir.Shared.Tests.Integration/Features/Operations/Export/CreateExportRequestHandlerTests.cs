@@ -428,7 +428,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, maxCount: requestedMaxCount);
-            await _createExportRequestHandler.Handle(request, _cancellationToken);
+            await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(actualRecord);
             Assert.Equal(expectedMaxCount, actualRecord.MaximumNumberOfResourcesPerQuery);

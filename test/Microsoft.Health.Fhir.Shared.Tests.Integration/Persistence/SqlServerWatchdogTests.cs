@@ -718,7 +718,7 @@ RAISERROR('Test',18,127)
 
             var mediator = Substitute.For<IMediator>();
             JobMonitorMetricsNotification captured = null;
-            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
                     .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
 
             await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
@@ -749,7 +749,7 @@ RAISERROR('Test',18,127)
 
             var mediator = Substitute.For<IMediator>();
             JobMonitorMetricsNotification captured = null;
-            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
                     .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
 
             await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
@@ -788,7 +788,7 @@ RAISERROR('Test',18,127)
 
             var mediator = Substitute.For<IMediator>();
             JobMonitorMetricsNotification captured = null;
-            mediator.When(x => x.Publish(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
                     .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
 
             await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);

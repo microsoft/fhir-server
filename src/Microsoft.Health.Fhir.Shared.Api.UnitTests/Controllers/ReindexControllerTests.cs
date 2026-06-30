@@ -142,12 +142,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var method = HttpMethods.Post;
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = method;
             _mediator
-                .Send(Arg.Any<ReindexSingleResourceRequest>())
+                .SendAsync(Arg.Any<ReindexSingleResourceRequest>())
                 .Returns(new ReindexSingleResourceResponse(new Parameters().ToResourceElement()));
 
             var request = default(ReindexSingleResourceRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<ReindexSingleResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<ReindexSingleResourceRequest>(0));
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(typeParameter, request.ResourceType);
             Assert.Equal(idParameter, request.ResourceId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<ReindexSingleResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var etag = WeakETag.FromVersionId("ver0");
             _mediator
-                .Send(Arg.Any<GetReindexRequest>())
+                .SendAsync(Arg.Any<GetReindexRequest>())
                 .Returns(
                     x =>
                     {
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetReindexRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<GetReindexRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<GetReindexRequest>(0));
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.Null(request.JobId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<GetReindexRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var etag = WeakETag.FromVersionId("ver0");
             _mediator
-                .Send(Arg.Any<CancelReindexRequest>())
+                .SendAsync(Arg.Any<CancelReindexRequest>())
                 .Returns(
                     x =>
                     {
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(CancelReindexRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CancelReindexRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<CancelReindexRequest>(0));
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.Equal(id, request.JobId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<CancelReindexRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();

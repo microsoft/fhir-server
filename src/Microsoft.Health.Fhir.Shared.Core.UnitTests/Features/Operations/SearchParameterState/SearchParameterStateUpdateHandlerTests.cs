@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
                 .Do(_ => throw new FhirJobConflictException("reindex running"));
 
-            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
+            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()

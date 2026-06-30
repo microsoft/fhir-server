@@ -422,7 +422,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             // When the terminology service throws ResourceNotFoundException for an unknown ValueSet,
             // the exception propagates and the OperationOutcomeExceptionFilter maps it to HTTP 404.
-            _mediator.Send<ExpandResponse>(
+            _mediator.SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns<ExpandResponse>(x => throw new ResourceNotFoundException(

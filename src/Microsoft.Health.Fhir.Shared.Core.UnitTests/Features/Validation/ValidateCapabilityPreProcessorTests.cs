@@ -92,14 +92,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [InlineData(DeleteOperation.HardDelete)]
         public async Task GivenCaseMismatchedRequestValidatedFirst_WhenValidatingCorrectCasing_ThenCapabilityLookupShouldNotBePoisoned(DeleteOperation deleteOperation)
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest, DeleteResourceResponse>(_conformanceProvider);
 
             var invalidDeleteRequest = new DeleteResourceRequest("patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
             var validDeleteRequest = new DeleteResourceRequest("Patient", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
-            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(invalidDeleteRequest, CancellationToken.None));
+            await Assert.ThrowsAsync<MethodNotAllowedException>(
+                async () => await preProcessor.HandleAsync(
+                    invalidDeleteRequest,
+                    () => Task.FromResult(new DeleteResourceResponse(new ResourceKey("Patient", "test-id"))),
+                    CancellationToken.None));
 
-            await preProcessor.Process(validDeleteRequest, CancellationToken.None);
+            await preProcessor.HandleAsync(
+                validDeleteRequest,
+                () => Task.FromResult(new DeleteResourceResponse(new ResourceKey("Patient", "test-id"))),
+                CancellationToken.None);
         }
     }
 }

@@ -523,7 +523,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.HandleAsync(bundleRequest, default));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirTfe.ResponseStatusCode);
         }
@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.HandleAsync(bundleRequest, default));
 
             Assert.Equal(HttpStatusCode.Conflict, fhirTfe.ResponseStatusCode);
         }
@@ -869,7 +869,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             if (bundleType == BundleType.Batch)
             {
-                BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, tokenSource.Token);
+                BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
                 var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -886,7 +886,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             else
             {
-                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, tokenSource.Token));
+                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
@@ -986,7 +986,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
 
             // The client error (400) should take priority over 408 from cancelled entries.
             Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.BadRequest);
@@ -1186,7 +1186,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -1244,7 +1244,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(localAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);

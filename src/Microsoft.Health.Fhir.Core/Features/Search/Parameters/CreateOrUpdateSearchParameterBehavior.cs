@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
 
                 // Allow the resource to be updated with the normal handler
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Allow the resource to be updated with the normal handler
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 // Now allow the resource to updated per the normal behavior
-                return await next(cancellationToken);
+                return await next();
             }
 
             // Now allow the resource to updated per the normal behavior

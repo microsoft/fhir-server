@@ -199,12 +199,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _httpContext.Request.QueryString = new QueryString(query);
 
             _mediator
-                .Send(Arg.Any<SearchParameterStateRequest>())
+                .SendAsync(Arg.Any<SearchParameterStateRequest>())
                 .Returns(new SearchParameterStateResponse(new Parameters().ToResourceElement()));
 
             var request = default(SearchParameterStateRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<SearchParameterStateRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<SearchParameterStateRequest>(0));
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<SearchParameterStateRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();

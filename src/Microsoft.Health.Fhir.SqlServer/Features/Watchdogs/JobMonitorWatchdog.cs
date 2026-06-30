@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     }
                 }
 
-                await _mediator.Publish(new JobMonitorMetricsNotification(ages, depths), cancellationToken);
+                await _mediator.PublishAsync(new JobMonitorMetricsNotification(ages, depths), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
