@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -88,11 +88,11 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalPatchHandler.Handle(request, CancellationToken.None);
+        await _conditionalPatchHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -107,11 +107,11 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalPatchHandler.Handle(request, CancellationToken.None);
+        await _conditionalPatchHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ConditionalPatchResourceHandlerTests
         var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
     }
 
     private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)

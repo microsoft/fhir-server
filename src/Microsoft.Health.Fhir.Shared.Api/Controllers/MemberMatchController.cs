@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,7 +6,7 @@
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ValidateParams(inputParams, out ResourceElement coverage, out ResourceElement patient);
 
-            var response = await _mediator.Send<MemberMatchResponse>(new MemberMatchRequest(coverage, patient), HttpContext.RequestAborted);
+            var response = await _mediator.SendAsync<MemberMatchResponse>(new MemberMatchRequest(coverage, patient), HttpContext.RequestAborted);
             var parameters = new Parameters();
             parameters.Add(Patient, response.Patient.ToPoco<Patient>());
             return MemberMatchResult.Ok(parameters);

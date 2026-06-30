@@ -9,7 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -50,8 +50,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
-            _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
-            _mediator.Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration),
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
         }
 
         [Fact]
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
         }
 
         [Fact]
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
         }
 
         [Theory]

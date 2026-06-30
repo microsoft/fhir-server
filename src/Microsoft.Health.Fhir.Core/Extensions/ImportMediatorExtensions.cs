@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Messages.Import;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
 
-            CreateImportResponse response = await mediator.Send(request, cancellationToken);
+            CreateImportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new GetImportRequest(jobId, returnDetails);
 
-            GetImportResponse response = await mediator.Send(request, cancellationToken);
+            GetImportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CancelImportRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

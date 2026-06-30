@@ -94,7 +94,7 @@ public class GetResourceHandlerTests
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        var result = await getResourceHandler.Handle(request, CancellationToken.None);
+        var result = await getResourceHandler.HandleAsync(request, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.NotNull(result.Resource);
@@ -122,7 +122,7 @@ public class GetResourceHandlerTests
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        var result = await getResourceHandler.Handle(request, CancellationToken.None);
+        var result = await getResourceHandler.HandleAsync(request, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.NotNull(result.Resource);
@@ -151,7 +151,7 @@ public class GetResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-            getResourceHandler.Handle(request, CancellationToken.None));
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public class GetResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-            getResourceHandler.Handle(request, CancellationToken.None));
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class GetResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-            getResourceHandler.Handle(request, CancellationToken.None));
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -233,6 +233,6 @@ public class GetResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            getResourceHandler.Handle(request, CancellationToken.None));
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
 }

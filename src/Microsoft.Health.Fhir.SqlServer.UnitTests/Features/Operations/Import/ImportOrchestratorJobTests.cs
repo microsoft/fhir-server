@@ -9,7 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
 
-            _ = mediator.Received().Publish(
+            _ = mediator.Received().PublishAsync(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Equal(HttpStatusCode.Unauthorized, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
 
-            _ = mediator.Received().Publish(
+            _ = mediator.Received().PublishAsync(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
