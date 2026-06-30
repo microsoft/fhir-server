@@ -655,6 +655,51 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterModifiersNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterModifiersNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains a chained search parameter &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterChainedSearchNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterChainedSearchNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid search parameters in SMART on FHIR clinical scope &apos;{0}&apos;. The search parameter constraints could not be parsed..
+        /// </summary>
+        public static string SmartScopeInvalidSearchParameters {
+            get {
+                return ResourceManager.GetString("SmartScopeInvalidSearchParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid SMART on FHIR clinical scope &apos;{0}&apos;. The resource type &apos;{1}&apos; is not a supported FHIR resource type..
+        /// </summary>
+        public static string SmartScopeUnknownResourceType {
+            get {
+                return ResourceManager.GetString("SmartScopeUnknownResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterIncludesNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterIncludesNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
