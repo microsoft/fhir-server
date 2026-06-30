@@ -1,9 +1,9 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = -1
--- @ReindexId = -1 old code, @ReindexId = 0 - new code but not reindex. @ReindexId > 0 - new code and reindex.
+﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL
+-- @ReindexId IS NULL - not reindex. @ReindexId IS NOT NULL - reindex.
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' R='+convert(varchar,@ReindexId)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))+' R='+isnull(convert(varchar,@ReindexId),'NULL')
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@MaxLastUpdated datetimeoffset(7)
@@ -18,8 +18,6 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 SET @Mode = @Mode +' L='+isnull(convert(varchar(23),@ExpectedLastUpdated,126),'NULL')
 
 BEGIN TRY
-  IF @ReindexId IS NULL RAISERROR('@ReindexId cannot be null', 18, 127)
-
   DECLARE @SearchParamsCopy dbo.SearchParamList
   INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
   WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
@@ -38,41 +36,22 @@ BEGIN TRY
   END
 
   -- check if job id is valid
-  IF @ReindexId > 0
+  IF @ReindexId IS NOT NULL AND @ReindexId <> 0 -- TODO: remove AND @ReindexId <> 0 after deployment
      AND NOT EXISTS (SELECT 1 FROM dbo.JobQueue WHERE PartitionId = @ReindexId % 16 AND QueueType = 6 AND JobId = @ReindexId AND Status = 1)
     RAISERROR('Reindex job is not running', 18, 127)
 
-  IF @ReindexId < 0 -- this can be ivoked for new and old code.
+  IF @ReindexId IS NULL OR @ReindexId = 0 -- TODO: remove OR @ReindexId = 0 after deployment
   BEGIN
+    -- Check if reindex job is running
     EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUT
     SET @msg = 'Reindex job is in progress. Job Id='+convert(varchar,@ActiveJobId)
     IF @ActiveJobId IS NOT NULL THROW 50002, @msg, 1
-  END
 
-  -- Check for concurrency conflicts using LastUpdated
-  -- Ignore any checks for reindex, as it owns statuses when it runs.
-  IF @ReindexId = 0 -- max(LastUpdated) logic
-  BEGIN
+    -- Check for concurrency conflicts using LastUpdated
     SET @MaxLastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
     IF @MaxLastUpdated <> @ExpectedLastUpdated
     BEGIN
       SET @msg = 'Optimistic concurrency conflict detected : expected last updated = '+convert(varchar(23),@ExpectedLastUpdated,126)+' max last updated = '+convert(varchar(23),@MaxLastUpdated,126);
-      THROW 50001, @msg, 1
-    END
-  END
-
-  -- Remove this old logic when code starts using max last updated
-  IF @ReindexId = -1
-  BEGIN
-    -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
-    SELECT @msg = string_agg(S.Uri, ', ') 
-      FROM (
-        SELECT TOP 60 S.Uri
-          FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-          WHERE I.LastUpdated != S.LastUpdated) S
-    IF @msg IS NOT NULL
-    BEGIN
-      SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
       THROW 50001, @msg, 1
     END
   END
