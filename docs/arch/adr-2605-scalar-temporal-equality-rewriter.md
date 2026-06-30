@@ -2,34 +2,59 @@
 
 ## Context
 
-FHIR date equality on a single-element parameter like `Patient.birthdate` is currently a two-predicate containment filter: `DateTimeStart >= periodStart AND DateTimeEnd <= periodEnd`. Against `dbo.DateTimeSearchParam` this shape forces the optimizer to reason over the full row set for that `SearchParamId`, even though, in practice, almost every stored birthdate row is a single calendar day (`IsLongerThanADay = 0`).
+FHIR date `eq` on `dbo.DateTimeSearchParam` has two competing behaviors. Core emits spec-compliant **containment** — `SearchValueExpressionBuilderHelper` builds `DateTimeStart >= lo AND DateTimeEnd <= hi`, so the stored period must sit *inside* the query range (FHIR R4 `eq`: https://hl7.org/fhir/R4/search.html#prefix). `DateTimeEqualityRewriter` (Core) then weakens that to **overlap** (`DateTimeStart <= hi AND DateTimeEnd >= lo`) for every date parameter.
 
-The table carries a filtered index intended for the rare wide rows:
-`IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`. For `IsLongerThanADay = 0` there is no filtered index — the common short rows are served by the general `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax`. The previous SQL generated creates a two-predicate form which doesn't build SQL the planner can use to target either index. This means it picks a generic seek on the clustered index which is far less efficient than using the non-clustered indexes on our indexes we have.
+The two-predicate containment shape does not let the optimizer target the table indexes well. Almost every stored birthdate is a single calendar day (`IsLongerThanADay = 0`), served by the general `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax`; the rare wide rows have a dedicated filtered index `..._WHERE_IsLongerThanADay_1`. To keep overlap index-friendly for the allow-listed `individual-birthdate`, this rewriter originally split an exact-day `eq` into a `UnionExpression` (SQL `UNION ALL`) on `IsLongerThanADay`. That union proved to be the root cause of recurring SQL-generation failures in chained, `_sort`, and SMART/compartment shapes.
 
-The FHIR containment semantics for partial-date equality are separately tracked by AB#191826 and intentionally left untouched here.
+The insight that removes it: under **containment**, a stored period longer than a one-day window can never be contained, so `IsLongerThanADay = 1` rows match nothing. The day-split — and the union — become unnecessary by construction, leaving only the short-row End-only predicate.
+
+## Options Considered
+
+1. **Keep overlap, keep patching the union** — rejected: treats symptoms; the union keeps breaking new query shapes.
+2. **Emit the End-only predicate unconditionally** — rejected: silently changes results for partial-precision stored birthdates with no kill-switch.
+3. **Containment behind a feature flag, union removed by construction** — chosen.
 
 ## Decision
 
-We will add a new Date search param rewriter scoped to **exact** UTC calendar-day equality on allow-listed scalar date parameters (currently `individual-birthdate`) and emit a `UnionExpression` split on `IsLongerThanADay`:
+Add **`EnableFhirDateContainment`** to `FhirSqlServerConfiguration` (config key `FhirSqlServer:EnableFhirDateContainment`, env override `FhirSqlServer__EnableFhirDateContainment`) and pair it with the existing **`EnableScalarTemporalEqualityRewriter`**. The temporal `UNION ALL` is removed regardless of flag values.
 
-- **Short branch** (`IsLongerThanADay = 0 AND DateTimeEnd = endOfDay`): a point-equality on `EndDateTime` that the `EndDateTime`-leading general index can satisfy as a narrow seek; `IsLongerThanADay = 0` becomes a residual on the dominant population.
-- **Long branch** (`IsLongerThanADay = 1 AND DateTimeStart >= startOfDay AND DateTimeEnd <= endOfDay`): the original two-predicate form runs against rows that span more than a day and takes advantage of the dedicated filtered index `IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1`, which only stores the wide rows and is orders of magnitude smaller than the general index.
+| `EnableScalarTemporalEqualityRewriter` | `EnableFhirDateContainment` | `ScalarTemporalEqualityRewriter` | `DateTimeEqualityRewriter` (overlap) | birthdate `eq` | other date `eq` | union |
+|---|---|---|---|---|---|---|
+| on | on | runs → End-only predicate | skipped | End-only seek (containment) | containment | none |
+| off | on | does not run | skipped | Core containment | containment | none |
+| on | off | does not run | runs | legacy overlap (== `main`) | legacy overlap | none |
+| off | off | does not run | runs | legacy overlap | legacy overlap | none |
 
-We will observe this change and add more search parameters in the future as needed.
+The rewriter runs **only when both flags are on**, emitting a single `IsLongerThanADay = 0 AND DateTimeEnd = endOfDay` predicate (the index optimization above) — never a `UnionExpression`. Overlap weakening is skipped iff containment is on, so Core's containment flows to SQL for every date parameter.
 
-Part of this work was confirming that the equality is valid - all current FHIR SQL rows have the EndDateTime stored in a way compatibly with this query. Details shared outside of the ADR.
+`ap` is independent of both flags. Per spec `ap` means *overlap*, so `SearchValueExpressionBuilderHelper` now emits the overlap shape (`DateTimeStart <= hi′ AND DateTimeEnd >= lo′`, widened bounds) for `ap` directly. It never relies on `DateTimeEqualityRewriter`, so skipping that rewriter under containment leaves `ap` unchanged — always overlap, in every flag combination.
 
-All other shapes — month/year precision, approximate (`ap`), single-sided range operators, non-UTC values, composites, and non-allow-listed parameters — pass through unchanged. We could add a minor optimization for year only queries but in practice the actual SQL execution plan was not very different in performance (time or resources used).
+Both flags gate the rewriter on purpose: the End-only predicate equals containment, not overlap, for partial-precision stored birthdates (e.g. `birthDate = '1990'`, stored as `IsLongerThanADay = 1`). Tying it to the containment flag keeps the off path a true legacy kill-switch identical to `main`.
 
-There is also discussion on if the data returned by this query is matching the FHIR spec. In this change we are only keeping current behavior. If we change our date range return values in the future we can simply remove the second (union) part of the rewrite query easily.
+**Defaults are `false`.** Off removes the union out of the box and behaves identically to `main` (SQL and Cosmos); containment is a one-line opt-in. `EnableScalarTemporalEqualityRewriter` (shipped `true` on `main`) is also defaulted off here, so enabling containment alone yields pure Core containment and the birthdate End-only optimization stays a further explicit opt-in.
+
+**Scope is SQL-only.** The flag lives in `FhirSqlServerConfiguration`; Cosmos stays on overlap (a Core-level containment flag is a follow-up). `ap` is unaffected: Core emits it as spec overlap directly (see the Decision note above), so only `eq` rides this flag.
 
 ## Status
 
- Accepted
+Accepted
+
+Supersedes this rewriter's original `UnionExpression` day-split (an index stopgap) with the union-free containment model above.
 
 ## Consequences
 
-- Day-precision birthdate equality consistently picks the intended filtered/specific indexes per branch instead of a generic plan over the mixed population, reducing logical reads on `dbo.DateTimeSearchParam` for the dominant workload.
-- The long branch becomes dead once AB#191826 lands; at that point the union collapses to the short branch and this ADR should be revisited.
-- The allow-list (currently `individual-birthdate`) limits blast radius. Extending the optimization to additional scalar date parameters is a follow-up that requires confirming the same single-element storage assumption.
+- The temporal `UNION ALL` is gone for all flag combinations; the chained / `_sort` / SMART shapes that previously failed SQL generation no longer hit one, retiring a class of workarounds.
+- `ScalarTemporalEqualityRewriter` collapses to a single End-only predicate; its day-split union builder and the `VisitChained` chained-skip guard (a band-aid that only existed for the union) are deleted.
+- The SMART/compartment-shared union infrastructure (`UnionExpression` and helpers) is untouched — those unions originate in the compartment/SMART rewriters, not the temporal path.
+- With containment on, a day query no longer matches a month/year-precision stored date — the intended spec-correct change, and the reason the default ships off.
+- Cosmos stays on overlap, so SQL and Cosmos can diverge when the flag is on (tracked follow-up). Tracked alongside AB#191826.
+
+## Verification
+
+| Scenario | Flags (scalar / containment) | `eq` semantics | Proven by |
+|---|---|---|---|
+| Legacy (== `main`) | any / off | overlap | E2E `DateSearchTests` (`DataStore.All`) + `SqlServerSearchServiceTests.ApplyDateEqualitySemantics` overlap case |
+| Containment | off / on | containment | `SqlServerSearchServiceTests.ApplyDateEqualitySemantics` containment case (containment survives, no overlap swap, no union) |
+| Containment + scalar | on / on | containment, birthdate End-only seek | `ScalarTemporalEqualityRewriterTests` (single predicate, no `UnionExpression`) |
+
+`SqlServerSearchServiceTests` also asserts no flag combination emits a temporal `UnionExpression`, and `ChainingSearchTests` exercises the chained / `_sort` / reverse-`_has` shapes beside a birthdate `eq` that previously broke SQL generation. The flags are server-startup config and the default ships off, so `DateSearchTests` proves the legacy default out of the box. Flag-flipped E2E coverage and the real-SQL containment + retained-SMART-union integration tests ship in the stacked follow-up PR.

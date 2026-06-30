@@ -1127,6 +1127,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             procName?.Replace("dbo.", string.Empty, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
+        /// Returns the column names used for filtered statistics on the given search parameter table.
+        /// Only tables that benefit from per-resource-type filtered statistics are included.
+        /// </summary>
+        /// <param name="table">The fully-qualified table name (e.g. <c>dbo.TokenSearchParam</c>).</param>
+        /// <returns>The set of column names, or an empty set when the table does not support filtered stats.</returns>
+        internal static HashSet<string> GetKeyColumns(string table)
+        {
+            var results = new HashSet<string>();
+            if (table == VLatest.StringSearchParam.TableName)
+            {
+                results.Add(VLatest.StringSearchParam.Text.Metadata.Name);
+            }
+            else if (table == VLatest.TokenSearchParam.TableName)
+            {
+                results.Add(VLatest.TokenSearchParam.Code.Metadata.Name);
+            }
+            else if (table == VLatest.DateTimeSearchParam.TableName)
+            {
+                results.Add(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name);
+                results.Add(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name);
+            }
+            else if (table == VLatest.NumberSearchParam.TableName)
+            {
+                results.Add(VLatest.NumberSearchParam.LowValue.Metadata.Name);
+                results.Add(VLatest.NumberSearchParam.HighValue.Metadata.Name);
+            }
+            else if (table == VLatest.QuantitySearchParam.TableName)
+            {
+                results.Add(VLatest.QuantitySearchParam.LowValue.Metadata.Name);
+                results.Add(VLatest.QuantitySearchParam.HighValue.Metadata.Name);
+            }
+            else if (table == VLatest.ReferenceSearchParam.TableName)
+            {
+                results.Add(VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name);
+            }
+
+            return results;
+        }
+
+        /// <summary>
         /// Extracts the parameter hash value from a query text that contains a
         /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
         /// Returns <c>null</c> if no hash comment is found.
@@ -1967,17 +2007,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await _resourceSearchParamStats.Create(expression, _sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
         }
 
-        internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
+        internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> GetStatsFromCache()
         {
-            return _resourceSearchParamStats.GetStatsFromCache();
+            return _resourceSearchParamStats?.GetStatsFromCache()
+                ?? Array.Empty<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
         }
 
-        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(CancellationToken cancel)
+        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(CancellationToken cancel)
         {
             return await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
         }
 
-        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
             return await cmd.ExecuteReaderAsync(
@@ -1985,13 +2026,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             (reader) =>
                             {
                                 // ST_Code_WHERE_ResourceTypeId_28_SearchParamId_202
+                                // ST_ReferenceResourceId_WHERE_ResourceTypeId_40_SearchParamId_1219_ReferenceResourceTypeId_2
                                 var table = reader.GetString(0);
                                 var stats = reader.GetString(1);
                                 var split = stats.Split("_");
                                 var column = split[1];
-                                var resorceTypeId = short.Parse(split[4]);
+                                var resourceTypeId = short.Parse(split[4]);
                                 var searchParamId = short.Parse(split[6]);
-                                return ("dbo." + table, column, resorceTypeId, searchParamId);
+                                short? referenceResourceTypeId = split.Length > 8 ? short.Parse(split[8]) : null;
+                                return ("dbo." + table, column, resourceTypeId, searchParamId, referenceResourceTypeId);
                             },
                             logger,
                             cancel);
@@ -2246,21 +2289,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
         {
-            // The scalar-temporal rewriter is gated by configuration (opt-in) until the FHIR-containment
-            // fix in AB#191826 lands. When disabled, the original two-predicate equality form flows
-            // straight through to DateTimeEqualityRewriter and the rest of the pipeline.
             Expression afterSmartCompartment = rootExpression
                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            Expression afterScalarTemporal = _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter
-                ? afterSmartCompartment?.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance)
-                : afterSmartCompartment;
+            // Date/time equality resolves to exactly one of three mutually-exclusive paths — legacy overlap,
+            // birthdate End-only optimization, or Core containment range — none of which emits a temporal
+            // UNION ALL. See ApplyDateEqualitySemantics for the matrix.
+            Expression afterDateEquality = ApplyDateEqualitySemantics(
+                afterSmartCompartment,
+                _fhirSqlServerConfiguration.EnableFhirDateContainment,
+                _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter);
 
-            return (SqlRootExpression)afterScalarTemporal
-                ?.AcceptVisitor(DateTimeEqualityRewriter.Instance)
-                .AcceptVisitor(FlatteningRewriter.Instance)
+            return (SqlRootExpression)afterDateEquality
+                ?.AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)
                 .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
@@ -2279,6 +2322,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        /// <summary>
+        /// Selects exactly one of three mutually-exclusive date/time equality strategies — legacy overlap
+        /// (<see cref="DateTimeEqualityRewriter"/>), the birthdate End-only optimization
+        /// (<see cref="ScalarTemporalEqualityRewriter"/>), or Core's containment range. The strategies are
+        /// never layered and no path emits a temporal UNION ALL.
+        /// </summary>
+        /// <param name="expression">The expression tree to transform. May be null.</param>
+        /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
+        /// <param name="enableScalarTemporalRewriter">Whether the scalar-temporal rewriter is enabled.</param>
+        /// <returns>The expression with the selected date-equality semantics applied.</returns>
+        internal static Expression ApplyDateEqualitySemantics(Expression expression, bool enableFhirDateContainment, bool enableScalarTemporalRewriter)
+        {
+            if (expression == null)
+            {
+                return null;
+            }
+
+            if (!enableFhirDateContainment)
+            {
+                // Legacy overlap (== main). The scalar-temporal rewriter never runs without containment.
+                return expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            }
+
+            if (enableScalarTemporalRewriter)
+            {
+                // Birthdate End-only optimization overrides containment for allow-listed params only.
+                return expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+            }
+
+            // Core's containment range form flows straight to SQL for all date params.
+            return expression;
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)
@@ -2494,7 +2570,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         internal class ResourceSearchParamStats
         {
-            private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
+            private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId), bool> _stats;
             private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
             public ResourceSearchParamStats(
@@ -2503,12 +2579,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
                 CancellationToken cancel)
             {
-                _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
+                _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId), bool>();
                 _queryGeneratorFactory = queryGeneratorFactory;
                 Init(sqlRetryService, logger, cancel).Wait(cancel);
             }
 
-            public ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
+            public ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> GetStatsFromCache()
             {
                 return _stats.Keys;
             }
@@ -2533,8 +2609,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         continue;
                     }
 
-                    // Collected raw triples (table, resourceTypeId, searchParamId)
-                    var collected = new List<(string Table, short ResourceTypeId, short SearchParamId)>();
+                    // Collected raw tuples (table, resourceTypeId, searchParamId, referenceResourceTypeId)
+                    var collected = new List<(string Table, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
 
                     // Track whether we also need a ResourceSurrogateId filtered stat
                     bool hasResourceSurrogateId = false;
@@ -2558,7 +2634,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     // Emit stats rows
-                    foreach (var (table, resourceTypeId, searchParamId) in collected)
+                    foreach (var (table, resourceTypeId, searchParamId, referenceResourceTypeId) in collected)
                     {
                         // For a NotExists (:missing=true) predicate that carries a ResourceSurrogateId range
                         // constraint, create an additional ResourceSurrogateId filtered stat. This is emitted
@@ -2568,7 +2644,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // in the NotExists branch, so this never adds stats for Normal/Union searches.
                         if (hasResourceSurrogateId)
                         {
-                            await Create(table, "ResourceSurrogateId", resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                            await Create(table, "ResourceSurrogateId", resourceTypeId, searchParamId, null, sqlRetryService, logger, cancel);
                         }
 
                         var columns = GetKeyColumns(table);
@@ -2579,7 +2655,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         foreach (var column in columns)
                         {
-                            await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                            await Create(table, column, resourceTypeId, searchParamId, referenceResourceTypeId, sqlRetryService, logger, cancel);
                         }
                     }
                 }
@@ -2592,7 +2668,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 int chainLevel,
                 SqlRootExpression root,
                 int tableIndex,
-                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                List<(string Table, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> collected,
                 ILogger logger)
             {
                 // A union branch may itself be a MultiaryExpression (AND group) or a single expression
@@ -2618,7 +2694,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Expression predicate,
                 SearchParamTableExpressionQueryGenerator defaultGenerator,
                 SqlServerFhirModel model,
-                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                List<(string Table, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> collected,
                 out bool hasResourceSurrogateId)
             {
                 hasResourceSurrogateId = false;
@@ -2669,7 +2745,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 foreach (var rtId in resourceTypeIds)
                 {
-                    collected.Add((tableName, rtId, searchParamId));
+                    collected.Add((tableName, rtId, searchParamId, null));
                 }
             }
 
@@ -2719,7 +2795,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 int chainLevel,
                 SqlRootExpression root,
                 int tableIndex,
-                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                List<(string Table, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> collected,
                 ILogger logger,
                 MultiaryExpression parentMultiaryContext,
                 bool isUnionBranch)
@@ -2759,7 +2835,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 int chainLevel,
                 SqlRootExpression root,
                 int tableIndex,
-                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                List<(string Table, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> collected,
                 MultiaryExpression parentMultiaryContext,
                 bool isUnionBranch)
             {
@@ -2832,9 +2908,57 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return;
                 }
 
+                // For ReferenceSearchParam, extract target reference resource types from the expression
+                // to create per-target-type filtered statistics (Approach B).
+                var referenceResourceTypeIds = new HashSet<short>();
+                if (tableName == VLatest.ReferenceSearchParam.TableName)
+                {
+                    CollectReferenceResourceTypes(spe.Expression, model, referenceResourceTypeIds);
+                }
+
                 foreach (var rtId in resourceTypeIds)
                 {
-                    collected.Add((tableName, rtId, searchParamId));
+                    if (referenceResourceTypeIds.Count > 0)
+                    {
+                        // Create one entry per target type for Approach B stats
+                        foreach (var refRtId in referenceResourceTypeIds)
+                        {
+                            collected.Add((tableName, rtId, searchParamId, refRtId));
+                        }
+                    }
+                    else
+                    {
+                        collected.Add((tableName, rtId, searchParamId, null));
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Walks the inner expression tree of a reference search parameter to extract
+            /// target resource type IDs from <see cref="StringExpression"/> nodes with
+            /// <see cref="FieldName.ReferenceResourceType"/>.
+            /// </summary>
+            private static void CollectReferenceResourceTypes(Expression expression, SqlServerFhirModel model, HashSet<short> referenceResourceTypeIds)
+            {
+                switch (expression)
+                {
+                    case StringExpression se when se.FieldName == FieldName.ReferenceResourceType:
+                        if (model.TryGetResourceTypeId(se.Value, out var rtId))
+                        {
+                            referenceResourceTypeIds.Add(rtId);
+                        }
+
+                        break;
+                    case MultiaryExpression me:
+                        foreach (var inner in me.Expressions)
+                        {
+                            CollectReferenceResourceTypes(inner, model, referenceResourceTypeIds);
+                        }
+
+                        break;
+                    case SearchParameterExpression innerSpe:
+                        CollectReferenceResourceTypes(innerSpe.Expression, model, referenceResourceTypeIds);
+                        break;
                 }
             }
 
@@ -2862,41 +2986,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            private static HashSet<string> GetKeyColumns(string table)
-            {
-                var results = new HashSet<string>();
-                if (table == VLatest.StringSearchParam.TableName)
-                {
-                    results.Add(VLatest.StringSearchParam.Text.Metadata.Name);
-                }
-                else if (table == VLatest.TokenSearchParam.TableName)
-                {
-                    results.Add(VLatest.TokenSearchParam.Code.Metadata.Name);
-                }
-                else if (table == VLatest.DateTimeSearchParam.TableName)
-                {
-                    results.Add(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name);
-                    results.Add(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name);
-                }
-                else if (table == VLatest.NumberSearchParam.TableName)
-                {
-                    results.Add(VLatest.NumberSearchParam.LowValue.Metadata.Name);
-                    results.Add(VLatest.NumberSearchParam.HighValue.Metadata.Name);
-                }
-                else if (table == VLatest.QuantitySearchParam.TableName)
-                {
-                    results.Add(VLatest.QuantitySearchParam.LowValue.Metadata.Name);
-                    results.Add(VLatest.QuantitySearchParam.HighValue.Metadata.Name);
-                }
+            private static HashSet<string> GetKeyColumns(string table) => SqlServerSearchService.GetKeyColumns(table);
 
-                return results;
-            }
-
-            private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+            private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, short? referenceResourceTypeId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
-                if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId)))
+                if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId)))
                 {
-                    logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
+                    logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam} RefType={ReferenceResourceType}", tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId);
                     return;
                 }
 
@@ -2907,11 +3003,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     cmd.Parameters.AddWithValue("@Column", columnName);
                     cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
                     cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
+                    cmd.Parameters.AddWithValue("@ReferenceResourceTypeId", (object)referenceResourceTypeId ?? DBNull.Value);
                     await cmd.ExecuteNonQueryAsync(sqlRetryService, logger, cancel);
 
-                    _stats.TryAdd((tableName, columnName, resourceTypeId, searchParamId), true);
+                    _stats.TryAdd((tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId), true);
 
-                    logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
+                    logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam} RefType={ReferenceResourceType}", tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId);
                 }
                 catch (SqlException ex)
                 {

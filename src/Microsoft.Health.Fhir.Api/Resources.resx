@@ -409,6 +409,26 @@
   <data name="MixedSMARTV1AndV2ScopesAreNotAllowed" xml:space="preserve">
     <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
   </data>
+  <data name="SmartScopeSearchParameterModifiersNotSupported" xml:space="preserve">
+    <value>Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier in parameter '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeSearchParameterIncludesNotSupported" xml:space="preserve">
+    <value>Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeSearchParameterChainedSearchNotSupported" xml:space="preserve">
+    <value>Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains a chained search parameter '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeInvalidSearchParameters" xml:space="preserve">
+    <value>Invalid search parameters in SMART on FHIR clinical scope '{0}'. The search parameter constraints could not be parsed.</value>
+    <comment>{0} is the scope string</comment>
+  </data>
+  <data name="SmartScopeUnknownResourceType" xml:space="preserve">
+    <value>Invalid SMART on FHIR clinical scope '{0}'. The resource type '{1}' is not a supported FHIR resource type.</value>
+    <comment>{0} is the scope string; {1} is the unknown resource type</comment>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
