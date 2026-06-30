@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else if (sqlEx.IsReindexJobConflict())
                         {
-                            _logger.LogWarning(sqlEx, "Reindex job conflict occurred while calling dbo.MergeResourcesAndSearchParams");
+                            _logger.LogWarning(sqlEx, $"Error calling dbo.MergeResourcesAndSearchParams. {sqlEx.Message}");
                             throw new JobConflictException(sqlEx.Message);
                         }
                     }

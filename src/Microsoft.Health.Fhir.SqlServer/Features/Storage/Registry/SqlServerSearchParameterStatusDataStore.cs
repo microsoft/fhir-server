@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
             catch (SqlException ex) when (ex.IsReindexJobConflict())
             {
-                _logger.LogWarning(ex, $"Reindex job conflict occurred while calling dbo.MergeSearchParams. ReindexId={reindexId ?? 0}");
+                _logger.LogWarning(ex, $"Error calling dbo.MergeSearchParams. {ex.Message}");
                 throw new JobConflictException(ex.Message);
             }
         }
