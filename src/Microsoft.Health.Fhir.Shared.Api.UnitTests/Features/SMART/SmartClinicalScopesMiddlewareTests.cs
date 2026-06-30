@@ -164,10 +164,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
         [Theory]
         [MemberData(nameof(GetMixedTestScopes))]
-        public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsReturned(string scopes)
         {
-            HttpContext httpContext = new DefaultHttpContext();
-
             var fhirConfiguration = new FhirServerConfiguration();
             fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
@@ -179,6 +177,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                // Use a fresh context with a readable body stream per iteration since the middleware writes the response directly.
+                HttpContext httpContext = new DefaultHttpContext();
+                httpContext.Response.Body = new MemoryStream();
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
                 var fhirRequestContext = new DefaultFhirRequestContext();
@@ -194,8 +196,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                // The middleware must short-circuit with a 400 OperationOutcome rather than throwing (which would surface as a 500).
+                Assert.Equal(StatusCodes.Status400BadRequest, httpContext.Response.StatusCode);
+
+                httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+                string body = await new StreamReader(httpContext.Response.Body).ReadToEndAsync();
+                Assert.Contains("OperationOutcome", body, StringComparison.Ordinal);
+                Assert.Contains("\"code\":\"invalid\"", body, StringComparison.Ordinal);
+                Assert.Contains(Microsoft.Health.Fhir.Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed, body, StringComparison.Ordinal);
             }
         }
 
