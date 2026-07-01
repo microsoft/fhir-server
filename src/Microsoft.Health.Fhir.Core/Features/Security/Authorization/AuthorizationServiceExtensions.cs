@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'create' permission (SMART v2) or legacy 'write' permission (SMART v1/backward compatibility).</remarks>
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'readById' permission (SMART v2) or legacy 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'update' permission (SMART v2) or legacy 'write' + 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'update' permission (SMART v2) or legacy 'write' permission (SMART v1/backward compatibility).</remarks>
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'update' + 'create' permission (SMART v2) or legacy 'write' permission (SMART v1/backward compatibility).</remarks>
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'create' + 'search' permission (SMART v2) or legacy 'write' + 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -213,10 +213,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(service, nameof(service));
 
             var actions = DataActions.Read | DataActions.Write;
-            var gradular = includeGranular ? DataActions.Search | DataActions.Create : DataActions.None;
+            var granular = includeGranular ? DataActions.Search | DataActions.Create : DataActions.None;
             return service.CheckAccess(
-                actions | gradular,
-                x => (x & actions) == actions || (x & gradular) == gradular,
+                actions | granular,
+                x => (x & actions) == actions || (x & granular) == granular,
                 throwException,
                 cancellationToken);
         }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="hardDelete">The value indicating whether it is soft or hard delete.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'search' + 'delete' permission (SMART v2) or legacy 'delete' + 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -241,10 +241,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(service, nameof(service));
 
             var actions = DataActions.Delete | DataActions.Read | (hardDelete ? DataActions.HardDelete : DataActions.None);
-            var gradular = includeGranular ? DataActions.Search : DataActions.None;
+            var granular = includeGranular
+                ? DataActions.Search | DataActions.Delete | (hardDelete ? DataActions.HardDelete : DataActions.None)
+                : DataActions.None;
             return service.CheckAccess(
-                actions | gradular,
-                x => (x & actions) == actions || (x & gradular) == gradular,
+                actions | granular,
+                x => (x & actions) == actions
+                     || (granular != DataActions.None && (x & granular) == granular),
                 throwException,
                 cancellationToken);
         }
@@ -254,7 +257,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'search' + 'update' permission (SMART v2) or legacy 'write' + 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -267,10 +270,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(service, nameof(service));
 
             var actions = DataActions.Read | DataActions.Write;
-            var gradular = includeGranular ? DataActions.Search | DataActions.Update : DataActions.None;
+            var granular = includeGranular ? DataActions.Search | DataActions.Update : DataActions.None;
             return service.CheckAccess(
-                actions | gradular,
-                x => (x & actions) == actions || (x & gradular) == gradular,
+                actions | granular,
+                x => (x & actions) == actions || (x & granular) == granular,
                 throwException,
                 cancellationToken);
         }
@@ -280,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// </summary>
         /// <param name="service">The authorization service.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="includeGranular">The value indicating whether to include gradular permissions in a request.</param>
+        /// <param name="includeGranular">The value indicating whether to include granular permissions in a request.</param>
         /// <param name="throwException">The value indicating whether to throw an unauthorized exception when requested permissions aren't granted.</param>
         /// <returns>A boolean indicating if access is granted.</returns>
         /// <remarks>The method checks for granular 'search' + 'update' permission (SMART v2) or legacy 'write' + 'read' permission (SMART v1/backward compatibility).</remarks>
@@ -293,10 +296,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(service, nameof(service));
 
             var actions = DataActions.Read | DataActions.Write;
-            var gradular = includeGranular ? DataActions.Search | DataActions.Update : DataActions.None;
+            var granular = includeGranular ? DataActions.Search | DataActions.Update : DataActions.None;
             return service.CheckAccess(
-                actions | gradular,
-                x => (x & actions) == actions || (x & gradular) == gradular,
+                actions | granular,
+                x => (x & actions) == actions || (x & granular) == granular,
                 throwException,
                 cancellationToken);
         }
