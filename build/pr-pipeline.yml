@@ -90,8 +90,11 @@ stages:
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
+  # Security analysis consumes deploy + nuget artifacts from BuildArtifacts only.
+  # It runs independent security tools: RoslynAnalyzers (own build), BinSkim, CredScan,
+  # SBOM validation, AntiMalware, ARM template checks, and CSRF validation. Unit-test
+  # output is not consumed, so BuildUnitTests is not a dependency.
   dependsOn:
-  - BuildUnitTests
   - BuildArtifacts
   jobs:
   - job: Guardian
@@ -153,15 +156,16 @@ stages:
           # Handle re-run scenario: remove existing RG for this build if it exists
           try
           {
-            Get-AzResourceGroup -Name $(UniqueResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+            $resourceGroupName = '$(UniqueResourceGroupName)'
+            Get-AzResourceGroup -Name $resourceGroupName | Remove-AzResourceGroup -Verbose -Force
           }
           catch
           {}
           # Create new resource group with unique name and retry logic
           Invoke-WithRetry -OperationName "Create Resource Group" -ScriptBlock {
-            New-AzResourceGroup -Name "$(UniqueResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force -ErrorAction Stop
+            New-AzResourceGroup -Name $resourceGroupName -Location '$(ResourceGroupRegion)' -Force -ErrorAction Stop
           }
-          Write-Host "Created resource group: $(UniqueResourceGroupName)"
+          Write-Host "Created resource group: $resourceGroupName"
     - template: ./jobs/add-resource-group-role-assignments.yml
       parameters:
         azureSubscription: $(ConnectedServiceName)
@@ -173,7 +177,6 @@ stages:
   - UpdateVersion
   - provisionEnvironment
   jobs:
-  - template: ./jobs/cleanup-aad.yml
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
@@ -182,16 +185,6 @@ stages:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-keyvaults.yml
-  - job: setup
-    displayName: 'Setup AAD'
-    dependsOn:
-    - cleanupAad
-    - deleteKeyVaults
-    pool:
-      name: '$(AzurePipelinesPool)'
-      vmImage: '$(WindowsVmImage)'
-    steps:
-    - template: ./jobs/add-aad-test-environment.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
@@ -245,7 +238,7 @@ stages:
 - stage: associateKeyVaultNsp
   displayName: 'Associate KeyVault with NSP'
   dependsOn:
-  - setupEnvironment
+  - setupAad
   - createNsp
   jobs:
   - template: ./jobs/associate-keyvault-nsp.yml
@@ -254,6 +247,22 @@ stages:
       keyVaultName: '$(KeyVaultBaseName)-ts'
       nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
+
+- stage: setupAad
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/cleanup-aad.yml
+  - job: setup
+    displayName: 'Setup AAD'
+    dependsOn:
+    - cleanupAad
+    pool:
+      name: '$(AzurePipelinesPool)'
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
@@ -297,6 +306,26 @@ stages:
       imageTag: $(ImageTag)
       reindexEnabled: true
 
+- stage: deployStu3IsoCosmos
+  displayName: 'Deploy STU3 Cosmos Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: cosmos
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameCosmosIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameCosmosIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
@@ -319,6 +348,29 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployStu3SqlIso
+  displayName: 'Deploy STU3 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameSqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRStu3Iso
+      reindexEnabled: true
+
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
@@ -333,6 +385,26 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4IsoCosmos
+  displayName: 'Deploy R4 Cosmos Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: cosmos
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4CosmosIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4CosmosIso)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
@@ -361,6 +433,29 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployR4SqlIso
+  displayName: 'Deploy R4 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4SqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4SqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRR4Iso
+      reindexEnabled: true
+
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
@@ -383,12 +478,37 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: deployR5SqlIso
+  displayName: 'Deploy R5 SQL Isolation Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5SqlIso)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5SqlIso)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(UniqueResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlDatabaseName: FHIRR5Iso
+      reindexEnabled: true
+
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployStu3
+  - deployStu3IsoCosmos
   variables:
     TestEnvironmentUrl_Stu3: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3']]
     TestEnvironmentUrl: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
@@ -398,13 +518,18 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      isolationContainerAppName: $(DeploymentEnvironmentNameCosmosIso)
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployStu3Sql
+  - deployStu3SqlIso
   variables:
     TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -414,14 +539,19 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameSqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR4
+  - deployR4IsoCosmos
   variables:
     TestEnvironmentUrl_R4: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4']]
     TestEnvironmentUrl: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
@@ -431,13 +561,18 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR4CosmosIso)
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR4Sql
+  - deployR4SqlIso
   variables:
     TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -447,14 +582,19 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR4SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - setupAad
   - deployR5Sql
+  - deployR5SqlIso
   variables:
     TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]
     TestEnvironmentUrl_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
@@ -464,7 +604,10 @@ stages:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
+      isolationContainerAppName: $(DeploymentEnvironmentNameR5SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runShardedIntegrationTests: true
+      runShardedE2eJobs: true
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'

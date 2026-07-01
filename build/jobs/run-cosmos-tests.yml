@@ -5,136 +5,209 @@ parameters:
   type: string
 - name: containerAppName
   type: string
+- name: isolationContainerAppName
+  type: string
+  default: ''
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+  default: 'Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex'
 - name: runReindexJob
   type: boolean
   default: true
+- name: runShardedIntegrationTests
+  type: boolean
+  default: false
+- name: integrationTestShards
+  type: object
+  default:
+    - name: General
+      testFilter: 'Category!=SmartOnFhir&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&FullyQualifiedName!~CosmosDb'
+    - name: SmartSearch
+      testFilter: 'Category=SmartOnFhir'
+    - name: Search
+      testFilter: '(Category=Search|Category=SearchParameterStatus)&FullyQualifiedName!~SqlServer'
+    - name: Reindex
+      testFilter: 'Category=IndexAndReindex&FullyQualifiedName!~SqlServer'
+    # CosmosSpecific is the catch-all for Cosmos-named classes and Cosmos data-store variants.
+    # FullyQualifiedName~CosmosDb matches both Cosmos-only test classes and the "(CosmosDb)" suffix
+    # on every DataStore.All test, so the categorized shards above must be excluded here to avoid
+    # running those tests twice (mirrors the SqlSpecific exclusions).
+    - name: CosmosSpecific
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&Category!=SmartOnFhir'
+- name: runShardedE2eJobs
+  type: boolean
+  default: false
+- name: e2eTestShards
+  type: object
+  # mainCategoryFilter default is inlined here because ADO does not allow ${{ parameters.x }} in object parameter defaults.
+  default:
+    - name: General
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+    - name: Search
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+    - name: Mutation
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
+    - name: BulkDelete
+      testFilter: 'FullyQualifiedName~CosmosDb&Category=BulkDelete'
+    - name: CustomSearch
+      testFilter: 'FullyQualifiedName~CosmosDb&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
+    - name: History
+      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
+
 jobs:
 
-- job: "CosmosIntegrationTests"
-  timeoutInMinutes: 75
-  pool:
-    name: '$(InternalPool)'
-    demands:
-      - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    fetchTags: false
-    path: source
+- ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
+  - job: "CosmosIntegrationTests"
+    timeoutInMinutes: 75
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
+    steps:
+    - checkout: self
+      fetchDepth: 1
+      fetchTags: false
+      path: source
 
-  - template: integration-setup.yml
+    - template: integration-setup.yml
 
-  - template: integration-tests-extract.yml
-    parameters:
-      version: ${{ parameters.version }}
+    - template: integration-tests-extract.yml
+      parameters:
+        version: ${{ parameters.version }}
 
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}'
+    - template: integration-tests-run.yml
+      parameters:
+        version: ${{ parameters.version }}
+        dataStore: 'Cosmos'
+        keyVaultName: '${{ parameters.keyVaultName }}'
+        containerAppName: '${{ parameters.containerAppName }}'
+        testFilter: 'FullyQualifiedName!~SqlServer'
+        testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+        artifactSuffix: 'Cosmos_${{ parameters.version }}'
 
-  - task: AzurePowerShell@5
-    displayName: 'Set Workload Identity Variables'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      pwsh: true
-      ScriptType: inlineScript
-      Inline: |
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+- ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
+  - ${{ each shard in parameters.integrationTestShards }}:
+    - job: 'CosmosIntegrationTests_${{ shard.name }}'
+      timeoutInMinutes: 75
+      ${{ if eq(shard.name, 'SmartSearch') }}:
+        condition: or(eq('${{ parameters.version }}', 'R4'), eq('${{ parameters.version }}', 'R4B'))
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalLinuxImage)
+      steps:
+      - checkout: self
+        fetchDepth: 1
+        fetchTags: false
+        path: source
 
-        $containerAppName = '${{ parameters.containerAppName }}'
-        $containerApp = Get-AzResource -ResourceGroupName $(UniqueResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
-        if ($null -eq $containerApp) {
-            throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
-        }
+      - template: integration-setup.yml
 
-        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
-        $envSettings = $containerAppData.Properties.template.containers[0].env
+      - template: integration-tests-extract.yml
+        parameters:
+          version: ${{ parameters.version }}
 
-        $dataStoreResourceId = ($envSettings | Where-Object { $_.name -eq "FhirServer__ResourceManager__DataStoreResourceId" } | Select-Object -First 1).value
-        Write-Host "$dataStoreResourceId"
-        Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
+      - template: integration-tests-run.yml
+        parameters:
+          version: ${{ parameters.version }}
+          dataStore: 'Cosmos'
+          keyVaultName: '${{ parameters.keyVaultName }}'
+          containerAppName: '${{ parameters.containerAppName }}'
+          testFilter: 'FullyQualifiedName!~SqlServer&${{ shard.testFilter }}'
+          testRunTitle: '${{ parameters.version }} Cosmos Integration Tests ${{ shard.name }}'
+          artifactSuffix: 'Cosmos_${{ parameters.version }}_${{ shard.name }}'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Build Integration Test Projects'
-    inputs:
-      command: build
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+- ${{ if eq(parameters.runShardedE2eJobs, false) }}:
+  - job: 'cosmosE2eTests'
+    timeoutInMinutes: 75
+    dependsOn: []
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    variables:
+      AllowPtrToDetectTestRunRetryFiles: true
+    steps:
+    - template: e2e-setup.yml
+    - template: e2e-tests.yml
+      parameters:
+        version: ${{ parameters.version }}
+        containerAppName: '${{ parameters.containerAppName }}'
+        appServiceType: 'CosmosDb'
+        testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Cosmos Integration Tests with coverage'
-    inputs:
-      command: test
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
-      publishTestResults: false
-    env:
-      'CosmosDb__Host': $(CosmosDb--Host)
-      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
-      'CosmosDb__UseManagedIdentity': true
-      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  - ${{ each shard in parameters.e2eTestShards }}:
+    - job: 'cosmosE2eTests_${{ shard.name }}'
+      timeoutInMinutes: 75
+      dependsOn: []
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalLinuxImage)
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'CosmosDb'
+          testFilter: '${{ shard.testFilter }}'
+          testRunTitleSuffix: ' ${{ shard.name }}'
 
-  - task: PublishTestResults@2
-    displayName: 'Publish integration test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
+- ${{ if eq(parameters.runShardedE2eJobs, true) }}:
+  # RequiresIsolation tests (reindex, bulk delete, custom search params, and anything mutating
+  # global/server state) must not overlap the parallel shards on the SAME endpoint. When a dedicated
+  # isolation endpoint is supplied (isolationContainerAppName -> its own Cosmos account), this lane
+  # targets that endpoint and runs CONCURRENTLY with the shards (dependsOn: []). Otherwise it falls back
+  # to the serialized terminal lane on the main endpoint, waiting for every shard to finish first.
+  - ${{ if ne(parameters.isolationContainerAppName, '') }}:
+    - job: 'cosmosE2eTests_RequiresIsolation'
+      timeoutInMinutes: 75
+      dependsOn: []
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalLinuxImage)
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.isolationContainerAppName }}'
+          appServiceType: 'CosmosDb'
+          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
+  - ${{ else }}:
+    - job: 'cosmosE2eTests_RequiresIsolation'
+      timeoutInMinutes: 75
+      dependsOn:
+      - ${{ each shard in parameters.e2eTestShards }}:
+        - 'cosmosE2eTests_${{ shard.name }}'
+      condition: not(canceled())
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalLinuxImage)
+      variables:
+        AllowPtrToDetectTestRunRetryFiles: true
+      steps:
+      - template: e2e-setup.yml
+      - template: e2e-tests.yml
+        parameters:
+          version: ${{ parameters.version }}
+          containerAppName: '${{ parameters.containerAppName }}'
+          appServiceType: 'CosmosDb'
+          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          testRunTitleSuffix: ' RequiresIsolation'
 
-  - task: reportgenerator@5
-    displayName: 'Aggregate Cosmos integration test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Cosmos integration test coverage'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
-      artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
-      artifactType: 'container'
-
-- job: 'cosmosE2eTests'
-  timeoutInMinutes: 75
-  dependsOn: []
-  pool:
-    name: '$(InternalPool)'
-    demands:
-      - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      containerAppName: '${{ parameters.containerAppName }}'
-      appServiceType: 'CosmosDb'
-      categoryFilter: '${{ parameters.mainCategoryFilter }}'
-
-- ${{ if eq(parameters.runReindexJob, true) }}:
+- ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'cosmosE2eTests_Reindex'
     timeoutInMinutes: 75
     dependsOn: []
@@ -151,5 +224,5 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        categoryFilter: 'Category=IndexAndReindex'
+        testFilter: 'FullyQualifiedName~CosmosDb&Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'

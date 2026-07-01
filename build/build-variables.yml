@@ -16,21 +16,53 @@ variables:
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+  # Isolation endpoint for Stu3 SQL (mirrors the R4 SQL isolation endpoint): dedicated container app +
+  # dedicated database on the SAME app SQL server so RequiresIsolation E2E tests run concurrently with shards.
+  DeploymentEnvironmentNameSqlIso: '$(DeploymentEnvironmentNameSql)-iso'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
+  # Isolation endpoint for R4 SQL: dedicated container app + dedicated database on the SAME app SQL
+  # server, so RequiresIsolation E2E tests (reindex, bulk delete/update, custom search params) run
+  # concurrently with the parallel shards instead of in a serialized terminal lane.
+  DeploymentEnvironmentNameR4SqlIso: '$(DeploymentEnvironmentNameR4Sql)-iso'
   DeploymentEnvironmentNameR4B: '$(DeploymentEnvironmentName)-r4b'
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
+  # Isolation endpoint for R5 SQL (mirrors R4): dedicated container app + dedicated database on the shared server.
+  DeploymentEnvironmentNameR5SqlIso: '$(DeploymentEnvironmentNameR5Sql)-iso'
+  # Cosmos isolation endpoints (mirror the SQL isolation endpoints): each gets its OWN dedicated Cosmos
+  # account (the deploy script names the Cosmos account after the container app), so RequiresIsolation
+  # Cosmos E2E tests run concurrently with the parallel shards instead of in a serialized terminal lane.
+  # Use a compact '-ciso' (cosmos-iso) suffix; it is shorter than the proven-safe SQL '-sql-iso' suffix,
+  # so it stays within the ACA container-app (32 char) and Cosmos account (44 char) name limits.
+  DeploymentEnvironmentNameCosmosIso: '$(DeploymentEnvironmentName)-ciso'
+  DeploymentEnvironmentNameR4CosmosIso: '$(DeploymentEnvironmentNameR4)-ciso'
   AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
   # Key Vault names (shorter due to 24 character limit)
   KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
+  # Stu3 SQL isolation vault. Must be <= 24 chars. Use compact 'sqi' (sql-iso) token: '$(KeyVaultBaseName)-sqi'
+  # (base + 4 chars), well under the limit and distinct from the main Stu3 SQL vault.
+  KeyVaultNameSqlIso: '$(KeyVaultBaseName)-sqi'
   KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
   KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
+  # Key Vault names must be <= 24 chars. KeyVaultNameR4Sql is already 'f<buildNumber>-r4-sql' (21 chars at the
+  # proven-safe max), so a '-iso' suffix would overflow. Use a compact 'sqi' (sql-iso) token to stay the same
+  # length as the main R4 SQL vault while remaining distinct (each ACA app provisions its own vault).
+  KeyVaultNameR4SqlIso: '$(KeyVaultNameR4)-sqi'
   KeyVaultNameR4B: '$(KeyVaultBaseName)-r4b'
   KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
   KeyVaultNameR5: '$(KeyVaultBaseName)-r5'
   KeyVaultNameR5Sql: '$(KeyVaultNameR5)-sql'
+  # R5 SQL isolation vault. '$(KeyVaultNameR5)-sqi' = '<base>-r5-sqi' (base + 7 chars), same length as the
+  # proven-safe R4 SQL iso vault and under the 24-char limit.
+  KeyVaultNameR5SqlIso: '$(KeyVaultNameR5)-sqi'
+  # Cosmos isolation vaults. Each iso ACA app provisions its own vault. Use a compact 'csi' (cosmos-iso)
+  # token to stay <= 24 chars: '$(KeyVaultBaseName)-csi' = '<base>-csi' (base + 4 = 20 chars) for Stu3,
+  # and '$(KeyVaultNameR4)-csi' = '<base>-r4-csi' (base + 7 = 23 chars) for R4 — same lengths as the
+  # proven-safe SQL iso vaults.
+  KeyVaultNameCosmosIso: '$(KeyVaultBaseName)-csi'
+  KeyVaultNameR4CosmosIso: '$(KeyVaultNameR4)-csi'
   TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
   TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'

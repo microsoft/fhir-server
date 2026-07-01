@@ -178,13 +178,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var query = new[] { Tuple.Create("gender:missing", "true") };
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+
+            // This test must be robust against two independent sources of cross-test interference that both stem
+            // from process-global state shared by every integration test class co-located in the same test host:
+            //
+            //  1. GetStatsFromCache() is a process-global static cache that accumulates stats from every search run
+            //     by every class. Co-located classes can create individual-gender stats for NON-Patient resource
+            //     types, which pollute that cache and would break the no-fanout (DoesNotContain) check below.
+            //  2. SqlServerSearchService.Create() is gated on that same static cache (it skips the per-database
+            //     stat write when the (table,column,type,param) tuple is already cached). So if a co-located class
+            //     already cached the Patient-gender stat, this class's search will NOT write it to this class's
+            //     own database, and asserting the positive (Single) case against the database would flakily fail.
+            //
+            // To be deterministic under any execution order we assert each case against the source that is immune
+            // to the relevant interference:
+            //  - Positive (the owning Patient-gender stat exists): assert against the cache. The cache is keyed by
+            //    the (table,column,type,param) tuple, so there is at most one matching entry, and after this search
+            //    the tuple is guaranteed present (created here on a cache miss, or already present on a cache hit).
+            //  - Negative (no fan-out to other resource types): assert against the per-class database. Each class
+            //    runs on its own uniquely named database containing only the stats this class created, so a
+            //    non-Patient gender stat from a co-located class can never appear here.
             var statsFromCache = SqlServerSearchService.GetStatsFromCache();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
             }
 
-            var model = ((SqlServerSearchService)_fixture.SearchService).Model;
+            var statsFromDatabase = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
+            foreach (var stat in statsFromDatabase)
+            {
+                _output.WriteLine($"database {stat}");
+            }
+
+            var model = sqlSearchService.Model;
             var genderParamId = model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/individual-gender"));
             var patientResourceTypeId = model.GetResourceTypeId(resourceType);
 
@@ -196,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
             // never created for any resource type other than the one in the search URL.
-            Assert.DoesNotContain(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+            Assert.DoesNotContain(statsFromDatabase, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId != patientResourceTypeId
                   && _.SearchParamId == genderParamId);

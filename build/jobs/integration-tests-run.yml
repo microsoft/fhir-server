@@ -1,0 +1,144 @@
+parameters:
+- name: version
+  type: string
+- name: dataStore
+  type: string  # 'Sql' or 'Cosmos'
+- name: keyVaultName
+  type: string
+- name: testFilter
+  type: string
+- name: testRunTitle
+  type: string
+- name: artifactSuffix
+  type: string
+- name: containerAppName
+  type: string
+  default: ''
+- name: integrationSqlServerName
+  type: string
+  default: ''
+
+steps:
+# Keep integration tests on the project-based dotnet test path used by main. Directly invoking
+# prebuilt test DLLs works for execution, but coverage + retry TRX files are not merged correctly
+# by PublishTestResults. When the pipeline moves to .NET 10, revisit prebuilt execution with
+# `dotnet test --test-modules`.
+- task: DotNetCoreCLI@2
+  displayName: 'Build Integration Test Projects'
+  inputs:
+    command: build
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+- task: AzureKeyVault@1
+  displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    KeyVaultName: '${{ parameters.keyVaultName }}'
+
+- ${{ if eq(parameters.dataStore, 'Sql') }}:
+  - task: AzurePowerShell@5
+    displayName: 'Set Workload Identity Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+- ${{ if eq(parameters.dataStore, 'Cosmos') }}:
+  - task: AzurePowerShell@5
+    displayName: 'Set Workload Identity Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+        $containerAppName = '${{ parameters.containerAppName }}'
+        $containerApp = Get-AzResource -ResourceGroupName $(UniqueResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
+        }
+
+        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $envSettings = $containerAppData.Properties.template.containers[0].env
+
+        $dataStoreResourceId = ($envSettings | Where-Object { $_.name -eq "FhirServer__ResourceManager__DataStoreResourceId" } | Select-Object -First 1).value
+        Write-Host "$dataStoreResourceId"
+        Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run ${{ parameters.dataStore }} Integration Tests ${{ parameters.testRunTitle }} with coverage'
+  inputs:
+    command: test
+    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "${{ parameters.testFilter }}" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+    testRunTitle: '${{ parameters.testRunTitle }}'
+    # Disable the task's built-in (non-retry-aware) result publishing so the
+    # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+    publishTestResults: false
+  env:
+    platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+    'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+    'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+    'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+    'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+    ${{ if eq(parameters.dataStore, 'Sql') }}:
+      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+    ${{ if eq(parameters.dataStore, 'Cosmos') }}:
+      'CosmosDb__Host': $(CosmosDb--Host)
+      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
+      'CosmosDb__UseManagedIdentity': true
+
+- task: PublishTestResults@2
+  displayName: 'Publish integration test results'
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+    mergeTestResults: true
+    testRunTitle: '${{ parameters.testRunTitle }}'
+    failTaskOnFailedTests: true
+  condition: succeededOrFailed()
+
+- task: PowerShell@2
+  displayName: 'Report integration duration by class'
+  condition: succeededOrFailed()
+  inputs:
+    targetType: filePath
+    filePath: '$(System.DefaultWorkingDirectory)/build/scripts/Write-TestClassDurationReport.ps1'
+    pwsh: true
+    arguments: >-
+      -ResultsDirectory "$(Agent.TempDirectory)/coverage"
+      -OutputDirectory "$(Agent.TempDirectory)/test-class-duration"
+      -ReportName "${{ parameters.artifactSuffix }}_ByClass"
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish integration class duration report'
+  condition: succeededOrFailed()
+  inputs:
+    pathToPublish: '$(Agent.TempDirectory)/test-class-duration'
+    artifactName: 'TestClassDuration_IntegrationTests_${{ parameters.artifactSuffix }}'
+    artifactType: 'container'
+
+- task: reportgenerator@5
+  displayName: 'Aggregate integration test coverage'
+  condition: succeededOrFailed()
+  inputs:
+    reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
+    reporttypes: 'Cobertura'
+    targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish integration test coverage'
+  inputs:
+    pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
+    artifactName: 'Coverage_IntegrationTests_${{ parameters.artifactSuffix }}'
+    artifactType: 'container'
