@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Threading;
@@ -107,27 +108,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
-#if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
-#else
-                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
-#endif
-
                 foreach (var code in codes)
                 {
-                    var searchParam = new SearchParameter
-                    {
-                        Id = code,
-                        Url = $"{urlPrefix}{code}",
-                        Name = code,
-                        Code = code,
-                        Status = PublicationStatus.Active,
-                        Type = SearchParamType.Token,
-                        Expression = "Person.id",
-                        Description = "any",
-                        Base = resourceTypes,
-                    };
-
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
                 }
 
@@ -214,24 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             async Task<FhirResponse> CreatePersonSearchParamAsync(string code, bool isBundle, bool isParal)
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-#if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
-#else
-                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
-#endif
-
-                var searchParam = new SearchParameter
-                {
-                    Id = code,
-                    Url = $"{urlPrefix}{code}",
-                    Name = code,
-                    Code = code,
-                    Status = PublicationStatus.Active,
-                    Type = SearchParamType.Token,
-                    Expression = "Person.id",
-                    Description = "any",
-                    Base = resourceTypes,
-                };
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
 
                 if (isBundle)
                 {
@@ -305,27 +271,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
-#if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>([Enum.Parse<VersionIndependentResourceTypesAll>("Person")]);
-#else
-                var resourceTypes = new List<ResourceType?>([Enum.Parse<ResourceType>("Person")]);
-#endif
-
                 foreach (var code in codes)
                 {
-                    var searchParam = new SearchParameter
-                    {
-                        Id = code,
-                        Url = $"{urlPrefix}{code}",
-                        Name = code,
-                        Code = code,
-                        Status = PublicationStatus.Active,
-                        Type = SearchParamType.Token,
-                        Expression = "Person.id",
-                        Description = "any",
-                        Base = resourceTypes,
-                    };
-
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
                 }
 
@@ -360,19 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
                 var id = ids[0];
-                var searchParam = new SearchParameter
-                {
-                    Id = id,
-                    Url = $"{urlPrefix}c-1",
-                    Name = code,
-                    Code = code,
-                    Status = PublicationStatus.Active,
-                    Type = SearchParamType.Token,
-                    Expression = "Person.id",
-                    Description = "any",
-                    Base = personTypes,
-                };
-
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}c-1", id);
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
                 id = ids[1];
@@ -605,28 +541,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             async Task<Bundle> CreatePersonSearchParamsAsync()
             {
                 var bundle = new Bundle { Type = isBatch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction, Entry = [] };
-#if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
-#else
-                var resourceTypes = new List<ResourceType?>() { ResourceType.Person };
-#endif
                 for (var i = 0; i < ids.Count; i++)
                 {
                     var code = codes[i];
                     var id = ids[i];
-                    var searchParam = new SearchParameter
-                    {
-                        Id = id,
-                        Url = urls[i],
-                        Name = code,
-                        Code = code,
-                        Status = PublicationStatus.Active,
-                        Type = SearchParamType.Token,
-                        Expression = "Person.id",
-                        Description = "any",
-                        Base = resourceTypes,
-                    };
-
+                    var searchParam = CreatePersonSearchParam(code, urls[i], id);
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
                 }
 
@@ -1198,6 +1117,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
+        [Fact]
+        public async Task GivenSearchParamCreate_WhenReindexIsRunning_ThenConflictIsReturned()
+        {
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var code = "conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.CreateAsync(searchParam));
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamDelete_WhenReindexIsRunning_ThenConflictIsReturned(bool hardDelete)
+        {
+            var code = hardDelete ? "hard-delete-conflict-test" : "soft-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            FhirClientException exception;
+            exception = hardDelete
+                ? await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.HardDeleteAsync(created.Resource))
+                : await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync(created.Resource));
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GivenSearchParamBulkDelete_WhenReindexIsRunning_ThenJobFailsWithConflict()
+        {
+            var code = "bulk-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            using var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"SearchParameter/$bulk-delete?url={Uri.EscapeDataString(searchParam.Url)}");
+            bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
+
+            var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var location = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location);
+
+            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
+            Assert.Equal(HttpStatusCode.Conflict, jobResult.Response.StatusCode);
+
+            var issuesParam = jobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "Issues");
+            Assert.NotNull(issuesParam);
+            var issueResource = Assert.IsType<OperationOutcome>(issuesParam.Resource);
+            Assert.NotEmpty(issueResource.Issue);
+
+            var conflictIssue = issueResource.Issue.FirstOrDefault(i => i.Code == OperationOutcome.IssueType.Conflict);
+            Assert.NotNull(conflictIssue);
+            Assert.Contains("reindex", conflictIssue.Details.Text, StringComparison.OrdinalIgnoreCase);
+        }
+
         // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
@@ -1286,6 +1274,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 _output.WriteLine($"Failed to create search parameter: {ex.Message}");
                 throw;
             }
+        }
+
+        private SearchParameter CreatePersonSearchParam(string code, string url, string id = null)
+        {
+#if R5
+            var resourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
+#else
+            var resourceTypes = new List<ResourceType?> { ResourceType.Person };
+#endif
+
+            return new SearchParameter
+            {
+                Id = id ?? code,
+                Url = url,
+                Name = code,
+                Code = code,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "Person.id",
+                Description = "any",
+                Base = resourceTypes,
+            };
         }
 
         private async Task<Specimen> CreateSpecimenResourceAsync(string id, string name)

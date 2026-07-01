@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
 
@@ -41,14 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
-            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
@@ -83,11 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
-                if (CanAffectSearchParameters(types, definition.ExcludedResourceTypes))
-                {
-                    await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
-                }
-
                 try
                 {
                     resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
@@ -106,7 +98,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    result.Issues.Add(ex.Message);
+
+                    if (ex.InnerException is AggregateException aggEx && aggEx.InnerExceptions.Any(ie => ie is JobConflictException))
+                    {
+                        var conflictEx = aggEx.InnerExceptions.OfType<JobConflictException>().First();
+                        result.Issues.Add($"JobConflictException: {conflictEx.Message}");
+                    }
+                    else
+                    {
+                        result.Issues.Add(ex.Message);
+                    }
+
                     exception = ex;
                 }
 
@@ -143,16 +145,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
             }
-        }
-
-        private static bool CanAffectSearchParameters(IReadOnlyCollection<string> resourceTypes, IList<string> excludedResourceTypes)
-        {
-            if (excludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) == true)
-            {
-                return false;
-            }
-
-            return resourceTypes.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

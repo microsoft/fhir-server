@@ -15,8 +15,11 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Xunit;
+using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -579,6 +582,140 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var sqlStatus = (SqlServerResourceSearchParameterStatus)status;
                 Assert.True(sqlStatus.Id > 0, "SqlServerResourceSearchParameterStatus should have a valid Id");
             });
+        }
+
+        [Fact]
+        public async Task GivenActiveReindexJob_WhenUpsertingSearchParameterStatus_ThenJobConflictExceptionIsThrown()
+        {
+            // This test validates that search parameter status updates are blocked when a reindex job is running
+            // This ensures bulk delete operations targeting SearchParameter resources will fail during reindex
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            // Arrange - Create a test search parameter status
+            var testUri = "http://hl7.org/fhir/SearchParameter/Test-ReindexConflict-" + Guid.NewGuid();
+            var status = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(testUri),
+                Status = SearchParameterStatus.Enabled,
+                IsPartiallySupported = false,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
+            };
+
+            // Create a reindex job using OperationDataStore
+            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
+            var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
+            var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
+
+            try
+            {
+                // Act & Assert - Upserting without reindexId should throw JobConflictException
+                var exception = await Assert.ThrowsAsync<JobConflictException>(async () =>
+                {
+                    await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
+                });
+
+                Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains(jobId.ToString(), exception.Message);
+            }
+            finally
+            {
+                // Cleanup - Cancel the reindex job
+                var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test-cleanup", 0, CancellationToken.None, jobId);
+                if (jobInfo != null)
+                {
+                    jobInfo.Status = JobStatus.Cancelled;
+                    await _fixture.QueueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenActiveReindexJob_WhenUpsertingWithReindexId_ThenSucceeds()
+        {
+            // This test validates that the reindex job itself can update search parameter statuses
+            // by passing its job ID
+
+            // Arrange - Create a test search parameter status
+            var testUri = "http://hl7.org/fhir/SearchParameter/Test-ReindexBypass-" + Guid.NewGuid();
+            var status = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(testUri),
+                Status = SearchParameterStatus.Enabled,
+                IsPartiallySupported = false,
+                LastUpdated = DateTimeOffset.UtcNow, // no need to set value to SearchParamLastUpdated because reindex is excluded from concurrency checks
+            };
+
+            // Start a reindex job using OperationDataStore
+            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
+            var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
+            var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
+            var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test", 0, CancellationToken.None, jobId);
+            Assert.NotNull(jobInfo);
+
+            try
+            {
+                // Act - Upserting with reindexId should succeed (bypass the concurrency check)
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None, reindexId: jobId);
+
+                // Assert - Verify the status was created
+                var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                var createdStatus = allStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
+                Assert.NotNull(createdStatus);
+                Assert.Equal(SearchParameterStatus.Enabled, createdStatus.Status);
+            }
+            finally
+            {
+                // Cleanup
+                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
+                if (jobInfo != null)
+                {
+                    jobInfo.Status = JobStatus.Cancelled;
+                    await _fixture.QueueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenNoActiveReindexJob_WhenUpsertingSearchParameterStatus_ThenSucceeds()
+        {
+            // This test validates that when no reindex is running, search parameter updates work normally
+            // This ensures bulk delete operations can proceed when no reindex is active
+
+            // Arrange - Clean up any active reindex jobs
+            var activeJobs = await _fixture.QueueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, false, CancellationToken.None);
+            foreach (var activeJob in activeJobs)
+            {
+                activeJob.Status = JobStatus.Cancelled;
+                await _fixture.QueueClient.CompleteJobAsync(activeJob, false, CancellationToken.None);
+            }
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            var testUri = "http://hl7.org/fhir/SearchParameter/Test-NoReindex-" + Guid.NewGuid();
+            var status = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(testUri),
+                Status = SearchParameterStatus.Enabled,
+                IsPartiallySupported = false,
+                LastUpdated = _fixture.SearchParameterOperations.SearchParamLastUpdated,
+            };
+
+            try
+            {
+                // Act - Should succeed without any reindex job running
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses([status], CancellationToken.None);
+
+                // Assert - Verify the status was created
+                var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                var createdStatus = allStatuses.FirstOrDefault(s => s.Uri.OriginalString == testUri);
+                Assert.NotNull(createdStatus);
+                Assert.Equal(SearchParameterStatus.Enabled, createdStatus.Status);
+            }
+            finally
+            {
+                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
+            }
         }
     }
 }

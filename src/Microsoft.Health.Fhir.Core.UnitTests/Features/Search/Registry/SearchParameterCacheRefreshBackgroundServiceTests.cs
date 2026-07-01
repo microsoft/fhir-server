@@ -413,10 +413,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
                 Substitute.For<IScopeProvider<IFhirDataStore>>(),
-                Substitute.For<IResourceWrapperFactory>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
             // Start a long-running API call that holds the semaphore
@@ -464,10 +462,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
                 Substitute.For<IScopeProvider<IFhirDataStore>>(),
-                Substitute.For<IResourceWrapperFactory>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();

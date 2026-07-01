@@ -13,8 +13,10 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
@@ -22,19 +24,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
     {
         private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
+        private readonly IQueueClient _queueClient;
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
 
         public CosmosDbSearchParameterStatusDataStore(
             Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            ICosmosQueryFactory queryFactory)
+            ICosmosQueryFactory queryFactory,
+            IQueueClient queueClient)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
 
             _containerScopeFactory = containerScopeFactory;
             _queryFactory = queryFactory;
+            _queueClient = queueClient;
         }
 
         public string SearchParamCacheUpdateProcessName => null;
@@ -94,6 +100,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             if (statuses.Count == 0)
             {
                 return;
+            }
+
+            // Check for active reindex jobs unless this call is from a reindex job itself
+            if (!reindexId.HasValue || reindexId.Value <= 0)
+            {
+                var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, returnParentOnly: true, cancellationToken);
+                if (activeJobs.Count > 0)
+                {
+                    var jobId = activeJobs[0].Id;
+                    throw new Fhir.Core.Features.Operations.JobConflictException(string.Format(Fhir.Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing, jobId));
+                }
             }
 
             foreach (IEnumerable<ResourceSearchParameterStatus> statusBatch in statuses.TakeBatch(100))

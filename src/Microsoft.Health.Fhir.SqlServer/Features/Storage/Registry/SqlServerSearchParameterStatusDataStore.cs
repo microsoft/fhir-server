@@ -139,7 +139,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
-            cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
+            if (reindexId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@ReindexId", reindexId.Value);
+            }
+
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses));
 
             try
@@ -150,6 +154,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 _logger.LogWarning(ex, $"Optimistic concurrency conflict occurred while calling dbo.MergeSearchParams. ReindexId={reindexId ?? 0}");
                 throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+            }
+            catch (SqlException ex) when (ex.IsReindexJobConflict())
+            {
+                _logger.LogWarning(ex, $"Error calling dbo.MergeSearchParams. {ex.Message}");
+                throw new JobConflictException(ex.Message);
             }
         }
 
