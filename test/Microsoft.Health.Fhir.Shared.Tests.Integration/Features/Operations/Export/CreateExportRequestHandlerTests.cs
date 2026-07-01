@@ -388,7 +388,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, null, formatName: formatName);
-            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+            await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
@@ -409,7 +409,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null);
-            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+            await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
@@ -456,7 +456,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
-            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+            await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Collection(
                 actualRecord.Filters,

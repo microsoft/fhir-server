@@ -388,7 +388,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         break;
                 }
 
-                CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
+                await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
             }
             catch (FhirException fhirExp)
             {
