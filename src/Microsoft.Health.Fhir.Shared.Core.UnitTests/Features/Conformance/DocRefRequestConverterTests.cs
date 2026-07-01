@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         public DocRefRequestConverterTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new SearchResourceResponse(new Bundle().ToResourceElement())));
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             var unsupported = parametersToValidate.ContainsKey(DocRefRequestConverter.OnDemandParameterName)
                 || parametersToValidate.ContainsKey(DocRefRequestConverter.ProfileParameterName);
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid && !unsupported ? 1 : 0).Send(
+            await _mediator.Received(valid && !unsupported ? 1 : 0).SendAsync(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _bundleFactory.Received(unsupported ? 1 : 0).CreateSearchBundle(

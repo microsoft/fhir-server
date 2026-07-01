@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using MediatR;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {

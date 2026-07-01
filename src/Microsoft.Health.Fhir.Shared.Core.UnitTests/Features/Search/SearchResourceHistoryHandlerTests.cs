@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _bundleFactory.CreateHistoryBundle(searchResult).Returns(expectedBundle);
 
-            SearchResourceHistoryResponse actualResponse = await _searchResourceHistoryHandler.Handle(request, CancellationToken.None);
+            SearchResourceHistoryResponse actualResponse = await _searchResourceHistoryHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _bundleFactory.CreateHistoryBundle(searchResult).Returns(expectedBundle);
 
             // Act & Assert - Should not throw UnauthorizedFhirActionException
-            var actualResponse = await searchResourceHistoryHandler.Handle(request, CancellationToken.None);
+            var actualResponse = await searchResourceHistoryHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Act & Assert
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                searchResourceHistoryHandler.Handle(request, CancellationToken.None));
+                searchResourceHistoryHandler.HandleAsync(request, CancellationToken.None));
         }
     }
 }

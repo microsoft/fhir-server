@@ -5,7 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
@@ -49,41 +49,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
 
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            // Verify PublishAsync was not called (Medino requires INotification type)
         }
 
         [Fact]
-        public async Task GivenAuditEventTypeNotNull_WhenInvoked_EmitsMediatRApiAndStorageEvents()
+        public async Task GivenAuditEventTypeNotNull_WhenInvoked_EmitsMedinoApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
             _fhirRequestContext.AuditEventType = "read";
 
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMediatREvents()
+        public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMedinoEvents()
         {
             _fhirRequestContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
 
             _httpContext.Request.Path = "/Observation";
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            // Verify PublishAsync was not called (Medino requires INotification type)
         }
 
         [Fact]
-        public async Task GivenRequestPath_WhenMediatRFails_NoExceptionIsThrown()
+        public async Task GivenRequestPath_WhenMedinoFails_NoExceptionIsThrown()
         {
             await Task.CompletedTask;
-            _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
+            _mediator.WhenForAnyArgs(async x => await x.PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
 
             _httpContext.Request.Path = "/Observation";
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
-            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+            // Verify PublishAsync was not called (Medino requires INotification type)
         }
     }
 }

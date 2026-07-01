@@ -9,7 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 authorizationService);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                handler.Handle(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                handler.HandleAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(Task.FromException<ExportJobOutcome>(new JobNotFoundException(string.Format(Core.Resources.JobNotFound, JobId))));
 
             await Assert.ThrowsAsync<JobNotFoundException>(() =>
-                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
             var ex = await Assert.ThrowsAsync<OperationFailedException>(() =>
-                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
             Assert.Equal(expectedStatusCode, ex.ResponseStatusCode);
 
             if (failureReason != null)
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(Task.FromException<ExportJobOutcome>(new InvalidOperationException("Unexpected error")));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         /// <summary>
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            GetExportResponse response = await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

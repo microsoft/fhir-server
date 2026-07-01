@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template@sha256:123abc")]
         public async Task GivenAConvertDataRequest_WithConfiguredTemplate_WhenValidBodySent_ThenConvertDataCalledWithCorrectParams(string loginServer, string imageName, string digest, string templateCollectionReference)
         {
-            _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
+            _mediator.SendAsync(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
 
             var ociArtifactInfo = new OciArtifactInfo
             {
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
 
             await localController.ConvertData(body);
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
                 && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)
@@ -192,9 +192,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
             var treatDatesAsStrings = body.GetSingleValue<FhirBoolean>(ConvertDataProperties.JsonDeserializationTreatDatesAsStrings) ?? new FhirBoolean();
-            _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
+            _mediator.SendAsync(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataEnabledController.ConvertData(body);
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
                 && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)

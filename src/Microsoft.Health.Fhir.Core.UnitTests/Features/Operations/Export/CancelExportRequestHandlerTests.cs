@@ -7,7 +7,7 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 NullLogger<CancelExportRequestHandler>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                handler.Handle(new CancelExportRequest(JobId), _cancellationToken));
+                handler.HandleAsync(new CancelExportRequest(JobId), _cancellationToken));
         }
 
         /// <summary>

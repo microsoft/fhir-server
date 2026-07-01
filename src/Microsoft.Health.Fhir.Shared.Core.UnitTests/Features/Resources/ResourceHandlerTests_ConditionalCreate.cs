@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             ConditionalCreateResourceRequest message = SetupConditionalCreate(Samples.GetDefaultObservation(), DefaultSearchParams);
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 mockResultEntry);
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.NotNull(result?.Outcome);
             Assert.Equal(SaveOutcomeType.MatchFound, result.Outcome.Outcome);
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 mockResultEntry1,
                 mockResultEntry2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<UpsertResourceResponse>(message));
         }
 
         [Fact]
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     Tuple.Create("_summary", "count"),
                 });
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<UpsertResourceResponse>(message));
         }
 
         [Fact]
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
                 .Returns(searchResult);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<UpsertResourceResponse>(message));
         }
 
         private ConditionalCreateResourceRequest SetupConditionalCreate(

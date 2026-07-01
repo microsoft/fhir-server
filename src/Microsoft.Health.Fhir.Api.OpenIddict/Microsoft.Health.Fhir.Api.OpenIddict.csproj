@@ -11,6 +11,9 @@
     <PackageReference Include="OpenIddict.AspNetCore" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
     <PackageReference Include="OpenIddict.Validation.AspNetCore" />
+
+    <!-- Referenced to mitigate GHSA-73j8-2gch-69rq -->
+    <PackageReference Include="Microsoft.Bcl.Memory" />
   </ItemGroup>
 
   <ItemGroup>
