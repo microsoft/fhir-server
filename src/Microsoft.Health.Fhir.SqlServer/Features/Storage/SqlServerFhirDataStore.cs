@@ -823,7 +823,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
-                cmd.Parameters.AddWithValue("@ReindexId", 0);
             }
             else
             {

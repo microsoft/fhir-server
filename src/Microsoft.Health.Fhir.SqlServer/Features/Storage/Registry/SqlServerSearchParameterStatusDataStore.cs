@@ -139,7 +139,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
-            cmd.Parameters.AddWithValue("@ReindexId", reindexId ?? 0);
+            if (reindexId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@ReindexId", reindexId.Value);
+            }
+
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses));
 
             try
