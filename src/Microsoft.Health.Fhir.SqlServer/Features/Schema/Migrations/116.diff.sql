@@ -44,7 +44,7 @@ BEGIN TRY
   BEGIN
     -- Check if reindex job is running
     EXECUTE dbo.GetActiveJobs @QueueType = 6, @IsExistsCheck = 1, @GroupId = @ActiveJobId OUT
-    SET @msg = 'Changes to search parameters are not allowed while a reindex job is in progress. Wait for the reindex job with Id: '+convert(varchar,@ActiveJobId)+' to finish, or cancel it'
+    SET @msg = 'Changes to search parameters are not allowed while a reindex job is in progress. Wait for the reindex job with Id: '+convert(varchar,@ActiveJobId)+' to finish, or cancel it.'
     IF @ActiveJobId IS NOT NULL THROW 50002, @msg, 1
 
     -- Check for concurrency conflicts using LastUpdated
@@ -76,6 +76,78 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+ALTER PROCEDURE dbo.MergeResourcesAndSearchParams 
+     @SearchParams dbo.SearchParamList READONLY
+    ,@ReindexId bigint = NULL
+    ,@IsResourceChangeCaptureEnabled bit = 0
+    ,@TransactionId bigint = NULL
+    ,@Resources dbo.ResourceList READONLY
+    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
+    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
+    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
+    ,@TokenTexts dbo.TokenTextList READONLY
+    ,@StringSearchParams dbo.StringSearchParamList READONLY
+    ,@UriSearchParams dbo.UriSearchParamList READONLY
+    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
+    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
+    ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+    ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
+    ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
+    ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
+    ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
+    ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
+    ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = 'R='+convert(varchar,(SELECT count(*) FROM @Resources))+' SP='+convert(varchar,(SELECT count(*) FROM @SearchParams))
+       ,@st datetime = getUTCdate()
+       ,@Rows int = 0
+
+BEGIN TRY
+  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+  BEGIN TRANSACTION
+  
+  EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId
+
+  IF EXISTS (SELECT * FROM @Resources)
+    EXECUTE dbo.MergeResources
+             @AffectedRows = @Rows OUTPUT
+            ,@RaiseExceptionOnConflict = 1
+            ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
+            ,@TransactionId = @TransactionId
+            ,@SingleTransaction = 1
+            ,@Resources = @Resources
+            ,@ResourceWriteClaims = @ResourceWriteClaims
+            ,@ReferenceSearchParams = @ReferenceSearchParams
+            ,@TokenSearchParams = @TokenSearchParams
+            ,@TokenTexts = @TokenTexts
+            ,@StringSearchParams = @StringSearchParams
+            ,@UriSearchParams = @UriSearchParams
+            ,@NumberSearchParams = @NumberSearchParams
+            ,@QuantitySearchParams = @QuantitySearchParams
+            ,@DateTimeSearchParms = @DateTimeSearchParms
+            ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
+            ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
+            ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
+            ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
+            ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
+            ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+  ELSE
+    IF @TransactionId IS NOT NULL
+      EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION;
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
