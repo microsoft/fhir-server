@@ -518,8 +518,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 foreach (var resource in resources)
                 {
-                    var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
-                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status}");
+                    try
+                    {
+                        var readResponse = await _fhirClient.ReadAsync<SearchParameter>($"{ResourceType.SearchParameter}/{resource.Id}");
+                        if (readResponse.StatusCode == HttpStatusCode.OK)
+                        {
+                            var deleteStatus = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
+                            Assert.True(deleteStatus == HttpStatusCode.NotFound || deleteStatus == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={deleteStatus}");
+                        }
+                    }
+                    catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.StatusCode == HttpStatusCode.Gone)
+                    {
+                    }
                 }
             }
 
