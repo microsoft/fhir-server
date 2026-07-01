@@ -1,6 +1,6 @@
 ﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
-    ,@ReindexId bigint = -1
+    ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
     ,@Resources dbo.ResourceList READONLY
