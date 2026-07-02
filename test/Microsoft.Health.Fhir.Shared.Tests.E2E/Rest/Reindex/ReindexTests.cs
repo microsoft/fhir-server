@@ -1189,7 +1189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenSearchParamDelete_ThenResourceIdDeletedAfterReindex(bool hardDelete)
+        public async Task GivenSearchParamDelete_ThenResourceDeletedAfterReindex(bool hardDelete)
         {
             var code = hardDelete ? "hard-delete-reindex-test" : "soft-delete-reindex-test";
             var url = $"http://e2e.org/{code}";
