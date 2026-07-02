@@ -1163,7 +1163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}");
             Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
-            // resource is stil there
+            // resource is still there
             var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
             Assert.NotNull(resource?.Resource);
 
