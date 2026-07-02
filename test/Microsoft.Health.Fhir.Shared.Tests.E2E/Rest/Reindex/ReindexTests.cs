@@ -1117,23 +1117,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
-        public async Task GivenSearchParamCreate_WhenReindexIsRunning_ThenConflictIsReturned()
+        public async Task GivenSearchParamCreate_ThenConflictWhenReindexAndSuccessAfter()
         {
             var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
 
             var code = "conflict-test";
             var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
-            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.CreateAsync(searchParam));
 
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.CreateAsync(searchParam));
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus);
+
+            var create = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.Equal(HttpStatusCode.OK, create.StatusCode);
         }
 
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenSearchParamDelete_WhenReindexIsRunning_ThenConflictIsReturned(bool hardDelete)
+        public async Task GivenSearchParamDelete_ThenConflictWhenReindexAndSuccessOnNext(bool hardDelete)
         {
             var code = hardDelete ? "hard-delete-conflict-test" : "soft-delete-conflict-test";
             var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
@@ -1143,18 +1149,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
 
-            FhirClientException exception;
-            if (hardDelete)
-            {
-                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.HardDeleteAsync(created.Resource));
-            }
-            else
-            {
-                exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync(created.Resource));
-            }
-
+            // conflict
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}"));
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus);
+
+            // success
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}");
+            Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
+
+            // resource is still there
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus);
+
+            // reindex deleted resource
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
         }
 
         // left as async to minimize changes
