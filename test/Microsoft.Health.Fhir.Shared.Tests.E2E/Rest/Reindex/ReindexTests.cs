@@ -1125,15 +1125,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var code = "conflict-test";
             var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
 
-            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.CreateAsync(searchParam));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.UpdateAsync(searchParam)); // use PUT to retain id
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
 
             var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
             Assert.Equal(OperationStatus.Completed, reindexStatus);
 
-            var create = await _fixture.TestFhirClient.CreateAsync(searchParam);
-            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
         }
 
         [Theory]
@@ -1143,8 +1144,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             var code = hardDelete ? "hard-delete-conflict-test" : "soft-delete-conflict-test";
             var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
-            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
-            Assert.NotNull(created.Resource);
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
 
             var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
@@ -1159,9 +1161,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // success
             var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}");
-            Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
-            // resource is still there
+            // resource is stil there
             var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
             Assert.NotNull(resource?.Resource);
 
