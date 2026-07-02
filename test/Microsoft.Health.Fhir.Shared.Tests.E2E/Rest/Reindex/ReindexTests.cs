@@ -1133,7 +1133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Equal(OperationStatus.Completed, reindexStatus);
 
             var create = await _fixture.TestFhirClient.CreateAsync(searchParam);
-            Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         }
 
         [Theory]
