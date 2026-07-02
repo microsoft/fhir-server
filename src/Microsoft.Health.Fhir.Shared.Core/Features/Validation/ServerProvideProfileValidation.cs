@@ -138,7 +138,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
         {
-            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByCanonicalUri(uri);
+            var summaries = (await ListSummariesAsync(CancellationToken.None)).ToList();
+            var summary = summaries.ResolveByCanonicalUri(uri);
+
+            if (summary == null &&
+                TrySplitVersionedCanonicalUri(uri, out string canonicalUri, out string version))
+            {
+                summary = summaries.FirstOrDefault(x =>
+                    string.Equals(x.ResourceUri, canonicalUri, StringComparison.OrdinalIgnoreCase) &&
+                    x.TryGetValue(_structureDefinitionVersionKey, out object summaryVersion) &&
+                    string.Equals(summaryVersion?.ToString(), version, StringComparison.OrdinalIgnoreCase));
+            }
+
             return LoadBySummary(summary);
         }
 
@@ -173,6 +184,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             return url;
+        }
+
+        private static bool TrySplitVersionedCanonicalUri(string uri, out string canonicalUri, out string version)
+        {
+            canonicalUri = uri;
+            version = null;
+
+            if (string.IsNullOrWhiteSpace(uri))
+            {
+                return false;
+            }
+
+            int fragmentIndex = uri.IndexOf('#');
+            string uriWithoutFragment = fragmentIndex >= 0 ? uri.Substring(0, fragmentIndex) : uri;
+            int versionSeparatorIndex = uriWithoutFragment.LastIndexOf('|');
+
+            if (versionSeparatorIndex <= 0 || versionSeparatorIndex == uriWithoutFragment.Length - 1)
+            {
+                return false;
+            }
+
+            canonicalUri = uriWithoutFragment.Substring(0, versionSeparatorIndex);
+            version = uriWithoutFragment.Substring(versionSeparatorIndex + 1);
+            return true;
         }
 
         private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
