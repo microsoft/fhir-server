@@ -116,8 +116,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
+            IEnumerable<ISearchParameterQueryParameterExpander> queryParameterExpanders,
             ILogger<SqlServerSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore, logger)
+            : base(searchOptionsFactory, fhirDataStore, logger, queryParameterExpanders)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));

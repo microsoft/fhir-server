@@ -114,6 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
+                Array.Empty<ISearchParameterQueryParameterExpander>(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -159,6 +160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Array.Empty<ISearchParameterQueryParameterExpander>(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -207,6 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Array.Empty<ISearchParameterQueryParameterExpander>(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -255,6 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Array.Empty<ISearchParameterQueryParameterExpander>(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
