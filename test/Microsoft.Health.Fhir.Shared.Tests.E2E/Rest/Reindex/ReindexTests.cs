@@ -1186,6 +1186,73 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Contains("reindex", conflictIssue.Details.Text, StringComparison.OrdinalIgnoreCase);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamDelete_ThenResourceIsNotDeleted_AndStatusIsPendingDelete_AndAfterReindex_ResourceAndStatusAreDeleted(bool hardDelete)
+        {
+            var code = hardDelete ? "hard-delete-reindex-test" : "soft-delete-reindex-test";
+            var url = $"http://e2e.org/{code}";
+            var searchParam = CreatePersonSearchParam(code, url);
+
+            var created = await _fixture.TestFhirClient.CreateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+            Assert.Equal(code, created.Resource.Id);
+            _output.WriteLine($"Created SearchParameter/{code}");
+
+            if (hardDelete)
+            {
+                await _fixture.TestFhirClient.HardDeleteAsync(created.Resource);
+                _output.WriteLine($"Hard deleted SearchParameter/{code}");
+            }
+            else
+            {
+                await _fixture.TestFhirClient.DeleteAsync(created.Resource);
+                _output.WriteLine($"Soft deleted SearchParameter/{code}");
+            }
+
+            var resourceAfterDelete = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resourceAfterDelete?.Resource);
+            _output.WriteLine($"Verified SearchParameter/{code} still exists after delete");
+
+            var statusResponse = await _fixture.TestFhirClient.SearchAsync($"SearchParameter/$status?url={Uri.EscapeDataString(url)}");
+            Assert.NotNull(statusResponse?.Resource);
+            var statusBundle = statusResponse.Resource;
+            Assert.NotNull(statusBundle.Entry);
+            Assert.NotEmpty(statusBundle.Entry);
+            var statusParam = statusBundle.Entry[0].Resource as Parameters;
+            Assert.NotNull(statusParam);
+            var statusValue = statusParam.Parameter.FirstOrDefault(p => p.Name == "status")?.Value as Code;
+            Assert.NotNull(statusValue);
+            var expectedStatus = hardDelete ? "PendingHardDelete" : "PendingDelete";
+            Assert.Equal(expectedStatus, statusValue.Value);
+            _output.WriteLine($"Verified SearchParameter status is {expectedStatus}");
+
+            var reindexJob = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindexJob.reponse.Response.StatusCode);
+            _output.WriteLine($"Created reindex job: {reindexJob.uri}");
+            var jobStatus = await WaitForJobCompletionAsync(reindexJob.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, jobStatus);
+            _output.WriteLine($"Reindex job completed");
+
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(HttpStatusCode.NotFound, notFoundEx.StatusCode);
+            _output.WriteLine($"Verified SearchParameter/{code} is now deleted (404)");
+
+            var finalStatusResponse = await _fixture.TestFhirClient.SearchAsync($"SearchParameter/$status?url={Uri.EscapeDataString(url)}");
+            Assert.NotNull(finalStatusResponse?.Resource);
+            var finalStatusBundle = finalStatusResponse.Resource;
+            Assert.NotNull(finalStatusBundle.Entry);
+            Assert.NotEmpty(finalStatusBundle.Entry);
+
+            var finalStatusParam = finalStatusBundle.Entry[0].Resource as Parameters;
+            Assert.NotNull(finalStatusParam);
+            var finalStatusValue = finalStatusParam.Parameter.FirstOrDefault(p => p.Name == "status")?.Value as Code;
+            Assert.NotNull(finalStatusValue);
+            Assert.Equal("Deleted", finalStatusValue.Value);
+            _output.WriteLine($"Verified final SearchParameter status is 'Deleted'");
+        }
+
         // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
