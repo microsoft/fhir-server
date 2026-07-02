@@ -334,7 +334,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
-            if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+            if ((cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+                 && !(cosmosWrapper.IsDeleted && cosmosWrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)) // allow empty for sesarch param deletes
             {
                 throw new MissingSearchIndicesException(string.Format(Microsoft.Health.Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
