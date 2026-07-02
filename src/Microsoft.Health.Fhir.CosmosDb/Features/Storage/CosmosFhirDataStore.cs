@@ -271,6 +271,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
+                    // For SearchParameter resources with PendingDelete/PendingHardDelete, skip resource write (matching SQL behavior)
+                    if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal) &&
+                        resource.Wrapper.IsDeleted)
+                    {
+                        var pendingStatus = GetPendingSearchParameterStatus();
+                        if (pendingStatus?.Status == SearchParameterStatus.PendingDelete ||
+                            pendingStatus?.Status == SearchParameterStatus.PendingHardDelete)
+                        {
+                            // Read existing resource to return in response (resource write is skipped)
+                            var existingResource = await GetAsync(new ResourceKey(resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId), cancellationToken);
+                            if (existingResource == null)
+                            {
+                                throw new ResourceNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceNotFoundById, resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId));
+                            }
+
+                            // Persist only the status (matching SQL line 415-420 where resource is excluded from merge)
+                            await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
+
+                            // Return existing resource unchanged
+                            return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
+                        }
+                    }
+
                     var upsertOutcome = await InternalUpsertAsync(
                         resource.Wrapper,
                         resource.WeakETag,
@@ -502,22 +525,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
+        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
         {
             var context = _requestContextAccessor.RequestContext;
             if (context?.Properties == null)
             {
-                return;
+                return null;
             }
 
             if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var value) ||
                 value is not ResourceSearchParameterStatus status)
             {
+                return null;
+            }
+
+            return status;
+        }
+
+        private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
+        {
+            var status = GetPendingSearchParameterStatus();
+            if (status == null)
+            {
                 return;
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses([status], cancellationToken);
-            context.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+            _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
