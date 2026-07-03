@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 // Internally Bundle Operation calls "MergeAsync".
                 UpsertOutcome result = await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
-                if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                 {
                     await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
                 }
@@ -271,29 +271,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    // For SearchParameter deletes, skip resource write and only persist status (matching SQL behavior)
-                    if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal) &&
-                        resource.Wrapper.IsDeleted)
-                    {
-                        var pendingStatus = GetPendingSearchParameterStatus();
-                        if (pendingStatus?.Status == SearchParameterStatus.PendingDelete ||
-                            pendingStatus?.Status == SearchParameterStatus.PendingHardDelete)
-                        {
-                            // Read existing resource to return correct version for response
-                            var existingResource = await GetAsync(new ResourceKey(resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId), cancellationToken);
-                            if (existingResource == null)
-                            {
-                                throw new ResourceNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceNotFoundById, resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId));
-                            }
-
-                            // Persist only the status, skip resource write (deferred to reindex job)
-                            await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
-
-                            // Return existing resource version to match SQL behavior
-                            return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
-                        }
-                    }
-
                     var upsertOutcome = await InternalUpsertAsync(
                         resource.Wrapper,
                         resource.WeakETag,
@@ -302,7 +279,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         cancellationToken,
                         resource.RequireETagOnUpdate);
 
-                    if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                    if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                     {
                         await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
                     }
@@ -331,12 +308,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
+            // Skip write for SearchParameter in pending delete - just return existing
+            if (resource.ResourceTypeName == KnownResourceTypes.SearchParameter && resource.IsDeleted)
+            {
+                var pending = GetPendingSearchParameterStatus();
+                if (pending?.Status == SearchParameterStatus.PendingDelete || pending?.Status == SearchParameterStatus.PendingHardDelete)
+                {
+                    var existing = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
+                    if (existing == null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Fhir.Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
+                    }
+
+                    return new UpsertOutcome(existing, SaveOutcomeType.Updated);
+                }
+            }
+
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
-            if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+            if ((cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+                 && !(cosmosWrapper.IsDeleted && cosmosWrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)) // allow empty for search param deletes
             {
-                throw new MissingSearchIndicesException(string.Format(Microsoft.Health.Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+                throw new MissingSearchIndicesException(string.Format(Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
@@ -525,23 +519,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
-        {
-            var context = _requestContextAccessor.RequestContext;
-            if (context?.Properties == null)
-            {
-                return null;
-            }
-
-            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var value) ||
-                value is not ResourceSearchParameterStatus status)
-            {
-                return null;
-            }
-
-            return status;
-        }
-
         private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
         {
             var status = GetPendingSearchParameterStatus();
@@ -552,6 +529,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             await _searchParameterStatusDataStore.UpsertStatuses([status], cancellationToken);
             _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+        }
+
+        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
+        {
+            var context = _requestContextAccessor.RequestContext;
+            if (context?.Properties == null || !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var status))
+            {
+                return null;
+            }
+
+            return (ResourceSearchParameterStatus)status;
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
