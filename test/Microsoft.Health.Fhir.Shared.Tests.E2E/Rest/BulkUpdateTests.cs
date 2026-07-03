@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.BulkUpdate)]
-    [Trait(Traits.Category, Categories.RequiresIsolation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class BulkUpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
