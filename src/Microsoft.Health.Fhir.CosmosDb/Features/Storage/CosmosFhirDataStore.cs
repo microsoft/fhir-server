@@ -520,17 +520,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
-        {
-            var context = _requestContextAccessor.RequestContext;
-            if (context?.Properties == null || !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var status))
-            {
-                return null;
-            }
-
-            return (ResourceSearchParameterStatus)status;
-        }
-
         private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
         {
             var status = GetPendingSearchParameterStatus();
@@ -541,6 +530,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             await _searchParameterStatusDataStore.UpsertStatuses([status], cancellationToken);
             _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+        }
+
+        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
+        {
+            var context = _requestContextAccessor.RequestContext;
+            if (context?.Properties == null || !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var status))
+            {
+                return null;
+            }
+
+            return (ResourceSearchParameterStatus)status;
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
