@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 // Internally Bundle Operation calls "MergeAsync".
                 UpsertOutcome result = await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
-                if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                 {
                     await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
                 }
