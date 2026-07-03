@@ -271,23 +271,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter && resource.Wrapper.IsDeleted)
-                    {
-                        var pending = GetPendingSearchParameterStatus();
-                        if (pending?.Status == SearchParameterStatus.PendingDelete || pending?.Status == SearchParameterStatus.PendingHardDelete)
-                        {
-                            var existing = await GetAsync(new ResourceKey(resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId), cancellationToken);
-                            if (existing == null)
-                            {
-                                throw new ResourceNotFoundException(string.Format(Fhir.Core.Resources.ResourceNotFoundById, resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId));
-                            }
-
-                            await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
-
-                            return new UpsertOutcome(existing, SaveOutcomeType.Updated);
-                        }
-                    }
-
                     var upsertOutcome = await InternalUpsertAsync(
                         resource.Wrapper,
                         resource.WeakETag,
@@ -324,6 +307,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool requireETagOnUpdate = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
+
+            // Skip write for SearchParameter in pending delete - just return existing
+            if (resource.ResourceTypeName == KnownResourceTypes.SearchParameter && resource.IsDeleted)
+            {
+                var pending = GetPendingSearchParameterStatus();
+                if (pending?.Status == SearchParameterStatus.PendingDelete || pending?.Status == SearchParameterStatus.PendingHardDelete)
+                {
+                    var existing = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
+                    if (existing == null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Fhir.Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
+                    }
+
+                    return new UpsertOutcome(existing, SaveOutcomeType.Updated);
+                }
+            }
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);

@@ -1177,6 +1177,72 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenSearchParamBundleDelete_ThenConflictWhenReindexAndSuccessOnNext()
+        {
+            var code = "soft-delete-bundle-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            // Create a batch bundle with a DELETE entry for the SearchParameter
+            var bundle = new Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = [new() { Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } }],
+            };
+
+            // conflict - bundle delete should fail while reindex is running
+            var bundleConflict = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+            Assert.Equal(HttpStatusCode.OK, bundleConflict.Response.StatusCode); // Batch returns 200
+            Assert.NotNull(bundleConflict.Resource?.Entry);
+            Assert.Single(bundleConflict.Resource.Entry);
+            var deleteResponse = bundleConflict.Resource.Entry[0].Response;
+            Assert.Equal(((int)HttpStatusCode.Conflict).ToString(), deleteResponse.Status);
+            Assert.Contains("reindex", deleteResponse.Outcome?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus);
+
+            // success - bundle delete should succeed after reindex completes
+            var bundleResponse = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+            Assert.Equal(HttpStatusCode.OK, bundleResponse.Response.StatusCode);
+            Assert.NotNull(bundleResponse.Resource?.Entry);
+            Assert.Single(bundleResponse.Resource.Entry);
+            var successResponse = bundleResponse.Resource.Entry[0].Response;
+            Assert.Equal(((int)HttpStatusCode.NoContent).ToString(), successResponse.Status);
+
+            // resource is still there (soft-deleted)
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus);
+
+            // reindex deleted resource - should now be gone
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(HttpStatusCode.Gone, notFoundEx.StatusCode);
+
+            // verify history is preserved
+            var history = await _fixture.TestFhirClient.ReadHistoryAsync(ResourceType.SearchParameter, code);
+            Assert.NotNull(history.Resource);
+            Assert.NotEmpty(history.Resource.Entry);
+            Assert.True(history.Resource.Entry.Count >= 2, "History should contain at least 2 versions (create + delete)");
+
+            // verify last version is soft-deleted (check request method is DELETE)
+            var lastEntry = history.Resource.Entry.First();
+            Assert.NotNull(lastEntry.Request);
+            Assert.Equal(Bundle.HTTPVerb.DELETE, lastEntry.Request.Method);
+            Assert.NotNull(lastEntry.Resource);
+            Assert.Equal(code, lastEntry.Resource.Id);
+        }
+
         // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
