@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
@@ -14,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -25,11 +28,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _client;
         private const string PreferHeaderName = "Prefer";
 
         public ExportTests(HttpIntegrationTestFixture fixture)
         {
+            _fixture = fixture;
             _client = fixture.HttpClient;
         }
 
@@ -149,6 +154,106 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenObservationExportJob_WhenSmartScopeCoversObservationRequestsExportStatus_ThenServerShouldNotReturnForbidden()
+        {
+            // An Observation-only export ($export?_type=Observation) produces job metadata whose only
+            // required resource type is Observation, so a SMART system/Observation export-read scope is sufficient.
+            using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+
+            HttpStatusCode statusCode;
+            try
+            {
+                // SMART v2 system/Observation.rs grants ReadById + Search + Export for Observation only.
+                string accessToken = await GetSmartAccessTokenAsync("system/Observation.rs");
+
+                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
+                using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+                getStatusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+                using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
+                statusCode = getStatusResponse.StatusCode;
+            }
+            finally
+            {
+                await GenerateAndSendCancelExportMessage(contentLocation);
+            }
+
+            // Accepted (job still running) or OK (job completed) are both valid; the request must not be Forbidden.
+            Assert.True(
+                statusCode == HttpStatusCode.Accepted || statusCode == HttpStatusCode.OK,
+                $"Expected Accepted or OK for an Observation-scoped export status request but got {statusCode}.");
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenExportJobHasPatientResults_WhenSmartScopeCoversOnlyObservationRequestsExportStatus_ThenServerShouldReturnForbidden()
+        {
+            // A Patient-scoped export ($export?_type=Patient) produces job metadata that includes Patient,
+            // so a SMART scope that only covers Observation must not be allowed to read its status.
+            using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Patient" } });
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+
+            HttpStatusCode statusCode;
+            try
+            {
+                string accessToken = await GetSmartAccessTokenAsync("system/Observation.read");
+
+                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
+                using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+                getStatusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+                using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
+                statusCode = getStatusResponse.StatusCode;
+            }
+            finally
+            {
+                await GenerateAndSendCancelExportMessage(contentLocation);
+            }
+
+            Assert.Equal(HttpStatusCode.Forbidden, statusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenObservationExportJob_WhenSmartScopeCoversOnlyObservationCancelsExport_ThenServerShouldReturnForbidden()
+        {
+            // Cancellation of any async export requires SMART system all-resource read + write scopes.
+            // A narrow Observation read/search scope must therefore be Forbidden from cancelling, even for an Observation-only export.
+            using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+
+            HttpStatusCode statusCode;
+            try
+            {
+                string accessToken = await GetSmartAccessTokenAsync("system/Observation.rs");
+
+                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
+                using HttpRequestMessage cancelRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+                cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+                using HttpResponseMessage cancelResponse = await smartClient.SendAsync(cancelRequest);
+                statusCode = cancelResponse.StatusCode;
+            }
+            finally
+            {
+                await GenerateAndSendCancelExportMessage(contentLocation);
+            }
+
+            Assert.Equal(HttpStatusCode.Forbidden, statusCode);
+        }
+
+        [Fact]
         public async Task GivenExportJobDoesNotExist_WhenRequestingExportStatus_ThenServerShouldReturnNotFound()
         {
             string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
@@ -249,6 +354,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             request.RequestUri = new Uri(_client.BaseAddress, path);
 
             return request;
+        }
+
+        private HttpClient CreateUnauthenticatedHttpClient()
+        {
+            return new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
+            {
+                BaseAddress = _fixture.TestFhirServer.BaseAddress,
+            };
+        }
+
+        private async Task<string> GetSmartAccessTokenAsync(string scope)
+        {
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "grant_type", TestApplications.SmartUserClient.GrantType },
+                { "client_id", TestApplications.SmartUserClient.ClientId },
+                { "client_secret", TestApplications.SmartUserClient.ClientSecret },
+                { "scope", scope },
+                { "resource", AuthenticationSettings.Resource },
+            });
+
+            using HttpClient authClient = CreateUnauthenticatedHttpClient();
+            using HttpResponseMessage response = await authClient.PostAsync(_fixture.TestFhirServer.TokenUri, content);
+            response.EnsureSuccessStatusCode();
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
+            return tokenResponse["access_token"].GetString();
         }
 
         // Currently our tests do not validate the data that is being exported.

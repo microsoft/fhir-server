@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
@@ -37,13 +38,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
+        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private readonly GetBulkUpdateHandler _handler;
 
         public GetBulkUpdateHandlerTests()
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _queueClient = Substitute.For<IQueueClient>();
-            _handler = new GetBulkUpdateHandler(_authorizationService, _queueClient);
+            _asyncOperationSmartScopeValidator = Substitute.For<IAsyncOperationSmartScopeValidator>();
+            _handler = new GetBulkUpdateHandler(_authorizationService, _queueClient, _asyncOperationSmartScopeValidator);
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenStatusRequested_ThenAllResourceReadWriteScopeValidatorIsInvoked()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { new() { Status = JobStatus.Completed, Definition = "{}" } });
+
+            await _handler.Handle(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            _asyncOperationSmartScopeValidator.Received(1).ValidateAllResourceReadWriteAccess();
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeValidatorDeniesAccess_WhenStatusRequested_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _asyncOperationSmartScopeValidator
+                .When(x => x.ValidateAllResourceReadWriteAccess())
+                .Do(_ => throw new UnauthorizedFhirActionException());
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+                _handler.Handle(new GetBulkUpdateRequest(1), CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeValidatorAllowsAccessButCoarseAuthorizationDoesNotGrantBulkOperator_WhenStatusRequested_ThenStatusIsReturned()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            _asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess().Returns(true);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { new() { Status = JobStatus.Completed, Definition = "{}" } });
+
+            GetBulkUpdateResponse response = await _handler.Handle(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
         }
 
         [Fact]

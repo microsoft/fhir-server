@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
@@ -24,16 +25,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private readonly ILogger<CancelImportRequestHandler> _logger;
 
-        public CancelImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
+        public CancelImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator, ILogger<CancelImportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
             _authorizationService = authorizationService;
+            _asyncOperationSmartScopeValidator = asyncOperationSmartScopeValidator;
             _logger = logger;
         }
 
@@ -41,7 +45,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
+            // Cancellation requires all-resource read and write SMART scopes for fine-grained restricted callers.
+            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
+            {
+                await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
+            }
 
             // We need to check the status of all jobs
             IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, request.JobId, false, cancellationToken);

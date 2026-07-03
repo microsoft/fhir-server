@@ -13,6 +13,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -23,21 +24,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
 
-        public GetReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
+        public GetReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _asyncOperationSmartScopeValidator = asyncOperationSmartScopeValidator;
         }
 
         public async Task<GetReindexResponse> Handle(GetReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
+            // Reading the status of a non-export async job requires all-resource read and write SMART scopes for fine-grained restricted callers.
+            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
+            {
+                await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
+            }
 
             if (request.JobId != null)
             {

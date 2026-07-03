@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.JobManagement;
@@ -23,15 +24,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
+        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private readonly ILogger<CancelBulkDeleteHandler> _logger;
 
         public CancelBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
+            IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator,
             ILogger<CancelBulkDeleteHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _asyncOperationSmartScopeValidator = EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -39,7 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            await _authorizationService.CheckAccess(DataActions.Delete, true, cancellationToken);
+            // Cancellation requires all-resource read and write SMART scopes for fine-grained restricted callers.
+            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
+            {
+                await _authorizationService.CheckAccess(DataActions.Delete, true, cancellationToken);
+            }
 
             try
             {

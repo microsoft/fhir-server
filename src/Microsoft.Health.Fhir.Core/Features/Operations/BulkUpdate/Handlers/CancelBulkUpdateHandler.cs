@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -26,17 +27,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
         private readonly ISupportedProfilesStore _supportedProfiles;
+        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private readonly ILogger<CancelBulkUpdateHandler> _logger;
 
         public CancelBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
             ISupportedProfilesStore supportedProfiles,
+            IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator,
             ILogger<CancelBulkUpdateHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _supportedProfiles = EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
+            _asyncOperationSmartScopeValidator = EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -44,7 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
+            // Cancellation requires all-resource read and write SMART scopes for fine-grained restricted callers.
+            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
+            {
+                await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
+            }
 
             try
             {

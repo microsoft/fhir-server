@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -36,13 +37,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
         private IAuthorizationService<DataActions> _authorizationService;
         private IQueueClient _queueClient;
+        private IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private GetBulkDeleteHandler _handler;
 
         public GetBulkDeleteHandlerTests()
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _queueClient = Substitute.For<IQueueClient>();
-            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient);
+            _asyncOperationSmartScopeValidator = Substitute.For<IAsyncOperationSmartScopeValidator>();
+            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient, _asyncOperationSmartScopeValidator);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteJob_WhenStatusRequested_ThenAllResourceReadWriteScopeValidatorIsInvoked()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { new() { Status = JobStatus.Completed, Definition = "{}" } });
+
+            await _handler.Handle(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            _asyncOperationSmartScopeValidator.Received(1).ValidateAllResourceReadWriteAccess();
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeValidatorDeniesAccess_WhenStatusRequested_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _asyncOperationSmartScopeValidator
+                .When(x => x.ValidateAllResourceReadWriteAccess())
+                .Do(_ => throw new UnauthorizedFhirActionException());
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+                _handler.Handle(new GetBulkDeleteRequest(1), CancellationToken.None));
         }
 
         [Fact]
