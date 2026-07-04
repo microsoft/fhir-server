@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         private static IReadOnlyCollection<string> DetermineExportRequiredResourceTypes(ExportJobRecord exportJobRecord)
         {
             var requiredResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool hasExplicitTypeMetadata = false;
 
             // 1. Completed job output keys when present.
             if (exportJobRecord.Output != null && exportJobRecord.Output.Count > 0)
@@ -128,6 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 foreach (string resourceType in exportJobRecord.ResourceType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     requiredResourceTypes.Add(resourceType);
+                    hasExplicitTypeMetadata = true;
                 }
             }
 
@@ -137,15 +139,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 foreach (string filterResourceType in exportJobRecord.Filters.Select(filter => filter.ResourceType).Where(resourceType => !string.IsNullOrWhiteSpace(resourceType)))
                 {
                     requiredResourceTypes.Add(filterResourceType);
+                    hasExplicitTypeMetadata = true;
                 }
             }
 
-            if (requiredResourceTypes.Count > 0)
+            if (hasExplicitTypeMetadata || (requiredResourceTypes.Count > 0 && exportJobRecord.Status == OperationStatus.Completed))
             {
                 return requiredResourceTypes.ToList();
             }
 
-            // 4. When no explicit/output metadata is present, fall back to the export type's implicit resource scope.
+            // 4. When no explicit type metadata is present, incomplete broad exports must use the export type's implicit scope.
             switch (exportJobRecord.ExportType)
             {
                 case ExportJobType.All:

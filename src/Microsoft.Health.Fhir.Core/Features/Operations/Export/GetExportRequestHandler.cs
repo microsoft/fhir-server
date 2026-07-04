@@ -47,7 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
             // Apply SMART fine-grained scope authorization for the specific export job's resource types.
-            _asyncOperationSmartScopeValidator.ValidateExportStatusAccess(outcome.JobRecord);
+            try
+            {
+                _asyncOperationSmartScopeValidator.ValidateExportStatusAccess(outcome.JobRecord);
+            }
+            catch (UnauthorizedFhirActionException)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+            }
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

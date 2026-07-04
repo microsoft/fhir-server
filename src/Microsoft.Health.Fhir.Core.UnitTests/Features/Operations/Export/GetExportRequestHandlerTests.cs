@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesExportAccess_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
+        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesExportAccess_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             var outcome = CreateExportJobOutcome(jobRecord);
@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .When(x => x.ValidateExportStatusAccess(Arg.Any<ExportJobRecord>()))
                 .Do(_ => throw new UnauthorizedFhirActionException());
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+            await Assert.ThrowsAsync<JobNotFoundException>(() =>
                 _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 

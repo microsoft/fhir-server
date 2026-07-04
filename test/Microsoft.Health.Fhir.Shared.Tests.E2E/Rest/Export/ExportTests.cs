@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenExportJobHasPatientResults_WhenSmartScopeCoversOnlyObservationRequestsExportStatus_ThenServerShouldReturnForbidden()
+        public async Task GivenExportJobHasPatientResults_WhenSmartScopeCoversOnlyObservationRequestsExportStatus_ThenServerShouldReturnNotFound()
         {
             // A Patient-scoped export ($export?_type=Patient) produces job metadata that includes Patient,
             // so a SMART scope that only covers Observation must not be allowed to read its status.
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 await GenerateAndSendCancelExportMessage(contentLocation);
             }
 
-            Assert.Equal(HttpStatusCode.Forbidden, statusCode);
+            Assert.Equal(HttpStatusCode.NotFound, statusCode);
         }
 
         [Fact]

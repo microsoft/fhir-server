@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenCompletedPatientExportHasOutput_WhenObservationSmartScopeRequestsExportStatus_ThenServerShouldReturnForbidden()
+        public async Task GivenCompletedPatientExportHasOutput_WhenObservationSmartScopeRequestsExportStatus_ThenServerShouldReturnNotFound()
         {
             Uri contentLocation = await CreateCompletedPatientExportStatusUriAsync();
 
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
 
-            Assert.Equal(HttpStatusCode.Forbidden, getStatusResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
         }
 
         [Fact]

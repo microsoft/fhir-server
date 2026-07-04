@@ -241,6 +241,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             Assert.Throws<UnauthorizedFhirActionException>(() => validator.ValidateExportStatusAccess(record));
         }
 
+        [Theory]
+        [InlineData(ExportJobType.All)]
+        [InlineData(ExportJobType.Patient)]
+        [InlineData(ExportJobType.Group)]
+        public void GivenIncompleteExportWithPartialObservationOutputAndNoTypeMetadata_WhenValidatingWithObservationScope_ThenUnauthorizedIsThrown(ExportJobType exportJobType)
+        {
+            var validator = CreateValidator(applyFineGrainedAccessControl: true, new ScopeRestriction(ResourceObservation, V1ReadActions, System));
+
+            ExportJobRecord record = CreateExportJobRecordWithOutputAndStatus(
+                exportJobType,
+                OperationStatus.Running,
+                ResourceObservation);
+
+            Assert.Throws<UnauthorizedFhirActionException>(() => validator.ValidateExportStatusAccess(record));
+        }
+
+        [Fact]
+        public void GivenCompletedSystemExportWithObservationOutputAndNoTypeMetadata_WhenValidatingWithObservationScope_ThenAccessIsAllowed()
+        {
+            var validator = CreateValidator(applyFineGrainedAccessControl: true, new ScopeRestriction(ResourceObservation, V1ReadActions, System));
+
+            ExportJobRecord record = CreateExportJobRecordWithOutputAndStatus(
+                ExportJobType.All,
+                OperationStatus.Completed,
+                ResourceObservation);
+
+            // Should not throw; completed output is final result metadata when no explicit type metadata is present.
+            validator.ValidateExportStatusAccess(record);
+        }
+
         [Fact]
         public void GivenConstrainedSystemObservationReadScope_WhenValidatingUnconstrainedObservationExport_ThenUnauthorizedIsThrown()
         {
@@ -370,6 +400,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             for (int i = 0; i < resourceTypes.Length; i++)
             {
                 string type = resourceTypes[i];
+                record.Output.Add(type, new List<ExportFileInfo>
+                {
+                    new ExportFileInfo(type, new Uri($"http://example.com/{type.ToLowerInvariant()}.ndjson"), sequence: i),
+                });
+            }
+
+            return record;
+        }
+
+        private static ExportJobRecord CreateExportJobRecordWithOutputAndStatus(ExportJobType exportJobType, OperationStatus operationStatus, params string[] outputResourceTypes)
+        {
+            var record = new ExportJobRecord(
+                new Uri("http://localhost/job/"),
+                exportJobType,
+                ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "123",
+                rollingFileSizeInMB: 64)
+            {
+                Status = operationStatus,
+            };
+
+            for (int i = 0; i < outputResourceTypes.Length; i++)
+            {
+                string type = outputResourceTypes[i];
                 record.Output.Add(type, new List<ExportFileInfo>
                 {
                     new ExportFileInfo(type, new Uri($"http://example.com/{type.ToLowerInvariant()}.ndjson"), sequence: i),
