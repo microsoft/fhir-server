@@ -562,7 +562,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     await EnsureBulkDeleteAsync();
 
-                    await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
+                    var expectedStatus = hardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
+                    await CheckSearchParameterStatusAsync(expectedStatus, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
                 }
                 finally
                 {
@@ -610,10 +611,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task EnsureBulkDeleteAsync()
             {
+                // SearchParameter resources should still exist after bulk delete - only status is updated
                 var response = await _fhirClient.SearchAsync(ResourceType.SearchParameter, $"_tag={tag}");
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var count = response.Resource?.Entry.Count ?? 0;
-                Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
+                Assert.True(count == resources.Count, $"Expected {resources.Count} search parameters to still exist (only status updated), but found {count}.");
             }
 
             async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus, TimeSpan timeout)
