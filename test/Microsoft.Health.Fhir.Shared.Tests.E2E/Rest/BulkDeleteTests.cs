@@ -72,6 +72,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeDoesNotCoverAllResourcesRequestsStatus_ThenServerShouldReturnForbidden()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             CheckBulkDeleteEnabled();
 
             // Reading the status of a non-export async job requires SMART system all-resource read + write scopes.
@@ -102,6 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeDoesNotCoverAllResourcesCancels_ThenServerShouldReturnForbidden()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             CheckBulkDeleteEnabled();
 
             // Cancellation of any async job requires SMART system all-resource read + write scopes.
@@ -132,6 +136,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeCoversAllResourcesReadWriteRequestsStatus_ThenServerShouldNotReturnForbidden()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             CheckBulkDeleteEnabled();
 
             // SMART system all-resource read + write scopes (system/*.read system/*.write) satisfy the

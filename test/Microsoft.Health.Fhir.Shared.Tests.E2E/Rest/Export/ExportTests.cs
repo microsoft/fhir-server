@@ -153,10 +153,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenObservationExportJob_WhenSmartScopeCoversObservationRequestsExportStatus_ThenServerShouldNotReturnForbidden()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             // An Observation-only export ($export?_type=Observation) produces job metadata whose only
             // required resource type is Observation, so a SMART system/Observation export-read scope is sufficient.
             using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
@@ -189,10 +191,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 $"Expected Accepted or OK for an Observation-scoped export status request but got {statusCode}.");
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenExportJobHasPatientResults_WhenSmartScopeCoversOnlyObservationRequestsExportStatus_ThenServerShouldReturnNotFound()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             // A Patient-scoped export ($export?_type=Patient) produces job metadata that includes Patient,
             // so a SMART scope that only covers Observation must not be allowed to read its status.
             using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Patient" } });
@@ -221,10 +225,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.NotFound, statusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenObservationExportJob_WhenSmartScopeCoversOnlyObservationCancelsExport_ThenServerShouldReturnForbidden()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
+
             // Cancellation of any async export requires SMART system all-resource read + write scopes.
             // A narrow Observation read/search scope must therefore be Forbidden from cancelling, even for an Observation-only export.
             using HttpRequestMessage exportRequest = GenerateExportRequest(queryParams: new Dictionary<string, string> { { "_type", "Observation" } });

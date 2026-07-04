@@ -111,10 +111,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenCompletedPatientExportHasOutput_WhenObservationSmartScopeRequestsExportStatus_ThenServerShouldReturnNotFound()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc job setup and development identity provider to issue custom SMART system scopes.");
+
             Uri contentLocation = await CreateCompletedPatientExportStatusUriAsync();
 
             string accessToken = await GetSmartAccessTokenAsync("system/Observation.read");
