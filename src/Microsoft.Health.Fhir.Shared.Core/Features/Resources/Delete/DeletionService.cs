@@ -489,12 +489,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
-                // With concurrency based on max last updated search params must be deleted one-by-one.
-                // SearchParameter resources are only marked with status (PendingDelete or PendingHardDelete), not actually deleted.
-                // The actual deletion is performed by the reindex job.
+                // SearchParameter handling depends on whether this is PurgeHistory or HardDelete
                 foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
                 {
-                    await DeleteSearchParameterWithLockAsync(item, cancellationToken, isHardDelete: true);
+                    if (request.DeleteOperation == DeleteOperation.PurgeHistory)
+                    {
+                        // For PurgeHistory, delete historical versions directly (keep current version)
+                        // No status update needed - the operation is complete immediately
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), keepCurrentVersion: true, request.AllowPartialSuccess, cancellationToken));
+                    }
+                    else
+                    {
+                        // For HardDelete, only mark with PendingHardDelete status.
+                        // The actual deletion is performed by the reindex job.
+                        await DeleteSearchParameterWithLockAsync(item, cancellationToken, isHardDelete: true);
+                    }
+
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 }
             }
