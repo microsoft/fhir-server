@@ -494,15 +494,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     if (request.DeleteOperation == DeleteOperation.PurgeHistory)
                     {
-                        // For PurgeHistory, delete historical versions directly (keep current version)
-                        // No status update needed - the operation is complete immediately
+                        // For PurgeHistory, delete historical versions directly (keep current version). No status update needed.
                         await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), keepCurrentVersion: true, request.AllowPartialSuccess, cancellationToken));
                     }
                     else
                     {
-                        // For HardDelete, only mark with PendingHardDelete status.
-                        // The actual deletion is performed by the reindex job.
-                        await DeleteSearchParameterWithLockAsync(item, cancellationToken, isHardDelete: true);
+                        // For HardDelete, only mark with PendingHardDelete status. The actual deletion is performed by the reindex job.
+                        await DeleteSearchParameterWithLockAsync(item, true, cancellationToken);
                     }
 
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
@@ -673,15 +671,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return _configuration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        private async Task DeleteSearchParametersAsync(IEnumerable<SearchResultEntry> entries, CancellationToken cancellationToken, bool isHardDelete = false)
+        private async Task DeleteSearchParametersAsync(IEnumerable<SearchResultEntry> entries, CancellationToken cancellationToken)
         {
             foreach (var entry in entries.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
             {
-                await DeleteSearchParameterWithLockAsync(entry, cancellationToken, isHardDelete);
+                await DeleteSearchParameterWithLockAsync(entry, false, cancellationToken);
             }
         }
 
-        private async Task DeleteSearchParameterWithLockAsync(SearchResultEntry item, CancellationToken cancellationToken, bool isHardDelete = false)
+        private async Task DeleteSearchParameterWithLockAsync(SearchResultEntry item, bool isHardDelete, CancellationToken cancellationToken)
         {
             await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
             try
