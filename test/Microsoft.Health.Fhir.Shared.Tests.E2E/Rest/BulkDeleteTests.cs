@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -82,6 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenBulkDeleteRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
         {
             CheckBulkDeleteEnabled();
@@ -98,6 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {
             CheckBulkDeleteEnabled();
@@ -125,6 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete)]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist(string hardDeleteKey)
         {
             CheckBulkDeleteEnabled();
@@ -154,6 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenPurgeBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExistAndCurrentRecordExists()
         {
             CheckBulkDeleteEnabled();
@@ -388,6 +393,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenBulkDeleteRequestWithMultipleExcludedResourceTypes_WhenCompleted_ThenExcludedResourcesAreNotDeleted()
         {
             CheckBulkDeleteEnabled();
