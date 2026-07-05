@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -82,6 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenBulkDeleteRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
         {
             CheckBulkDeleteEnabled();
@@ -98,6 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {
             CheckBulkDeleteEnabled();
@@ -125,6 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete)]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist(string hardDeleteKey)
         {
             CheckBulkDeleteEnabled();
@@ -154,6 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenPurgeBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExistAndCurrentRecordExists()
         {
             CheckBulkDeleteEnabled();
@@ -388,6 +393,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenBulkDeleteRequestWithMultipleExcludedResourceTypes_WhenCompleted_ThenExcludedResourcesAreNotDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -475,6 +481,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         // Before SP cache update fixes: Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.
         [Theory]
+        [Trait(Traits.Category, Categories.IndexAndReindex)]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
@@ -504,24 +511,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await EnsureBulkDeleteAsync();
 
-            await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
+            var expectedStatus = hardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
+            await CheckSearchParameterStatusAsync(expectedStatus, TimeSpan.FromSeconds(searchParameterStatusTimeoutSeconds));
 
             async Task CleanupAsync()
             {
                 foreach (var resource in resources)
                 {
-                    try
-                    {
-                        var readResponse = await _fhirClient.ReadAsync<SearchParameter>($"{ResourceType.SearchParameter}/{resource.Id}");
-                        if (readResponse.StatusCode == HttpStatusCode.OK)
-                        {
-                            var deleteStatus = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
-                            Assert.True(deleteStatus == HttpStatusCode.NotFound || deleteStatus == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={deleteStatus}");
-                        }
-                    }
-                    catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.StatusCode == HttpStatusCode.Gone)
-                    {
-                    }
+                    var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
+                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status}");
                 }
             }
 
@@ -574,10 +572,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task EnsureBulkDeleteAsync()
             {
+                // SearchParameter resources should still exist after bulk delete - only status is updated
                 var response = await _fhirClient.SearchAsync(ResourceType.SearchParameter, $"_tag={tag}");
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var count = response.Resource?.Entry.Count ?? 0;
-                Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
+                Assert.True(count == resources.Count, $"Expected {resources.Count} search parameters to still exist (only status updated), but found {count}.");
             }
 
             async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus, TimeSpan timeout)
