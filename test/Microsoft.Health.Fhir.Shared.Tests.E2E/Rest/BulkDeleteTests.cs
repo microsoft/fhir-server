@@ -475,6 +475,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         // Before SP cache update fixes: Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.
         [Theory]
+        [Trait(Traits.Category, Categories.IndexAndReindex)]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
