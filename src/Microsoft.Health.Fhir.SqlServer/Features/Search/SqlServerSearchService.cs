@@ -58,6 +58,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
         internal const int LongRunningThresholdMillisecondsDefault = 5000;
+
+        /// <summary>
+        /// Feature flag that gates creation of the 3-column reference-type filtered statistic on the
+        /// ReferenceSearchParam table (the stat that additionally filters on ReferenceResourceTypeId,
+        /// i.e. <c>WHERE ResourceTypeId = .. AND SearchParamId = .. AND ReferenceResourceTypeId = ..</c>).
+        /// Off by default: unless a row exists in the Parameters table with this Id set to an enabled
+        /// value, these stats are not created and reference searches fall back to the broader 2-column
+        /// filtered statistic (ResourceTypeId + SearchParamId).
+        /// </summary>
+        internal const string ReferenceResourceTypeFilteredStatsParameterId = "Search.ReferenceResourceTypeFilteredStats.IsEnabled";
         private const string SortValueColumnName = "SortValue";
 
         private readonly ISqlServerFhirModel _model;
@@ -94,8 +104,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// affect search query connections.
         /// </summary>
         internal const int QueryStoreLookupTimeoutSeconds = 5;
+
+        /// <summary>
+        /// Maximum number of diagnostic Query Store lookups allowed to run concurrently across the
+        /// process. Each lookup opens its own SQL connection, so this caps the diagnostic feature's
+        /// connection and CPU footprint. Slots are acquired with a zero-wait try-or-skip, so a burst
+        /// of long-running queries can never storm the server with diagnostic lookups. Kept small
+        /// because the backing database can be a shared elastic pool, where a large aggregate of
+        /// concurrent diagnostic lookups (per pod) would compete with customer traffic.
+        /// </summary>
+        internal const int MaxConcurrentQueryStoreLookups = 5;
+        private static readonly SemaphoreSlim _queryStoreLookupGate = new SemaphoreSlim(MaxConcurrentQueryStoreLookups, MaxConcurrentQueryStoreLookups);
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
+        private static CachedParameter<SqlServerSearchService> _referenceResourceTypeFilteredStats;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -170,6 +192,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (_longRunningThreshold == null)
                 {
                     _longRunningThreshold = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
+                }
+
+                if (_referenceResourceTypeFilteredStats == null)
+                {
+                    // Default 0 (disabled): the 3-column reference-type filtered stat is only created
+                    // when an operator adds a row to the Parameters table with this Id enabled.
+                    _referenceResourceTypeFilteredStats = new CachedParameter<SqlServerSearchService>(ReferenceResourceTypeFilteredStatsParameterId, 0, logger);
                 }
             }
         }
@@ -840,6 +869,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
+                                // Always records the long-running warning. Query Store enrichment is
+                                // best-effort and appended asynchronously only when a diagnostic slot is free.
                                 FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
@@ -1210,6 +1241,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime)
         {
+            // Try-or-skip: grab a diagnostic slot without waiting. If all slots are already taken,
+            // skip the expensive Query Store enrichment (which opens a new DB connection) rather than
+            // queueing it. This prevents a burst of long-running queries from each opening a diagnostic
+            // connection and storming the server. We still emit the long-running warning so the slow
+            // query is never lost — only the enrichment is dropped.
+            if (!_queryStoreLookupGate.Wait(0))
+            {
+                _logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    queryText,
+                    "Skipped: diagnostic concurrency limit reached.");
+                return;
+            }
+
             _ = Task.Run(async () =>
             {
                 try
@@ -1235,6 +1281,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         executionTime,
                         queryText,
                         "Query Store lookup failed.");
+                }
+                finally
+                {
+                    // Always release the slot, even if the lookup threw, so the diagnostic gate
+                    // can't leak slots and permanently disable long-running query logging.
+                    _queryStoreLookupGate.Release();
                 }
             });
         }
@@ -2013,6 +2065,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 ?? Array.Empty<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
         }
 
+        /// <summary>
+        /// Forces the next read of the reference-resource-type filtered statistics feature flag to bypass the
+        /// in-memory cache and re-query the Parameters table. Intended for integration tests that toggle the flag.
+        /// </summary>
+        internal static void ResetReferenceResourceTypeFilteredStatsCache()
+        {
+            _referenceResourceTypeFilteredStats?.Reset();
+        }
+
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(CancellationToken cancel)
         {
             return await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
@@ -2275,6 +2336,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
+                                // Always records the long-running warning. Query Store enrichment is
+                                // best-effort and appended asynchronously only when a diagnostic slot is free.
                                 FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
@@ -2990,6 +3053,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, short? referenceResourceTypeId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
+                // The 3-column reference-type filtered stat (which additionally filters on ReferenceResourceTypeId)
+                // is gated behind a feature flag that is OFF by default. When disabled, fall back to the broader
+                // 2-column filtered stat (ResourceTypeId + SearchParamId) so reference searches still get a stat.
+                if (referenceResourceTypeId.HasValue && !_referenceResourceTypeFilteredStats.IsEnabled(sqlRetryService))
+                {
+                    referenceResourceTypeId = null;
+                }
+
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId)))
                 {
                     logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam} RefType={ReferenceResourceType}", tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId);
