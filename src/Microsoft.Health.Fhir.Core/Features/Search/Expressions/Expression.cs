@@ -317,6 +317,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new SmartCompartmentSearchExpression(compartmentType, compartmentId, filteredResourceTypes);
         }
 
+        /// <summary>
+        /// Creates a <see cref="NotReferencingExpression"/> that matches resources of the given type
+        /// with no indexed value for the given reference search parameter.
+        /// </summary>
+        /// <param name="sourceResourceType">The resource type being filtered.</param>
+        /// <param name="referenceSearchParameter">The reference search parameter that must be absent.</param>
+        public static NotReferencingExpression NotReferencing(string sourceResourceType, SearchParameterInfo referenceSearchParameter)
+        {
+            return new NotReferencingExpression(sourceResourceType, referenceSearchParameter);
+        }
+
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
 
         /// <inheritdoc />

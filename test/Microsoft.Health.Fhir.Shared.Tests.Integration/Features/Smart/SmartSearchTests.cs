@@ -725,7 +725,63 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(39, results.Results.Count());
+            Assert.Equal(40, results.Results.Count());
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenDevicesRequested_ThenOnlyOwnAndUnassignedDevicesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Device assigned to this patient: visible.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+
+            // Device with no patient reference: visible (universal).
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Device assigned to a different patient: hidden.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPractitioner_WhenDevicesRequested_ThenOnlyUnassignedDevicesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Devices with no patient reference remain visible in any compartment.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Devices assigned to any patient are hidden in non-Patient compartments.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
         }
 
         [SkippableFact]
