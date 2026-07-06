@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -33,6 +34,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public SqlExceptionActionProcessorTests()
         {
             _mockLogger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, SqlException>>>();
+        }
+
+        [Fact]
+        public void GivenSqlExceptionActionProcessor_WhenChecked_ThenImplementsMedinoExceptionAction()
+        {
+            Assert.True(typeof(IRequestExceptionAction<string, SqlException>).IsAssignableFrom(typeof(SqlExceptionActionProcessor<string, SqlException>)));
         }
 
         [Fact]

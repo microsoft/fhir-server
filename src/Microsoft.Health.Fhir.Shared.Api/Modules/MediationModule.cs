@@ -8,6 +8,7 @@ using EnsureThat;
 using Medino;
 using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -25,15 +26,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            // TODO: AddMedino extension method not available in Medino 3.0.2 - may need alternative registration
             services.AddMedino(cfg =>
             {
                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
             });
 
-            // Register ValidateBundlePreProcessor as a pipeline behavior
-            // (Converted from IRequestPreProcessor which was removed in newer Medino versions)
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
+            services.RemoveAll<IPipelineBehavior<BundleRequest, BundleResponse>>();
             services.AddTransient<IPipelineBehavior<BundleRequest, BundleResponse>, ValidateBundlePreProcessor>();
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateCapabilityPreProcessor<,>));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]

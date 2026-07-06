@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -19,12 +20,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
     /// Utility class for handling SQL-specific exceptions and converting them to FHIR exceptions.
-    /// Note: IRequestExceptionAction interface was removed in new Medino version.
-    /// This class is kept as a utility for future integration with exception handling middleware.
     /// </summary>
     /// <typeparam name="TRequest">The request type associated with the exception.</typeparam>
     /// <typeparam name="TException">The exception type to handle.</typeparam>
-    public class SqlExceptionActionProcessor<TRequest, TException>
+    public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
         private readonly ILogger<SqlExceptionActionProcessor<TRequest, TException>> _logger;

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -49,8 +50,7 @@ public static class SchemaManagerServiceCollectionBuilder
         services.AddSingleton<BaseSchemaRunner>();
         services.AddSingleton<IBaseSchemaRunner, FhirBaseSchemaRunner>();
 
-        // TODO: AddMedino extension method not available in Medino 3.0.2 - may need alternative registration
-        // services.AddMedino(cfg => cfg.RegisterServicesFromAssembly(typeof(SchemaUpgradedNotification).Assembly));
+        services.AddMedino(cfg => cfg.RegisterServicesFromAssemblies(typeof(SchemaUpgradedNotification).Assembly));
 
         services.AddSingleton<ISchemaClient, FhirSchemaClient>();
         services.AddSingleton<ISchemaManager, SqlSchemaManager>();
