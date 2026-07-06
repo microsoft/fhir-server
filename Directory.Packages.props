@@ -27,7 +27,7 @@
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
-    <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.2" />
+    <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="9.0.17" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
@@ -71,7 +71,7 @@
     <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Medino" Version="3.0.2" />
+    <PackageVersion Include="Medino" Version="3.0.9" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
