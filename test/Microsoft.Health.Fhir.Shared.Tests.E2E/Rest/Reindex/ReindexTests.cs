@@ -1261,7 +1261,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             using var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
             bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
             var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            var location = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location);
+
+            // Wait for bulk delete job to complete - it should fail due to reindex conflict during execution
+            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
+            Assert.Equal(HttpStatusCode.Conflict, jobResult.Response.StatusCode);
 
             var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
             Assert.Equal(OperationStatus.Completed, reindexStatus);
@@ -1274,11 +1280,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             bulkDeleteRequest2.Headers.Add("Prefer", "respond-async");
             response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest2);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-            var location = response.Content.Headers.ContentLocation;
-            Assert.NotNull(location);
+            var location2 = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location2);
 
-            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
-            Assert.Equal(HttpStatusCode.OK, jobResult.Response.StatusCode);
+            var jobResult2 = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location2);
+            Assert.Equal(HttpStatusCode.OK, jobResult2.Response.StatusCode);
 
             // resource not touched
             resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");

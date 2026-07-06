@@ -98,18 +98,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
+                    bool conflictFound = false;
 
-                    if (ex.InnerException is AggregateException aggEx && aggEx.InnerExceptions.Any(ie => ie is JobConflictException))
+                    if (ex.InnerException is AggregateException aggEx)
                     {
-                        var conflictEx = aggEx.InnerExceptions.OfType<JobConflictException>().First();
-                        result.Issues.Add($"JobConflictException: {conflictEx.Message}");
+                        foreach (var innerEx in aggEx.InnerExceptions)
+                        {
+                            if (innerEx is IncompleteOperationException<Dictionary<string, long>> incompleteEx && incompleteEx.InnerException is JobConflictException conflictEx)
+                            {
+                                result.Issues.Add($"JobConflictException: {conflictEx.Message}");
+                                exception = conflictEx;
+                                conflictFound = true;
+                            }
+                            else if (innerEx is JobConflictException directConflictEx)
+                            {
+                                result.Issues.Add($"JobConflictException: {directConflictEx.Message}");
+                                exception = directConflictEx;
+                                conflictFound = true;
+                            }
+                            else
+                            {
+                                result.Issues.Add($"{innerEx.GetType().Name}: {innerEx.Message}");
+                            }
+                        }
                     }
-                    else
+
+                    if (!conflictFound)
                     {
                         result.Issues.Add(ex.Message);
+                        exception = ex;
                     }
-
-                    exception = ex;
                 }
 
                 foreach (var (key, value) in resourcesDeleted)
