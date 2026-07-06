@@ -13,12 +13,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
     /// Format: "code|system$ge2020-01-01" where the first part is a token and the second is a date with optional prefix.
     /// Date format: [prefix]YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS (e.g., "2020-01-01" or "ge2020-01-01").
     /// </summary>
-    public class TokenDateCompositeSqlParser : BaseCompositeSqlParser
+    public class TokenDateTimeCompositeSqlParser : BaseCompositeSqlParser
     {
-        public TokenDateCompositeSqlParser(
-            SearchParameterCollection parameterCollection)
+        public TokenDateTimeCompositeSqlParser(
+            SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection, new TokenSqlParser(parameterCollection), new DateTimeSqlParser(parameterCollection))
         {
+            TableName = "TokenDateTimeCompositeSearchParam";
         }
     }
 }

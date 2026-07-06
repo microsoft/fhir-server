@@ -12,9 +12,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class IncludeSqlParser : ISqlParser
     {
-        private readonly SearchParameterCollection _parameterCollection;
+        private readonly SqlSearchParameterDefinitionManager _parameterCollection;
 
-        public IncludeSqlParser(SearchParameterCollection parameterCollection)
+        public IncludeSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             _parameterCollection = parameterCollection;

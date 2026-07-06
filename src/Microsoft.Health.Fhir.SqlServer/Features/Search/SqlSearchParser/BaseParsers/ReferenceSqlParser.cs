@@ -22,11 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         private readonly ISqlServerFhirModel _fhirModel;
 
-        public ReferenceSqlParser(SearchParameterCollection parameterCollection, ISqlServerFhirModel fhirModel)
+        public ReferenceSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel)
             : base(parameterCollection)
         {
             ArgumentNullException.ThrowIfNull(fhirModel);
             _fhirModel = fhirModel;
+            TableName = "ReferenceSearchParam";
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)

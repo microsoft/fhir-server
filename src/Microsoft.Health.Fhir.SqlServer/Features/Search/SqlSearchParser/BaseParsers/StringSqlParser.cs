@@ -10,9 +10,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class StringSqlParser : BaseSqlParser
     {
-        public StringSqlParser(SearchParameterCollection parameterCollection)
+        public StringSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
+            TableName = "StringSearchParam";
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)

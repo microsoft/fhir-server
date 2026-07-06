@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
         private readonly BaseSqlParser? _thirdComponentParser;
 
         protected BaseCompositeSqlParser(
-            SearchParameterCollection parameterCollection,
+            SqlSearchParameterDefinitionManager parameterCollection,
             BaseSqlParser firstComponentParser,
             BaseSqlParser secondComponentParser,
             BaseSqlParser? thirdComponentParser = null)
@@ -63,12 +63,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
         /// Determines the composite type from a SearchParameterInfo by examining its component definitions.
         /// </summary>
         /// <param name="searchParameter">The search parameter to analyze.</param>
-        /// <param name="parameterLookup">Function to resolve component search parameters by URL.</param>
+        /// <param name="searchParameterCollection">The search parameter collection to resolve component search parameters.</param>
         /// <returns>The determined composite type.</returns>
         public static CompositeType DetermineCompositeType(
             SearchParameterInfo searchParameter,
-            SearchParameterCollection searchParameterCollection,
-            int resourceTypeId)
+            SqlSearchParameterDefinitionManager searchParameterCollection)
         {
             ArgumentNullException.ThrowIfNull(searchParameter);
             ArgumentNullException.ThrowIfNull(searchParameterCollection);
@@ -84,8 +83,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
                 return CompositeType.Unknown;
             }
 
-            var firstComponent = searchParameterCollection.GetByCode(searchParameter.Component[0].DefinitionUrl, resourceTypeId);
-            var secondComponent = searchParameterCollection.GetByCode(searchParameter.Component[1].DefinitionUrl, resourceTypeId);
+            var firstComponent = searchParameterCollection.GetByUrl(searchParameter.Component[0].DefinitionUrl);
+            var secondComponent = searchParameterCollection.GetByUrl(searchParameter.Component[1].DefinitionUrl);
 
             if (firstComponent == null || secondComponent == null)
             {
@@ -95,14 +94,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             // Check for three-component composite
             if (searchParameter.Component.Count == 3)
             {
-                var thirdComponent = searchParameterCollection.GetByCode(searchParameter.Component[2].DefinitionUrl, resourceTypeId);
+                var thirdComponent = searchParameterCollection.GetByUrl(searchParameter.Component[2].DefinitionUrl);
                 if (thirdComponent == null)
                 {
                     return CompositeType.Unknown;
                 }
 
                 // Currently only Token-Number-Number is supported
-                return (firstComponent.Type, secondComponent.Type, thirdComponent.Type) switch
+                return (firstComponent.SearchParameterInfo.Type, secondComponent.SearchParameterInfo.Type, thirdComponent.SearchParameterInfo.Type) switch
                 {
                     (SearchParamType.Token, SearchParamType.Number, SearchParamType.Number) => CompositeType.TokenNumberNumber,
                     _ => CompositeType.Unknown,
@@ -110,12 +109,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             }
 
             // Determine composite type based on component types (two-component)
-            return (firstComponent.Type, secondComponent.Type) switch
+            return (firstComponent.SearchParameterInfo.Type, secondComponent.SearchParameterInfo.Type) switch
             {
                 (SearchParamType.Token, SearchParamType.Token) => CompositeType.TokenToken,
                 (SearchParamType.Token, SearchParamType.Quantity) => CompositeType.TokenQuantity,
                 (SearchParamType.Token, SearchParamType.String) => CompositeType.TokenString,
-                (SearchParamType.Token, SearchParamType.Number) => CompositeType.TokenNumber,
                 (SearchParamType.Token, SearchParamType.Date) => CompositeType.TokenDate,
                 (SearchParamType.Token, SearchParamType.Reference) => CompositeType.TokenReference,
                 _ => CompositeType.Unknown,

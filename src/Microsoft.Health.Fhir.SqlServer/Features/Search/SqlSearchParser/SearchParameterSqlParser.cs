@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
@@ -20,13 +21,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class SearchParameterSqlParser
     {
-        private readonly SearchParameterCollection _parameterCollection;
+        private readonly SqlSearchParameterDefinitionManager _parameterCollection;
         private readonly Dictionary<SearchParamType, ISqlParser> _sqlParsers;
+        private readonly Dictionary<CompositeType, ISqlParser> _compositeSqlParsers;
         private readonly SystemSqlParser _systemSqlParser;
         private readonly IdSqlParser _idSqlParser;
         private readonly ISqlServerFhirModel _sqlServerFhirModel;
+        private readonly IncludeSqlParser _includeSqlParser;
+        private readonly ChainedSqlParser _chainedSqlParser;
 
-        public SearchParameterSqlParser(SearchParameterCollection parameterCollection, ISqlServerFhirModel fhirModel)
+        public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             ArgumentNullException.ThrowIfNull(fhirModel);
@@ -43,10 +47,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 { SearchParamType.Token, new TokenSqlParser(parameterCollection) },
                 { SearchParamType.Reference, new ReferenceSqlParser(parameterCollection, fhirModel) },
                 { SearchParamType.Uri, new UriSqlParser(parameterCollection) },
-                { SearchParamType.Include, new IncludeSqlParser(parameterCollection) },
+            };
+            _compositeSqlParsers = new Dictionary<CompositeType, ISqlParser>()
+            {
+                { CompositeType.TokenString, new TokenStringCompositeSqlParser(parameterCollection) },
+                { CompositeType.TokenToken, new TokenTokenCompositeSqlParser(parameterCollection) },
+                { CompositeType.TokenQuantity, new TokenQuantityCompositeSqlParser(parameterCollection) },
+                { CompositeType.TokenReference, new TokenReferenceCompositeSqlParser(parameterCollection, fhirModel) },
+                { CompositeType.TokenDate, new TokenDateTimeCompositeSqlParser(parameterCollection) },
+                { CompositeType.TokenNumberNumber, new TokenNumberNumberCompositeSqlParser(parameterCollection) },
             };
 
-            _sqlParsers.Add(SearchParamType.Chained, new ChainedSqlParser(parameterCollection, _sqlParsers, fhirModel));
+            _includeSqlParser = new IncludeSqlParser(parameterCollection);
+            _chainedSqlParser = new ChainedSqlParser(parameterCollection, this, fhirModel);
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
@@ -57,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var cteIndex = 0;
             string? lastCteName = null;
             Dictionary<string, IList<string>> includeParameters = new();
+            Dictionary<string, IList<string>> chainedParameters = new();
             var parserOptions = new ParserOptions()
             {
                 ContinuationToken = continuationToken,
@@ -107,11 +121,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parametersCopy.Remove("_summary");
             }
 
-            if (parametersCopy.TryGetValue("_count", out var countValues))
-            {
-                parametersCopy.Remove("_count");
-            }
-
             if (parametersCopy.TryGetValue("_type", out var typeValues))
             {
                 foreach (var typeValue in typeValues.SelectMany(types => types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Select(_sqlServerFhirModel.GetResourceTypeId))
@@ -121,6 +130,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 parametersCopy.Remove("_type");
             }
+
+            parametersCopy.Remove("_count");
+            parametersCopy.Remove("_total");
+            parametersCopy.Remove("ct");
+            parametersCopy.Remove(KnownQueryParameterNames.IncludesContinuationToken);
+            parametersCopy.Remove(KnownQueryParameterNames.IncludesCount);
 
             sqlBuilder.AppendLine("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit)");
             sqlBuilder.AppendLine(";WITH");
@@ -142,34 +157,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 foreach (var kvp in parametersCopy)
                 {
-                    // Handle _id parameter specially - it doesn't use SearchParameterCollection
-                    if (kvp.Key.Equals("_id", StringComparison.OrdinalIgnoreCase))
+                    if (kvp.Key.StartsWith("_include", StringComparison.OrdinalIgnoreCase) || kvp.Key.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase))
                     {
-                        foreach (var value in kvp.Value)
-                        {
-                            var cteName = $"cte{cteIndex}";
-
-                            if (cteIndex > 0)
-                            {
-                                sqlBuilder.Append(',');
-                            }
-
-                            sqlBuilder.AppendLine($"{cteName} AS (");
-                            sqlBuilder.Append(_idSqlParser.Parse(kvp.Key, value, parserOptions));
-                            sqlBuilder.AppendLine();
-                            sqlBuilder.Append(')');
-
-                            lastCteName = cteName;
-                            cteIndex++;
-                            parserOptions.LastCteName = lastCteName;
-                        }
-
+                        includeParameters.Add(kvp.Key, kvp.Value);
                         continue;
                     }
 
-                    if (_sqlParsers.TryGetValue(_parameterCollection.GetParameterType(kvp.Key, parserOptions.ResourceTypes.FirstOrDefault()) ?? string.Empty, out var parser) && parser is IncludeSqlParser)
+                    if (kvp.Key.Contains('.', StringComparison.OrdinalIgnoreCase))
                     {
-                        includeParameters.Add(kvp.Key, kvp.Value);
+                        chainedParameters.Add(kvp.Key, kvp.Value);
                         continue;
                     }
 
@@ -182,6 +178,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         }
 
                         var cteName = $"cte{cteIndex}";
+                        parserOptions.CteName = cteName;
 
                         if (cteIndex > 0)
                         {
@@ -196,8 +193,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         sqlBuilder.Append(')');
 
                         lastCteName = cteName;
-                        cteIndex++;
                         parserOptions.LastCteName = lastCteName;
+
+                        cteIndex++;
+                    }
+                }
+            }
+
+            if (chainedParameters.Count > 0)
+            {
+                var cteName = string.Empty;
+
+                foreach (var kvp in chainedParameters)
+                {
+                    foreach (var value in kvp.Value)
+                    {
+                        cteName = $"cte{cteIndex}";
+                        parserOptions.CteName = cteName;
+
+                        if (cteIndex > 0)
+                        {
+                            sqlBuilder.Append(',');
+                        }
+
+                        sqlBuilder.Append(_chainedSqlParser.Parse(kvp.Key, value, parserOptions));
+
+                        lastCteName = cteName;
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
                     }
                 }
             }
@@ -210,6 +233,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (!parserOptions.IncludeTotalCount)
             {
                 var cteName = $"cte{cteIndex}";
+                parserOptions.CteName = cteName;
                 cteIndex++;
 
                 sqlBuilder.AppendLine($",{cteName} AS (")
@@ -218,6 +242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     .AppendLine(")");
 
                 lastCteName = cteName;
+                parserOptions.LastCteName = lastCteName;
             }
 
             if (includeParameters.Count > 0 && !parserOptions.IncludeTotalCount)
@@ -237,10 +262,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     foreach (var value in kvp.Value)
                     {
                         var includeCteName = $"cte{cteIndex}";
+                        parserOptions.CteName = includeCteName;
                         cteIndex++;
 
                         sqlBuilder.AppendLine($",{includeCteName} AS (");
-                        var includeSql = Parse(kvp.Key, value, parserOptions);
+                        var includeSql = _includeSqlParser.Parse(kvp.Key, value, parserOptions);
                         sqlBuilder.Append(includeSql);
                         sqlBuilder.AppendLine();
                         sqlBuilder.Append(')');
@@ -353,30 +379,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return sqlBuilder.ToString();
         }
 
-        private string? Parse(string name, string value, ParserOptions options)
+        public ISqlParser GetParser(string name, short resourceTypeId)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                return null;
+                throw new ArgumentNullException(nameof(name));
             }
 
-            var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes[0]);
+            if (name.Equals(KnownQueryParameterNames.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return _idSqlParser;
+            }
+
+            if (name.Contains('.', StringComparison.OrdinalIgnoreCase))
+            {
+                return _chainedSqlParser;
+            }
+
+            var parameter = _parameterCollection.GetByCode(name, resourceTypeId);
             if (parameter == null)
             {
-                return null;
+                throw new ArgumentException($"Search parameter '{name}' is not supported for resource type '{resourceTypeId}'.");
             }
 
             ISqlParser? parser = null;
             if (parameter.SearchParameterInfo.Type == SearchParamType.Composite)
             {
-                BaseCompositeSqlParser.DetermineCompositeType(parameter.SearchParameterInfo, _parameterCollection, options.ResourceTypes[0]);
+                var compositeType = BaseCompositeSqlParser.DetermineCompositeType(parameter.SearchParameterInfo, _parameterCollection);
+                if (!_compositeSqlParsers.TryGetValue(compositeType, out parser))
+                {
+                    throw new ArgumentException($"Parser not found for composite type '{compositeType}'.");
+                }
             }
             else if (!_sqlParsers.TryGetValue(parameter.SearchParameterInfo.Type, out parser))
             {
-                return null;
+                throw new ArgumentException($"Parser not found for search parameter type '{parameter.SearchParameterInfo.Type}'.");
             }
 
-            return parser?.Parse(name, value, options);
+            return parser;
+        }
+
+        /// <summary>
+        /// Builds the SQL query for the given search parameters and options.
+        /// </summary>
+        /// <param name="name">The name of the search parameter.</param>
+        /// <param name="value">The value of the search parameter.</param>
+        /// <param name="options">The parser options.</param>
+        /// <returns>The parsed SQL query.</returns>
+        /// <exception cref="ArgumentNullException">If the name is null or whitespace.</exception>
+        /// <exception cref="ArgumentException">If the search parameter is not supported or the parser is not found.</exception>
+        private string Parse(string name, string value, ParserOptions options)
+        {
+            var parser = GetParser(name, options.ResourceTypes.FirstOrDefault());
+            if (parser == null)
+            {
+                throw new ArgumentException($"Parser not found for search parameter '{name}'.");
+            }
+
+            return parser.Parse(name, value, options) ?? string.Empty;
         }
     }
 }

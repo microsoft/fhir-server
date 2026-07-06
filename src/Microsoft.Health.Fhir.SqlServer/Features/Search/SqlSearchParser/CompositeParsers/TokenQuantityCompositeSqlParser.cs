@@ -16,9 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
     public class TokenQuantityCompositeSqlParser : BaseCompositeSqlParser
     {
         public TokenQuantityCompositeSqlParser(
-            SearchParameterCollection parameterCollection)
+            SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection, new TokenSqlParser(parameterCollection), new NumberSqlParser(parameterCollection))
         {
+            TableName = "TokenQuantityCompositeSearchParam";
         }
     }
 }

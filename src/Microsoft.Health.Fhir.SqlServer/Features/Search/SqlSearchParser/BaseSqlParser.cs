@@ -12,13 +12,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public abstract class BaseSqlParser : ISqlParser
     {
-        private readonly SearchParameterCollection _parameterCollection;
+        private readonly SqlSearchParameterDefinitionManager _parameterCollection;
 
-        protected BaseSqlParser(SearchParameterCollection parameterCollection)
+        protected BaseSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             _parameterCollection = parameterCollection;
         }
+
+        protected string TableName { get; set; } = string.Empty;
 
         public string? Parse(string name, string value, ParserOptions options)
         {
@@ -44,17 +46,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var sqlBuilder = new StringBuilder();
             sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
 
+            var surrogateIdColumn = options.ChainLevel == 0 ? "ResourceSurrogateId" : "RefResourceSurrogateId";
+
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {
                 sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
-                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {parameter.Type} t WHERE t.ResourceSurrogateId = r.ResourceSurrogateId AND t.SearchParamId = {parameter.Id})");
+                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {TableName} t WHERE t.ResourceSurrogateId = r.{surrogateIdColumn} AND t.SearchParamId = {parameter.Id})");
             }
             else
             {
-                sqlBuilder.AppendLine($"  FROM {parameter.Type} t");
+                sqlBuilder.AppendLine($"  FROM {TableName} t");
 
                 // Join on Resource table or previous CTE
-                sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} r ON t.ResourceSurrogateId = r.ResourceSurrogateId");
+                sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} r ON t.ResourceSurrogateId = r.{surrogateIdColumn}");
 
                 sqlBuilder.AppendLine($"  WHERE t.SearchParamId = {parameter.Id}");
 

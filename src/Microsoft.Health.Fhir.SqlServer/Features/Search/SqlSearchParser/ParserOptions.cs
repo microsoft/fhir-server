@@ -13,15 +13,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         public ContinuationToken? ContinuationToken { get; set; }
 
+        public string CteName { get; set; } = string.Empty;
+
         public string? LastCteName { get; set; }
 
-        public int ChainLevel { get; set; }
+        public int ChainLevel { get; set; } = 0;
 
         public bool Sort { get; set; }
 
         public int Count { get; set; } = 10;
 
-        public IList<int> ResourceTypes { get; init; } = new List<int>();
+        public IList<short> ResourceTypes { get; init; } = new List<short>();
 
         public bool IncludeTotalCount { get; set; }
 

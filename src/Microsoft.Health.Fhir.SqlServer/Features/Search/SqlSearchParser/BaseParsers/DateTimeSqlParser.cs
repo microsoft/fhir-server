@@ -10,9 +10,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class DateTimeSqlParser : BaseSqlParser
     {
-        public DateTimeSqlParser(SearchParameterCollection parameterCollection)
+        public DateTimeSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
+            TableName = "DateTimeSearchParam";
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)

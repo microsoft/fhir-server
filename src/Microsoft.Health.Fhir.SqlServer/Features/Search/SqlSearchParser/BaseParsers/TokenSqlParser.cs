@@ -16,9 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     /// </summary>
     public class TokenSqlParser : BaseSqlParser
     {
-        public TokenSqlParser(SearchParameterCollection parameterCollection)
+        public TokenSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
+            TableName = "TokenSearchParam";
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 // Code fits in the Code column
                 var escapedCode = EscapeSqlValue(code);
-                return $"t.Code{suffix} = {escapedCode}";
+                return $"t.Code{suffix} {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedCode}";
             }
             else
             {
@@ -94,7 +95,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var escapedPrefix = EscapeSqlValue(codePrefix);
                 var escapedOverflow = EscapeSqlValue(codeOverflow);
 
-                return $"(t.Code{suffix} = {escapedPrefix} AND t.CodeOverflow{suffix} = {escapedOverflow})";
+                if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"(t.Code{suffix} <> {escapedPrefix} OR t.CodeOverflow{suffix} <> {escapedOverflow})";
+                }
+                else
+                {
+                    return $"(t.Code{suffix} = {escapedPrefix} AND t.CodeOverflow{suffix} = {escapedOverflow})";
+                }
             }
         }
     }

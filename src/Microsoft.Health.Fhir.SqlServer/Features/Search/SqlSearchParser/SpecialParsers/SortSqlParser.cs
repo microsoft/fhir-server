@@ -8,15 +8,16 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class SortSqlParser : ISqlParser
     {
-        private readonly SearchParameterCollection _parameterCollection;
-        private readonly Dictionary<string, ISqlParser> _sqlParsers;
+        private readonly SqlSearchParameterDefinitionManager _parameterCollection;
+        private readonly Dictionary<SearchParamType, ISqlParser> _sqlParsers;
 
-        public SortSqlParser(SearchParameterCollection parameterCollection, Dictionary<string, ISqlParser> sqlParsers)
+        public SortSqlParser(SqlSearchParameterDefinitionManager parameterCollection, Dictionary<SearchParamType, ISqlParser> sqlParsers)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             ArgumentNullException.ThrowIfNull(sqlParsers);
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
-            if (!_sqlParsers.TryGetValue(parameter.Type, out var parser))
+            if (!_sqlParsers.TryGetValue(parameter.SearchParameterInfo.Type, out var parser))
             {
                 return null;
             }

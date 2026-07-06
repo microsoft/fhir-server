@@ -116,15 +116,9 @@ namespace Microsoft.Extensions.DependencyInjection
             AddSqlServerTableRowParameterGenerators(services);
 
             // Add new sql search parser here
-            services.Add<SearchParameterCollection>()
+            services.Add<SqlSearchParameterDefinitionManager>()
                 .Singleton()
                 .AsSelf();
-
-            services.Add<SearchParameterCollectionSyncService>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<SearchParametersInitializedNotification>>()
-                .AsService<INotificationHandler<SearchParametersUpdatedNotification>>();
 
             services.Add<SearchParameterSqlParser>()
                 .Singleton()
