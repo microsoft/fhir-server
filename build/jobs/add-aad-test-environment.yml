@@ -25,14 +25,19 @@ steps:
         'Microsoft.Graph.Users',
         'Microsoft.Graph.Identity.DirectoryManagement'
       )
-      
-      Write-Host "Installing Microsoft Graph modules..."
-      $graphModules | ForEach-Object { Install-Module -Name $_ -Force -Scope CurrentUser -AllowClobber }
-      
-      Write-Host "Importing Microsoft Graph modules..."
-      $graphModules | ForEach-Object { Import-Module -Name $_ -ErrorAction Stop }
-      
-      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+
+      # Pin all Graph submodules to a single version. Installing/importing without a version lets each
+      # submodule float to "latest" independently, which can produce a mismatched set (or import a stale
+      # copy pre-baked on the agent) and fail Connect-MgGraph with EntryPointNotFoundException.
+      $graphVersion = '2.38.0'
+
+      Write-Host "Installing Microsoft Graph modules (version $graphVersion)..."
+      $graphModules | ForEach-Object { Install-Module -Name $_ -RequiredVersion $graphVersion -Force -Scope CurrentUser -AllowClobber }
+
+      Write-Host "Importing Microsoft Graph modules (version $graphVersion)..."
+      $graphModules | ForEach-Object { Import-Module -Name $_ -RequiredVersion $graphVersion -ErrorAction Stop }
+
+      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
       # Install and import Az modules AFTER Microsoft.Graph modules are loaded
