@@ -35,26 +35,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.True(SqlServerSearchService.TryEnterQueryStoreCircuit());
         }
 
-        [Fact]
-        public void GivenFailuresBelowThreshold_WhenTryEnter_ThenBreakerStaysClosed()
+        [Theory]
+        [InlineData(SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold - 1, true)] // just below threshold: breaker stays closed
+        [InlineData(SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold, false)] // reaches threshold: breaker opens
+        public void GivenConsecutiveFailures_WhenTryEnter_ThenBreakerOpensOnlyAtThreshold(int failureCount, bool expectedCanEnter)
         {
-            for (int i = 0; i < SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold - 1; i++)
+            for (int i = 0; i < failureCount; i++)
             {
                 SqlServerSearchService.RecordQueryStoreFailure();
             }
 
-            Assert.True(SqlServerSearchService.TryEnterQueryStoreCircuit());
-        }
-
-        [Fact]
-        public void GivenFailuresAtThreshold_WhenTryEnter_ThenBreakerOpens()
-        {
-            for (int i = 0; i < SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold; i++)
-            {
-                SqlServerSearchService.RecordQueryStoreFailure();
-            }
-
-            Assert.False(SqlServerSearchService.TryEnterQueryStoreCircuit());
+            Assert.Equal(expectedCanEnter, SqlServerSearchService.TryEnterQueryStoreCircuit());
         }
 
         [Fact]
