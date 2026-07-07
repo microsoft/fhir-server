@@ -30,20 +30,25 @@ jobs:
           'Microsoft.Graph.Identity.DirectoryManagement'
         )
 
-        # Install all modules first
+        # Pin all Graph submodules to a single version so the installed and imported set always
+        # match (floating to "latest" independently, or importing a stale copy pre-baked on the
+        # agent, can produce a mismatched set that fails Connect-MgGraph with EntryPointNotFoundException).
+        $graphVersion = '2.33.0'
+
+        # Install all modules first at the pinned version
         foreach ($module in $graphModules) {
-          $installed = Get-Module -ListAvailable -Name $module | Select-Object -First 1
+          $installed = Get-Module -ListAvailable -Name $module | Where-Object { $_.Version -eq $graphVersion } | Select-Object -First 1
           if (-not $installed) {
-            Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+            Install-Module -Name $module -RequiredVersion $graphVersion -Scope CurrentUser -Force -AllowClobber
           }
         }
 
         # Import all modules upfront to prevent auto-loading conflicts
         foreach ($module in $graphModules) {
-          Import-Module -Name $module -ErrorAction Stop
+          Import-Module -Name $module -RequiredVersion $graphVersion -ErrorAction Stop
         }
 
-        $installedAuth = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+        $installedAuth = Get-Module -Name Microsoft.Graph.Authentication | Select-Object -First 1
         Write-Host "Microsoft.Graph.Authentication version: $($installedAuth.Version)"
 
         $username = "$(tenant-admin-user-name)"
