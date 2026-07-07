@@ -115,6 +115,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         internal const int MaxConcurrentQueryStoreLookups = 5;
         private static readonly SemaphoreSlim _queryStoreLookupGate = new SemaphoreSlim(MaxConcurrentQueryStoreLookups, MaxConcurrentQueryStoreLookups);
+
+        /// <summary>
+        /// Number of consecutive Query Store lookup failures (errors or timeouts) that trips the
+        /// diagnostic circuit breaker. Once tripped, Query Store enrichment is suspended for
+        /// <see cref="QueryStoreCircuitBreakerCooldown"/> so a truly overloaded database is not
+        /// compounded by diagnostic load. Any single successful lookup resets the counter to zero.
+        /// </summary>
+        internal const int QueryStoreCircuitBreakerFailureThreshold = 5;
+
+        /// <summary>
+        /// How long Query Store enrichment stays suspended after the circuit breaker trips. When the
+        /// cooldown elapses, exactly one probe lookup is allowed through: if it succeeds the breaker
+        /// resets, otherwise the cooldown restarts. Slow-query warnings are always logged regardless
+        /// of breaker state — only the Query Store stats lookup is skipped.
+        /// </summary>
+        internal static readonly TimeSpan QueryStoreCircuitBreakerCooldown = TimeSpan.FromSeconds(10);
+
+        // Circuit breaker state for the diagnostic Query Store lookups. Static (per-process/per-pod)
+        // and mutated only through Interlocked/Volatile so no lock is needed on the hot search path.
+        // _queryStoreConsecutiveFailures counts consecutive failures; when it reaches the threshold
+        // the breaker is "open" until _queryStoreCircuitOpenUntilTicks (a DateTime.UtcNow.Ticks
+        // deadline). A value of 0 means the breaker is closed.
+        private static int _queryStoreConsecutiveFailures;
+        private static long _queryStoreCircuitOpenUntilTicks;
+
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
         private static CachedParameter<SqlServerSearchService> _referenceResourceTypeFilteredStats;
@@ -1241,6 +1266,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime)
         {
+            // Circuit breaker: if too many consecutive lookups have failed/timed out, the database is
+            // likely overloaded. Suspend Query Store enrichment for a cooldown window so diagnostics
+            // don't compound the problem. The slow query is still logged below — only the enrichment
+            // is skipped. When the cooldown elapses, exactly one probe lookup is allowed through.
+            if (!TryEnterQueryStoreCircuit())
+            {
+                _logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    queryText,
+                    "Skipped: diagnostic circuit breaker open (database appears overloaded).");
+                return;
+            }
+
             // Try-or-skip: grab a diagnostic slot without waiting. If all slots are already taken,
             // skip the expensive Query Store enrichment (which opens a new DB connection) rather than
             // queueing it. This prevents a burst of long-running queries from each opening a diagnostic
@@ -1269,12 +1308,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         QueryStoreLookupTimeoutSeconds,
                         executionTime,
                         loggingCts.Token);
+
+                    // A single success closes the breaker and clears the consecutive-failure count.
+                    RecordQueryStoreSuccess();
                 }
                 catch (Exception ex)
                 {
                     // The Query Store lookup is best-effort diagnostics. Swallow any failure so the
                     // fire-and-forget task never surfaces an unobserved exception. The exception is
                     // passed to the logger (queryable via env_ex_* columns), so it isn't repeated in the message.
+                    // Count the failure toward the circuit breaker so a truly overloaded DB trips it.
+                    RecordQueryStoreFailure();
+
                     _logger.LogWarning(
                         ex,
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
@@ -1289,6 +1334,82 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     _queryStoreLookupGate.Release();
                 }
             });
+        }
+
+        /// <summary>
+        /// Diagnostic circuit breaker gate. Returns <c>true</c> when a Query Store lookup is allowed
+        /// to proceed. The breaker is "open" (returns <c>false</c>) once
+        /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/> consecutive failures have occurred,
+        /// and stays open until the <see cref="QueryStoreCircuitBreakerCooldown"/> deadline. When the
+        /// cooldown elapses, exactly one caller wins a compare-and-swap and is let through as a probe;
+        /// its success (<see cref="RecordQueryStoreSuccess"/>) closes the breaker, its failure
+        /// (<see cref="RecordQueryStoreFailure"/>) pushes the deadline out by another cooldown.
+        /// </summary>
+        internal static bool TryEnterQueryStoreCircuit()
+        {
+            long openUntil = Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
+            if (openUntil == 0)
+            {
+                // Breaker closed — normal operation.
+                return true;
+            }
+
+            if (DateTime.UtcNow.Ticks < openUntil)
+            {
+                // Still within the cooldown window — stay open.
+                return false;
+            }
+
+            // Cooldown elapsed. Let exactly one probe through by atomically clearing the deadline.
+            // Whoever wins the CAS proceeds; concurrent callers see the reset value and either
+            // proceed (0) or observe a fresh deadline set by the probe's failure.
+            return Interlocked.CompareExchange(ref _queryStoreCircuitOpenUntilTicks, 0, openUntil) == openUntil;
+        }
+
+        /// <summary>
+        /// Records a successful Query Store lookup: resets the consecutive-failure counter and closes
+        /// the circuit breaker. Any single success from any thread fully recovers the breaker.
+        /// </summary>
+        internal static void RecordQueryStoreSuccess()
+        {
+            Interlocked.Exchange(ref _queryStoreConsecutiveFailures, 0);
+            Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, 0);
+        }
+
+        /// <summary>
+        /// Records a failed/timed-out Query Store lookup. Once the consecutive-failure count reaches
+        /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/>, the breaker opens for
+        /// <see cref="QueryStoreCircuitBreakerCooldown"/>. A failure while already open (the probe
+        /// failing) simply extends the cooldown by another window.
+        /// </summary>
+        internal static void RecordQueryStoreFailure()
+        {
+            int failures = Interlocked.Increment(ref _queryStoreConsecutiveFailures);
+            if (failures >= QueryStoreCircuitBreakerFailureThreshold)
+            {
+                Interlocked.Exchange(
+                    ref _queryStoreCircuitOpenUntilTicks,
+                    DateTime.UtcNow.Add(QueryStoreCircuitBreakerCooldown).Ticks);
+            }
+        }
+
+        /// <summary>
+        /// Test-only seam: deterministically seeds the diagnostic circuit breaker's static state so
+        /// unit tests can exercise the open/cooldown/probe transitions without waiting real time.
+        /// </summary>
+        internal static void SetQueryStoreCircuitStateForTests(int consecutiveFailures, long openUntilTicks)
+        {
+            Interlocked.Exchange(ref _queryStoreConsecutiveFailures, consecutiveFailures);
+            Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, openUntilTicks);
+        }
+
+        /// <summary>
+        /// Test-only seam: reads the diagnostic circuit breaker's open deadline (0 when closed) so
+        /// unit tests can assert that a probe cleared it.
+        /// </summary>
+        internal static long GetQueryStoreCircuitOpenUntilTicksForTests()
+        {
+            return Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
         }
 
         private async Task LogQueryStoreByTextAsync(
