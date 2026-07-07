@@ -41,12 +41,14 @@ steps:
       Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
       # Install and import Az modules AFTER Microsoft.Graph modules are loaded.
-      # Pin Az.Accounts / Az.KeyVault: newer builds ship a shared assembly (Azure.Core /
-      # System.Threading.Tasks.Extensions) that is incompatible with the loaded Microsoft.Graph modules
-      # and makes Connect-MgGraph throw EntryPointNotFoundException. These versions are the last set
-      # proven to work with Graph $graphVersion in this job.
-      $azAccountsVersion = '5.5.0'
-      $azKeyVaultVersion = '6.5.0'
+      # Pin Az.Accounts / Az.KeyVault to the exact versions the hosted agent image preloads.
+      # The agent has Az.Accounts 5.5.1's shared assembly (Microsoft.Azure.PowerShell.AssemblyLoading,
+      # Version=5.5.1.0) already loaded into the process. Installing a *different* Az build (e.g. 5.5.0)
+      # makes SecretManagement's Register-SecretVault fail with "Assembly with same name is already
+      # loaded" when it re-resolves Az.KeyVault. Matching the preloaded version (5.5.1 / 6.5.1) avoids
+      # that clash, and this pair is also compatible with Graph $graphVersion for Connect-MgGraph.
+      $azAccountsVersion = '5.5.1'
+      $azKeyVaultVersion = '6.5.1'
       Write-Host "Installing Az modules (Az.Accounts $azAccountsVersion, Az.KeyVault $azKeyVaultVersion)..."
       Install-Module -Name Az.Accounts -RequiredVersion $azAccountsVersion -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Az.KeyVault -RequiredVersion $azKeyVaultVersion -Force -Scope CurrentUser -AllowClobber
