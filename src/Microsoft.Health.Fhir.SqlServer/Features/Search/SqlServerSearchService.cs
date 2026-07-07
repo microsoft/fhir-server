@@ -1269,7 +1269,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Circuit breaker: if too many consecutive lookups have failed/timed out, the database is
             // likely overloaded. Suspend Query Store enrichment for a cooldown window so diagnostics
             // don't compound the problem. The slow query is still logged below — only the enrichment
-            // is skipped. When the cooldown elapses, exactly one probe lookup is allowed through.
+            // is skipped. When the cooldown elapses, the breaker closes and lookups resume (bounded by
+            // the concurrency gate below); the failure counter stays elevated, so the next failure
+            // re-opens the breaker while any success fully resets it.
             if (!TryEnterQueryStoreCircuit())
             {
                 _logger.LogWarning(
@@ -1341,9 +1343,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// to proceed. The breaker is "open" (returns <c>false</c>) once
         /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/> consecutive failures have occurred,
         /// and stays open until the <see cref="QueryStoreCircuitBreakerCooldown"/> deadline. When the
-        /// cooldown elapses, exactly one caller wins a compare-and-swap and is let through as a probe;
-        /// its success (<see cref="RecordQueryStoreSuccess"/>) closes the breaker, its failure
-        /// (<see cref="RecordQueryStoreFailure"/>) pushes the deadline out by another cooldown.
+        /// cooldown elapses, the first caller to observe it atomically clears the deadline and the
+        /// breaker closes, so subsequent callers proceed as well (bounded by the concurrency gate).
+        /// The consecutive-failure counter is not reset by this transition, so the next
+        /// <see cref="RecordQueryStoreFailure"/> immediately re-opens the breaker, while any
+        /// <see cref="RecordQueryStoreSuccess"/> fully resets it.
         /// </summary>
         internal static bool TryEnterQueryStoreCircuit()
         {
@@ -1360,9 +1364,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return false;
             }
 
-            // Cooldown elapsed. Let exactly one probe through by atomically clearing the deadline.
-            // Whoever wins the CAS proceeds; concurrent callers see the reset value and either
-            // proceed (0) or observe a fresh deadline set by the probe's failure.
+            // Cooldown elapsed. Close the breaker by atomically clearing the deadline. The caller that
+            // wins the CAS performs the transition and proceeds; a concurrent caller that reads the
+            // stale deadline loses the CAS and is skipped for this pass, but any later caller reads 0
+            // (closed) and proceeds normally. The failure counter is left intact, so a subsequent
+            // failure re-opens the breaker while a success resets it.
             return Interlocked.CompareExchange(ref _queryStoreCircuitOpenUntilTicks, 0, openUntil) == openUntil;
         }
 
@@ -1379,8 +1385,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Records a failed/timed-out Query Store lookup. Once the consecutive-failure count reaches
         /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/>, the breaker opens for
-        /// <see cref="QueryStoreCircuitBreakerCooldown"/>. A failure while already open (the probe
-        /// failing) simply extends the cooldown by another window.
+        /// <see cref="QueryStoreCircuitBreakerCooldown"/>. Because the count is not reset on the
+        /// open-to-closed transition, the first failure after a cooldown re-opens the breaker for
+        /// another window.
         /// </summary>
         internal static void RecordQueryStoreFailure()
         {

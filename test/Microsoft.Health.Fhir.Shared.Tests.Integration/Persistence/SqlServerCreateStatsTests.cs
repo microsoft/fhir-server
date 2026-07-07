@@ -25,11 +25,14 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [Collection(SqlServerCreateStatsTests.SerialCollectionName)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerCreateStatsTests : IClassFixture<FhirStorageTestsFixture>
     {
+        internal const string SerialCollectionName = "SqlServerCreateStatsTests serial collection";
+
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
 

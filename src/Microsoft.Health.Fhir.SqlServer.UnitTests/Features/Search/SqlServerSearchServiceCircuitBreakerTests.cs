@@ -94,29 +94,29 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenOpenBreaker_WhenCooldownElapsed_ThenSingleProbeIsAllowedThrough()
+        public void GivenOpenBreaker_WhenCooldownElapsed_ThenBreakerClosesAndLookupsResume()
         {
             SqlServerSearchService.SetQueryStoreCircuitStateForTests(
                 SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold,
                 DateTime.UtcNow.AddSeconds(-1).Ticks);
 
-            // Cooldown has elapsed: the first caller wins the compare-and-swap and is let through as a probe,
-            // which clears the open deadline.
+            // Cooldown has elapsed: the first caller atomically clears the open deadline, closing the
+            // breaker so lookups resume (subject to the concurrency gate).
             Assert.True(SqlServerSearchService.TryEnterQueryStoreCircuit());
             Assert.Equal(0, SqlServerSearchService.GetQueryStoreCircuitOpenUntilTicksForTests());
         }
 
         [Fact]
-        public void GivenProbeAfterCooldown_WhenProbeFails_ThenBreakerReopens()
+        public void GivenClosedBreakerAfterCooldown_WhenNextFailureRecorded_ThenBreakerReopens()
         {
             SqlServerSearchService.SetQueryStoreCircuitStateForTests(
                 SqlServerSearchService.QueryStoreCircuitBreakerFailureThreshold,
                 DateTime.UtcNow.AddSeconds(-1).Ticks);
 
-            // Probe is let through...
+            // Cooldown elapsed: the breaker closes and the next lookup is allowed through...
             Assert.True(SqlServerSearchService.TryEnterQueryStoreCircuit());
 
-            // ...but the probe fails, which (already at/over threshold) re-opens the breaker for another cooldown.
+            // ...but because the failure counter is still at threshold, a single failure re-opens it.
             SqlServerSearchService.RecordQueryStoreFailure();
 
             Assert.False(SqlServerSearchService.TryEnterQueryStoreCircuit());
