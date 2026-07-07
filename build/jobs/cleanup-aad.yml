@@ -30,10 +30,9 @@ jobs:
           'Microsoft.Graph.Identity.DirectoryManagement'
         )
 
-        # Pin all Graph submodules to a single version. Without a pinned version each submodule
-        # resolves to "latest" independently (or a stale copy is imported), producing a mismatched
-        # set that fails Connect-MgGraph with EntryPointNotFoundException. 2.33.0 is the last version
-        # proven compatible with the Az/agent assemblies (newer releases such as 2.38.0 conflict).
+        # Pin all Graph submodules to a single version so the installed and imported set always
+        # match (floating to "latest" independently, or importing a stale copy pre-baked on the
+        # agent, can produce a mismatched set that fails Connect-MgGraph with EntryPointNotFoundException).
         $graphVersion = '2.33.0'
 
         # Install all modules first at the pinned version

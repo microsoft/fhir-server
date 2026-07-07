@@ -26,12 +26,10 @@ steps:
         'Microsoft.Graph.Identity.DirectoryManagement'
       )
 
-      # Pin all Graph submodules to a single version. Installing/importing without a version lets each
-      # submodule float to "latest" independently, which can produce a mismatched set (or import a stale
-      # copy pre-baked on the agent) and fail Connect-MgGraph with EntryPointNotFoundException. 2.33.0 is
-      # the last version proven compatible with the Az modules loaded later in this job (newer releases
-      # such as 2.38.0 require a shared assembly version that conflicts with Az.Accounts).
-      $graphVersion = '2.33.0'
+      # Pin all Graph submodules to a single version so the installed and imported set always match
+      # (floating to "latest" independently, or importing a stale copy pre-baked on the agent, can
+      # produce a mismatched set and fail Connect-MgGraph with EntryPointNotFoundException).
+      $graphVersion = '2.38.0'
 
       Write-Host "Installing Microsoft Graph modules (version $graphVersion)..."
       $graphModules | ForEach-Object { Install-Module -Name $_ -RequiredVersion $graphVersion -Force -Scope CurrentUser -AllowClobber }
@@ -42,13 +40,19 @@ steps:
       $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
-      # Install and import Az modules AFTER Microsoft.Graph modules are loaded
-      Write-Host "Installing Az modules..."
-      Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+      # Install and import Az modules AFTER Microsoft.Graph modules are loaded.
+      # Pin Az.Accounts / Az.KeyVault: newer builds ship a shared assembly (Azure.Core /
+      # System.Threading.Tasks.Extensions) that is incompatible with the loaded Microsoft.Graph modules
+      # and makes Connect-MgGraph throw EntryPointNotFoundException. These versions are the last set
+      # proven to work with Graph $graphVersion in this job.
+      $azAccountsVersion = '5.5.0'
+      $azKeyVaultVersion = '6.5.0'
+      Write-Host "Installing Az modules (Az.Accounts $azAccountsVersion, Az.KeyVault $azKeyVaultVersion)..."
+      Install-Module -Name Az.Accounts -RequiredVersion $azAccountsVersion -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Az.KeyVault -RequiredVersion $azKeyVaultVersion -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
-      Import-Module Az.Accounts -ErrorAction Stop
-      Import-Module Az.KeyVault -ErrorAction Stop
+      Import-Module Az.Accounts -RequiredVersion $azAccountsVersion -ErrorAction Stop
+      Import-Module Az.KeyVault -RequiredVersion $azKeyVaultVersion -ErrorAction Stop
       Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
 
       # Set up variables
