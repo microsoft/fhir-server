@@ -211,11 +211,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         cteName = $"cte{cteIndex}";
                         parserOptions.CteName = cteName;
 
-                        if (cteIndex > 0)
-                        {
-                            sqlBuilder.Append(',');
-                        }
-
                         sqlBuilder.Append(_chainedSqlParser.Parse(kvp.Key, value, parserOptions));
 
                         lastCteName = cteName;

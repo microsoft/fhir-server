@@ -62,12 +62,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var chainCteName = $"{options.CteName}chain{options.ChainLevel}_0";
 
             // Create the first CTE for the reference join
-            sqlBuilder.AppendLine($"  {chainCteName} AS (");
-            sqlBuilder.AppendLine("  SELECT refSource.ReferenceResourceTypeId AS RefResourceTypeId, refTarget.ResourceSurrogateId AS RefResourceSurrogateId, refSource.ResourceTypeId AS ResourceTypeId, refSource.ResourceSurrogateId AS ResourceSurrogateId");
+            if (!string.IsNullOrEmpty(options.LastCteName))
+            {
+                sqlBuilder.Append(',');
+            }
+
+            sqlBuilder.AppendLine($"{chainCteName} AS (");
+            sqlBuilder.AppendLine("  SELECT DISTINCT refSource.ReferenceResourceTypeId AS RefResourceTypeId, refTarget.ResourceSurrogateId AS RefResourceSurrogateId, refSource.ResourceTypeId AS ResourceTypeId, refSource.ResourceSurrogateId AS ResourceSurrogateId");
             sqlBuilder.AppendLine("  FROM dbo.ReferenceSearchParam refSource");
             sqlBuilder.AppendLine("  JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
 
-            sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} source ON source.ResourceSurrogateId = refSource.ResourceSurrogateId");
+            sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} source ON source.{(options.ChainLevel > 0 ? "ref" : string.Empty)}ResourceSurrogateId = refSource.ResourceSurrogateId");
 
             sqlBuilder.AppendLine($"  WHERE refSource.SearchParamId = {parameter.Id}");
             sqlBuilder.AppendLine("  AND refTarget.IsHistory = 0");
@@ -105,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (!remainingChain.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
             {
                 sqlBuilder.AppendLine();
-                sqlBuilder.AppendLine("),");
+                sqlBuilder.AppendLine(")");
 
                 // Recursively parse the remaining chain
                 // Get the parameter for the remaining chain to find the right parser
@@ -131,24 +136,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 if (!(remainingParameterParser is ChainedSqlParser))
                 {
-                    sqlBuilder.AppendLine($"  {chainCteName} AS (");
+                    sqlBuilder.AppendLine($",{chainCteName} AS (");
                     sqlBuilder.Append(chainedSql);
-                    sqlBuilder.AppendLine("),");
+                    sqlBuilder.AppendLine(")");
                 }
                 else
                 {
                     sqlBuilder.Append(chainedSql);
-                    sqlBuilder.AppendLine(",");
                 }
             }
             else
             {
                 var valueTypeIds = value.Split(',').Select(v => _model.GetResourceTypeId(v)).ToList();
                 sqlBuilder.AppendLine($"  AND refTarget.ResourceTypeId IN ({string.Join(",", valueTypeIds)})");
-                sqlBuilder.AppendLine("),");
+                sqlBuilder.AppendLine(")");
             }
 
-            sqlBuilder.AppendLine($"{options.CteName}{(options.ChainLevel > 0 ? $"chain{options.ChainLevel - 1}_1" : string.Empty)} AS (SELECT DISTINCT ResourceTypeId, ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row FROM {chainCteName})");
+            if (options.ChainLevel == 0)
+            {
+                sqlBuilder.AppendLine($",{options.CteName} AS (")
+                    .AppendLine("  SELECT DISTINCT ResourceTypeId, ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row")
+                    .AppendLine($"  FROM {chainCteName}")
+                    .AppendLine(")");
+            }
+            else
+            {
+                var parentCteName = $"{options.CteName}chain{options.ChainLevel - 1}";
+                sqlBuilder.AppendLine($",{parentCteName}_1 AS (")
+                    .AppendLine("  SELECT DISTINCT parent.ResourceTypeId, parent.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY parent.ResourceTypeId ASC, parent.ResourceSurrogateId ASC) AS Row")
+                    .AppendLine($"  FROM {chainCteName} child")
+                    .AppendLine($"    JOIN {parentCteName}_0 parent ON parent.RefResourceTypeId = child.ResourceTypeId AND parent.RefResourceSurrogateId = child.ResourceSurrogateId")
+                    .AppendLine(")");
+            }
 
             return sqlBuilder.ToString();
         }
