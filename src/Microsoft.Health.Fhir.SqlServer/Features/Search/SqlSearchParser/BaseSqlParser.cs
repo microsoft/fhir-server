@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var sqlBuilder = new StringBuilder();
             sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
 
-            var surrogateIdColumn = options.ChainLevel == 0 ? "ResourceSurrogateId" : "RefResourceSurrogateId";
+            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "RefResourceSurrogateId";
 
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {

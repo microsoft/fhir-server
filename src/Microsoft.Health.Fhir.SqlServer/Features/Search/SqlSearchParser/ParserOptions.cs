@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public int ChainLevel { get; set; } = 0;
 
+        public bool ParentIsForwardChain { get; set; } = false;
+
         public bool Sort { get; set; }
 
         public int Count { get; set; } = 10;

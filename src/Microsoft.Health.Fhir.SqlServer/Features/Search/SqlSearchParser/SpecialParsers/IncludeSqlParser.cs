@@ -28,9 +28,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var parts = value.Split(':', 2);
-            var parameter = _parameterCollection.GetByCode(parts[1], options.ResourceTypes[0]);
+            SearchParameterIdWrapper? parameter = null;
+            var wildcard = false;
 
-            if (parameter == null)
+            if (!string.Equals(parts[1], "*", StringComparison.OrdinalIgnoreCase))
+            {
+                parameter = _parameterCollection.GetByCode(parts[1], options.ResourceTypes[0]);
+            }
+            else
+            {
+                wildcard = true;
+            }
+
+            if (parameter == null && !wildcard)
             {
                 return null;
             }
@@ -41,19 +51,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var sqlBuilder = new StringBuilder();
-            sqlBuilder.Append($"SELECT DISTINCT {(options.IncludeTotalCount ? string.Empty : "TOP (1001) ")}refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append("  FROM dbo.ReferenceSearchParam refSource");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append("  JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append($"  WHERE refSource.SearchParamId = {parameter.Id}");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append("  AND refTarget.IsHistory = 0");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append("  AND refTarget.IsDeleted = 0");
-            sqlBuilder.AppendLine();
-            sqlBuilder.Append($"  AND EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId {(options.IncludeTotalCount ? string.Empty : $"AND lcte.Row < {options.Count}")})");
+            sqlBuilder.Append($"SELECT DISTINCT {(options.IncludeTotalCount ? string.Empty : "TOP (1001) ")}refTarget.ResourceTypeId, refTarget.ResourceSurrogateId, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial, row_number() OVER (ORDER BY refTarget.ResourceTypeId ASC, refTarget.ResourceSurrogateId ASC) AS Row");
+            sqlBuilder.AppendLine("  FROM dbo.ReferenceSearchParam refSource");
+            sqlBuilder.AppendLine("  JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+            sqlBuilder.Append($"  WHERE EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId {(options.IncludeTotalCount ? string.Empty : $"AND lcte.Row < {options.Count}")})");
+
+            if (!wildcard)
+            {
+                sqlBuilder.AppendLine($" AND refSource.SearchParamId = {parameter?.Id}");
+            }
+
+            sqlBuilder.AppendLine("  AND refTarget.IsHistory = 0");
+            sqlBuilder.AppendLine("  AND refTarget.IsDeleted = 0");
 
             return sqlBuilder.ToString();
         }

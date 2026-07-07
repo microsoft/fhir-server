@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
+        public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesNotIncludeDeletedOrUpdatedResources()
         {
             string query = $"_tag={Fixture.Tag}&_include=Patient:organization";
 

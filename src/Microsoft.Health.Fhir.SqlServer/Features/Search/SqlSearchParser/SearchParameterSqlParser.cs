@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly ISqlServerFhirModel _sqlServerFhirModel;
         private readonly IncludeSqlParser _includeSqlParser;
         private readonly ChainedSqlParser _chainedSqlParser;
+        private readonly ReversedChainSqlParser _reversedChainSqlParser;
 
         public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel)
         {
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             _includeSqlParser = new IncludeSqlParser(parameterCollection);
             _chainedSqlParser = new ChainedSqlParser(parameterCollection, this, fhirModel);
+            _reversedChainSqlParser = new ReversedChainSqlParser(parameterCollection, this, fhirModel);
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
@@ -71,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             string? lastCteName = null;
             Dictionary<string, IList<string>> includeParameters = new();
             Dictionary<string, IList<string>> chainedParameters = new();
+            Dictionary<string, IList<string>> reversedChainedParameters = new();
             var parserOptions = new ParserOptions()
             {
                 ContinuationToken = continuationToken,
@@ -137,7 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             parametersCopy.Remove(KnownQueryParameterNames.IncludesContinuationToken);
             parametersCopy.Remove(KnownQueryParameterNames.IncludesCount);
 
-            sqlBuilder.AppendLine("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit)");
+            sqlBuilder.AppendLine("DECLARE @FilteredData AS TABLE (ResourceTypeId smallint, ResourceSurrogateId bigint, IsMatch bit, IsPartial bit, Row int)");
             sqlBuilder.AppendLine(";WITH");
 
             // If no search parameters, use SystemSqlParser for basic resource retrieval
@@ -160,6 +163,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     if (kvp.Key.StartsWith("_include", StringComparison.OrdinalIgnoreCase) || kvp.Key.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase))
                     {
                         includeParameters.Add(kvp.Key, kvp.Value);
+                        continue;
+                    }
+
+                    if (kvp.Key.StartsWith("_has:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        reversedChainedParameters.Add(kvp.Key, kvp.Value);
                         continue;
                     }
 
@@ -220,6 +229,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
             }
 
+            if (reversedChainedParameters.Count > 0)
+            {
+                var cteName = string.Empty;
+
+                foreach (var kvp in reversedChainedParameters)
+                {
+                    foreach (var value in kvp.Value)
+                    {
+                        cteName = $"cte{cteIndex}";
+                        parserOptions.CteName = cteName;
+
+                        sqlBuilder.Append(_reversedChainSqlParser.Parse(kvp.Key, value, parserOptions));
+
+                        lastCteName = cteName;
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
+                    }
+                }
+            }
+
             if (lastCteName == null)
             {
                 return null;
@@ -245,7 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var baseCteName = $"cte{cteIndex}";
                 cteIndex++;
 
-                sqlBuilder.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch = 1, IsPartial = 0 FROM {lastCteName}");
+                sqlBuilder.AppendLine($"INSERT INTO @FilteredData SELECT ResourceTypeId, ResourceSurrogateId, IsMatch = 1, IsPartial = 0, Row FROM {lastCteName}");
                 sqlBuilder.AppendLine($"; WITH {baseCteName} AS(SELECT * FROM @FilteredData)");
 
                 parserOptions.LastCteName = baseCteName;
@@ -271,17 +300,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
 
                 sqlBuilder.AppendLine();
-                sqlBuilder.Append($"SELECT * FROM {baseCteName}");
+
+                var unionCte = $"cte{cteIndex}";
+                cteIndex++;
+
+                sqlBuilder.AppendLine($", {unionCte} AS (");
+                sqlBuilder.Append($"  SELECT * FROM {baseCteName}");
 
                 foreach (var includeCteName in includeCteNames)
                 {
                     sqlBuilder.AppendLine();
-                    sqlBuilder.Append("UNION ALL");
+                    sqlBuilder.Append("  UNION ALL");
                     sqlBuilder.AppendLine();
-                    sqlBuilder.Append($"SELECT * FROM {includeCteName}");
+                    sqlBuilder.Append($"  SELECT * FROM {includeCteName}");
                 }
 
-                return sqlBuilder.ToString();
+                sqlBuilder.AppendLine(")");
+                lastCteName = unionCte;
+                cteIndex++;
             }
 
             sqlBuilder.AppendLine();
@@ -384,6 +420,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (name.Equals(KnownQueryParameterNames.Id, StringComparison.OrdinalIgnoreCase))
             {
                 return _idSqlParser;
+            }
+
+            if (name.Contains(KnownQueryParameterNames.ReverseChain, StringComparison.OrdinalIgnoreCase))
+            {
+                return _reversedChainSqlParser;
             }
 
             if (name.Contains('.', StringComparison.OrdinalIgnoreCase))
