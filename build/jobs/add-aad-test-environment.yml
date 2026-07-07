@@ -41,18 +41,32 @@ steps:
       Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
       # Install and import Az modules AFTER Microsoft.Graph modules are loaded.
-      # Pin Az.Accounts / Az.KeyVault to the exact versions the hosted agent image preloads.
-      # The agent has Az.Accounts 5.5.1's shared assembly (Microsoft.Azure.PowerShell.AssemblyLoading,
-      # Version=5.5.1.0) already loaded into the process. Installing a *different* Az build (e.g. 5.5.0)
-      # makes SecretManagement's Register-SecretVault fail with "Assembly with same name is already
-      # loaded" when it re-resolves Az.KeyVault. Matching the preloaded version (5.5.1 / 6.5.1) avoids
-      # that clash, and this pair is also compatible with Graph $graphVersion for Connect-MgGraph.
-      $azAccountsVersion = '5.5.1'
-      $azKeyVaultVersion = '6.5.1'
+      # Pin Az.Accounts / Az.KeyVault to 5.5.0 / 6.5.0. Two separate assembly conflicts are in play:
+      #   1. Az.Accounts 5.5.1 (published 2026-07-07) ships a shared assembly that breaks
+      #      Connect-MgGraph with EntryPointNotFoundException, so we must load 5.5.0 (not 5.5.1).
+      #   2. SecretManagement's Register-SecretVault (called later in Add-AadTestAuthEnvironment.ps1)
+      #      resolves Az.KeyVault to the HIGHEST installed version. The hosted agent image also ships
+      #      Az.KeyVault 6.5.1 / Az.Accounts 5.5.1, so it would pick 6.5.1 and fail with
+      #      "Assembly with same name is already loaded" against the pinned 5.5.0/6.5.0 we loaded.
+      # Fix: pin to 5.5.0/6.5.0 AND remove any higher versions from the module path so the whole
+      # process (Connect-MgGraph and Register-SecretVault alike) only ever sees the pinned build.
+      $azAccountsVersion = '5.5.0'
+      $azKeyVaultVersion = '6.5.0'
       Write-Host "Installing Az modules (Az.Accounts $azAccountsVersion, Az.KeyVault $azKeyVaultVersion)..."
       Install-Module -Name Az.Accounts -RequiredVersion $azAccountsVersion -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Az.KeyVault -RequiredVersion $azKeyVaultVersion -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
+
+      # Remove any Az.Accounts / Az.KeyVault versions newer than the pin (shipped by the agent image),
+      # so Register-SecretVault cannot auto-resolve to a newer build whose shared assembly conflicts.
+      $azPins = @{ 'Az.Accounts' = [version]$azAccountsVersion; 'Az.KeyVault' = [version]$azKeyVaultVersion }
+      foreach ($azName in $azPins.Keys) {
+        Get-Module -ListAvailable -Name $azName | Where-Object { $_.Version -gt $azPins[$azName] } | ForEach-Object {
+          Write-Host "Removing higher $azName $($_.Version) at $($_.ModuleBase) to avoid assembly conflict"
+          Remove-Item -LiteralPath $_.ModuleBase -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      }
+
       Import-Module Az.Accounts -RequiredVersion $azAccountsVersion -ErrorAction Stop
       Import-Module Az.KeyVault -RequiredVersion $azKeyVaultVersion -ErrorAction Stop
       Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
