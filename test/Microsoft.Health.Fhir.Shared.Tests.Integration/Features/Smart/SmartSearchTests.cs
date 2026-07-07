@@ -758,6 +758,52 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenIncludingDevicePatient_ThenOtherPatientDemographicsAreNotLeaked()
+        {
+            // Security regression guard for the reported Device compartment bypass. The attack was:
+            // GET /Device?_include=Device:patient with a Patient A SMART token. Because a Device assigned
+            // to Patient B (smart-device-B2) leaked into the Device match set, _include=Device:patient
+            // followed its Device.patient reference and amplified the leak to Patient B's demographics.
+            // With the restriction, smart-device-B2 is excluded from the match set, so its patient
+            // reference is never followed and Patient B is never included.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_include", "Device:patient"),
+                new Tuple<string, string>("_count", "100"),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Device assigned to this patient: still a match, and its patient reference resolves to
+            // the compartment patient.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1" && r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+
+            // Device with no patient reference: still a match (universal), nothing to include.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1" && r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+
+            // Device assigned to a different patient must never be a match, so it can never be used to
+            // pivot into another patient's data through _include.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+
+            // The compartment patient may be included via the own device's patient reference.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == KnownResourceTypes.Patient);
+
+            // The other patient's demographics must NOT leak in through _include=Device:patient.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-B");
+        }
+
+        [SkippableFact]
         public async Task GivenFhirUserClaimPractitioner_WhenDevicesRequested_ThenOnlyUnassignedDevicesReturned()
         {
             Skip.If(
