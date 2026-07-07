@@ -66,8 +66,9 @@ stages:
 
           # Pin all Graph submodules to a single version. Without a pinned version each submodule
           # resolves to "latest" independently (or a stale copy is imported), producing a mismatched
-          # set that fails Connect-MgGraph with EntryPointNotFoundException.
-          $graphVersion = '2.38.0'
+          # set that fails Connect-MgGraph with EntryPointNotFoundException. 2.33.0 is the last version
+          # proven compatible with the Az/agent assemblies (newer releases such as 2.38.0 conflict).
+          $graphVersion = '2.33.0'
 
           foreach ($module in $modules) {
             Install-Module -Name $module -RequiredVersion $graphVersion -Force -Scope CurrentUser -ErrorAction Stop

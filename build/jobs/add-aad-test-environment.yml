@@ -28,8 +28,10 @@ steps:
 
       # Pin all Graph submodules to a single version. Installing/importing without a version lets each
       # submodule float to "latest" independently, which can produce a mismatched set (or import a stale
-      # copy pre-baked on the agent) and fail Connect-MgGraph with EntryPointNotFoundException.
-      $graphVersion = '2.38.0'
+      # copy pre-baked on the agent) and fail Connect-MgGraph with EntryPointNotFoundException. 2.33.0 is
+      # the last version proven compatible with the Az modules loaded later in this job (newer releases
+      # such as 2.38.0 require a shared assembly version that conflicts with Az.Accounts).
+      $graphVersion = '2.33.0'
 
       Write-Host "Installing Microsoft Graph modules (version $graphVersion)..."
       $graphModules | ForEach-Object { Install-Module -Name $_ -RequiredVersion $graphVersion -Force -Scope CurrentUser -AllowClobber }
