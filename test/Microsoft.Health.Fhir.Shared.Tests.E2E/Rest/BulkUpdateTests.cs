@@ -740,7 +740,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreatePatients(tag, 3);
 
             // Sanity check: confirm the _lastUpdated filter returns exactly 3 resources
-            var cutoffStr = cutoff.UtcDateTime.ToString("s") + "Z"; // e.g. 2026-07-08T12:30:00Z
+            var cutoffStr = cutoff.UtcDateTime.ToString("o"); // e.g. 2026-07-08T12:30:00.0000000Z
             var countResult = await _fhirClient.SearchAsync(
                 ResourceType.Patient,
                 $"_tag={tag}&_lastUpdated=gt{cutoffStr}&_summary=count");

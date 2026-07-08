@@ -898,7 +898,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             // The _lastUpdated filter must be forwarded to the processing job so the SQL layer applies it
             Assert.Contains(actualDefinition.SearchParameters, p =>
                 p.Item1.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase)
-                && p.Item2.Contains(lastUpdatedValue.Substring(2)));
+                && string.Equals(p.Item2, lastUpdatedValue, StringComparison.OrdinalIgnoreCase));
         }
 
         public static IEnumerable<object[]> GetAllowedSearchParameters()
