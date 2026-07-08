@@ -8,9 +8,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Management.XEvent;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers
 {
@@ -27,33 +29,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
             sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
 
-            var dateTime = new DateTimeOffset(DateTime.Parse(DateTimeSqlParser.ParseValue(value, out var opperator).Trim('\'')));
-            var minSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime);
-            var maxSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime.AddMilliseconds(1));
+            var dateTime = DateTimeSqlParser.ParseValue(value, out var modifier);
+            var minSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime.Start);
+            var maxSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime.End.AddMilliseconds(1));
 
             // Because surrogate id is a range for the same datetime, different operators need to be handled accordingly.
-            switch (opperator)
+            var whereClause = modifier switch
             {
-                case ">":
-                    // Greater than means we want to get the next surrogate id, so we can use the max surrogate id.
-                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {maxSurrogateId}");
-                    break;
-                case ">=":
-                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {minSurrogateId}");
-                    break;
-                case "<":
-                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId < {minSurrogateId}");
-                    break;
-                case "<=":
-                    // The max surrogate id is exclusive, so we need to use the max surrogate id for less than or equal to.
-                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId < {maxSurrogateId}");
-                    break;
-                case "=":
-                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {minSurrogateId} AND r.ResourceSurrogateId < {maxSurrogateId}");
-                    break;
-                default:
-                    throw new ArgumentException($"Invalid operator '{opperator}' for lastUpdated search parameter.");
-            }
+                "gt" => $"r.ResourceSurrogateId >= {maxSurrogateId}", // greater than means the start of the next millisecond, so max surrogate id is included
+                "ge" => $"r.ResourceSurrogateId >= {minSurrogateId}",
+                "lt" => $"r.ResourceSurrogateId < {minSurrogateId}",
+                "le" => $"r.ResourceSurrogateId < {maxSurrogateId}",
+                "sa" => $"r.ResourceSurrogateId > {maxSurrogateId}",
+                "eb" => $"r.ResourceSurrogateId < {minSurrogateId}",
+                "ne" => $"(r.ResourceSurrogateId >= {maxSurrogateId} OR r.ResourceSurrogateId < {minSurrogateId})",
+                "eq" => $"r.ResourceSurrogateId >= {minSurrogateId} AND r.ResourceSurrogateId < {maxSurrogateId}",
+                _ => throw new ArgumentException($"Invalid operator '{modifier}' for lastUpdated search parameter."),
+            };
 
             // Add base filters only on the first CTE
             if (options.LastCteName == null)

@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.Serialization;
 using System.Text;
+using Microsoft.SqlServer.Management.XEvent;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -18,21 +20,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
         {
-            var escapedValue = ParseValue(value, out var opperator);
+            var parsedValue = ParseValue(value, out var valueModifier);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
-            return opperator switch
+            return valueModifier switch
             {
-                ">" or ">=" => $"t.HighValue{suffix} {opperator} {escapedValue}",
-                "<" or "<=" => $"t.LowValue{suffix} {opperator} {escapedValue}",
-                "=" => $"t.SingleValue{suffix} = {escapedValue}",
-                _ => throw new InvalidOperationException($"Unsupported operator: {opperator}"),
+                "gt" => $"t.HighValue{suffix} > {parsedValue}",
+                "ge" => $"t.HighValue{suffix} >= {parsedValue}",
+                "lt" => $"t.LowValue{suffix} < {parsedValue}",
+                "le" => $"t.LowValue{suffix} <= {parsedValue}",
+                "sa" => $"t.LowValue{suffix} > {parsedValue}",
+                "eb" => $"t.HighValue{suffix} < {parsedValue}",
+                "ne" => $"(t.HighValue{suffix} > {parsedValue} OR t.LowValue{suffix} < {parsedValue})",
+                "eq" => $"t.HighValue{suffix} >= {parsedValue} AND t.LowValue{suffix} <= {parsedValue}",
+                _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
         }
 
-        private static string ParseValue(string value, out string opperator)
+        public static string ParseValue(string value, out string modifier)
         {
-            opperator = "=";
+            modifier = "eq";
 
             if (string.IsNullOrEmpty(value))
             {
@@ -42,30 +49,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // Check for comparison prefixes
             string actualValue = value;
 
-            if (value.StartsWith("ge", StringComparison.OrdinalIgnoreCase))
+            if (value.StartsWith("ge", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("le", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("gt", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("lt", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("eq", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("ne", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("sa", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("eb", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("ap", StringComparison.OrdinalIgnoreCase))
             {
-                opperator = ">=";
-                actualValue = value.Substring(2);
-            }
-            else if (value.StartsWith("gt", StringComparison.OrdinalIgnoreCase))
-            {
-                opperator = ">";
-                actualValue = value.Substring(2);
-            }
-            else if (value.StartsWith("le", StringComparison.OrdinalIgnoreCase))
-            {
-                opperator = "<=";
-                actualValue = value.Substring(2);
-            }
-            else if (value.StartsWith("lt", StringComparison.OrdinalIgnoreCase))
-            {
-                opperator = "<";
+                modifier = value.Substring(0, 2);
                 actualValue = value.Substring(2);
             }
 
-            // Escape single quotes by doubling them
-            var escaped = actualValue.Replace("'", "''", StringComparison.Ordinal);
-            return $"'{escaped}'";
+            var parsedValue = double.TryParse(actualValue, out var numericValue) ? numericValue : throw new SerializationException($"Invalid number value: {actualValue}");
+            return parsedValue.ToString();
         }
     }
 }

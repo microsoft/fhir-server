@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 { SearchParamType.Token, new TokenSqlParser(parameterCollection) },
                 { SearchParamType.Reference, new ReferenceSqlParser(parameterCollection, fhirModel) },
                 { SearchParamType.Uri, new UriSqlParser(parameterCollection) },
+                { SearchParamType.Quantity, new BaseParsers.QuantitySqlParser(parameterCollection) },
             };
             _compositeSqlParsers = new Dictionary<CompositeType, ISqlParser>()
             {
