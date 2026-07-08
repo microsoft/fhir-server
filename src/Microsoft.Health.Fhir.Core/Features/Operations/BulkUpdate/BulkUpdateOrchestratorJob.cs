@@ -91,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // Collect allowed parameter names (case-insensitive)
                     var allowedParams = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                     {
-                        KnownQueryParameterNames.LastUpdated,
                         KnownQueryParameterNames.MaxCount,
                     };
 
