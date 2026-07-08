@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -58,6 +59,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                     typeof(ValidateCapabilityPreProcessor<,>),
                 },
                 validationBehaviors);
+        }
+
+        [Theory]
+        [InlineData(typeof(ProvenanceHeaderBehavior), true)]
+        [InlineData(typeof(ProfileResourcesBehaviour), true)]
+        [InlineData(typeof(ProvenanceHeaderBehavior), false)]
+        [InlineData(typeof(ProfileResourcesBehaviour), false)]
+        public void GivenMediationAndFhirModules_WhenLoadedInEitherOrder_ThenManualPipelineBehaviorsAreRegisteredOnce(
+            Type implementationType,
+            bool loadMediationModuleFirst)
+        {
+            var services = new ServiceCollection();
+
+            if (loadMediationModuleFirst)
+            {
+                new MediationModule().Load(services);
+                new FhirModule().Load(services);
+            }
+            else
+            {
+                new FhirModule().Load(services);
+                new MediationModule().Load(services);
+            }
+
+            foreach (Type serviceType in implementationType.GetInterfaces().Where(IsPipelineBehavior))
+            {
+                var scannedRegistrations = services
+                    .Where(service => service.ServiceType == serviceType && service.ImplementationType == implementationType)
+                    .ToArray();
+
+                Assert.Empty(scannedRegistrations);
+                Assert.Contains(services, service => service.ServiceType == serviceType && service.ImplementationFactory != null);
+            }
+        }
+
+        private static bool IsPipelineBehavior(Type type)
+        {
+            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
         }
     }
 }

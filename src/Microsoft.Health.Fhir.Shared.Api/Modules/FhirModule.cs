@@ -176,11 +176,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add<ProfileResourcesBehaviour>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

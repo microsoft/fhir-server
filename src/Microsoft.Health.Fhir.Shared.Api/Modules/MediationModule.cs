@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using EnsureThat;
 using Medino;
@@ -10,6 +11,7 @@ using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -31,6 +33,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
             });
 
+            RemovePipelineBehaviorRegistrations<ProvenanceHeaderBehavior>(services);
+            RemovePipelineBehaviorRegistrations<ProfileResourcesBehaviour>(services);
+
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
             services.RemoveAll<IPipelineBehavior<BundleRequest, BundleResponse>>();
             services.AddTransient<IPipelineBehavior<BundleRequest, BundleResponse>, ValidateBundlePreProcessor>();
@@ -47,6 +52,28 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));
+        }
+
+        private static void RemovePipelineBehaviorRegistrations<TBehavior>(IServiceCollection services)
+        {
+            Type behaviorType = typeof(TBehavior);
+
+            foreach (Type serviceType in behaviorType.GetInterfaces().Where(IsPipelineBehavior))
+            {
+                for (int i = services.Count - 1; i >= 0; i--)
+                {
+                    ServiceDescriptor descriptor = services[i];
+                    if (descriptor.ServiceType == serviceType && descriptor.ImplementationType == behaviorType)
+                    {
+                        services.RemoveAt(i);
+                    }
+                }
+            }
+        }
+
+        private static bool IsPipelineBehavior(Type type)
+        {
+            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
         }
     }
 }
