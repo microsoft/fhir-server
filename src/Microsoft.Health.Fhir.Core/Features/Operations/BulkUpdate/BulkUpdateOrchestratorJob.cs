@@ -174,9 +174,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
 
-                    var createDate = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
-                    searchParams.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"));
-
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
                     if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))
                     {
