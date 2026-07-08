@@ -6,16 +6,15 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers
 {
-    /// <summary>
-    /// Parser for the _id search parameter.
-    /// Searches directly on the Resource table's ResourceId column.
-    /// </summary>
-    public class IdSqlParser : ISqlParser
+    public class LastUpdatedSqlParser : ISqlParser
     {
         public string? Parse(string name, string value, ParserOptions options)
         {
@@ -24,33 +23,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 return null;
             }
 
-            // Handle comma-separated list of IDs (e.g., _id=123,456,789)
-            var ids = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (ids.Length == 0)
-            {
-                return null;
-            }
-
             var sqlBuilder = new StringBuilder();
             sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
-            sqlBuilder.AppendLine("  FROM dbo.Resource r");
+            sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
 
-            if (options.LastCteName != null)
-            {
-                sqlBuilder.AppendLine($"  JOIN {options.LastCteName} lcte ON r.ResourceTypeId = lcte.ResourceTypeId AND r.ResourceSurrogateId = lcte.ResourceSurrogateId");
-            }
+            var dateTime = new DateTimeOffset(DateTime.Parse(DateTimeSqlParser.ParseValue(value, out var opperator).Trim('\'')));
+            var minSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime);
+            var maxSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime.AddMilliseconds(1));
 
-            // Build WHERE clause for ResourceId matching
-            if (ids.Length == 1)
+            // Because surrogate id is a range for the same datetime, different operators need to be handled accordingly.
+            switch (opperator)
             {
-                var escapedId = EscapeSqlValue(ids[0]);
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId = {escapedId}");
-            }
-            else
-            {
-                // Multiple IDs - use IN clause
-                var escapedIds = string.Join(", ", ids.Select(EscapeSqlValue));
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId IN ({escapedIds})");
+                case ">":
+                    // Greater than means we want to get the next surrogate id, so we can use the max surrogate id.
+                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {maxSurrogateId}");
+                    break;
+                case ">=":
+                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {minSurrogateId}");
+                    break;
+                case "<":
+                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId < {minSurrogateId}");
+                    break;
+                case "<=":
+                    // The max surrogate id is exclusive, so we need to use the max surrogate id for less than or equal to.
+                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId < {maxSurrogateId}");
+                    break;
+                case "=":
+                    sqlBuilder.AppendLine($"  WHERE r.ResourceSurrogateId >= {minSurrogateId} AND r.ResourceSurrogateId < {maxSurrogateId}");
+                    break;
+                default:
+                    throw new ArgumentException($"Invalid operator '{opperator}' for lastUpdated search parameter.");
             }
 
             // Add base filters only on the first CTE
@@ -76,18 +78,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             }
 
             return sqlBuilder.ToString();
-        }
-
-        private static string EscapeSqlValue(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return "''";
-            }
-
-            // Escape single quotes by doubling them
-            var escaped = value.Replace("'", "''", StringComparison.Ordinal);
-            return $"'{escaped}'";
         }
     }
 }

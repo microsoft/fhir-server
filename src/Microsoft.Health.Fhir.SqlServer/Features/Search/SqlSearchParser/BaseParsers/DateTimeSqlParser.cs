@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             };
         }
 
-        private static string ParseValue(string value, out string opperator)
+        public static string ParseValue(string value, out string opperator)
         {
             opperator = "=";
 

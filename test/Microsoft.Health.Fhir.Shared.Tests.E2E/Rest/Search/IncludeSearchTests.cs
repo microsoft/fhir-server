@@ -230,18 +230,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{lastUpdated}";
 
-            await SearchAndValidateBundleAsync(
-                ResourceType.DiagnosticReport,
-                query,
-                Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithPatient,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanPatient,
-                Fixture.TrumanSnomedObservation);
-
-            // delete the extra entry added
-            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            try
+            {
+                await SearchAndValidateBundleAsync(
+                    ResourceType.DiagnosticReport,
+                    query,
+                    Fixture.SmithSnomedDiagnosticReport,
+                    Fixture.SmithPatient,
+                    Fixture.SmithSnomedObservation,
+                    Fixture.TrumanSnomedDiagnosticReport,
+                    Fixture.TrumanPatient,
+                    Fixture.TrumanSnomedObservation);
+            }
+            finally
+            {
+                // delete the extra entry added
+                await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            }
         }
 
         [Fact]
@@ -511,17 +516,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_lastUpdated=lt{lastUpdated}";
 
-            Bundle bundle = await SearchAndValidateBundleAsync(
-                ResourceType.Observation,
-                query,
-                Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanSnomedObservation,
-                newDiagnosticReportResponse.Resource);
-
-            // delete the extra entry added
-            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            try
+            {
+                Bundle bundle = await SearchAndValidateBundleAsync(
+                    ResourceType.Observation,
+                    query,
+                    Fixture.SmithSnomedDiagnosticReport,
+                    Fixture.SmithSnomedObservation,
+                    Fixture.TrumanSnomedDiagnosticReport,
+                    Fixture.TrumanSnomedObservation,
+                    newDiagnosticReportResponse.Resource);
+            }
+            finally
+            {
+                // delete the extra entry added
+                await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            }
         }
 
         [Fact]

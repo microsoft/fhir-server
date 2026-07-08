@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly IncludeSqlParser _includeSqlParser;
         private readonly ChainedSqlParser _chainedSqlParser;
         private readonly ReversedChainSqlParser _reversedChainSqlParser;
+        private readonly LastUpdatedSqlParser _lastUpdatedSqlParser;
 
         public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel)
         {
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _sqlServerFhirModel = fhirModel;
             _systemSqlParser = new SystemSqlParser();
             _idSqlParser = new IdSqlParser();
+            _lastUpdatedSqlParser = new LastUpdatedSqlParser();
             _sqlParsers = new Dictionary<SearchParamType, ISqlParser>()
             {
                 { SearchParamType.Number, new NumberSqlParser(parameterCollection) },
@@ -59,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 { CompositeType.TokenNumberNumber, new TokenNumberNumberCompositeSqlParser(parameterCollection) },
             };
 
-            _includeSqlParser = new IncludeSqlParser(parameterCollection);
+            _includeSqlParser = new IncludeSqlParser(parameterCollection, fhirModel);
             _chainedSqlParser = new ChainedSqlParser(parameterCollection, this, fhirModel);
             _reversedChainSqlParser = new ReversedChainSqlParser(parameterCollection, this, fhirModel);
         }
@@ -143,6 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.AppendLine("DECLARE @FilteredData AS TABLE (ResourceTypeId smallint, ResourceSurrogateId bigint, IsMatch bit, IsPartial bit, Row int)");
             sqlBuilder.AppendLine(";WITH");
 
+            // *********************************************************************** Basic Search Parameters ***********************************************************************
+
             // If no search parameters, use SystemSqlParser for basic resource retrieval
             if (parametersCopy.Count == 0)
             {
@@ -209,6 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
             }
 
+            // *********************************************************************** Chained Search Parameters ***********************************************************************
             if (chainedParameters.Count > 0)
             {
                 var cteName = string.Empty;
@@ -229,6 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
             }
 
+            // *********************************************************************** Reversed Chained Search Parameters ***********************************************************************
             if (reversedChainedParameters.Count > 0)
             {
                 var cteName = string.Empty;
@@ -269,6 +275,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parserOptions.LastCteName = lastCteName;
             }
 
+            // *********************************************************************** Include Parameters ***********************************************************************
             if (includeParameters.Count > 0 && !parserOptions.IncludeTotalCount)
             {
                 var baseCteName = $"cte{cteIndex}";
@@ -279,24 +286,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 parserOptions.LastCteName = baseCteName;
 
-                var includeCteNames = new List<string>();
+                var includeCteNames = new List<string> { baseCteName };
 
-                foreach (var kvp in includeParameters)
+                // Order include parameters so iterate includes come after their dependencies
+                var orderedIncludes = OrderIncludeParameters(includeParameters);
+
+                // Process each ordered include
+                for (int i = 0; i < orderedIncludes.Count; i++)
                 {
-                    foreach (var value in kvp.Value)
+                    var orderedInclude = orderedIncludes[i];
+
+                    // Determine the LastCteName for this include
+                    string includeLastCteName;
+
+                    if (orderedInclude.IsIterate && orderedInclude.DependsOnIndices.Count > 0)
                     {
-                        var includeCteName = $"cte{cteIndex}";
-                        parserOptions.CteName = includeCteName;
+                        // Create a union CTE of all dependency CTEs
+                        var unionCteName = $"cte{cteIndex}";
                         cteIndex++;
 
-                        sqlBuilder.AppendLine($",{includeCteName} AS (");
-                        var includeSql = _includeSqlParser.Parse(kvp.Key, value, parserOptions);
-                        sqlBuilder.Append(includeSql);
-                        sqlBuilder.AppendLine();
-                        sqlBuilder.Append(')');
+                        var dependencyCteNames = new List<string>();
+                        foreach (var depIndex in orderedInclude.DependsOnIndices)
+                        {
+                            // Find the dependency in the ordered list by searching for the index
+                            var dependency = orderedIncludes.FirstOrDefault(inc => inc.OriginalIndex == depIndex);
 
-                        includeCteNames.Add(includeCteName);
+                            if (dependency != null && dependency.CteNames.Count > 0)
+                            {
+                                dependencyCteNames.AddRange(dependency.CteNames);
+                            }
+                        }
+
+                        if (dependencyCteNames.Count > 0)
+                        {
+                            // Create union CTE
+                            ParserUtil.AddUnionCte(sqlBuilder, unionCteName, dependencyCteNames);
+                            includeLastCteName = unionCteName;
+                        }
+                        else
+                        {
+                            // No dependencies found, fall back to base CTE
+                            includeLastCteName = baseCteName;
+                        }
                     }
+                    else
+                    {
+                        // Regular include uses the base CTE
+                        includeLastCteName = baseCteName;
+                    }
+
+                    // Process each value in this include
+                    var includeCteName = $"cte{cteIndex}";
+                    parserOptions.CteName = includeCteName;
+                    parserOptions.LastCteName = includeLastCteName;
+                    cteIndex++;
+
+                    sqlBuilder.AppendLine($",{includeCteName} AS (");
+                    var includeSql = _includeSqlParser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
+                    sqlBuilder.Append(includeSql);
+                    sqlBuilder.AppendLine();
+                    sqlBuilder.Append(')');
+
+                    includeCteNames.Add(includeCteName);
+                    orderedInclude.CteNames.Add(includeCteName);
                 }
 
                 sqlBuilder.AppendLine();
@@ -304,24 +356,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var unionCte = $"cte{cteIndex}";
                 cteIndex++;
 
-                sqlBuilder.AppendLine($", {unionCte} AS (");
-                sqlBuilder.Append($"  SELECT * FROM {baseCteName}");
+                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames);
 
-                foreach (var includeCteName in includeCteNames)
-                {
-                    sqlBuilder.AppendLine();
-                    sqlBuilder.Append("  UNION ALL");
-                    sqlBuilder.AppendLine();
-                    sqlBuilder.Append($"  SELECT * FROM {includeCteName}");
-                }
-
-                sqlBuilder.AppendLine(")");
                 lastCteName = unionCte;
                 cteIndex++;
             }
 
             sqlBuilder.AppendLine();
 
+            // *********************************************************************** Get Resources ***********************************************************************
             // If this is a count query, return count instead of full results
             if (parserOptions.IncludeTotalCount)
             {
@@ -422,6 +465,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return _idSqlParser;
             }
 
+            if (name.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+            {
+                return _lastUpdatedSqlParser;
+            }
+
             if (name.Contains(KnownQueryParameterNames.ReverseChain, StringComparison.OrdinalIgnoreCase))
             {
                 return _reversedChainSqlParser;
@@ -473,6 +521,234 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             return parser.Parse(name, value, options) ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Orders include parameters so that _include:iterate parameters are processed after
+        /// all _include parameters that produce the resources they depend on.
+        /// </summary>
+        /// <param name="includeParameters">Dictionary of include parameter names to their values.</param>
+        /// <returns>An ordered list of include parameters with their dependency information.</returns>
+        private List<OrderedInclude> OrderIncludeParameters(Dictionary<string, IList<string>> includeParameters)
+        {
+            var allIncludes = new List<OrderedInclude>();
+
+            // Convert all includes to OrderedInclude objects
+            int index = 0;
+            foreach (var kvp in includeParameters)
+            {
+                foreach (var value in kvp.Value)
+                {
+                    var orderedInclude = new OrderedInclude
+                    {
+                        OriginalIndex = index,
+                        ParameterName = kvp.Key,
+                        Value = value,
+                        IsIterate = kvp.Key.Contains(":iterate", StringComparison.OrdinalIgnoreCase) || kvp.Key.Contains(":recurse", StringComparison.OrdinalIgnoreCase),
+                    };
+                    allIncludes.Add(orderedInclude);
+                    index++;
+                }
+            }
+
+            // Build dependency graph
+            for (int i = 0; i < allIncludes.Count; i++)
+            {
+                if (!allIncludes[i].IsIterate)
+                {
+                    continue; // Regular includes have no dependencies
+                }
+
+                // For each iterate include, find all includes it depends on
+                var iterateInclude = allIncludes[i];
+                var requiredSourceTypes = new HashSet<short>();
+
+                // Get all source resource types this iterate include needs
+                var parts = iterateInclude.Value.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0)
+                {
+                    try
+                    {
+                        var sourceResourceTypeId = _sqlServerFhirModel.GetResourceTypeId(parts[0]);
+                        requiredSourceTypes.Add(sourceResourceTypeId);
+                    }
+                    catch
+                    {
+                        // Invalid resource type, skip
+                    }
+                }
+
+                // Check all other includes to see if they produce any of the required source types
+                for (int j = 0; j < allIncludes.Count; j++)
+                {
+                    if (i == j)
+                    {
+                        continue; // Don't depend on self
+                    }
+
+                    var potentialDependency = allIncludes[j];
+                    var producedTypes = new HashSet<short>();
+
+                    // Get all resource types this include could produce
+                    var targetTypes = GetIncludeTargetResourceTypes(potentialDependency.Value);
+                    foreach (var targetType in targetTypes)
+                    {
+                        producedTypes.Add(targetType);
+                    }
+
+                    // If this include produces any of the required source types, add it as a dependency
+                    if (requiredSourceTypes.Overlaps(producedTypes))
+                    {
+                        iterateInclude.DependsOnIndices.Add(j);
+                    }
+                }
+            }
+
+            // Topological sort to order includes respecting dependencies
+            var result = new List<OrderedInclude>();
+            var processed = new HashSet<int>();
+            var processing = new HashSet<int>();
+
+            bool TopologicalSort(int index)
+            {
+                if (processed.Contains(index))
+                {
+                    return true; // Already processed
+                }
+
+                if (processing.Contains(index))
+                {
+                    // Circular dependency detected - this shouldn't happen with proper iterate semantics
+                    // but handle gracefully by breaking the cycle
+                    return false;
+                }
+
+                processing.Add(index);
+
+                // Process all dependencies first
+                foreach (var dependencyIndex in allIncludes[index].DependsOnIndices)
+                {
+                    if (!TopologicalSort(dependencyIndex))
+                    {
+                        // Circular dependency, skip this dependency
+                        continue;
+                    }
+                }
+
+                processing.Remove(index);
+                processed.Add(index);
+
+                // Add this include to result
+                result.Add(allIncludes[index]);
+
+                return true;
+            }
+
+            // Process all includes
+            for (int i = 0; i < allIncludes.Count; i++)
+            {
+                TopologicalSort(i);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Extracts the target resource types from an include parameter value.
+        /// </summary>
+        /// <param name="includeValue">The include parameter value (e.g., "Patient:organization" or "Observation:subject:Patient").</param>
+        /// <returns>A list of target resource type IDs.</returns>
+        private List<short> GetIncludeTargetResourceTypes(string includeValue)
+        {
+            var targetTypes = new List<short>();
+
+            // Parse the include value: ResourceType:searchParam or ResourceType:searchParam:targetType
+            var parts = includeValue.Split(':', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+            {
+                return targetTypes;
+            }
+
+            var sourceResourceType = parts[0];
+            short sourceResourceTypeId;
+
+            try
+            {
+                sourceResourceTypeId = _sqlServerFhirModel.GetResourceTypeId(sourceResourceType);
+            }
+            catch
+            {
+                return targetTypes;
+            }
+
+            // If explicit target type is specified (3 parts)
+            if (parts.Length >= 3)
+            {
+                try
+                {
+                    var targetTypeId = _sqlServerFhirModel.GetResourceTypeId(parts[2]);
+                    targetTypes.Add(targetTypeId);
+                    return targetTypes;
+                }
+                catch
+                {
+                    // Invalid target type, continue to infer from search parameter
+                }
+            }
+
+            if (parts.Length >= 2)
+            {
+                IList<SearchParameterIdWrapper> parameters = new List<SearchParameterIdWrapper>();
+
+                if (parts[1] == "*")
+                {
+                    parameters = _parameterCollection.GetByResourceType(parts[0]);
+                }
+                else
+                {
+                    parameters.Add(_parameterCollection.GetByCode(parts[1], sourceResourceTypeId));
+                }
+
+                foreach (var parameter in parameters)
+                {
+                    if (parameter != null && parameter.SearchParameterInfo.Type == SearchParamType.Reference)
+                    {
+                        foreach (var targetResourceType in parameter.SearchParameterInfo.TargetResourceTypes)
+                        {
+                            try
+                            {
+                                var targetTypeId = _sqlServerFhirModel.GetResourceTypeId(targetResourceType);
+                                targetTypes.Add(targetTypeId);
+                            }
+                            catch
+                            {
+                                // Skip invalid resource types
+                            }
+                        }
+                    }
+                }
+            }
+
+            return targetTypes;
+        }
+
+        /// <summary>
+        /// Represents an ordered include parameter with its dependencies.
+        /// </summary>
+        private class OrderedInclude
+        {
+            public int OriginalIndex { get; set; }
+
+            public string ParameterName { get; set; } = string.Empty;
+
+            public string Value { get; set; } = string.Empty;
+
+            public bool IsIterate { get; set; }
+
+            public HashSet<int> DependsOnIndices { get; set; } = new HashSet<int>();
+
+            public List<string> CteNames { get; set; } = new List<string>();
         }
     }
 }

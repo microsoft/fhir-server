@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public SearchParameterIdWrapper GetByCode(string code, short resourceType)
         {
+            return GetByCode(code, _sqlServerFhirModel.GetResourceTypeName(resourceType));
+        }
+
+        public SearchParameterIdWrapper GetByCode(string code, string resourceType)
+        {
             if (string.IsNullOrWhiteSpace(code))
             {
                 throw new ArgumentException("Code cannot be null or whitespace.", nameof(code));
@@ -41,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 code = code.Split(':', 2, StringSplitOptions.None)[0];
             }
 
-            var searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(_sqlServerFhirModel.GetResourceTypeName(resourceType), code);
+            var searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
             return new SearchParameterIdWrapper()
             {
                 SearchParameterInfo = searchParameterInfo,
@@ -59,6 +64,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 SearchParameterInfo = searchParameterInfo,
                 Id = _sqlServerFhirModel.GetSearchParamId(searchParameterInfo?.Url),
             };
+        }
+
+        public IList<SearchParameterIdWrapper> GetByResourceType(short resourceType)
+        {
+            return GetByResourceType(_sqlServerFhirModel.GetResourceTypeName(resourceType));
+        }
+
+        public IList<SearchParameterIdWrapper> GetByResourceType(string resourceType)
+        {
+            var parameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
+            return parameters.Select(x => new SearchParameterIdWrapper() { SearchParameterInfo = x, Id = _sqlServerFhirModel.GetSearchParamId(x.Url) }).ToList();
         }
 
         public SearchParamType? GetParameterType(string code, short resourceType)

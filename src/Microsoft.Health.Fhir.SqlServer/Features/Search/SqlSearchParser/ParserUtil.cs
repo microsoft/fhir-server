@@ -1,0 +1,47 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
+{
+    internal class ParserUtil
+    {
+        public static void AddHistoryAndDeletedCheck(StringBuilder sqlBuilder, string tableAlias, bool includeHistory = false, bool includeDeleted = false)
+        {
+            if (!includeHistory && !includeDeleted)
+            {
+                sqlBuilder.Append($"  AND {tableAlias}.IsHistory = 0 AND {tableAlias}.IsDeleted = 0");
+            }
+            else if (!includeHistory && includeDeleted)
+            {
+                sqlBuilder.Append($"  AND {tableAlias}.IsHistory = 0");
+            }
+            else if (includeHistory && !includeDeleted)
+            {
+                sqlBuilder.Append($"  AND {tableAlias}.IsDeleted = 0");
+            }
+        }
+
+        public static void AddUnionCte(StringBuilder sqlBuilder, string cteName, IList<string> targetCtes)
+        {
+            sqlBuilder.AppendLine($", {cteName} AS (");
+            sqlBuilder.AppendLine($"  SELECT * FROM {targetCtes[0]}");
+
+            foreach (var includeCteName in targetCtes.Skip(1))
+            {
+                sqlBuilder.AppendLine("  UNION ALL");
+                sqlBuilder.AppendLine($"  SELECT * FROM {includeCteName}");
+                sqlBuilder.AppendLine($"    WHERE NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
+            }
+
+            sqlBuilder.AppendLine(")");
+        }
+    }
+}
