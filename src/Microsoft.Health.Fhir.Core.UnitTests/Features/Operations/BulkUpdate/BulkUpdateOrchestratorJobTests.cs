@@ -851,12 +851,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         [InlineData("eb2026-07-06")]
         public async Task GivenBulkUpdateJob_WhenLastUpdatedFilterIsGivenAndIsParallelIsTrue_ThenProcessingJobsUseCtPathNotSurrogateIdRanges(string lastUpdatedValue)
         {
-            // Regression test: _lastUpdated was previously in allowedParams, which caused the orchestrator to
-            // take the fast surrogateId-scan path. The stored proc (dbo.GetResourcesByTypeAndSurrogateIdRange)
-            // ignores all search parameters and uses only the surrogate-id bounds, so the date filter was
-            // silently dropped and ALL resources were updated instead of only the filtered subset.
-            // After removing _lastUpdated from allowedParams, the orchestrator correctly falls through to
-            // the continuation-token (CT) path which uses the full search expression including the date filter.
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 

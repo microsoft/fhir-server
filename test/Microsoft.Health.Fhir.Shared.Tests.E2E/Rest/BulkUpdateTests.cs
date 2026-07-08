@@ -722,10 +722,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenBulkUpdateWithLastUpdatedFilter_WhenCompleted_ThenOnlyResourcesCreatedAfterCutoffAreUpdated(bool isParallel)
         {
-            // Regression test for: _lastUpdated was in allowedParams, causing the orchestrator to take
-            // the fast surrogateId-scan path which silently drops the date filter and updates ALL resources.
-            // Repro: customer ran PATCH /Patient/$bulk-update?_lastUpdated=gt{date} and all 271 patients
-            // were updated instead of only the ~80 created after the cutoff date.
             CheckBulkUpdateEnabled();
 
             var tag = Guid.NewGuid().ToString();
