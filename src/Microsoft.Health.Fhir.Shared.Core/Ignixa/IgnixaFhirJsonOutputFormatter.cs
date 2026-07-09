@@ -142,6 +142,7 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         {
             if (hasProjection && rawElement.RawResource.Format == FhirResourceFormat.Json)
             {
+                _fallbackGuard.FirelyFallback("Ignixa output projection", "_summary or _elements projection is not implemented natively on RawResourceElement.");
                 using var stringReader = new StringReader(rawElement.RawResource.Data);
                 using var jsonReader = new JsonTextReader(stringReader);
                 var rawResource = await Parser.ParseAsync<Resource>(jsonReader).ConfigureAwait(false);

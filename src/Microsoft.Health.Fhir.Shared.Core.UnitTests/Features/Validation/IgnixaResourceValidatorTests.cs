@@ -75,6 +75,19 @@ public class IgnixaResourceValidatorTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndOrdinaryResource_WhenValidationFallsBackToFirely_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Ignixa);
+        var resource = await CreateResourceElement(ObservationWithValidDateTimeWithoutOffsetJson);
+        var results = new List<ValidationResult>();
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+        Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+    }
+
+    [Fact]
     public async Task GivenIgnixaResourceWithInvalidDateTime_WhenValidatingCreate_ThenInvalidShouldBeReturned()
     {
         // Arrange

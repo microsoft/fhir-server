@@ -218,17 +218,7 @@ public class IgnixaFhirJsonOutputFormatterTests
     public async Task GivenARawResourceElement_WhenWritten_ThenRawJsonIsPassedThrough()
     {
         // Arrange
-        var patient = new Patient { Id = "raw-test" };
-        var rawJson = new FhirJsonSerializer().SerializeToString(patient);
-        var wrapper = new ResourceWrapper(
-            patient.ToResourceElement(),
-            new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: true),
-            null,
-            false,
-            null,
-            null,
-            null);
-        var rawElement = new RawResourceElement(wrapper);
+        var rawElement = CreateRawPatientElement(new Patient { Id = "raw-test" });
 
         // Act
         var json = await WriteRawResourceElement(rawElement);
@@ -237,6 +227,38 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.False(string.IsNullOrEmpty(json));
         var parsed = Parser.Parse<Patient>(json);
         Assert.Equal("raw-test", parsed.Id);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndProjectionFallback_WhenWritingRawResourceElement_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var rawElement = CreateRawPatientElement(new Patient { Id = "raw-projection-block", Active = true });
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => WriteObject(formatter, rawElement, typeof(RawResourceElement), "?_elements=active"));
+        Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+    }
+
+    [Fact]
+    public async Task GivenHybridModeAndProjectionFallback_WhenWritingRawResourceElement_ThenProjectionIsPermitted()
+    {
+        // Arrange
+        var rawElement = CreateRawPatientElement(new Patient
+        {
+            Id = "raw-projection-hybrid",
+            Active = true,
+            Name = { new HumanName { Family = "Smith" } },
+        });
+
+        // Act
+        var json = await WriteObject(rawElement, typeof(RawResourceElement), "?_elements=active");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.True(parsed.Active);
+        Assert.Empty(parsed.Name);
     }
 
     // ------------------------------------------------------------------
@@ -315,6 +337,21 @@ public class IgnixaFhirJsonOutputFormatterTests
     private async Task<string> WriteRawResourceElement(RawResourceElement rawElement)
     {
         return await WriteObject(rawElement, typeof(RawResourceElement));
+    }
+
+    private static RawResourceElement CreateRawPatientElement(Patient patient)
+    {
+        var rawJson = new FhirJsonSerializer().SerializeToString(patient);
+        var wrapper = new ResourceWrapper(
+            patient.ToResourceElement(),
+            new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: true),
+            null,
+            false,
+            null,
+            null,
+            null);
+
+        return new RawResourceElement(wrapper);
     }
 
     private async Task<string> WriteObject(object obj, Type objectType, string query = null)

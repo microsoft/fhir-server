@@ -182,6 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 return false;
             }
 
+            _fallbackGuard.FirelyFallback("Ignixa resource validation", "Model attribute validation uses Firely.");
             return _fallbackValidator.TryValidate(value, validationResults, recurse);
         }
 
