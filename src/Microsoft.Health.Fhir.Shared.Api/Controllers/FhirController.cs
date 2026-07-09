@@ -531,7 +531,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Consumes("application/json-patch+json")]
         public async Task<IActionResult> PatchJson([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] JsonPatchDocument patchDocument, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
-            var payload = new JsonPatchPayload(patchDocument);
+            var payload = new JsonPatchPayload(patchDocument, _sdkFallbackGuard);
 
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(
                 new PatchResourceRequest(
@@ -560,7 +560,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
-            var payload = new JsonPatchPayload(patchDocument);
+            var payload = new JsonPatchPayload(patchDocument, _sdkFallbackGuard);
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 

@@ -12,12 +12,28 @@ using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public abstract class PatchPayload
     {
+        private readonly ISdkFallbackGuard _fallbackGuard;
+        private readonly string _fallbackSurface;
+        private readonly string _fallbackReason;
+
+        protected PatchPayload()
+        {
+        }
+
+        protected PatchPayload(ISdkFallbackGuard fallbackGuard, string fallbackSurface, string fallbackReason)
+        {
+            _fallbackGuard = fallbackGuard;
+            _fallbackSurface = fallbackSurface;
+            _fallbackReason = fallbackReason;
+        }
+
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>
             {
@@ -33,6 +49,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         public ResourceElement Patch(ResourceWrapper resourceToPatch)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
+
+            try
+            {
+                _fallbackGuard?.FirelyFallback(_fallbackSurface, _fallbackReason);
+            }
+            catch (InvalidOperationException e)
+            {
+                throw new RequestNotValidException(e.Message);
+            }
 
             // Capture the state of properties that are immutable
             ITypedElement resource = resourceToPatch.RawResource.ToITypedElement(ModelInfoProvider.Instance);

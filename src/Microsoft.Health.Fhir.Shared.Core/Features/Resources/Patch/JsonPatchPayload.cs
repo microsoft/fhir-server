@@ -13,13 +13,15 @@ using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class JsonPatchPayload : PatchPayload
     {
-        public JsonPatchPayload(JsonPatchDocument patchDocument)
+        public JsonPatchPayload(JsonPatchDocument patchDocument, ISdkFallbackGuard fallbackGuard = null)
+            : base(fallbackGuard, "JSON Patch", "JSON Patch currently uses Firely model infrastructure.")
         {
             EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
             PatchDocument = patchDocument;

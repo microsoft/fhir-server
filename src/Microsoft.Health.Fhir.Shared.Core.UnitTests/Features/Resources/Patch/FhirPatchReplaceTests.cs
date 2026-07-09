@@ -8,6 +8,7 @@ using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -66,6 +67,33 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var fallbackGuard = CreateFallbackGuard(FhirSdkMode.Hybrid);
 
             ResourceElement patchedResource = new FhirPathPatchPayload(patchParam, fallbackGuard).Patch(wrapper);
+
+            Assert.False(patchedResource.ToPoco<Patient>().Active);
+        }
+
+        [Fact]
+        public void GivenIgnixaModeAndIgnixaBackedPatient_WhenJsonPatchReplacingPrimitiveValue_ThenFirelyPatchFallbackIsRejected()
+        {
+            var patchDocument = new JsonPatchDocument();
+            patchDocument.Replace("/active", false);
+            var wrapper = CreateIgnixaBackedPatientWrapper();
+            var fallbackGuard = CreateFallbackGuard(FhirSdkMode.Ignixa);
+
+            var exception = Assert.Throws<RequestNotValidException>(() => new JsonPatchPayload(patchDocument, fallbackGuard).Patch(wrapper));
+
+            Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+            Assert.Contains("JSON Patch", exception.Message);
+        }
+
+        [Fact]
+        public void GivenHybridModeAndIgnixaBackedPatient_WhenJsonPatchReplacingPrimitiveValue_ThenFirelyPatchFallbackIsAllowed()
+        {
+            var patchDocument = new JsonPatchDocument();
+            patchDocument.Replace("/active", false);
+            var wrapper = CreateIgnixaBackedPatientWrapper();
+            var fallbackGuard = CreateFallbackGuard(FhirSdkMode.Hybrid);
+
+            ResourceElement patchedResource = new JsonPatchPayload(patchDocument, fallbackGuard).Patch(wrapper);
 
             Assert.False(patchedResource.ToPoco<Patient>().Active);
         }
