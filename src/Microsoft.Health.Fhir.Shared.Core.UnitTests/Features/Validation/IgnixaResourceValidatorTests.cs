@@ -219,10 +219,13 @@ public class IgnixaResourceValidatorTests
 
     [Theory]
     [InlineData("StructureDefinition", "differential.element.path")]
+    [InlineData("StructureDefinitionSnapshot", "snapshot.element.path")]
     [InlineData("SearchParameter", "component.definition")]
     [InlineData("ValueSet", "compose.include.concept.code")]
+    [InlineData("ValueSetExclude", "compose.exclude.concept.code")]
     [InlineData("CodeSystem", "concept.code")]
     [InlineData("CodeSystemNestedConcept", "concept.concept.code")]
+    [InlineData("OperationDefinitionParameter", "OperationDefinition.parameter.name")]
     public async Task GivenIgnixaModeAndInvalidNestedConformanceResource_WhenValidating_ThenInvalidShouldBeReturned(
         string resourceType,
         string expectedMessage)
@@ -254,6 +257,52 @@ public class IgnixaResourceValidatorTests
         // Assert
         Assert.True(isValid);
         Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task GivenHybridModeAndValidConformanceResource_WhenValidating_ThenFirelyFallbackGuardIsInvoked()
+    {
+        // Arrange
+        var guard = Substitute.For<ISdkFallbackGuard>();
+        var validator = new IgnixaResourceValidator(
+            _schemaContext,
+            new ModelAttributeValidator(),
+            guard,
+            new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Hybrid }));
+        var resource = await CreateResourceElement(GetMinimalCapabilityStatementJson());
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Empty(results);
+        guard.Received(1).FirelyFallback(
+            "Ignixa conformance resource validation",
+            Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task GivenHybridModeAndInvalidNestedConformanceResource_WhenValidating_ThenFirelyFallbackGuardIsInvoked()
+    {
+        // Arrange
+        var guard = Substitute.For<ISdkFallbackGuard>();
+        var validator = new IgnixaResourceValidator(
+            _schemaContext,
+            new ModelAttributeValidator(),
+            guard,
+            new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Hybrid }));
+        var resource = await CreateResourceElement(GetInvalidNestedConformanceJson("OperationDefinitionParameter"));
+        var results = new List<ValidationResult>();
+
+        // Act
+        validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        guard.Received(1).FirelyFallback(
+            "Ignixa conformance resource validation",
+            Arg.Any<string>());
     }
 
     private CreateResourceValidator CreateCreateResourceValidator()
@@ -309,6 +358,9 @@ public class IgnixaResourceValidatorTests
             "CodeSystemNestedConcept" => "{\"resourceType\":\"CodeSystem\",\"url\":\"http://example.org/cs\",\"status\":\"active\",\"content\":\"complete\",\"concept\":[{\"code\":\"parent\",\"concept\":[{}]}]}",
             "SearchParameter" => "{\"resourceType\":\"SearchParameter\",\"url\":\"http://example.org/sp\",\"name\":\"X\",\"status\":\"active\",\"description\":\"Example\",\"code\":\"x\",\"base\":[\"Patient\"],\"type\":\"composite\",\"expression\":\"Patient\",\"component\":[{}]}",
             "StructureDefinition" => "{\"resourceType\":\"StructureDefinition\",\"url\":\"http://example.org/sd\",\"status\":\"active\",\"name\":\"Example\",\"kind\":\"resource\",\"abstract\":false,\"type\":\"Patient\",\"baseDefinition\":\"http://hl7.org/fhir/StructureDefinition/Patient\",\"derivation\":\"constraint\",\"differential\":{\"element\":[{}]}}",
+            "StructureDefinitionSnapshot" => "{\"resourceType\":\"StructureDefinition\",\"url\":\"http://example.org/sd\",\"status\":\"active\",\"name\":\"Example\",\"kind\":\"resource\",\"abstract\":false,\"type\":\"Patient\",\"baseDefinition\":\"http://hl7.org/fhir/StructureDefinition/Patient\",\"derivation\":\"constraint\",\"snapshot\":{\"element\":[{}]}}",
+            "ValueSetExclude" => "{\"resourceType\":\"ValueSet\",\"url\":\"http://example.org/vs\",\"status\":\"active\",\"compose\":{\"exclude\":[{\"system\":\"http://example.org/system\",\"concept\":[{}]}]}}",
+            "OperationDefinitionParameter" => "{\"resourceType\":\"OperationDefinition\",\"url\":\"http://example.org/op\",\"name\":\"Example\",\"status\":\"active\",\"kind\":\"operation\",\"code\":\"example\",\"system\":false,\"type\":false,\"instance\":true,\"parameter\":[{}]}",
             _ => throw new ArgumentOutOfRangeException(nameof(resourceType), resourceType, null),
         };
     }
@@ -320,10 +372,11 @@ public class IgnixaResourceValidatorTests
 
     private IgnixaResourceValidator CreateValidator(FhirSdkMode mode)
     {
+        var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = mode });
         var guard = new SdkFallbackGuard(
-            new SdkModeProvider(new SdkConfiguration { Mode = mode }),
+            modeProvider,
             NullLogger<SdkFallbackGuard>.Instance);
 
-        return new IgnixaResourceValidator(_schemaContext, new ModelAttributeValidator(), guard);
+        return new IgnixaResourceValidator(_schemaContext, new ModelAttributeValidator(), guard, modeProvider);
     }
 }

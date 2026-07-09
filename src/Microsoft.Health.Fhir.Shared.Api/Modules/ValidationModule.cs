@@ -63,7 +63,8 @@ public class ValidationModule : IStartupModule
                 var schemaContext = sp.GetRequiredService<IIgnixaSchemaContext>();
                 var fallbackValidator = sp.GetRequiredService<ModelAttributeValidator>();
                 var fallbackGuard = sp.GetRequiredService<ISdkFallbackGuard>();
-                return new IgnixaResourceValidator(schemaContext, fallbackValidator, fallbackGuard);
+                var sdkModeProvider = sp.GetRequiredService<ISdkModeProvider>();
+                return new IgnixaResourceValidator(schemaContext, fallbackValidator, fallbackGuard, sdkModeProvider);
             });
         }
 

@@ -690,7 +690,7 @@ public class IgnixaFhirJsonOutputFormatterTests
         var parsed = Parser.Parse<Bundle>(json);
         Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
         Assert.Equal(1, parsed.Total);
-        Assert.Equal(new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)), parsed.Timestamp);
+        AssertBundleTimestampIfSupported(parsed);
         var link = Assert.Single(parsed.Link);
         Assert.Equal("self", link.Relation);
         Assert.Equal("https://example.org/fhir/Patient?_id=entry-metadata-patient", link.Url);
@@ -722,7 +722,7 @@ public class IgnixaFhirJsonOutputFormatterTests
         var parsed = Parser.Parse<Bundle>(json);
         Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
         Assert.Equal(1, parsed.Total);
-        Assert.Equal(new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)), parsed.Timestamp);
+        AssertBundleTimestampIfSupported(parsed);
         var link = Assert.Single(parsed.Link);
         Assert.Equal("self", link.Relation);
         Assert.Equal("https://example.org/fhir/Patient?_id=entry-metadata-patient", link.Url);
@@ -1184,6 +1184,17 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.Contains(meta.Tag, tag =>
             string.Equals(tag.System, "http://terminology.hl7.org/CodeSystem/v3-ObservationValue", StringComparison.Ordinal) &&
             string.Equals(tag.Code, "SUBSETTED", StringComparison.Ordinal));
+    }
+
+    private static void AssertBundleTimestampIfSupported(Bundle bundle)
+    {
+        if (ModelInfoProvider.Instance.Version == FhirSpecification.Stu3)
+        {
+            Assert.Null(bundle.Timestamp);
+            return;
+        }
+
+        Assert.Equal(new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)), bundle.Timestamp);
     }
 
     private static void AssertDoesNotContainSubsettedTag(Meta meta)

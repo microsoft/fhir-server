@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly StructureDefinitionSchemaBuilder _schemaBuilder;
         private readonly ValidationSettings _validationSettings;
         private readonly ISdkFallbackGuard _fallbackGuard;
+        private readonly ISdkModeProvider _sdkModeProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaResourceValidator"/> class.
@@ -79,14 +80,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="schemaContext">The Ignixa schema context providing type definitions.</param>
         /// <param name="fallbackValidator">The fallback validator for non-Ignixa resources.</param>
         /// <param name="fallbackGuard">The SDK fallback guard.</param>
+        /// <param name="sdkModeProvider">The SDK mode provider.</param>
         public IgnixaResourceValidator(
             IIgnixaSchemaContext schemaContext,
             ModelAttributeValidator fallbackValidator,
-            ISdkFallbackGuard fallbackGuard)
+            ISdkFallbackGuard fallbackGuard,
+            ISdkModeProvider sdkModeProvider)
         {
             _schemaContext = EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
             _fallbackValidator = EnsureArg.IsNotNull(fallbackValidator, nameof(fallbackValidator));
             _fallbackGuard = EnsureArg.IsNotNull(fallbackGuard, nameof(fallbackGuard));
+            _sdkModeProvider = EnsureArg.IsNotNull(sdkModeProvider, nameof(sdkModeProvider));
             _schemaCache = new ConcurrentDictionary<string, ValidationSchema>(StringComparer.OrdinalIgnoreCase);
             _schemaBuilder = new StructureDefinitionSchemaBuilder();
 
@@ -138,6 +142,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             if (ConformanceResourceTypes.Contains(resourceType))
             {
+                if (!_sdkModeProvider.IsIgnixaMode)
+                {
+                    _fallbackGuard.FirelyFallback(
+                        "Ignixa conformance resource validation",
+                        $"Conformance resource {resourceType} validation uses Firely in {_sdkModeProvider.Mode} SDK mode.");
+
+                    var fallbackElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
+                    return _fallbackValidator.TryValidate(fallbackElement.ToResourceElement(), validationResults, recurse);
+                }
+
                 var ignixaValidationResults = new List<DataAnnotations.ValidationResult>();
                 var isValid = TryValidateConformanceIgnixa(resourceNode, resourceType, ignixaValidationResults);
                 isValid &= TryValidateConformanceBackboneCardinality(value, resourceType, ignixaValidationResults);
@@ -272,6 +286,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     value.Select("StructureDefinition.differential.element"),
                     "path",
                     "StructureDefinition.differential.element.path",
+                    validationResults) & ValidateRequiredChild(
+                    value.Select("StructureDefinition.snapshot.element"),
+                    "path",
+                    "StructureDefinition.snapshot.element.path",
                     validationResults),
                 "SearchParameter" => ValidateRequiredChildren(
                     value.Select("SearchParameter.component"),
@@ -285,6 +303,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     value.Select("ValueSet.compose.include.concept"),
                     "code",
                     "ValueSet.compose.include.concept.code",
+                    validationResults) & ValidateRequiredChild(
+                    value.Select("ValueSet.compose.exclude.concept"),
+                    "code",
+                    "ValueSet.compose.exclude.concept.code",
                     validationResults),
                 "CodeSystem" => ValidateRequiredChild(
                     value.Select("CodeSystem.concept"),
@@ -292,6 +314,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     "CodeSystem.concept.code",
                     validationResults) & ValidateCodeSystemNestedConcepts(
                     value.Select("CodeSystem.concept"),
+                    validationResults),
+                "OperationDefinition" => ValidateRequiredChildren(
+                    value.Select("OperationDefinition.parameter"),
+                    new[]
+                    {
+                        ("name", "OperationDefinition.parameter.name"),
+                        ("use", "OperationDefinition.parameter.use"),
+                        ("min", "OperationDefinition.parameter.min"),
+                        ("max", "OperationDefinition.parameter.max"),
+                    },
                     validationResults),
                 _ => true,
             };
