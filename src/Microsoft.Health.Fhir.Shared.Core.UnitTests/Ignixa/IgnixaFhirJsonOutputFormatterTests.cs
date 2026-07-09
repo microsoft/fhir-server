@@ -313,6 +313,44 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Theory]
+    [InlineData("?_count=0")]
+    [InlineData("?_summary=count")]
+    public async Task GivenIgnixaModeAndCountProjection_WhenWritingBundleResourceJsonNode_ThenCountShapeIsPreserved(string query)
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = new Bundle
+        {
+            Id = "count-bundle-test",
+            Type = Bundle.BundleType.Searchset,
+            Total = 42,
+            Entry =
+            {
+                new Bundle.EntryComponent
+                {
+                    Resource = new Patient { Id = "hidden-entry" },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), query);
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal("count-bundle-test", parsed.Id);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(42, parsed.Total);
+        Assert.Empty(parsed.Entry);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.True(jsonObject.ContainsKey("type"));
+        Assert.True(jsonObject.ContainsKey("total"));
+        Assert.False(jsonObject.ContainsKey("entry"));
+    }
+
+    [Theory]
     [InlineData("name")]
     [InlineData("name.family")]
     [InlineData("telecom.value")]
@@ -443,6 +481,40 @@ public class IgnixaFhirJsonOutputFormatterTests
         var jsonObject = JObject.Parse(json);
         Assert.True(jsonObject.ContainsKey("active"));
         Assert.True(jsonObject.ContainsKey("_active"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenNestedBackboneElementHasRequiredFields_ThenNestedRequiredFieldsArePreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var observation = new Observation
+        {
+            Id = "nested-required-test",
+            Status = ObservationStatus.Final,
+            Code = new CodeableConcept("http://loinc.org", "85354-9"),
+            Component =
+            {
+                new Observation.ComponentComponent
+                {
+                    Code = new CodeableConcept("http://loinc.org", "8480-6"),
+                    Value = new Quantity(120m, "mm[Hg]"),
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(observation.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=component.value");
+
+        // Assert
+        var parsed = Parser.Parse<Observation>(json);
+        Assert.Equal("nested-required-test", parsed.Id);
+        Assert.Equal(ObservationStatus.Final, parsed.Status);
+        Assert.NotNull(parsed.Code);
+        var component = Assert.Single(parsed.Component);
+        Assert.NotNull(component.Code);
+        Assert.IsType<Quantity>(component.Value);
     }
 
     // ------------------------------------------------------------------

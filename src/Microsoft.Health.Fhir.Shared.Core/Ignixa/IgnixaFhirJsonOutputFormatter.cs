@@ -13,9 +13,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using EnsureThat;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -296,11 +298,20 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
             {
                 projection.Add(requiredElement);
             }
-        }
 
-        foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+            foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+            {
+                projection.Add(element, resourceType);
+            }
+
+            projection.AddNestedRequiredElements(typeInfo);
+        }
+        else
         {
-            projection.Add(element, resourceType);
+            foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+            {
+                projection.Add(element, resourceType);
+            }
         }
 
         FilterObject(jsonObject, projection);
@@ -322,9 +333,25 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
                 FilterToSummaryElements(jsonObject, includeText: false, includeRequiredElements: true, includeSummaryElements: true);
                 return;
             case SummaryType.Count:
-                FilterToSummaryElements(jsonObject, includeText: false, includeRequiredElements: false, includeSummaryElements: false);
+                FilterToCountElements(jsonObject);
                 return;
         }
+    }
+
+    private static void FilterToCountElements(JsonObject jsonObject)
+    {
+        var projection = new ProjectionNode();
+        projection.Add("resourceType");
+        projection.Add("id");
+        projection.Add("meta");
+
+        if (string.Equals(jsonObject["resourceType"]?.GetValue<string>(), "Bundle", StringComparison.Ordinal))
+        {
+            projection.Add("type");
+            projection.Add("total");
+        }
+
+        FilterObject(jsonObject, projection);
     }
 
     private void FilterToSummaryElements(JsonObject jsonObject, bool includeText, bool includeRequiredElements, bool includeSummaryElements)
@@ -505,6 +532,11 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
             return TryGetChoiceOrConcreteProjection(propertyName, out projection);
         }
 
+        public void AddNestedRequiredElements(IStructureDefinitionSummary structureDefinition)
+        {
+            AddNestedRequiredElements(structureDefinition.GetElements());
+        }
+
         private void Add(string[] segments, int index)
         {
             if (index >= segments.Length)
@@ -526,6 +558,44 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
             }
 
             return child;
+        }
+
+        private void AddNestedRequiredElements(IEnumerable<IElementDefinitionSummary> elements)
+        {
+            foreach (var child in _children.ToArray())
+            {
+                var childMapping = FindPropertyMapping(elements, child.Key);
+                if (childMapping?.PropertyTypeMapping == null)
+                {
+                    continue;
+                }
+
+                child.Value.AddRequiredElements(childMapping.PropertyTypeMapping);
+                child.Value.AddNestedRequiredElements(childMapping.PropertyTypeMapping.PropertyMappings);
+            }
+        }
+
+        private void AddRequiredElements(ClassMapping classMapping)
+        {
+            foreach (var requiredElement in classMapping.PropertyMappings.Where(mapping => mapping.IsMandatoryElement).Select(mapping => mapping.Name))
+            {
+                Add(requiredElement);
+            }
+        }
+
+        private static PropertyMapping? FindPropertyMapping(IEnumerable<IElementDefinitionSummary> elements, string elementName)
+        {
+            foreach (var element in elements)
+            {
+                if (element is PropertyMapping propertyMapping &&
+                    (string.Equals(propertyMapping.Name, elementName, StringComparison.Ordinal) ||
+                     (propertyMapping.Choice != ChoiceType.None && propertyMapping.DeclaringClass.FindMappedElementByChoiceName(elementName) == propertyMapping)))
+                {
+                    return propertyMapping;
+                }
+            }
+
+            return null;
         }
 
         private bool TryGetChoiceOrConcreteProjection(string propertyName, [NotNullWhen(true)] out ProjectionNode? projection)
