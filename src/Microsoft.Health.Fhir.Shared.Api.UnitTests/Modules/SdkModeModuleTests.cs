@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Ignixa;
@@ -48,6 +49,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
 
             Assert.Equal("IgnixaFhirJsonInputFormatter", mvcOptions.InputFormatters[0].GetType().Name);
             Assert.Equal("IgnixaFhirJsonOutputFormatter", mvcOptions.OutputFormatters[0].GetType().Name);
+            Assert.Contains(mvcOptions.InputFormatters, x => x is FhirXmlInputFormatter);
+            Assert.Contains(mvcOptions.OutputFormatters, x => x is FhirXmlOutputFormatter);
             Assert.IsType<IgnixaFhirPathProvider>(fhirPathProvider);
         }
 
@@ -55,11 +58,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         {
             var configuration = new FhirServerConfiguration();
             configuration.Sdk.Mode = mode;
+            configuration.Features.SupportsXml = true;
 
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddOptions();
             services.AddMvcCore();
+            new XmlFormatterFeatureModule(configuration).Load(services);
             new SearchModule(configuration).Load(services);
             new FhirModule(configuration).Load(services);
 

@@ -101,7 +101,7 @@ public static class ServiceCollectionExtensions
         services.AddIgnixaSerialization();
 
         // Configure MVC to use the formatters (inserted at the beginning for precedence)
-        services.AddSingleton<IConfigureOptions<MvcOptions>, IgnixaFormatterConfiguration>();
+        services.AddSingleton<IPostConfigureOptions<MvcOptions>, IgnixaFormatterConfiguration>();
 
         return services;
     }
@@ -146,7 +146,7 @@ public static class ServiceCollectionExtensions
     /// Configures MVC options to use Ignixa formatters.
     /// </summary>
     [SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated via dependency injection")]
-    private sealed class IgnixaFormatterConfiguration : IConfigureOptions<MvcOptions>
+    private sealed class IgnixaFormatterConfiguration : IPostConfigureOptions<MvcOptions>
     {
         private readonly IServiceProvider _serviceProvider;
 
@@ -155,7 +155,7 @@ public static class ServiceCollectionExtensions
             _serviceProvider = serviceProvider;
         }
 
-        public void Configure(MvcOptions options)
+        public void PostConfigure(string name, MvcOptions options)
         {
             // Resolve formatters from service provider to ensure all dependencies are available
             var inputFormatter = _serviceProvider.GetRequiredService<IgnixaFhirJsonInputFormatter>();
