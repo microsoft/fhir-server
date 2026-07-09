@@ -11,22 +11,35 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class FhirPathPatchPayload : PatchPayload
     {
-        public FhirPathPatchPayload(Hl7.Fhir.Model.Parameters fhirPatchParameters)
+        private readonly ISdkFallbackGuard _fallbackGuard;
+
+        public FhirPathPatchPayload(Hl7.Fhir.Model.Parameters fhirPatchParameters, ISdkFallbackGuard fallbackGuard = null)
         {
             EnsureArg.IsNotNull(fhirPatchParameters, nameof(fhirPatchParameters));
             FhirPatchParameters = fhirPatchParameters;
+            _fallbackGuard = fallbackGuard;
         }
 
         public Hl7.Fhir.Model.Parameters FhirPatchParameters { get; }
 
         internal override ResourceElement GetPatchedResourceElement(ResourceWrapper resourceToPatch)
         {
+            try
+            {
+                _fallbackGuard?.FirelyFallback("FHIRPath PATCH", "FHIRPath PATCH currently uses Firely model infrastructure.");
+            }
+            catch (InvalidOperationException e)
+            {
+                throw new RequestNotValidException(e.Message);
+            }
+
             Resource resourcePoco;
 
             try

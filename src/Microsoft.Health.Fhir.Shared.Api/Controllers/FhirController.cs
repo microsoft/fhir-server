@@ -43,6 +43,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ISdkFallbackGuard _sdkFallbackGuard;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -80,13 +82,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
         /// <param name="searchParameterOperations">The search parameter operations.</param>
+        /// <param name="sdkFallbackGuard">The SDK fallback guard.</param>
         public FhirController(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
             IAuthorizationService authorizationService,
-            ISearchParameterOperations searchParameterOperations)
+            ISearchParameterOperations searchParameterOperations,
+            ISdkFallbackGuard sdkFallbackGuard = null)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -100,6 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _searchParameterOperations = searchParameterOperations;
+            _sdkFallbackGuard = sdkFallbackGuard;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -581,7 +586,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Consumes("application/fhir+json")]
         public async Task<IActionResult> PatchFhir([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Parameters paramsResource, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
-            var payload = new FhirPathPatchPayload(paramsResource);
+            var payload = new FhirPathPatchPayload(paramsResource, _sdkFallbackGuard);
 
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(
                 new PatchResourceRequest(new ResourceKey(typeParameter, idParameter), payload, GetBundleResourceContext(), ifMatchHeader, metaHistory),
@@ -604,7 +609,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
-            var payload = new FhirPathPatchPayload(paramsResource);
+            var payload = new FhirPathPatchPayload(paramsResource, _sdkFallbackGuard);
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 

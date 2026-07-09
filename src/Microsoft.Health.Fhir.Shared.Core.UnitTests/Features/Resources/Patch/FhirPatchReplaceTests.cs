@@ -4,10 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -33,6 +43,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
+        }
+
+        [Fact]
+        public void GivenIgnixaModeAndIgnixaBackedPatient_WhenReplacingPrimitiveValue_ThenFirelyPatchFallbackIsRejected()
+        {
+            var patchParam = new Parameters().AddReplacePatchParameter("Patient.active", new FhirBoolean(false));
+            var wrapper = CreateIgnixaBackedPatientWrapper();
+            var fallbackGuard = CreateFallbackGuard(FhirSdkMode.Ignixa);
+
+            var exception = Assert.Throws<RequestNotValidException>(() => new FhirPathPatchPayload(patchParam, fallbackGuard).Patch(wrapper));
+
+            Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+            Assert.Contains("FHIRPath PATCH", exception.Message);
+        }
+
+        [Fact]
+        public void GivenHybridModeAndIgnixaBackedPatient_WhenReplacingPrimitiveValue_ThenFirelyPatchFallbackIsAllowed()
+        {
+            var patchParam = new Parameters().AddReplacePatchParameter("Patient.active", new FhirBoolean(false));
+            var wrapper = CreateIgnixaBackedPatientWrapper();
+            var fallbackGuard = CreateFallbackGuard(FhirSdkMode.Hybrid);
+
+            ResourceElement patchedResource = new FhirPathPatchPayload(patchParam, fallbackGuard).Patch(wrapper);
+
+            Assert.False(patchedResource.ToPoco<Patient>().Active);
         }
 
         // Implements test case at:
@@ -229,6 +264,30 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
             Assert.Contains("Multiple elements or collection found at Patient.identifier.period.start", exception.Message);
+        }
+
+        private static ResourceWrapper CreateIgnixaBackedPatientWrapper()
+        {
+            var serializer = new IgnixaJsonSerializer();
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            var node = serializer.Parse("{\"resourceType\":\"Patient\",\"id\":\"patient-1\",\"active\":true}");
+            ResourceElement resource = new IgnixaResourceElement(node, schemaContext.Schema).ToResourceElement();
+            var rawResourceFactory = new RawResourceFactory(serializer, new FhirJsonSerializer());
+
+            return new ResourceWrapper(
+                resource,
+                rawResourceFactory.Create(resource, keepMeta: true),
+                new ResourceRequest(HttpMethod.Get),
+                false,
+                null,
+                null,
+                null);
+        }
+
+        private static SdkFallbackGuard CreateFallbackGuard(FhirSdkMode mode)
+        {
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = mode });
+            return new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance);
         }
     }
 }
