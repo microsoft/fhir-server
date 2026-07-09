@@ -66,6 +66,8 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
     private readonly IModelInfoProvider _modelInfoProvider;
     private readonly ISdkFallbackGuard _fallbackGuard;
     private static readonly FhirJsonParser Parser = new();
+    private const string SubsettedTagSystem = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue";
+    private const string SubsettedTagCode = "SUBSETTED";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgnixaFhirJsonOutputFormatter"/> class.
@@ -273,14 +275,62 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         var jsonObject = JsonNode.Parse(_serializer.Serialize(resourceNode, pretty: false)) as JsonObject
             ?? throw new InvalidOperationException("Ignixa projection requires a JSON object resource.");
 
+        var hasElements = elements?.Any() == true;
+        if (IsBundle(jsonObject) && summaryType != SummaryType.Count)
+        {
+            ApplyBundleProjection(jsonObject, elements, summaryType);
+            AddSubsettedTag(jsonObject);
+        }
+        else
+        {
+            if (hasElements)
+            {
+                ApplyElementsProjection(jsonObject, elements!);
+            }
+
+            ApplySummaryProjection(jsonObject, summaryType);
+            if (summaryType != SummaryType.Count)
+            {
+                AddSubsettedTag(jsonObject);
+            }
+        }
+
+        return _serializer.Parse(jsonObject.ToJsonString());
+    }
+
+    private void ApplyBundleProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)
+    {
+        if (jsonObject["entry"] is JsonArray entries)
+        {
+            foreach (var entry in entries.OfType<JsonObject>())
+            {
+                if (entry["resource"] is JsonObject entryResource)
+                {
+                    ApplyResourceProjection(entryResource, elements, summaryType);
+                    AddSubsettedTag(entryResource);
+                }
+            }
+        }
+
+        var projection = new ProjectionNode();
+        projection.Add("resourceType");
+        projection.Add("id");
+        projection.Add("meta");
+        projection.Add("type");
+        projection.Add("total");
+        projection.Add("entry");
+
+        FilterObject(jsonObject, projection);
+    }
+
+    private void ApplyResourceProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)
+    {
         if (elements?.Any() == true)
         {
             ApplyElementsProjection(jsonObject, elements);
         }
 
         ApplySummaryProjection(jsonObject, summaryType);
-
-        return _serializer.Parse(jsonObject.ToJsonString());
     }
 
     private void ApplyElementsProjection(JsonObject jsonObject, IReadOnlyList<string> elements)
@@ -352,6 +402,41 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         }
 
         FilterObject(jsonObject, projection);
+    }
+
+    private static bool IsBundle(JsonObject jsonObject)
+    {
+        return string.Equals(jsonObject["resourceType"]?.GetValue<string>(), "Bundle", StringComparison.Ordinal);
+    }
+
+    private static void AddSubsettedTag(JsonObject jsonObject)
+    {
+        var meta = jsonObject["meta"] as JsonObject;
+        if (meta == null)
+        {
+            meta = new JsonObject();
+            jsonObject["meta"] = meta;
+        }
+
+        var tags = meta["tag"] as JsonArray;
+        if (tags == null)
+        {
+            tags = new JsonArray();
+            meta["tag"] = tags;
+        }
+
+        if (tags.OfType<JsonObject>().Any(tag =>
+                string.Equals(tag["system"]?.GetValue<string>(), SubsettedTagSystem, StringComparison.Ordinal) &&
+                string.Equals(tag["code"]?.GetValue<string>(), SubsettedTagCode, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        tags.Add(new JsonObject
+        {
+            ["system"] = SubsettedTagSystem,
+            ["code"] = SubsettedTagCode,
+        });
     }
 
     private void FilterToSummaryElements(JsonObject jsonObject, bool includeText, bool includeRequiredElements, bool includeSummaryElements)

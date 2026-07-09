@@ -313,6 +313,31 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Theory]
+    [InlineData("?_elements=active")]
+    [InlineData("?_summary=true")]
+    public async Task GivenIgnixaModeAndProjection_WhenWritingResourceJsonNode_ThenSubsettedTagIsAdded(string query)
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "subsetted-test",
+            Active = true,
+            BirthDate = "1980-01-01",
+            Name = { new HumanName { Family = "Hidden" } },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), query);
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("subsetted-test", parsed.Id);
+        AssertContainsSubsettedTag(parsed.Meta);
+    }
+
+    [Theory]
     [InlineData("?_count=0")]
     [InlineData("?_summary=count")]
     public async Task GivenIgnixaModeAndCountProjection_WhenWritingBundleResourceJsonNode_ThenCountShapeIsPreserved(string query)
@@ -348,6 +373,100 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.True(jsonObject.ContainsKey("type"));
         Assert.True(jsonObject.ContainsKey("total"));
         Assert.False(jsonObject.ContainsKey("entry"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreProjectedAndTagged()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = new Bundle
+        {
+            Id = "bundle-elements-test",
+            Type = Bundle.BundleType.Searchset,
+            Total = 1,
+            Entry =
+            {
+                new Bundle.EntryComponent
+                {
+                    Resource = new Patient
+                    {
+                        Id = "bundle-patient",
+                        Active = true,
+                        Name = { new HumanName { Family = "Hidden" } },
+                    },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=active");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal("bundle-elements-test", parsed.Id);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(1, parsed.Total);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("bundle-patient", patient.Id);
+        Assert.True(patient.Active);
+        Assert.Empty(patient.Name);
+        AssertContainsSubsettedTag(patient.Meta);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.True(jsonObject.ContainsKey("entry"));
+        Assert.Contains(
+            jsonObject["entry"]![0]!["resource"]!["meta"]!["tag"]!.Children(),
+            tag => string.Equals((string)tag!["code"]!, "SUBSETTED", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreSummarizedAndTagged()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = new Bundle
+        {
+            Id = "bundle-summary-test",
+            Type = Bundle.BundleType.Searchset,
+            Total = 1,
+            Entry =
+            {
+                new Bundle.EntryComponent
+                {
+                    Resource = new Patient
+                    {
+                        Id = "bundle-summary-patient",
+                        BirthDate = "1980-01-01",
+                        Contact =
+                        {
+                            new Patient.ContactComponent
+                            {
+                                Name = new HumanName { Family = "Hidden" },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=true");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal("bundle-summary-test", parsed.Id);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(1, parsed.Total);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("bundle-summary-patient", patient.Id);
+        Assert.Equal("1980-01-01", patient.BirthDate);
+        Assert.Empty(patient.Contact);
+        AssertContainsSubsettedTag(patient.Meta);
     }
 
     [Theory]
@@ -701,6 +820,14 @@ public class IgnixaFhirJsonOutputFormatterTests
             null);
 
         return new RawResourceElement(wrapper);
+    }
+
+    private static void AssertContainsSubsettedTag(Meta meta)
+    {
+        Assert.NotNull(meta);
+        Assert.Contains(meta.Tag, tag =>
+            string.Equals(tag.System, "http://terminology.hl7.org/CodeSystem/v3-ObservationValue", StringComparison.Ordinal) &&
+            string.Equals(tag.Code, "SUBSETTED", StringComparison.Ordinal));
     }
 
     private async Task<string> WriteObject(object obj, Type objectType, string query = null)
