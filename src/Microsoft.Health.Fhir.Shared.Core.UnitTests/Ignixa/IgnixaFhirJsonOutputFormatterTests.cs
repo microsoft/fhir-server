@@ -467,6 +467,28 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenFullBundleEntryResourceIsRequested_ThenNestedResourceIsNotMarkedSubsetted()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata();
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=entry.resource");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        AssertContainsSubsettedTag(parsed.Meta);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("entry-metadata-patient", patient.Id);
+        Assert.True(patient.Active);
+        Assert.NotEmpty(patient.Name);
+        AssertDoesNotContainSubsettedTag(patient.Meta);
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndElementsProjection_WhenBundleEntryResourceIsRequested_ThenUnrequestedEntrySiblingsAreOmitted()
     {
         // Arrange
@@ -1112,6 +1134,18 @@ public class IgnixaFhirJsonOutputFormatterTests
     {
         Assert.NotNull(meta);
         Assert.Contains(meta.Tag, tag =>
+            string.Equals(tag.System, "http://terminology.hl7.org/CodeSystem/v3-ObservationValue", StringComparison.Ordinal) &&
+            string.Equals(tag.Code, "SUBSETTED", StringComparison.Ordinal));
+    }
+
+    private static void AssertDoesNotContainSubsettedTag(Meta meta)
+    {
+        if (meta == null)
+        {
+            return;
+        }
+
+        Assert.DoesNotContain(meta.Tag, tag =>
             string.Equals(tag.System, "http://terminology.hl7.org/CodeSystem/v3-ObservationValue", StringComparison.Ordinal) &&
             string.Equals(tag.Code, "SUBSETTED", StringComparison.Ordinal));
     }

@@ -307,12 +307,16 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         if (ShouldProjectBundleEntryResources(elements, bundleElementNames) && jsonObject["entry"] is JsonArray entries)
         {
             var entryResourceElements = GetBundleEntryResourceElements(elements, bundleElementNames);
+            var isEntryResourceProjected = summaryType != SummaryType.False || entryResourceElements?.Any() == true;
             foreach (var entry in entries.OfType<JsonObject>())
             {
                 if (entry["resource"] is JsonObject entryResource)
                 {
                     ApplyResourceProjection(entryResource, entryResourceElements, summaryType);
-                    AddSubsettedTag(entryResource);
+                    if (isEntryResourceProjected)
+                    {
+                        AddSubsettedTag(entryResource);
+                    }
                 }
             }
         }
