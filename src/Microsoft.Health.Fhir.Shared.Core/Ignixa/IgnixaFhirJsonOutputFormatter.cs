@@ -343,6 +343,8 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         projection.Add("text");
         projection.Add("type");
         projection.Add("total");
+        projection.Add("timestamp");
+        projection.Add("link");
         projection.Add("entry");
 
         FilterObject(jsonObject, projection);

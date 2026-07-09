@@ -651,6 +651,11 @@ public class IgnixaFhirJsonOutputFormatterTests
         // Assert
         var parsed = Parser.Parse<Bundle>(json);
         Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(1, parsed.Total);
+        Assert.Equal(new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)), parsed.Timestamp);
+        var link = Assert.Single(parsed.Link);
+        Assert.Equal("self", link.Relation);
+        Assert.Equal("https://example.org/fhir/Patient?_id=entry-metadata-patient", link.Url);
         var entry = Assert.Single(parsed.Entry);
         var patient = Assert.IsType<Patient>(entry.Resource);
         Assert.Equal("entry-metadata-patient", patient.Id);
