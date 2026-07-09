@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -54,6 +55,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             Assert.IsType<IgnixaFhirPathProvider>(fhirPathProvider);
         }
 
+        [Fact]
+        public void GivenFirelyMode_WhenValidationModuleLoads_ThenFirelyValidatorIsActive()
+        {
+            using var serviceProvider = BuildValidationServiceProvider(FhirSdkMode.Firely);
+
+            var validator = serviceProvider.GetRequiredService<IModelAttributeValidator>();
+
+            Assert.IsType<ModelAttributeValidator>(validator);
+        }
+
+        [Fact]
+        public void GivenIgnixaMode_WhenValidationModuleLoads_ThenIgnixaValidatorIsActive()
+        {
+            using var serviceProvider = BuildValidationServiceProvider(FhirSdkMode.Ignixa);
+
+            var validator = serviceProvider.GetRequiredService<IModelAttributeValidator>();
+
+            Assert.IsType<IgnixaResourceValidator>(validator);
+        }
+
         private static ServiceProvider BuildServiceProvider(FhirSdkMode mode)
         {
             var configuration = new FhirServerConfiguration();
@@ -67,6 +88,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             new XmlFormatterFeatureModule(configuration).Load(services);
             new SearchModule(configuration).Load(services);
             new FhirModule(configuration).Load(services);
+
+            return services.BuildServiceProvider(validateScopes: true);
+        }
+
+        private static ServiceProvider BuildValidationServiceProvider(FhirSdkMode mode)
+        {
+            var configuration = new FhirServerConfiguration();
+            configuration.Sdk.Mode = mode;
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddOptions();
+            services.AddMvcCore();
+            new FhirModule(configuration).Load(services);
+            new ValidationModule(configuration).Load(services);
 
             return services.BuildServiceProvider(validateScopes: true);
         }
