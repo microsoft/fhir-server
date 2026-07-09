@@ -45,8 +45,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\FhirServerBuilderIgnixaPersistenceRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\FirelyRawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IIgnixaRawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IIgnixaResourceDeserializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaModeRawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaRawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaResourceDeserializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaSchemaContext.cs" />

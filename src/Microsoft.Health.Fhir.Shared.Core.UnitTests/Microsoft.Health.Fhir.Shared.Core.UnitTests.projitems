@@ -37,6 +37,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleTestsCommonFunctions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\SdkModeRawResourceFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
