@@ -2,6 +2,8 @@
 
 This register tracks known compatibility shims and SDK fallbacks while Ignixa support is completed. New Firely/Ignixa bridges must be added here or removed before merge readiness.
 
+For rollout diagnostics and fallback triage, see [SDK Mode Rollout](sdk-mode-rollout.md).
+
 | ID | Surface | File(s) | Allowed mode | Reason | Severity / priority | Owner / team | Planned closure | Validation |
 |---|---|---|---|---|---|---|---|---|
 | SHIM-PROJECTION-001 | RawResourceElement `_summary` / `_elements` output projection | `src/Microsoft.Health.Fhir.Shared.Core/Ignixa/IgnixaFhirJsonOutputFormatter.cs` | Hybrid only | Raw persisted resources do not carry Ignixa node backing, so projection still uses Firely when explicitly allowed by the fallback guard. | P1 | FHIR | Add an Ignixa-backed raw projection path or convert raw JSON to `ResourceJsonNode` before projection. | RawResourceElement projection guard tests in Ignixa and Hybrid modes. |

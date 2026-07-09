@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Sdk;
@@ -22,11 +24,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Sdk
         {
             var guard = CreateGuard(FhirSdkMode.Ignixa);
 
-            var exception = Assert.Throws<InvalidOperationException>(() => guard.FirelyFallback("projection", "summary projection"));
+            var exception = Assert.Throws<InvalidOperationException>(() => guard.FirelyFallback("projection", "native projection missing"));
 
             Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode", exception.Message, StringComparison.Ordinal);
             Assert.Contains("projection", exception.Message, StringComparison.Ordinal);
-            Assert.Contains("summary projection", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("native projection missing", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenHybridMode_WhenFirelyFallbackIsRequested_ThenDiagnosticsAreLogged()
+        {
+            var logger = new TestLogger<SdkFallbackGuard>();
+            var guard = CreateGuard(FhirSdkMode.Hybrid, logger);
+
+            guard.FirelyFallback("projection", "native projection missing");
+
+            var message = Assert.Single(logger.Messages);
+            Assert.Contains("Firely SDK fallback used", message, StringComparison.Ordinal);
+            Assert.Contains("projection", message, StringComparison.Ordinal);
+            Assert.Contains("native projection missing", message, StringComparison.Ordinal);
+            Assert.Contains("Hybrid", message, StringComparison.Ordinal);
         }
 
         [Theory]
@@ -61,11 +78,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Sdk
             guard.IgnixaFallback("parsing", "Ignixa adapter");
         }
 
-        private static SdkFallbackGuard CreateGuard(FhirSdkMode mode)
+        private static SdkFallbackGuard CreateGuard(FhirSdkMode mode, ILogger<SdkFallbackGuard> logger = null)
         {
             var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = mode });
 
-            return new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance);
+            return new SdkFallbackGuard(modeProvider, logger ?? NullLogger<SdkFallbackGuard>.Instance);
+        }
+
+        private sealed class TestLogger<T> : ILogger<T>
+        {
+            public List<string> Messages { get; } = new List<string>();
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return NullScope.Instance;
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
+            {
+                Messages.Add(formatter(state, exception));
+            }
+
+            private sealed class NullScope : IDisposable
+            {
+                public static readonly NullScope Instance = new NullScope();
+
+                public void Dispose()
+                {
+                }
+            }
         }
     }
 }
