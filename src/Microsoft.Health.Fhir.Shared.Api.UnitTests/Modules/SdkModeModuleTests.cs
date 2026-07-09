@@ -3,20 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
@@ -71,6 +77,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         }
 
         [Fact]
+        public async Task GivenFirelyModeWithXmlSupport_WhenXmlCapabilityBuilds_ThenXmlFormatsAreAdvertised()
+        {
+            var capabilityStatement = await BuildCapabilityStatementAsync(FhirSdkMode.Firely);
+
+            Assert.Contains(KnownContentTypes.XmlContentType, capabilityStatement.Format);
+            Assert.Contains("xml", capabilityStatement.Format);
+        }
+
+        [Fact]
+        public async Task GivenIgnixaModeWithXmlSupport_WhenXmlCapabilityBuilds_ThenXmlFormatsAreNotAdvertised()
+        {
+            var capabilityStatement = await BuildCapabilityStatementAsync(FhirSdkMode.Ignixa);
+
+            Assert.DoesNotContain(KnownContentTypes.XmlContentType, capabilityStatement.Format);
+            Assert.DoesNotContain("xml", capabilityStatement.Format);
+        }
+
+        [Fact]
+        public async Task GivenHybridModeWithXmlSupport_WhenXmlCapabilityBuilds_ThenXmlFormatsRemainAdvertised()
+        {
+            var capabilityStatement = await BuildCapabilityStatementAsync(FhirSdkMode.Hybrid);
+
+            Assert.Contains(KnownContentTypes.XmlContentType, capabilityStatement.Format);
+            Assert.Contains("xml", capabilityStatement.Format);
+        }
+
+        [Fact]
         public void GivenFirelyMode_WhenValidationModuleLoads_ThenFirelyValidatorIsActive()
         {
             using var serviceProvider = BuildValidationServiceProvider(FhirSdkMode.Firely);
@@ -120,6 +153,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             new ValidationModule(configuration).Load(services);
 
             return services.BuildServiceProvider(validateScopes: true);
+        }
+
+        private static async Task<ListedCapabilityStatement> BuildCapabilityStatementAsync(FhirSdkMode mode)
+        {
+            var configuration = new FhirServerConfiguration();
+            configuration.Sdk.Mode = mode;
+            configuration.Features.SupportsXml = true;
+
+            var capabilityStatement = new ListedCapabilityStatement();
+            var builder = Substitute.For<ICapabilityStatementBuilder>();
+            builder
+                .When(x => x.Apply(Arg.Any<Action<ListedCapabilityStatement>>()))
+                .Do(x => x.Arg<Action<ListedCapabilityStatement>>().Invoke(capabilityStatement));
+
+            var provider = new XmlFormatterConfiguration(Options.Create(configuration), Options.Create(configuration.Features));
+            await provider.BuildAsync(builder, default);
+
+            return capabilityStatement;
         }
     }
 }
