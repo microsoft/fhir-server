@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton(_ => _configuration.Sdk);
             services.AddSingleton<ISdkModeProvider, SdkModeProvider>();
+            services.AddSingleton<ISdkFallbackGuard, SdkFallbackGuard>();
 
 #pragma warning disable CS0618 // Type or member is obsolete
             var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
