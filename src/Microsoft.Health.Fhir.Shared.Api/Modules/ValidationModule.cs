@@ -11,6 +11,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
@@ -61,7 +62,8 @@ public class ValidationModule : IStartupModule
             {
                 var schemaContext = sp.GetRequiredService<IIgnixaSchemaContext>();
                 var fallbackValidator = sp.GetRequiredService<ModelAttributeValidator>();
-                return new IgnixaResourceValidator(schemaContext, fallbackValidator);
+                var fallbackGuard = sp.GetRequiredService<ISdkFallbackGuard>();
+                return new IgnixaResourceValidator(schemaContext, fallbackValidator, fallbackGuard);
             });
         }
 

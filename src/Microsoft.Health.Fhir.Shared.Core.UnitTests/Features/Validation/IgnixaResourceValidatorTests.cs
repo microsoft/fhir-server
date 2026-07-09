@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -39,7 +41,7 @@ public class IgnixaResourceValidatorTests
 
     public IgnixaResourceValidatorTests()
     {
-        _validator = new IgnixaResourceValidator(_schemaContext, new ModelAttributeValidator());
+        _validator = CreateValidator(FhirSdkMode.Hybrid);
     }
 
     [Fact]
@@ -85,6 +87,34 @@ public class IgnixaResourceValidatorTests
         // Assert
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("format"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndConformanceResource_WhenValidating_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Ignixa);
+        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var results = new List<ValidationResult>();
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+    }
+
+    [Fact]
+    public async Task GivenHybridModeAndConformanceResource_WhenValidating_ThenFallbackIsPermitted()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Hybrid);
+        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Empty(results);
     }
 
     private const string ObservationWithInvalidDateTimeJson = """
@@ -133,6 +163,19 @@ public class IgnixaResourceValidatorTests
         }
         """;
 
+    private const string CapabilityStatementJson = """
+        {
+          "resourceType": "CapabilityStatement",
+          "status": "active",
+          "date": "2020-01-01",
+          "kind": "instance",
+          "fhirVersion": "4.0.1",
+          "format": [
+            "json"
+          ]
+        }
+        """;
+
     private CreateResourceValidator CreateCreateResourceValidator()
     {
         var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -153,5 +196,14 @@ public class IgnixaResourceValidatorTests
         var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
 
         return ignixaElement.ToResourceElement();
+    }
+
+    private IgnixaResourceValidator CreateValidator(FhirSdkMode mode)
+    {
+        var guard = new SdkFallbackGuard(
+            new SdkModeProvider(new SdkConfiguration { Mode = mode }),
+            NullLogger<SdkFallbackGuard>.Instance);
+
+        return new IgnixaResourceValidator(_schemaContext, new ModelAttributeValidator(), guard);
     }
 }

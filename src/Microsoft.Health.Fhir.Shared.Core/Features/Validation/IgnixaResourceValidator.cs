@@ -15,6 +15,7 @@ using Ignixa.Validation.Abstractions;
 using Ignixa.Validation.Schema;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using DataAnnotations = System.ComponentModel.DataAnnotations;
@@ -71,21 +72,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly ConcurrentDictionary<string, ValidationSchema> _schemaCache;
         private readonly StructureDefinitionSchemaBuilder _schemaBuilder;
         private readonly ValidationSettings _validationSettings;
+        private readonly ISdkFallbackGuard _fallbackGuard;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaResourceValidator"/> class.
         /// </summary>
         /// <param name="schemaContext">The Ignixa schema context providing type definitions.</param>
         /// <param name="fallbackValidator">The fallback validator for non-Ignixa resources.</param>
+        /// <param name="fallbackGuard">The SDK fallback guard.</param>
         public IgnixaResourceValidator(
             IIgnixaSchemaContext schemaContext,
-            ModelAttributeValidator fallbackValidator)
+            ModelAttributeValidator fallbackValidator,
+            ISdkFallbackGuard fallbackGuard)
         {
-            EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
-            EnsureArg.IsNotNull(fallbackValidator, nameof(fallbackValidator));
-
-            _schemaContext = schemaContext;
-            _fallbackValidator = fallbackValidator;
+            _schemaContext = EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
+            _fallbackValidator = EnsureArg.IsNotNull(fallbackValidator, nameof(fallbackValidator));
+            _fallbackGuard = EnsureArg.IsNotNull(fallbackGuard, nameof(fallbackGuard));
             _schemaCache = new ConcurrentDictionary<string, ValidationSchema>(StringComparer.OrdinalIgnoreCase);
             _schemaBuilder = new StructureDefinitionSchemaBuilder();
 
@@ -138,6 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             // that are not properly validated by Ignixa. Fall back to Firely validation.
             if (ConformanceResourceTypes.Contains(resourceType))
             {
+                _fallbackGuard.FirelyFallback("Ignixa resource validation", $"Conformance resource validation for {resourceType} uses Firely.");
                 var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
                 return _fallbackValidator.TryValidate(ignixaElement.ToResourceElement(), validationResults, recurse);
             }

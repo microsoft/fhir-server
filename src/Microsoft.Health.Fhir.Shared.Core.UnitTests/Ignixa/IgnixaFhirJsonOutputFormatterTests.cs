@@ -13,8 +13,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,7 +41,7 @@ public class IgnixaFhirJsonOutputFormatterTests
     {
         _ignixaSerializer = new IgnixaJsonSerializer();
         var firelySerializer = new FhirJsonSerializer();
-        _formatter = new IgnixaFhirJsonOutputFormatter(_ignixaSerializer, firelySerializer, ModelInfoProvider.Instance);
+        _formatter = CreateFormatter(FhirSdkMode.Hybrid);
     }
 
     // ------------------------------------------------------------------
@@ -151,6 +154,18 @@ public class IgnixaFhirJsonOutputFormatterTests
         var parsed = Parser.Parse<Patient>(json);
         Assert.True(parsed.Active);
         Assert.Empty(parsed.Name);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndProjectionFallback_WhenWritingResourceJsonNode_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient { Id = "projection-block", Active = true };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=active"));
     }
 
     // ------------------------------------------------------------------
@@ -304,6 +319,11 @@ public class IgnixaFhirJsonOutputFormatterTests
 
     private async Task<string> WriteObject(object obj, Type objectType, string query = null)
     {
+        return await WriteObject(_formatter, obj, objectType, query);
+    }
+
+    private async Task<string> WriteObject(IgnixaFhirJsonOutputFormatter formatter, object obj, Type objectType, string query = null)
+    {
         using var body = new MemoryStream();
         var httpContext = new DefaultHttpContext();
         httpContext.Response.StatusCode = (int)HttpStatusCode.OK;
@@ -320,10 +340,19 @@ public class IgnixaFhirJsonOutputFormatterTests
             objectType,
             obj);
 
-        await _formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
+        await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
 
         body.Seek(0, SeekOrigin.Begin);
         using var reader = new StreamReader(body);
         return await reader.ReadToEndAsync();
+    }
+
+    private IgnixaFhirJsonOutputFormatter CreateFormatter(FhirSdkMode mode)
+    {
+        var guard = new SdkFallbackGuard(
+            new SdkModeProvider(new SdkConfiguration { Mode = mode }),
+            NullLogger<SdkFallbackGuard>.Instance);
+
+        return new IgnixaFhirJsonOutputFormatter(_ignixaSerializer, new FhirJsonSerializer(), ModelInfoProvider.Instance, guard);
     }
 }

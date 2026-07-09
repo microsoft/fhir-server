@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -60,6 +61,7 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
     private readonly IIgnixaJsonSerializer _serializer;
     private readonly FhirJsonSerializer _firelySerializer;
     private readonly IModelInfoProvider _modelInfoProvider;
+    private readonly ISdkFallbackGuard _fallbackGuard;
     private static readonly FhirJsonParser Parser = new();
 
     /// <summary>
@@ -68,15 +70,17 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
     /// <param name="serializer">The Ignixa JSON serializer.</param>
     /// <param name="firelySerializer">The Firely JSON serializer for compatibility mode.</param>
     /// <param name="modelInfoProvider">FHIR model information provider used for projection.</param>
-    public IgnixaFhirJsonOutputFormatter(IIgnixaJsonSerializer serializer, FhirJsonSerializer firelySerializer, IModelInfoProvider modelInfoProvider)
+    /// <param name="fallbackGuard">The SDK fallback guard.</param>
+    public IgnixaFhirJsonOutputFormatter(
+        IIgnixaJsonSerializer serializer,
+        FhirJsonSerializer firelySerializer,
+        IModelInfoProvider modelInfoProvider,
+        ISdkFallbackGuard fallbackGuard)
     {
-        EnsureArg.IsNotNull(serializer, nameof(serializer));
-        EnsureArg.IsNotNull(firelySerializer, nameof(firelySerializer));
-        EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-        _serializer = serializer;
-        _firelySerializer = firelySerializer;
-        _modelInfoProvider = modelInfoProvider;
+        _serializer = EnsureArg.IsNotNull(serializer, nameof(serializer));
+        _firelySerializer = EnsureArg.IsNotNull(firelySerializer, nameof(firelySerializer));
+        _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+        _fallbackGuard = EnsureArg.IsNotNull(fallbackGuard, nameof(fallbackGuard));
 
         SupportedEncodings.Add(Encoding.UTF8);
         SupportedEncodings.Add(Encoding.Unicode);
@@ -177,6 +181,7 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
 
         if (hasProjection)
         {
+            _fallbackGuard.FirelyFallback("Ignixa output projection", "_summary or _elements projection is not implemented natively on ResourceJsonNode.");
             var firelyResource = await ToFirelyResourceAsync(resourceNode).ConfigureAwait(false);
             await WriteFirelyResourceAsync(firelyResource, response, pretty, selectedEncoding, summarySearchParameter, GetProjectedElements(firelyResource, elementsSearchParameter)).ConfigureAwait(false);
             return;
