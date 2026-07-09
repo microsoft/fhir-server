@@ -11,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -182,9 +183,9 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
 
         if (hasProjection)
         {
-            _fallbackGuard.FirelyFallback("Ignixa output projection", "_summary or _elements projection is not implemented natively on ResourceJsonNode.");
-            var firelyResource = await ToFirelyResourceAsync(resourceNode).ConfigureAwait(false);
-            await WriteFirelyResourceAsync(firelyResource, response, pretty, selectedEncoding, summarySearchParameter, GetProjectedElements(firelyResource, elementsSearchParameter)).ConfigureAwait(false);
+            resourceNode = ProjectResource(resourceNode, elementsSearchParameter, summarySearchParameter);
+            _serializer.Serialize(resourceNode, response.Body, pretty);
+            await response.Body.FlushAsync(context.HttpContext.RequestAborted).ConfigureAwait(false);
             return;
         }
 
@@ -265,6 +266,126 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         return await Parser.ParseAsync<Resource>(jsonReader).ConfigureAwait(false);
     }
 
+    private ResourceJsonNode ProjectResource(ResourceJsonNode resourceNode, IReadOnlyList<string>? elements, SummaryType summaryType)
+    {
+        var jsonObject = JsonNode.Parse(_serializer.Serialize(resourceNode, pretty: false)) as JsonObject
+            ?? throw new InvalidOperationException("Ignixa projection requires a JSON object resource.");
+
+        if (elements?.Any() == true)
+        {
+            ApplyElementsProjection(jsonObject, elements);
+        }
+
+        ApplySummaryProjection(jsonObject, summaryType);
+
+        return _serializer.Parse(jsonObject.ToJsonString());
+    }
+
+    private void ApplyElementsProjection(JsonObject jsonObject, IReadOnlyList<string> elements)
+    {
+        var projection = new ProjectionNode();
+        projection.Add("resourceType");
+        projection.Add("id");
+        projection.Add("meta");
+
+        var resourceType = jsonObject["resourceType"]?.GetValue<string>();
+        if (!string.IsNullOrWhiteSpace(resourceType))
+        {
+            var typeInfo = _modelInfoProvider.StructureDefinitionSummaryProvider.Provide(resourceType);
+            foreach (var requiredElement in typeInfo.GetElements().Where(e => e.IsRequired).Select(e => e.ElementName))
+            {
+                projection.Add(requiredElement);
+            }
+        }
+
+        foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+        {
+            projection.Add(element, resourceType);
+        }
+
+        FilterObject(jsonObject, projection);
+    }
+
+    private void ApplySummaryProjection(JsonObject jsonObject, SummaryType summaryType)
+    {
+        switch (summaryType)
+        {
+            case SummaryType.False:
+                return;
+            case SummaryType.Data:
+                jsonObject.Remove("text");
+                return;
+            case SummaryType.Text:
+                FilterToSummaryElements(jsonObject, includeText: true, includeRequiredElements: true, includeSummaryElements: false);
+                return;
+            case SummaryType.True:
+                FilterToSummaryElements(jsonObject, includeText: false, includeRequiredElements: true, includeSummaryElements: true);
+                return;
+            case SummaryType.Count:
+                FilterToSummaryElements(jsonObject, includeText: false, includeRequiredElements: false, includeSummaryElements: false);
+                return;
+        }
+    }
+
+    private void FilterToSummaryElements(JsonObject jsonObject, bool includeText, bool includeRequiredElements, bool includeSummaryElements)
+    {
+        var projection = new ProjectionNode();
+        projection.Add("resourceType");
+        projection.Add("id");
+        projection.Add("meta");
+
+        if (includeText)
+        {
+            projection.Add("text");
+        }
+
+        var resourceType = jsonObject["resourceType"]?.GetValue<string>();
+        if ((includeRequiredElements || includeSummaryElements) && !string.IsNullOrWhiteSpace(resourceType))
+        {
+            var typeInfo = _modelInfoProvider.StructureDefinitionSummaryProvider.Provide(resourceType);
+            foreach (var summaryElement in typeInfo.GetElements().Where(e => (includeSummaryElements && e.InSummary) || (includeRequiredElements && e.IsRequired)).Select(e => e.ElementName))
+            {
+                projection.Add(summaryElement);
+            }
+        }
+
+        FilterObject(jsonObject, projection);
+    }
+
+    private static void FilterObject(JsonObject jsonObject, ProjectionNode projection)
+    {
+        foreach (var propertyName in jsonObject.Select(property => property.Key).ToArray())
+        {
+            if (!projection.TryGetPropertyProjection(propertyName, out var propertyProjection))
+            {
+                jsonObject.Remove(propertyName);
+                continue;
+            }
+
+            if (!propertyProjection.IncludeEntireElement)
+            {
+                FilterNode(jsonObject[propertyName], propertyProjection);
+            }
+        }
+    }
+
+    private static void FilterNode(JsonNode? jsonNode, ProjectionNode projection)
+    {
+        switch (jsonNode)
+        {
+            case JsonObject jsonObject:
+                FilterObject(jsonObject, projection);
+                break;
+            case JsonArray jsonArray:
+                foreach (var item in jsonArray)
+                {
+                    FilterNode(item, projection);
+                }
+
+                break;
+        }
+    }
+
     private string[]? GetProjectedElements(Resource resource, IEnumerable<string>? elementsSearchParameter)
     {
         if (elementsSearchParameter?.Any() != true)
@@ -342,5 +463,96 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         }
 
         return false;
+    }
+
+    private sealed class ProjectionNode
+    {
+        private readonly Dictionary<string, ProjectionNode> _children = new(StringComparer.Ordinal);
+
+        public bool IncludeEntireElement { get; private set; }
+
+        public void Add(string elementPath, string? resourceType = null)
+        {
+            var path = elementPath.Trim();
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            var segments = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var startIndex = !string.IsNullOrWhiteSpace(resourceType) &&
+                segments.Length > 1 &&
+                string.Equals(segments[0], resourceType, StringComparison.Ordinal)
+                    ? 1
+                    : 0;
+
+            Add(segments, startIndex);
+        }
+
+        public bool TryGetPropertyProjection(string propertyName, [NotNullWhen(true)] out ProjectionNode? projection)
+        {
+            if (_children.TryGetValue(propertyName, out projection))
+            {
+                return true;
+            }
+
+            var primitiveElementName = propertyName.StartsWith('_') ? propertyName[1..] : null;
+            if (primitiveElementName != null && TryGetChoiceOrConcreteProjection(primitiveElementName, out projection))
+            {
+                return true;
+            }
+
+            return TryGetChoiceOrConcreteProjection(propertyName, out projection);
+        }
+
+        private void Add(string[] segments, int index)
+        {
+            if (index >= segments.Length)
+            {
+                IncludeEntireElement = true;
+                return;
+            }
+
+            var child = GetOrAdd(segments[index]);
+            child.Add(segments, index + 1);
+        }
+
+        private ProjectionNode GetOrAdd(string name)
+        {
+            if (!_children.TryGetValue(name, out var child))
+            {
+                child = new ProjectionNode();
+                _children.Add(name, child);
+            }
+
+            return child;
+        }
+
+        private bool TryGetChoiceOrConcreteProjection(string propertyName, [NotNullWhen(true)] out ProjectionNode? projection)
+        {
+            if (_children.TryGetValue(propertyName, out projection))
+            {
+                return true;
+            }
+
+            foreach (var child in _children)
+            {
+                if (IsChoicePropertyMatch(propertyName, child.Key))
+                {
+                    projection = child.Value;
+                    return true;
+                }
+            }
+
+            projection = null;
+            return false;
+        }
+
+        private static bool IsChoicePropertyMatch(string propertyName, string requestedElement)
+        {
+            return propertyName.Length > requestedElement.Length &&
+                propertyName.StartsWith(requestedElement, StringComparison.Ordinal) &&
+                char.IsUpper(propertyName[requestedElement.Length]);
+        }
     }
 }

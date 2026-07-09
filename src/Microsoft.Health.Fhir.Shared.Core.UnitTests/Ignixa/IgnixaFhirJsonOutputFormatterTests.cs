@@ -157,15 +157,292 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
-    public async Task GivenIgnixaModeAndProjectionFallback_WhenWritingResourceJsonNode_ThenInvalidOperationExceptionIsThrown()
+    public async Task GivenIgnixaModeAndElementsProjection_WhenWritingResourceJsonNode_ThenProjectionIsAppliedWithoutFirelyFallback()
     {
         // Arrange
         var formatter = CreateFormatter(FhirSdkMode.Ignixa);
-        var patient = new Patient { Id = "projection-block", Active = true };
+        var patient = new Patient
+        {
+            Id = "projection-test",
+            Active = true,
+            Name = { new HumanName { Family = "Hidden" } },
+        };
         var node = _ignixaSerializer.Parse(patient.ToJson());
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=active"));
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=active");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("projection-test", parsed.Id);
+        Assert.True(parsed.Active);
+        Assert.Empty(parsed.Name);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryDataProjection_WhenWritingResourceJsonNode_ThenProjectionIsAppliedWithoutFirelyFallback()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "summary-data-test",
+            Active = true,
+            Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Hidden narrative</div>",
+            },
+            Name = { new HumanName { Family = "Visible", Given = new[] { "Data" } } },
+            Contact =
+            {
+                new Patient.ContactComponent
+                {
+                    Name = new HumanName { Family = "Contact" },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=data");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("summary-data-test", parsed.Id);
+        Assert.True(parsed.Active);
+        Assert.Single(parsed.Name);
+        Assert.Equal("Visible", parsed.Name[0].Family);
+        Assert.NotEmpty(parsed.Contact);
+        Assert.Null(parsed.Text);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryTextProjection_WhenWritingResourceJsonNode_ThenOnlyTextAndMandatoryFieldsArePreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "summary-text-test",
+            Active = true,
+            Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Visible narrative</div>",
+            },
+            Name = { new HumanName { Family = "Hidden" } },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=text");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("summary-text-test", parsed.Id);
+        Assert.NotNull(parsed.Text);
+        Assert.Null(parsed.ActiveElement);
+        Assert.Empty(parsed.Name);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryTextProjection_WhenResourceHasMandatoryElements_ThenMandatoryElementsArePreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var observation = new Observation
+        {
+            Id = "summary-text-mandatory-test",
+            Status = ObservationStatus.Final,
+            Code = new CodeableConcept("http://loinc.org", "8310-5"),
+            Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Visible narrative</div>",
+            },
+            Value = new Quantity(98.6m, "F"),
+        };
+        var node = _ignixaSerializer.Parse(observation.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=text");
+
+        // Assert
+        var parsed = Parser.Parse<Observation>(json);
+        Assert.Equal("summary-text-mandatory-test", parsed.Id);
+        Assert.NotNull(parsed.Text);
+        Assert.Equal(ObservationStatus.Final, parsed.Status);
+        Assert.NotNull(parsed.Code);
+        Assert.Null(parsed.Value);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenWritingResourceJsonNode_ThenSummaryElementsArePreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "summary-true-test",
+            BirthDate = "1980-01-01",
+            Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Hidden narrative</div>",
+            },
+            Contact =
+            {
+                new Patient.ContactComponent
+                {
+                    Name = new HumanName { Family = "Hidden" },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=true");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("summary-true-test", parsed.Id);
+        Assert.Equal("1980-01-01", parsed.BirthDate);
+        Assert.Empty(parsed.Contact);
+        Assert.Null(parsed.Text);
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("name.family")]
+    [InlineData("telecom.value")]
+    [InlineData("extension")]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenNestedElementIsRequested_ThenRequestedElementIsPreserved(string element)
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "nested-elements-test",
+            Active = true,
+            Name = { new HumanName { Family = "Smith", Given = new[] { "John" } } },
+            Telecom =
+            {
+                new ContactPoint
+                {
+                    System = ContactPoint.ContactPointSystem.Phone,
+                    Value = "555-0100",
+                },
+            },
+            Extension =
+            {
+                new Extension("http://example.org/fhir/StructureDefinition/projected", new FhirString("visible")),
+            },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), $"?_elements={element}");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("nested-elements-test", parsed.Id);
+
+        switch (element)
+        {
+            case "name":
+                Assert.Single(parsed.Name);
+                Assert.Equal("Smith", parsed.Name[0].Family);
+                Assert.Equal("John", parsed.Name[0].Given.Single());
+                Assert.Empty(parsed.Telecom);
+                Assert.Empty(parsed.Extension);
+                break;
+            case "name.family":
+                Assert.Single(parsed.Name);
+                Assert.Equal("Smith", parsed.Name[0].Family);
+                Assert.Empty(parsed.Name[0].Given);
+                Assert.Empty(parsed.Telecom);
+                Assert.Empty(parsed.Extension);
+                break;
+            case "telecom.value":
+                Assert.Empty(parsed.Name);
+                Assert.Single(parsed.Telecom);
+                Assert.Equal("555-0100", parsed.Telecom[0].Value);
+                Assert.Null(parsed.Telecom[0].System);
+                Assert.Empty(parsed.Extension);
+                break;
+            case "extension":
+                Assert.Empty(parsed.Name);
+                Assert.Empty(parsed.Telecom);
+                Assert.Single(parsed.Extension);
+                Assert.Equal("http://example.org/fhir/StructureDefinition/projected", parsed.Extension[0].Url);
+                Assert.IsType<FhirString>(parsed.Extension[0].Value);
+                break;
+        }
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenChoiceBaseElementIsRequested_ThenChoiceValueIsPreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var observation = new Observation
+        {
+            Id = "choice-elements-test",
+            Status = ObservationStatus.Final,
+            Code = new CodeableConcept("http://loinc.org", "8310-5"),
+            Value = new Quantity(98.6m, "F"),
+            Effective = new FhirDateTime("2026-07-08T22:10:54-07:00"),
+        };
+        var node = _ignixaSerializer.Parse(observation.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=value");
+
+        // Assert
+        var parsed = Parser.Parse<Observation>(json);
+        Assert.Equal("choice-elements-test", parsed.Id);
+        Assert.Equal(ObservationStatus.Final, parsed.Status);
+        Assert.IsType<Quantity>(parsed.Value);
+        Assert.Null(parsed.Effective);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.True(jsonObject.ContainsKey("valueQuantity"));
+        Assert.False(jsonObject.ContainsKey("effectiveDateTime"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenPrimitiveElementHasExtension_ThenPrimitiveExtensionSiblingIsPreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "primitive-extension-test",
+            ActiveElement = new FhirBoolean(true)
+            {
+                Extension =
+                {
+                    new Extension("http://example.org/fhir/StructureDefinition/active-note", new FhirString("visible")),
+                },
+            },
+            Name = { new HumanName { Family = "Hidden" } },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=active");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("primitive-extension-test", parsed.Id);
+        Assert.True(parsed.Active);
+        Assert.Single(parsed.ActiveElement.Extension);
+        Assert.Empty(parsed.Name);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.True(jsonObject.ContainsKey("active"));
+        Assert.True(jsonObject.ContainsKey("_active"));
     }
 
     // ------------------------------------------------------------------
