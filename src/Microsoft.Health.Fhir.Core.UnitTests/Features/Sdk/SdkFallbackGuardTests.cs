@@ -24,11 +24,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Sdk
         {
             var guard = CreateGuard(FhirSdkMode.Ignixa);
 
-            var exception = Assert.Throws<InvalidOperationException>(() => guard.FirelyFallback("projection", "native projection missing"));
+            var exception = Assert.Throws<InvalidOperationException>(() => guard.FirelyFallback("projection", "native output missing"));
 
             Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode", exception.Message, StringComparison.Ordinal);
-            Assert.Contains("projection", exception.Message, StringComparison.Ordinal);
-            Assert.Contains("native projection missing", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("Surface: projection", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("Reason: native output missing", exception.Message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -37,13 +37,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Sdk
             var logger = new TestLogger<SdkFallbackGuard>();
             var guard = CreateGuard(FhirSdkMode.Hybrid, logger);
 
-            guard.FirelyFallback("projection", "native projection missing");
+            guard.FirelyFallback("projection", "native output missing");
 
             var message = Assert.Single(logger.Messages);
             Assert.Contains("Firely SDK fallback used", message, StringComparison.Ordinal);
-            Assert.Contains("projection", message, StringComparison.Ordinal);
-            Assert.Contains("native projection missing", message, StringComparison.Ordinal);
-            Assert.Contains("Hybrid", message, StringComparison.Ordinal);
+            Assert.Contains("Surface: projection", message, StringComparison.Ordinal);
+            Assert.Contains("Reason: native output missing", message, StringComparison.Ordinal);
+            Assert.Contains("Mode: Hybrid", message, StringComparison.Ordinal);
         }
 
         [Theory]
