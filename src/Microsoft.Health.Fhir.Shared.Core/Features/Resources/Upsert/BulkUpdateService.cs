@@ -669,8 +669,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new InvalidOperationException("Ignixa SDK mode requires bulk update resources to remain backed by an Ignixa ResourceJsonNode.");
             }
 
-            if (_sdkModeProvider.IsHybridMode && _ignixaSerializer != null && _schemaContext != null)
+            if (_sdkModeProvider.IsHybridMode)
             {
+                if (_ignixaSerializer == null || _schemaContext == null)
+                {
+                    throw new InvalidOperationException("Hybrid SDK mode requires Ignixa serializer and schema services before bulk update can persist Firely-patched resources through Ignixa compatibility.");
+                }
+
                 _sdkFallbackGuard?.IgnixaFallback(
                     "Bulk update persistence",
                     "Bulk update persists Firely-patched resources through Ignixa raw-resource factory in hybrid mode.");

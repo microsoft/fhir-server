@@ -123,6 +123,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public void GivenIgnixaModeAndFirelyBackedResource_WhenSerialized_ThenInvalidOperationExceptionIsThrown()
+        {
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Ignixa });
+            var serializer = new ResourceToNdjsonBytesSerializer(
+                _ignixaSerializer,
+                modeProvider,
+                new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance));
+
+            Assert.Throws<InvalidOperationException>(() => serializer.Serialize(_resource.ToResourceElement()));
+        }
+
+        [Fact]
+        public void GivenHybridModeAndFirelyBackedResource_WhenSerialized_ThenFirelyFallbackIsGuarded()
+        {
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Hybrid });
+            var fallbackGuard = Substitute.For<ISdkFallbackGuard>();
+            var serializer = new ResourceToNdjsonBytesSerializer(
+                _ignixaSerializer,
+                modeProvider,
+                fallbackGuard);
+
+            serializer.Serialize(_resource.ToResourceElement());
+
+            fallbackGuard.Received().FirelyFallback(
+                "Export NDJSON serialization",
+                "ResourceElement was not backed by an Ignixa ResourceJsonNode.");
+        }
+
+        [Fact]
         public void GivenARawResourceInXmlFormat_WhenSerialized_ThenCorrectByteArrayShouldBeProduced()
         {
             var rawResource = new RawResource(

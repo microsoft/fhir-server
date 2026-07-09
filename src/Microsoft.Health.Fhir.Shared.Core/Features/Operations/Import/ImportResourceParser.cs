@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EnsureThat;
@@ -14,6 +13,7 @@ using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             var resource = _firelyJsonParser.Parse<Resource>(rawResource)
                 ?? throw new InvalidOperationException("Failed to parse resource from raw JSON.");
             ValidateResourceId(resource.Id);
-            CheckConditionalReferenceInFirelyResource(rawResource, importMode);
+            CheckConditionalReferenceInFirelyResource(resource, importMode);
 
             resource.Meta ??= new Meta();
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
@@ -162,48 +162,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private static void CheckConditionalReferenceInFirelyResource(string rawResource, ImportMode importMode)
+        private static void CheckConditionalReferenceInFirelyResource(Resource resource, ImportMode importMode)
         {
             if (importMode == ImportMode.IncrementalLoad)
             {
                 return;
             }
 
-            var jsonNode = JsonNode.Parse(rawResource);
-            if (ContainsConditionalReference(jsonNode))
+            foreach (var reference in resource.GetAllChildren<ResourceReference>())
             {
-                throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
-            }
-        }
-
-        private static bool ContainsConditionalReference(JsonNode node)
-        {
-            switch (node)
-            {
-                case JsonObject jsonObject:
-                    foreach (var property in jsonObject)
-                    {
-                        if (string.Equals(property.Key, "reference", StringComparison.Ordinal) &&
-                            property.Value is JsonValue jsonValue &&
-                            jsonValue.TryGetValue<string>(out var reference) &&
-                            reference.Contains('?', StringComparison.Ordinal))
-                        {
-                            return true;
-                        }
-
-                        if (ContainsConditionalReference(property.Value))
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
-
-                case JsonArray jsonArray:
-                    return jsonArray.Any(ContainsConditionalReference);
-
-                default:
-                    return false;
+                if (reference.Reference?.Contains('?', StringComparison.Ordinal) == true)
+                {
+                    throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
+                }
             }
         }
 

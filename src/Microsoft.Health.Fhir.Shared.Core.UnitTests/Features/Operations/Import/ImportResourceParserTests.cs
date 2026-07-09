@@ -127,6 +127,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public void GivenFirelyModeInitialLoad_WhenActualReferenceIsConditional_ThenNotSupportedExceptionIsThrown()
+        {
+            var resourceFactory = Substitute.For<IResourceWrapperFactory>();
+            var parser = new ImportResourceParser(
+                serializer: null,
+                resourceFactory,
+                schemaContext: null,
+                new FhirJsonParser(),
+                new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Firely }));
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+                Subject = new ResourceReference("Patient?identifier=system|value"),
+            };
+            var rawResource = _jsonSerializer.SerializeToString(observation);
+
+            Assert.Throws<NotSupportedException>(() => parser.Parse(0, 0, rawResource.Length, rawResource, ImportMode.InitialLoad));
+        }
+
+        [Fact]
         public void GivenIgnixaMode_WhenParsed_ThenResourceWrapperReceivesIgnixaBackedResourceElement()
         {
             var resourceFactory = Substitute.For<IResourceWrapperFactory>();

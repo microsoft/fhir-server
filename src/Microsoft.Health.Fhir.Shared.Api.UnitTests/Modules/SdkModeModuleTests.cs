@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,10 +15,12 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -74,6 +77,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             Assert.Equal("IgnixaFhirJsonOutputFormatter", mvcOptions.OutputFormatters[0].GetType().Name);
             Assert.Contains(mvcOptions.InputFormatters, x => x is FhirXmlInputFormatter);
             Assert.Contains(mvcOptions.OutputFormatters, x => x is FhirXmlOutputFormatter);
+        }
+
+        [Theory]
+        [InlineData(FhirSdkMode.Ignixa)]
+        [InlineData(FhirSdkMode.Hybrid)]
+        public void GivenIgnixaActiveMode_WhenFhirModuleDeserializerIsUsed_ThenResourceJsonNodeIsPreserved(FhirSdkMode mode)
+        {
+            using var serviceProvider = BuildServiceProvider(mode);
+            var deserializers = serviceProvider.GetRequiredService<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>();
+            const string patientJson = "{\"resourceType\":\"Patient\",\"id\":\"module-deserializer\",\"active\":true}";
+
+            var resourceElement = deserializers[FhirResourceFormat.Json](patientJson, "1", DateTimeOffset.UtcNow);
+
+            Assert.NotNull(resourceElement.GetIgnixaNode());
         }
 
         [Fact]
