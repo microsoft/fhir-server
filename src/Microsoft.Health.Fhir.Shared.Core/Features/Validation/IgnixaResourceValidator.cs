@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <list type="bullet">
     /// <item><description>For Ignixa resources: Uses Ignixa.Validation with Compatibility depth for ~1-5ms validation</description></item>
     /// <item><description>For non-Ignixa resources: Falls back to Firely DotNetAttributeValidation for compatibility</description></item>
-    /// <item><description>For conformance resources: Falls back to Firely validation due to complex nested types</description></item>
+    /// <item><description>For conformance resources: Uses Ignixa native validation in Ignixa mode and only permits Firely fallback when the configured SDK mode allows it</description></item>
     /// </list>
     /// <para>
     /// The validator uses Compatibility mode which accepts relative or local references in Coding.system fields,
@@ -45,9 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public sealed class IgnixaResourceValidator : IModelAttributeValidator
     {
         /// <summary>
-        /// Conformance resource types that should use fallback validation.
-        /// These resources have complex nested types (ElementDefinition, etc.) that
-        /// are not properly validated by Ignixa.
+        /// Conformance resource types that require explicit fallback handling.
         /// </summary>
         private static readonly HashSet<string> ConformanceResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -137,11 +135,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             ICollection<DataAnnotations.ValidationResult> validationResults,
             bool recurse)
         {
-            // Conformance resources have complex nested types (ElementDefinition, etc.)
-            // that are not properly validated by Ignixa. Fall back to Firely validation.
             if (ConformanceResourceTypes.Contains(resourceType))
             {
-                _fallbackGuard.FirelyFallback("Ignixa resource validation", $"Conformance resource validation for {resourceType} uses Firely.");
+                var ignixaValidationResults = new List<DataAnnotations.ValidationResult>();
+                if (TryValidateConformanceIgnixa(resourceNode, resourceType, ignixaValidationResults))
+                {
+                    return true;
+                }
+
+                var issueSummary = ignixaValidationResults.Count == 0
+                    ? "No Ignixa issue details were produced."
+                    : string.Join("; ", ignixaValidationResults.Select(x => x.ErrorMessage));
+
+                try
+                {
+                    _fallbackGuard.FirelyFallback(
+                        "Ignixa conformance resource validation",
+                        $"Ignixa native validation failed for conformance resource {resourceType}; using Firely validation for compatibility. Ignixa issues: {issueSummary}");
+                }
+                catch (InvalidOperationException)
+                {
+                    if (validationResults != null)
+                    {
+                        foreach (var validationResult in ignixaValidationResults)
+                        {
+                            validationResults.Add(validationResult);
+                        }
+                    }
+
+                    return false;
+                }
+
                 var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
                 return _fallbackValidator.TryValidate(ignixaElement.ToResourceElement(), validationResults, recurse);
             }
@@ -185,6 +209,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             _fallbackGuard.FirelyFallback("Ignixa resource validation", "Model attribute validation uses Firely.");
             return _fallbackValidator.TryValidate(value, validationResults, recurse);
+        }
+
+        /// <summary>
+        /// Validates a conformance resource using Ignixa native validation.
+        /// </summary>
+        /// <param name="resourceNode">The Ignixa resource node to validate.</param>
+        /// <param name="resourceType">The FHIR resource type name.</param>
+        /// <param name="validationResults">Optional collection to receive validation results.</param>
+        /// <returns>True if validation passed; otherwise false.</returns>
+        private bool TryValidateConformanceIgnixa(
+            ResourceJsonNode resourceNode,
+            string resourceType,
+            List<DataAnnotations.ValidationResult> validationResults)
+        {
+            var typeDefinition = _schemaContext.Schema.GetTypeDefinition(resourceType);
+            if (typeDefinition == null)
+            {
+                return true;
+            }
+
+            var schema = _schemaBuilder.BuildSchema(
+                typeDefinition,
+                _schemaContext.Schema,
+                terminologyService: null);
+
+            var element = resourceNode.ToElement(_schemaContext.Schema);
+            var state = new ValidationState()
+                .WithInstance(resourceType, resourceNode.Id);
+
+            var result = schema.Validate(element, _validationSettings, state);
+
+            if (validationResults != null)
+            {
+                foreach (var issue in result.Issues.Where(i => i.Severity == IssueSeverity.Error || i.Severity == IssueSeverity.Fatal))
+                {
+                    var memberNames = string.IsNullOrEmpty(issue.Path)
+                        ? null
+                        : new[] { issue.Path };
+
+                    validationResults.Add(new DataAnnotations.ValidationResult(issue.Message, memberNames));
+                }
+            }
+
+            return result.IsValid;
         }
 
         /// <summary>

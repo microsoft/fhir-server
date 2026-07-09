@@ -6,9 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -85,19 +87,6 @@ public class IgnixaResourceValidatorTests
             "system": "http://unitsofmeasure.org",
             "code": "[lb_av]"
           }
-        }
-        """;
-
-    private const string CapabilityStatementJson = """
-        {
-          "resourceType": "CapabilityStatement",
-          "status": "active",
-          "date": "2020-01-01",
-          "kind": "instance",
-          "fhirVersion": "4.0.1",
-          "format": [
-            "json"
-          ]
         }
         """;
 
@@ -193,16 +182,39 @@ public class IgnixaResourceValidatorTests
         Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("format"));
     }
 
-    [Fact]
-    public async Task GivenIgnixaModeAndConformanceResource_WhenValidating_ThenInvalidOperationExceptionIsThrown()
+    [Theory]
+    [InlineData("StructureDefinition")]
+    [InlineData("SearchParameter")]
+    [InlineData("ValueSet")]
+    [InlineData("CodeSystem")]
+    public async Task GivenIgnixaModeAndConformanceResource_WhenValidating_ThenFirelyFallbackIsNotUsed(string resourceType)
     {
         // Arrange
-        var validator = CreateValidator(FhirSdkMode.Ignixa);
-        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var validator = CreateIgnixaModeValidator();
+        var resource = await CreateResourceElement(GetMinimalConformanceJson(resourceType));
         var results = new List<ValidationResult>();
 
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid, string.Join("; ", results.Select(x => x.ErrorMessage)));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndInvalidConformanceResource_WhenValidating_ThenIgnixaValidationResultIsReturned()
+    {
+        // Arrange
+        var validator = CreateIgnixaModeValidator();
+        var resource = await CreateResourceElement("{\"resourceType\":\"SearchParameter\",\"url\":\"http://example.org/sp\",\"name\":\"X\",\"status\":\"active\",\"code\":\"x\",\"base\":[\"Patient\"],\"type\":\"string\",\"expression\":\"Patient.name\"}");
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Contains(results, x => x.ErrorMessage.Contains("SearchParameter.description"));
     }
 
     [Fact]
@@ -210,7 +222,7 @@ public class IgnixaResourceValidatorTests
     {
         // Arrange
         var validator = CreateValidator(FhirSdkMode.Hybrid);
-        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var resource = await CreateResourceElement(GetMinimalCapabilityStatementJson());
         var results = new List<ValidationResult>();
 
         // Act
@@ -241,6 +253,33 @@ public class IgnixaResourceValidatorTests
         var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
 
         return ignixaElement.ToResourceElement();
+    }
+
+    private static string GetMinimalCapabilityStatementJson()
+    {
+        return ModelInfoProvider.Instance.Version switch
+        {
+            FhirSpecification.Stu3 => "{\"resourceType\":\"CapabilityStatement\",\"status\":\"active\",\"date\":\"2020-01-01\",\"kind\":\"instance\",\"fhirVersion\":\"3.0.2\",\"acceptUnknown\":\"both\",\"format\":[\"json\"]}",
+            FhirSpecification.R5 => "{\"resourceType\":\"CapabilityStatement\",\"status\":\"active\",\"date\":\"2020-01-01\",\"kind\":\"instance\",\"fhirVersion\":\"5.0.0\",\"format\":[\"json\"]}",
+            _ => "{\"resourceType\":\"CapabilityStatement\",\"status\":\"active\",\"date\":\"2020-01-01\",\"kind\":\"instance\",\"fhirVersion\":\"4.0.1\",\"format\":[\"json\"]}",
+        };
+    }
+
+    private static string GetMinimalConformanceJson(string resourceType)
+    {
+        return resourceType switch
+        {
+            "ValueSet" => "{\"resourceType\":\"ValueSet\",\"url\":\"http://example.org/vs\",\"status\":\"active\"}",
+            "CodeSystem" => "{\"resourceType\":\"CodeSystem\",\"url\":\"http://example.org/cs\",\"status\":\"active\",\"content\":\"complete\"}",
+            "SearchParameter" => "{\"resourceType\":\"SearchParameter\",\"url\":\"http://example.org/sp\",\"name\":\"X\",\"status\":\"active\",\"description\":\"Example\",\"code\":\"x\",\"base\":[\"Patient\"],\"type\":\"string\",\"expression\":\"Patient.name\"}",
+            "StructureDefinition" => "{\"resourceType\":\"StructureDefinition\",\"url\":\"http://example.org/sd\",\"status\":\"active\",\"name\":\"Example\",\"kind\":\"resource\",\"abstract\":false,\"type\":\"Patient\",\"baseDefinition\":\"http://hl7.org/fhir/StructureDefinition/Patient\",\"derivation\":\"constraint\"}",
+            _ => throw new ArgumentOutOfRangeException(nameof(resourceType), resourceType, null),
+        };
+    }
+
+    private IgnixaResourceValidator CreateIgnixaModeValidator()
+    {
+        return CreateValidator(FhirSdkMode.Ignixa);
     }
 
     private IgnixaResourceValidator CreateValidator(FhirSdkMode mode)
