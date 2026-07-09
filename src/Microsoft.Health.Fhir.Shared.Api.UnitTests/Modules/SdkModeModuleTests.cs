@@ -37,11 +37,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             Assert.DoesNotContain(mvcOptions.OutputFormatters, x => x.GetType().Name == "IgnixaFhirJsonOutputFormatter");
             Assert.Contains(mvcOptions.InputFormatters, x => x is FhirJsonInputFormatter);
             Assert.Contains(mvcOptions.OutputFormatters, x => x is FhirJsonOutputFormatter);
+            Assert.Contains(mvcOptions.InputFormatters, x => x is FhirXmlInputFormatter);
+            Assert.Contains(mvcOptions.OutputFormatters, x => x is FhirXmlOutputFormatter);
             Assert.IsType<FirelyFhirPathProvider>(fhirPathProvider);
         }
 
         [Fact]
-        public void GivenIgnixaMode_WhenFhirModuleLoads_ThenIgnixaFormattersAndFhirPathAreActive()
+        public void GivenIgnixaMode_WhenFhirModuleLoads_ThenIgnixaJsonFormattersAndFhirPathAreActiveButXmlIsDisabled()
         {
             using var serviceProvider = BuildServiceProvider(FhirSdkMode.Ignixa);
 
@@ -50,9 +52,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
 
             Assert.Equal("IgnixaFhirJsonInputFormatter", mvcOptions.InputFormatters[0].GetType().Name);
             Assert.Equal("IgnixaFhirJsonOutputFormatter", mvcOptions.OutputFormatters[0].GetType().Name);
+            Assert.DoesNotContain(mvcOptions.InputFormatters, x => x is FhirXmlInputFormatter);
+            Assert.DoesNotContain(mvcOptions.OutputFormatters, x => x is FhirXmlOutputFormatter);
+            Assert.IsType<IgnixaFhirPathProvider>(fhirPathProvider);
+        }
+
+        [Fact]
+        public void GivenHybridMode_WhenFhirModuleLoads_ThenIgnixaJsonAndXmlFormattersRemainActive()
+        {
+            using var serviceProvider = BuildServiceProvider(FhirSdkMode.Hybrid);
+
+            var mvcOptions = serviceProvider.GetRequiredService<IOptions<MvcOptions>>().Value;
+
+            Assert.Equal("IgnixaFhirJsonInputFormatter", mvcOptions.InputFormatters[0].GetType().Name);
+            Assert.Equal("IgnixaFhirJsonOutputFormatter", mvcOptions.OutputFormatters[0].GetType().Name);
             Assert.Contains(mvcOptions.InputFormatters, x => x is FhirXmlInputFormatter);
             Assert.Contains(mvcOptions.OutputFormatters, x => x is FhirXmlOutputFormatter);
-            Assert.IsType<IgnixaFhirPathProvider>(fhirPathProvider);
         }
 
         [Fact]

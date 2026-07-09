@@ -9,17 +9,20 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
 {
     public class XmlFormatterFeatureModule : IStartupModule
     {
         private readonly FeatureConfiguration _featureConfiguration;
+        private readonly FhirSdkMode _sdkMode;
 
         public XmlFormatterFeatureModule(FhirServerConfiguration fhirServerConfiguration)
         {
             EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
             _featureConfiguration = fhirServerConfiguration.Features;
+            _sdkMode = fhirServerConfiguration.Sdk.Mode;
         }
 
         /// <inheritdoc />
@@ -27,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            if (_featureConfiguration.SupportsXml)
+            if (_featureConfiguration.SupportsXml && _sdkMode != FhirSdkMode.Ignixa)
             {
                 // Text Formatters will be registered with MVC in FormatterConfiguration.cs
 
