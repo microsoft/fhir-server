@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
             TableName = "QuantitySearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -50,21 +50,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
             var conditions = new StringBuilder();
 
             // Parse and add the numeric comparison
-            var numericCondition = BuildNumericCondition(numberPart, suffix);
+            var numericCondition = BuildNumericCondition(numberPart, suffix, tableName);
             conditions.Append(numericCondition);
 
             // Add system condition if specified
             if (!string.IsNullOrEmpty(system))
             {
                 var escapedSystem = EscapeSqlValue(system);
-                conditions.Append($" AND t.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
+                conditions.Append($" AND {tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
             }
 
             // Add code condition if specified
             if (!string.IsNullOrEmpty(code))
             {
                 var escapedCode = EscapeSqlValue(code);
-                conditions.Append($" AND t.QuantityCodeId{suffix} = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = {escapedCode})");
+                conditions.Append($" AND {tableName}.QuantityCodeId{suffix} = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = {escapedCode})");
             }
 
             return conditions.ToString();
@@ -75,8 +75,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
         /// </summary>
         /// <param name="numberPart">The numeric part of the quantity value (may include prefix like "gt", "le", etc.).</param>
         /// <param name="suffix">Optional numeric suffix for column names in composite tables.</param>
+        /// <param name="tableName">The name of the table to use in the SQL condition.</param>
         /// <returns>The SQL condition for the numeric comparison.</returns>
-        private static string BuildNumericCondition(string numberPart, string suffix)
+        private static string BuildNumericCondition(string numberPart, string suffix, string tableName)
         {
             // Reuse the NumberSqlParser's ParseValue to extract the modifier and value
             var parsedValue = NumberSqlParser.ParseValue(numberPart, out var valueModifier);
@@ -84,15 +85,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
             // Build the condition using the same logic as NumberSqlParser
             return valueModifier switch
             {
-                "gt" => $"t.HighValue{suffix} > {parsedValue}",
-                "ge" => $"t.HighValue{suffix} >= {parsedValue}",
-                "lt" => $"t.LowValue{suffix} < {parsedValue}",
-                "le" => $"t.LowValue{suffix} <= {parsedValue}",
-                "sa" => $"t.LowValue{suffix} > {parsedValue}",       // starts after
-                "eb" => $"t.HighValue{suffix} < {parsedValue}",      // ends before
-                "ne" => $"(t.HighValue{suffix} > {parsedValue} OR t.LowValue{suffix} < {parsedValue})",
-                "eq" => $"t.HighValue{suffix} >= {parsedValue} AND t.LowValue{suffix} <= {parsedValue}",
-                "ap" => BuildApproximateCondition(parsedValue, suffix), // approximately
+                "gt" => $"{tableName}.HighValue{suffix} > {parsedValue}",
+                "ge" => $"{tableName}.HighValue{suffix} >= {parsedValue}",
+                "lt" => $"{tableName}.LowValue{suffix} < {parsedValue}",
+                "le" => $"{tableName}.LowValue{suffix} <= {parsedValue}",
+                "sa" => $"{tableName}.LowValue{suffix} > {parsedValue}",       // starts after
+                "eb" => $"{tableName}.HighValue{suffix} < {parsedValue}",      // ends before
+                "ne" => $"({tableName}.HighValue{suffix} > {parsedValue} OR {tableName}.LowValue{suffix} < {parsedValue})",
+                "eq" => $"{tableName}.HighValue{suffix} >= {parsedValue} AND {tableName}.LowValue{suffix} <= {parsedValue}",
+                "ap" => BuildApproximateCondition(parsedValue, suffix, tableName), // approximately
                 _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
         }
@@ -103,8 +104,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
         /// </summary>
         /// <param name="escapedValue">The escaped numeric value.</param>
         /// <param name="suffix">Optional numeric suffix for column names.</param>
+        /// <param name="tableName">The name of the table to use in the SQL condition.</param>
         /// <returns>The SQL condition for approximate matching.</returns>
-        private static string BuildApproximateCondition(string escapedValue, string suffix)
+        private static string BuildApproximateCondition(string escapedValue, string suffix, string tableName)
         {
             // Remove the quotes added by ParseValue to do math
             var numericValue = escapedValue.Trim('\'');
@@ -113,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
             // The stored range is [LowValue, HighValue]
             // The approximate range is [value * 0.9, value * 1.1]
             // They overlap if: HighValue >= value * 0.9 AND LowValue <= value * 1.1
-            return $"(t.HighValue{suffix} >= {numericValue} * 0.9 AND t.LowValue{suffix} <= {numericValue} * 1.1)";
+            return $"({tableName}.HighValue{suffix} >= {numericValue} * 0.9 AND {tableName}.LowValue{suffix} <= {numericValue} * 1.1)";
         }
     }
 }

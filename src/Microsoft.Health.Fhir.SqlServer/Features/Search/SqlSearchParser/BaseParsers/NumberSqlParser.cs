@@ -18,21 +18,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             TableName = "NumberSearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
             var parsedValue = ParseValue(value, out var valueModifier);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             return valueModifier switch
             {
-                "gt" => $"t.HighValue{suffix} > {parsedValue}",
-                "ge" => $"t.HighValue{suffix} >= {parsedValue}",
-                "lt" => $"t.LowValue{suffix} < {parsedValue}",
-                "le" => $"t.LowValue{suffix} <= {parsedValue}",
-                "sa" => $"t.LowValue{suffix} > {parsedValue}",
-                "eb" => $"t.HighValue{suffix} < {parsedValue}",
-                "ne" => $"(t.HighValue{suffix} > {parsedValue} OR t.LowValue{suffix} < {parsedValue})",
-                "eq" => $"t.HighValue{suffix} >= {parsedValue} AND t.LowValue{suffix} <= {parsedValue}",
+                "gt" => $"{tableName}.HighValue{suffix} > {parsedValue}",
+                "ge" => $"{tableName}.HighValue{suffix} >= {parsedValue}",
+                "lt" => $"{tableName}.LowValue{suffix} < {parsedValue}",
+                "le" => $"{tableName}.LowValue{suffix} <= {parsedValue}",
+                "sa" => $"{tableName}.LowValue{suffix} > {parsedValue}",
+                "eb" => $"{tableName}.HighValue{suffix} < {parsedValue}",
+                "ne" => $"({tableName}.HighValue{suffix} > {parsedValue} OR {tableName}.LowValue{suffix} < {parsedValue})",
+                "eq" => $"{tableName}.HighValue{suffix} >= {parsedValue} AND {tableName}.LowValue{suffix} <= {parsedValue}",
                 _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
         }

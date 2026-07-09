@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public IList<short> ResourceTypes { get; init; } = new List<short>();
 
+        public IList<short> ExcludedResourceTypes { get; init; } = new List<short>();
+
         public bool IncludeTotalCount { get; set; }
 
         public string? SortParameterName { get; set; }

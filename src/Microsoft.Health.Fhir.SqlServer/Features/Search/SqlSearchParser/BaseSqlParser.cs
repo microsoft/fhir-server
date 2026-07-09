@@ -44,7 +44,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var sqlBuilder = new StringBuilder();
-            sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
+            sqlBuilder.AppendLine($"SELECT *, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row");
+            sqlBuilder.AppendLine($"  FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial");
 
             var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "RefResourceSurrogateId";
 
@@ -60,16 +61,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 // Join on Resource table or previous CTE
                 sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} r ON t.ResourceSurrogateId = r.{surrogateIdColumn}");
 
-                sqlBuilder.AppendLine($"  WHERE t.SearchParamId = {parameter.Id}");
+                var tableName = "t";
 
-                var values = value.Split(',');
+                if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
+                {
+                    sqlBuilder.AppendLine($"  WHERE NOT EXISTS (SELECT 1 FROM {TableName} t2");
+                    tableName = "t2";
+                }
+
+                sqlBuilder.AppendLine($"  WHERE {tableName}.SearchParamId = {parameter.Id}");
+
+                var values = SplitWithEscapeChar(value, ',', '\\');
 
                 sqlBuilder.AppendLine("  AND (");
                 var firstClause = true;
                 foreach (var v in values)
                 {
                     // Add parameter-specific WHERE conditions
-                    var whereClause = BuildWhereClause(v, modifier, columnSuffix: null);
+                    var whereClause = BuildWhereClause(v, modifier, columnSuffix: null, tableName: tableName);
 
                     if (!firstClause)
                     {
@@ -85,6 +94,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
 
                 sqlBuilder.AppendLine("  )");
+
+                if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
+                {
+                    sqlBuilder.AppendLine($"  AND {tableName}.ResourceSurrogateId = t.ResourceSurrogateId");
+                    sqlBuilder.AppendLine($"  AND {tableName}.ResourceTypeId = t.ResourceTypeId");
+                    sqlBuilder.AppendLine("  )");
+                }
             }
 
             // Add base filters only on the first CTE
@@ -109,6 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
             }
 
+            sqlBuilder.Append("  ) as a");
+
             return sqlBuilder.ToString();
         }
 
@@ -118,8 +136,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// <param name="value">The search value.</param>
         /// <param name="modifier">The search modifier (if any).</param>
         /// <param name="columnSuffix">Optional numeric suffix for column names in composite tables (e.g., 2 for "Text2"). Null for non-composite tables.</param>
+        /// <param name="tableName">The table name or alias to use in the WHERE clause.</param>
         /// <returns>The SQL WHERE clause.</returns>
-        public abstract string BuildWhereClause(string value, string modifier, int? columnSuffix = null);
+        public abstract string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t");
 
         protected static string EscapeSqlValue(string value)
         {
@@ -131,6 +150,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // Escape single quotes by doubling them
             var escaped = value.Replace("'", "''", StringComparison.Ordinal);
             return $"'{escaped}'";
+        }
+
+        private static string[] SplitWithEscapeChar(string value, char separator, char escapeChar)
+        {
+            var result = new System.Collections.Generic.List<string>();
+            var current = new StringBuilder();
+            bool isEscaped = false;
+            foreach (var c in value)
+            {
+                if (isEscaped)
+                {
+                    current.Append(c);
+                    isEscaped = false;
+                }
+                else if (c == escapeChar)
+                {
+                    isEscaped = true;
+                }
+                else if (c == separator)
+                {
+                    result.Add(current.ToString());
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+
+            result.Add(current.ToString());
+            return result.ToArray();
         }
     }
 }

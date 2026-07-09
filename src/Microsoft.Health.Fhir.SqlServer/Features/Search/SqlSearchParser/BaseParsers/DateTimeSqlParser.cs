@@ -20,21 +20,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             TableName = "DateTimeSearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
             var parsedValue = ParseValue(value, out var valueModifier);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             return valueModifier switch
             {
-                "gt" => $"t.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "ge" => $"t.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "lt" => $"t.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "le" => $"t.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "sa" => $"t.StartDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "eb" => $"t.EndDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "ne" => $"(t.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}' OR t.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}')",
-                "eq" => $"t.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}' AND t.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
+                "gt" => $"{tableName}.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
+                "ge" => $"{tableName}.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}'",
+                "lt" => $"{tableName}.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
+                "le" => $"{tableName}.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
+                "sa" => $"{tableName}.StartDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
+                "eb" => $"{tableName}.EndDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
+                "ne" => $"({tableName}.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}' OR {tableName}.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}')",
+                "eq" => $"{tableName}.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}' AND {tableName}.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
                 _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
         }

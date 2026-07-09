@@ -24,6 +24,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 return null;
             }
 
+            var parameterParts = name.Split(':');
+            var modifier = parameterParts.Length > 1 ? parameterParts[1] : string.Empty;
+
             // Handle comma-separated list of IDs (e.g., _id=123,456,789)
             var ids = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (ids.Length == 0)
@@ -44,13 +47,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             if (ids.Length == 1)
             {
                 var escapedId = EscapeSqlValue(ids[0]);
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId = {escapedId}");
+                sqlBuilder.AppendLine($"  WHERE r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedId}");
             }
             else
             {
                 // Multiple IDs - use IN clause
                 var escapedIds = string.Join(", ", ids.Select(EscapeSqlValue));
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId IN ({escapedIds})");
+                sqlBuilder.AppendLine($"  WHERE r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "NOT IN" : "IN")} ({escapedIds})");
             }
 
             // Add base filters only on the first CTE

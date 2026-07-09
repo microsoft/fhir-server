@@ -5,6 +5,7 @@
 
 using System;
 using System.Text;
+using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -16,11 +17,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             TableName = "StringSearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
-            var escapedValue = EscapeSqlValue(value);
+            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
-            return $"t.Text{suffix} = {escapedValue}";
+
+            return modifier switch
+            {
+                "exact" => $"{tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} = '{escapedValue}' COLLATE Latin1_General_Bin",
+                "contains" => $"({tableName}.Text{suffix} like '%{escapedValue}%' OR {tableName}.TextOverflow{suffix} like '%{escapedValue}%')",
+                _ => $"({tableName}.Text{suffix} like '%{escapedValue}%' OR {tableName}.TextOverflow{suffix} like '%{escapedValue}%')",
+            };
         }
     }
 }

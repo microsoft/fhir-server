@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             TableName = "TokenSearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -31,51 +31,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             // Parse token value - format can be:
             // - "code" (just code)
-            // - "|code" (any system with this code)
+            // - "|code" (empty system with this code)
             // - "system|code" (specific system and code)
             // - "system|" (any code in this system)
 
             var parts = value.Split('|', 2);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
+            var conditions = new StringBuilder();
 
             if (parts.Length == 1)
             {
                 // Just code, no system specified
-                return BuildCodeCondition(parts[0], modifier, suffix);
+                conditions.Append(BuildCodeCondition(parts[0], modifier, suffix, tableName));
             }
-
-            var system = parts[0];
-            var code = parts[1];
-
-            var conditions = new StringBuilder();
-
-            if (!string.IsNullOrEmpty(system))
+            else
             {
+                var system = parts[0];
+                var code = parts[1];
+
                 // System is specified
-                var escapedSystem = EscapeSqlValue(system);
-                conditions.Append($"t.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
-            }
-
-            if (!string.IsNullOrEmpty(code))
-            {
-                // Code is specified
-                if (conditions.Length > 0)
+                if (string.IsNullOrEmpty(system))
                 {
-                    conditions.Append(" AND ");
+                    conditions.Append($"({tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = '') OR {tableName}.SystemId{suffix} IS NULL)");
+                }
+                else
+                {
+                    var escapedSystem = EscapeSqlValue(system);
+                    conditions.Append($"{tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
                 }
 
-                conditions.Append(BuildCodeCondition(code, modifier, suffix));
-            }
-            else if (conditions.Length == 0)
-            {
-                // Both system and code are empty ("|")
-                return "1=1";
+                if (!string.IsNullOrEmpty(code))
+                {
+                    conditions.Append(" AND ");
+                    conditions.Append(BuildCodeCondition(code, modifier, suffix, tableName));
+                }
             }
 
             return conditions.ToString();
         }
 
-        private static string BuildCodeCondition(string code, string modifier, string suffix)
+        private static string BuildCodeCondition(string code, string modifier, string suffix, string tableName)
         {
             const int MaxCodeLength = 256;
 
@@ -83,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 // Code fits in the Code column
                 var escapedCode = EscapeSqlValue(code);
-                return $"t.Code{suffix} {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedCode}";
+                return $"{tableName}.Code{suffix} = {escapedCode}";
             }
             else
             {
@@ -95,14 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var escapedPrefix = EscapeSqlValue(codePrefix);
                 var escapedOverflow = EscapeSqlValue(codeOverflow);
 
-                if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
-                {
-                    return $"(t.Code{suffix} <> {escapedPrefix} OR t.CodeOverflow{suffix} <> {escapedOverflow})";
-                }
-                else
-                {
-                    return $"(t.Code{suffix} = {escapedPrefix} AND t.CodeOverflow{suffix} = {escapedOverflow})";
-                }
+                return $"({tableName}.Code{suffix} = {escapedPrefix} AND {tableName}.CodeOverflow{suffix} = {escapedOverflow})";
             }
         }
     }

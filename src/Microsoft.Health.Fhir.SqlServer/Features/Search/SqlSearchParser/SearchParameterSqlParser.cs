@@ -137,6 +137,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parametersCopy.Remove("_type");
             }
 
+            if (parametersCopy.TryGetValue("_type:not", out var excludedTypeValues))
+            {
+                foreach (var typeValue in excludedTypeValues.SelectMany(types => types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Select(_sqlServerFhirModel.GetResourceTypeId))
+                {
+                    parserOptions.ExcludedResourceTypes.Add(typeValue);
+                }
+
+                parametersCopy.Remove("_type:not");
+            }
+
             parametersCopy.Remove("_count");
             parametersCopy.Remove("_total");
             parametersCopy.Remove("ct");
@@ -461,12 +471,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 throw new ArgumentNullException(nameof(name));
             }
 
-            if (name.Equals(KnownQueryParameterNames.Id, StringComparison.OrdinalIgnoreCase))
+            if (name.StartsWith(KnownQueryParameterNames.Id, StringComparison.OrdinalIgnoreCase))
             {
                 return _idSqlParser;
             }
 
-            if (name.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+            if (name.StartsWith(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
             {
                 return _lastUpdatedSqlParser;
             }

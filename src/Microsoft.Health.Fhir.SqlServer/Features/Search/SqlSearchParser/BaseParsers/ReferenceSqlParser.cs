@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             TableName = "ReferenceSearchParam";
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null)
+        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (!string.IsNullOrEmpty(resourceId))
             {
                 var escapedId = EscapeSqlValue(resourceId);
-                conditions.Append($"t.ReferenceResourceId{suffix} = {escapedId}");
+                conditions.Append($"{tableName}.ReferenceResourceId{suffix} = {escapedId}");
             }
 
             if (!string.IsNullOrEmpty(resourceType))
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         conditions.Append(" AND ");
                     }
 
-                    conditions.Append($"t.ReferenceResourceTypeId{suffix} = {resourceTypeId}");
+                    conditions.Append($"{tableName}.ReferenceResourceTypeId{suffix} = {resourceTypeId}");
                 }
                 else
                 {
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     conditions.Append(" AND ");
                 }
 
-                conditions.Append($"t.BaseUri{suffix} = {escapedBaseUri}");
+                conditions.Append($"{tableName}.BaseUri{suffix} = {escapedBaseUri}");
             }
 
             return conditions.Length > 0 ? conditions.ToString() : "1=1";
