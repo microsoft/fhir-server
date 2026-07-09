@@ -300,13 +300,14 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
 
     private void ApplyBundleProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)
     {
+        var entryResourceElements = GetBundleEntryResourceElements(elements);
         if (jsonObject["entry"] is JsonArray entries)
         {
             foreach (var entry in entries.OfType<JsonObject>())
             {
                 if (entry["resource"] is JsonObject entryResource)
                 {
-                    ApplyResourceProjection(entryResource, elements, summaryType);
+                    ApplyResourceProjection(entryResource, entryResourceElements, summaryType);
                     AddSubsettedTag(entryResource);
                 }
             }
@@ -321,6 +322,43 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         projection.Add("entry");
 
         FilterObject(jsonObject, projection);
+    }
+
+    private static List<string>? GetBundleEntryResourceElements(IReadOnlyList<string>? elements)
+    {
+        if (elements?.Any() != true)
+        {
+            return null;
+        }
+
+        var entryResourceElements = new List<string>();
+        foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+        {
+            var normalizedElement = element.Trim();
+            if (normalizedElement.StartsWith("Bundle.", StringComparison.Ordinal))
+            {
+                normalizedElement = normalizedElement["Bundle.".Length..];
+            }
+
+            const string EntryResourcePrefix = "entry.resource.";
+            if (normalizedElement.StartsWith(EntryResourcePrefix, StringComparison.Ordinal))
+            {
+                entryResourceElements.Add(normalizedElement[EntryResourcePrefix.Length..]);
+                continue;
+            }
+
+            if (string.Equals(normalizedElement, "entry.resource", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            if (!normalizedElement.StartsWith("entry.", StringComparison.Ordinal))
+            {
+                entryResourceElements.Add(normalizedElement);
+            }
+        }
+
+        return entryResourceElements.Count == 0 ? null : entryResourceElements;
     }
 
     private void ApplyResourceProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)

@@ -423,6 +423,50 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenBundleEntryResourceElementIsRequested_ThenNestedResourceDiscriminatorIsPreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = new Bundle
+        {
+            Id = "bundle-entry-resource-elements-test",
+            Type = Bundle.BundleType.Searchset,
+            Total = 1,
+            Entry =
+            {
+                new Bundle.EntryComponent
+                {
+                    Resource = new Patient
+                    {
+                        Id = "nested-resource-patient",
+                        Active = true,
+                        Name = { new HumanName { Family = "Hidden" } },
+                    },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=entry.resource.active");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal("bundle-entry-resource-elements-test", parsed.Id);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(1, parsed.Total);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("nested-resource-patient", patient.Id);
+        Assert.True(patient.Active);
+        Assert.Empty(patient.Name);
+        AssertContainsSubsettedTag(patient.Meta);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.Equal("Patient", (string)jsonObject["entry"]![0]!["resource"]!["resourceType"]!);
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreSummarizedAndTagged()
     {
         // Arrange
