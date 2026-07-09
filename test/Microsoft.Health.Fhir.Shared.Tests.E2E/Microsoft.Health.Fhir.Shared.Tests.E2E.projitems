@@ -26,6 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Mode\SdkModeRuntimeSurfaceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTests.cs" />
