@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
 
+        public SdkConfiguration Sdk { get; } = new SdkConfiguration();
+
         public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
     }
 }
