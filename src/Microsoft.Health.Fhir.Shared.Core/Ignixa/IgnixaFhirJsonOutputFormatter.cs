@@ -319,9 +319,49 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         projection.Add("meta");
         projection.Add("type");
         projection.Add("total");
-        projection.Add("entry");
+        AddBundleEntryProjection(projection, elements);
 
         FilterObject(jsonObject, projection);
+    }
+
+    private static void AddBundleEntryProjection(ProjectionNode projection, IReadOnlyList<string>? elements)
+    {
+        if (elements?.Any() != true)
+        {
+            projection.Add("entry");
+            return;
+        }
+
+        var includeEntryResource = false;
+        foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+        {
+            var normalizedElement = NormalizeBundleElementPath(element);
+            if (string.Equals(normalizedElement, "entry", StringComparison.Ordinal))
+            {
+                projection.Add("entry");
+                return;
+            }
+
+            if (string.Equals(normalizedElement, "entry.resource", StringComparison.Ordinal) ||
+                normalizedElement.StartsWith("entry.resource.", StringComparison.Ordinal))
+            {
+                includeEntryResource = true;
+                continue;
+            }
+
+            if (normalizedElement.StartsWith("entry.", StringComparison.Ordinal))
+            {
+                projection.Add(normalizedElement);
+                continue;
+            }
+
+            includeEntryResource = true;
+        }
+
+        if (includeEntryResource)
+        {
+            projection.Add("entry.resource");
+        }
     }
 
     private static List<string>? GetBundleEntryResourceElements(IReadOnlyList<string>? elements)
@@ -334,12 +374,7 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         var entryResourceElements = new List<string>();
         foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
         {
-            var normalizedElement = element.Trim();
-            if (normalizedElement.StartsWith("Bundle.", StringComparison.Ordinal))
-            {
-                normalizedElement = normalizedElement["Bundle.".Length..];
-            }
-
+            var normalizedElement = NormalizeBundleElementPath(element);
             const string EntryResourcePrefix = "entry.resource.";
             if (normalizedElement.StartsWith(EntryResourcePrefix, StringComparison.Ordinal))
             {
@@ -359,6 +394,14 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         }
 
         return entryResourceElements.Count == 0 ? null : entryResourceElements;
+    }
+
+    private static string NormalizeBundleElementPath(string element)
+    {
+        var normalizedElement = element.Trim();
+        return normalizedElement.StartsWith("Bundle.", StringComparison.Ordinal)
+            ? normalizedElement["Bundle.".Length..]
+            : normalizedElement;
     }
 
     private void ApplyResourceProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)

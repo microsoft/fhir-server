@@ -467,6 +467,71 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenBundleEntryResourceIsRequested_ThenUnrequestedEntrySiblingsAreOmitted()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata();
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=entry.resource.active");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("entry-metadata-patient", patient.Id);
+        Assert.True(patient.Active);
+        Assert.Empty(patient.Name);
+        Assert.Null(entry.FullUrl);
+        Assert.Null(entry.Search);
+        Assert.Null(entry.Request);
+        Assert.Null(entry.Response);
+
+        var jsonObject = JObject.Parse(json);
+        var entryObject = (JObject)jsonObject["entry"]![0]!;
+        Assert.True(entryObject.ContainsKey("resource"));
+        Assert.False(entryObject.ContainsKey("fullUrl"));
+        Assert.False(entryObject.ContainsKey("search"));
+        Assert.False(entryObject.ContainsKey("request"));
+        Assert.False(entryObject.ContainsKey("response"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenBundleEntryMetadataIsRequested_ThenOnlyRequestedEntryMetadataIsPreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata();
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=entry.resource.active,entry.fullUrl,entry.search.mode");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.True(patient.Active);
+        Assert.Equal("https://example.org/fhir/Patient/entry-metadata-patient", entry.FullUrl);
+        Assert.NotNull(entry.Search);
+        Assert.Equal(Bundle.SearchEntryMode.Match, entry.Search.Mode);
+        Assert.Null(entry.Search.ScoreElement);
+        Assert.Null(entry.Request);
+        Assert.Null(entry.Response);
+
+        var jsonObject = JObject.Parse(json);
+        var entryObject = (JObject)jsonObject["entry"]![0]!;
+        Assert.True(entryObject.ContainsKey("resource"));
+        Assert.True(entryObject.ContainsKey("fullUrl"));
+        Assert.True(entryObject.ContainsKey("search"));
+        Assert.False(((JObject)entryObject["search"]!).ContainsKey("score"));
+        Assert.False(entryObject.ContainsKey("request"));
+        Assert.False(entryObject.ContainsKey("response"));
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreSummarizedAndTagged()
     {
         // Arrange
@@ -510,6 +575,34 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.Equal("bundle-summary-patient", patient.Id);
         Assert.Equal("1980-01-01", patient.BirthDate);
         Assert.Empty(patient.Contact);
+        AssertContainsSubsettedTag(patient.Meta);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenBundleEntryHasMetadata_ThenEntryEnvelopeIsPreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata();
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=true");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        var entry = Assert.Single(parsed.Entry);
+        Assert.Equal("https://example.org/fhir/Patient/entry-metadata-patient", entry.FullUrl);
+        Assert.NotNull(entry.Search);
+        Assert.Equal(Bundle.SearchEntryMode.Match, entry.Search.Mode);
+        Assert.Equal(1.0m, entry.Search.Score);
+        Assert.NotNull(entry.Request);
+        Assert.Equal(Bundle.HTTPVerb.GET, entry.Request.Method);
+        Assert.NotNull(entry.Response);
+        Assert.Equal("200", entry.Response.Status);
+
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.True(patient.Active);
         AssertContainsSubsettedTag(patient.Meta);
     }
 
@@ -864,6 +957,43 @@ public class IgnixaFhirJsonOutputFormatterTests
             null);
 
         return new RawResourceElement(wrapper);
+    }
+
+    private static Bundle CreateBundleWithEntryMetadata()
+    {
+        return new Bundle
+        {
+            Id = "entry-metadata-bundle",
+            Type = Bundle.BundleType.Searchset,
+            Total = 1,
+            Entry =
+            {
+                new Bundle.EntryComponent
+                {
+                    FullUrl = "https://example.org/fhir/Patient/entry-metadata-patient",
+                    Search = new Bundle.SearchComponent
+                    {
+                        Mode = Bundle.SearchEntryMode.Match,
+                        Score = 1.0m,
+                    },
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = Bundle.HTTPVerb.GET,
+                        Url = "Patient/entry-metadata-patient",
+                    },
+                    Response = new Bundle.ResponseComponent
+                    {
+                        Status = "200",
+                    },
+                    Resource = new Patient
+                    {
+                        Id = "entry-metadata-patient",
+                        Active = true,
+                        Name = { new HumanName { Family = "Hidden" } },
+                    },
+                },
+            },
+        };
     }
 
     private static void AssertContainsSubsettedTag(Meta meta)
