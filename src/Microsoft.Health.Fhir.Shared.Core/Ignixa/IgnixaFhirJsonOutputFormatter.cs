@@ -321,11 +321,31 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         {
             var projection = CreateBundleElementsProjection(elements!, bundleTypeInfo, bundleElementNames);
             FilterObject(jsonObject, projection);
+            ApplyBundleSummaryProjection(jsonObject, summaryType);
+            return;
+        }
+
+        ApplyBundleSummaryProjection(jsonObject, summaryType);
+    }
+
+    private void ApplyBundleSummaryProjection(JsonObject jsonObject, SummaryType summaryType)
+    {
+        if (summaryType != SummaryType.Text)
+        {
             ApplySummaryProjection(jsonObject, summaryType);
             return;
         }
 
-        ApplySummaryProjection(jsonObject, summaryType);
+        var projection = new ProjectionNode();
+        projection.Add("resourceType");
+        projection.Add("id");
+        projection.Add("meta");
+        projection.Add("text");
+        projection.Add("type");
+        projection.Add("total");
+        projection.Add("entry");
+
+        FilterObject(jsonObject, projection);
     }
 
     private static ProjectionNode CreateBundleElementsProjection(

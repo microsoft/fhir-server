@@ -638,6 +638,38 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndSummaryTextProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreTextSummarizedAndTagged()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata(includeNarrative: true);
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=text");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        var entry = Assert.Single(parsed.Entry);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.Equal("entry-metadata-patient", patient.Id);
+        Assert.NotNull(patient.Text);
+        Assert.Null(patient.ActiveElement);
+        Assert.Empty(patient.Name);
+        AssertContainsSubsettedTag(patient.Meta);
+
+        var jsonObject = JObject.Parse(json);
+        var resourceObject = (JObject)jsonObject["entry"]![0]!["resource"]!;
+        Assert.Equal("Patient", (string)resourceObject["resourceType"]!);
+        Assert.Equal("entry-metadata-patient", (string)resourceObject["id"]!);
+        Assert.True(resourceObject.ContainsKey("meta"));
+        Assert.True(resourceObject.ContainsKey("text"));
+        Assert.False(resourceObject.ContainsKey("active"));
+        Assert.False(resourceObject.ContainsKey("name"));
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenBundleEntryHasMetadata_ThenEntryEnvelopeIsPreserved()
     {
         // Arrange
