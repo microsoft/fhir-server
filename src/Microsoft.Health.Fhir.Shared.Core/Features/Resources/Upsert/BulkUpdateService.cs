@@ -40,6 +40,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -71,6 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<BulkUpdateService> _logger;
+        private readonly ISdkFallbackGuard _sdkFallbackGuard;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
@@ -82,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
-            ILogger<BulkUpdateService> logger)
+            ILogger<BulkUpdateService> logger,
+            ISdkFallbackGuard sdkFallbackGuard = null)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
@@ -92,6 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _sdkFallbackGuard = sdkFallbackGuard;
         }
 
         /// <summary>
@@ -355,7 +359,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// Builds conditional patch requests for each resource type found in the search results,
         /// grouping applicable patch parameters and tracking ignored or failed resources.
         /// </summary>
-        private static void BuildConditionalPatchRequests(
+        private void BuildConditionalPatchRequests(
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             BundleResourceContext bundleResourceContext,
             IReadOnlyCollection<SearchResultEntry> searchResults,
@@ -433,7 +437,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         Parameter = newListOfFhirPatchParameters,
                     };
 
-                    var conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters), conditionalParameters, bundleResourceContext);
+                    var conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters, _sdkFallbackGuard), conditionalParameters, bundleResourceContext);
                     conditionalPatchResourceRequests[distinctResourceTypeOnPage] = conditionalPatchResourceRequestOut;
                 }
                 else

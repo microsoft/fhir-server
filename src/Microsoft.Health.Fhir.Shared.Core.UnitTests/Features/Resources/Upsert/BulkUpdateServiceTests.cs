@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
@@ -33,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
@@ -188,6 +190,40 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesUpdated["Patient"] == 5 * timesFactor); // Assuming all 5 resources were updated successfully
             Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2 * timesFactor); // Practitioner failed on immutable property update
             Assert.True(result.ResourcesIgnored["Observation"] == 1 * timesFactor); // Observations ignored as no applicable patch request
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_GivenIgnixaMode_WhenBulkUpdateUsesFhirPathPatch_ThenFirelyPatchFallbackIsRejected()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var readNextPage = false;
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+            const string patientPatchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Patient\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var strictIgnixaService = CreateBulkUpdateService(FhirSdkMode.Ignixa);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                isIncludesRequest).Returns(Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } })));
+
+            // Act
+            var result = await strictIgnixaService.UpdateMultipleAsync(resourceType, patientPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
+
+            // Assert
+            Assert.Empty(result.ResourcesUpdated);
+            Assert.Equal(1, result.ResourcesPatchFailed["Patient"]);
+            _fhirDataStoreFactory.DidNotReceive().Invoke();
         }
 
         [Fact]
@@ -1167,6 +1203,23 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     }
                 }
             }
+        }
+
+        private BulkUpdateService CreateBulkUpdateService(FhirSdkMode mode)
+        {
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = mode });
+            var fallbackGuard = new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance);
+
+            return new BulkUpdateService(
+                _resourceWrapperFactory,
+                _conformanceProvider,
+                _fhirDataStoreFactory,
+                _searchServiceFactory,
+                _resourceIdProvider,
+                _contextAccessor,
+                _auditLogger,
+                _logger,
+                fallbackGuard);
         }
     }
 }
