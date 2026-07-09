@@ -13,6 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     public abstract class BaseSqlParser : ISqlParser
     {
         private readonly SqlSearchParameterDefinitionManager _parameterCollection;
+        private string _tableName = string.Empty;
 
         protected BaseSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
         {
@@ -20,7 +21,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _parameterCollection = parameterCollection;
         }
 
-        protected string TableName { get; set; } = string.Empty;
+        protected virtual string GetTableName(string modifier)
+        {
+            return _tableName;
+        }
+
+        protected void SetTableName(string value)
+        {
+            _tableName = value;
+        }
 
         public string? Parse(string name, string value, ParserOptions options)
         {
@@ -52,11 +61,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {
                 sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
-                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {TableName} t WHERE t.ResourceSurrogateId = r.{surrogateIdColumn} AND t.SearchParamId = {parameter.Id})");
+                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {GetTableName(modifier)} t WHERE t.ResourceSurrogateId = r.{surrogateIdColumn} AND t.SearchParamId = {parameter.Id})");
             }
             else
             {
-                sqlBuilder.AppendLine($"  FROM {TableName} t");
+                sqlBuilder.AppendLine($"  FROM {GetTableName(modifier)} t");
 
                 // Join on Resource table or previous CTE
                 sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} r ON t.ResourceSurrogateId = r.{surrogateIdColumn}");
@@ -65,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
                 {
-                    sqlBuilder.AppendLine($"  WHERE NOT EXISTS (SELECT 1 FROM {TableName} t2");
+                    sqlBuilder.AppendLine($"  WHERE NOT EXISTS (SELECT 1 FROM {GetTableName(modifier)} t2");
                     tableName = "t2";
                 }
 
@@ -112,6 +121,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 {
                     var resourceTypeIds = string.Join(", ", options.ResourceTypes);
                     sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                }
+
+                if (options.ExcludedResourceTypes != null && options.ExcludedResourceTypes.Count > 0)
+                {
+                    var excludedResourceTypeIds = string.Join(", ", options.ExcludedResourceTypes);
+                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId NOT IN ({excludedResourceTypeIds})");
                 }
 
                 if (options.ContinuationToken != null)

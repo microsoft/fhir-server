@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public TokenSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
-            TableName = "TokenSearchParam";
+            SetTableName("TokenSearchParam");
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
@@ -27,6 +27,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (string.IsNullOrWhiteSpace(value))
             {
                 return "1=1";
+            }
+
+            if (modifier.Equals("text", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"({tableName}.Text LIKE '%{value.Replace("'", "''", StringComparison.Ordinal)}%')";
             }
 
             // Parse token value - format can be:
@@ -68,6 +73,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             return conditions.ToString();
+        }
+
+        protected override string GetTableName(string modifier)
+        {
+            if (modifier.Equals("text", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TokenText";
+            }
+
+            return "TokenSearchParam";
         }
 
         private static string BuildCodeCondition(string code, string modifier, string suffix, string tableName)

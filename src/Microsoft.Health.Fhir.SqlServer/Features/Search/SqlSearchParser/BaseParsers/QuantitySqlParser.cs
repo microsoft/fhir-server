@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BasePa
         public QuantitySqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
-            TableName = "QuantitySearchParam";
+            SetTableName("QuantitySearchParam");
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")

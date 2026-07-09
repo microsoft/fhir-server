@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public UriSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
-            TableName = "UriSearchParam";
+            SetTableName("UriSearchParam");
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
             ArgumentNullException.ThrowIfNull(fhirModel);
             _fhirModel = fhirModel;
-            TableName = "ReferenceSearchParam";
+            SetTableName("ReferenceSearchParam");
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")

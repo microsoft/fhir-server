@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public DateTimeSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
-            TableName = "DateTimeSearchParam";
+            SetTableName("DateTimeSearchParam");
         }
 
         public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             ISqlServerFhirModel fhirModel)
             : base(parameterCollection, new TokenSqlParser(parameterCollection), new ReferenceSqlParser(parameterCollection, fhirModel))
         {
-            TableName = "TokenReferenceCompositeSearchParam";
+            SetTableName("TokenReferenceCompositeSearchParam");
         }
     }
 }
