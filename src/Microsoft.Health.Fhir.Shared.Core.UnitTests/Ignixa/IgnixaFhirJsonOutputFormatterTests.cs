@@ -137,6 +137,7 @@ public class IgnixaFhirJsonOutputFormatterTests
     [InlineData(typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode))]
     public async Task GivenIgnixaResource_WhenWrittenWithElementsParameter_ThenOnlyRequestedElementsAreWritten(Type objectType)
     {
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
         var patient = new Patient
         {
             Id = "elements-test",
@@ -149,7 +150,7 @@ public class IgnixaFhirJsonOutputFormatterTests
             ? new IgnixaResourceElement(node, schemaContext.Schema)
             : node;
 
-        var json = await WriteObject(resource, objectType, "?_elements=active");
+        var json = await WriteObject(formatter, resource, objectType, "?_elements=active");
 
         var parsed = Parser.Parse<Patient>(json);
         Assert.True(parsed.Active);
@@ -466,8 +467,10 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.Equal("Patient", (string)jsonObject["entry"]![0]!["resource"]!["resourceType"]!);
     }
 
-    [Fact]
-    public async Task GivenIgnixaModeAndElementsProjection_WhenFullBundleEntryResourceIsRequested_ThenNestedResourceIsNotMarkedSubsetted()
+    [Theory]
+    [InlineData("?_elements=entry")]
+    [InlineData("?_elements=entry.resource")]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenFullBundleEntryOrResourceIsRequested_ThenNestedResourceIsNotMarkedSubsetted(string query)
     {
         // Arrange
         var formatter = CreateFormatter(FhirSdkMode.Ignixa);
@@ -475,7 +478,7 @@ public class IgnixaFhirJsonOutputFormatterTests
         var node = _ignixaSerializer.Parse(bundle.ToJson());
 
         // Act
-        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=entry.resource");
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), query);
 
         // Assert
         var parsed = Parser.Parse<Bundle>(json);
