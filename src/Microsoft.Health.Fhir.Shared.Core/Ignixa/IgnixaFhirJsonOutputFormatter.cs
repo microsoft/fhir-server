@@ -300,9 +300,13 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
 
     private void ApplyBundleProjection(JsonObject jsonObject, IReadOnlyList<string>? elements, SummaryType summaryType)
     {
-        var entryResourceElements = GetBundleEntryResourceElements(elements);
-        if (jsonObject["entry"] is JsonArray entries)
+        var bundleTypeInfo = _modelInfoProvider.StructureDefinitionSummaryProvider.Provide("Bundle");
+        var bundleElementNames = bundleTypeInfo.GetElements().Select(e => e.ElementName).ToHashSet(StringComparer.Ordinal);
+        var hasElements = elements?.Any() == true;
+
+        if (ShouldProjectBundleEntryResources(elements, bundleElementNames) && jsonObject["entry"] is JsonArray entries)
         {
+            var entryResourceElements = GetBundleEntryResourceElements(elements, bundleElementNames);
             foreach (var entry in entries.OfType<JsonObject>())
             {
                 if (entry["resource"] is JsonObject entryResource)
@@ -313,58 +317,109 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
             }
         }
 
+        if (hasElements)
+        {
+            var projection = CreateBundleElementsProjection(elements!, bundleTypeInfo, bundleElementNames);
+            FilterObject(jsonObject, projection);
+            ApplySummaryProjection(jsonObject, summaryType);
+            return;
+        }
+
+        ApplySummaryProjection(jsonObject, summaryType);
+    }
+
+    private static ProjectionNode CreateBundleElementsProjection(
+        IReadOnlyList<string> elements,
+        IStructureDefinitionSummary bundleTypeInfo,
+        ISet<string> bundleElementNames)
+    {
         var projection = new ProjectionNode();
         projection.Add("resourceType");
         projection.Add("id");
         projection.Add("meta");
-        projection.Add("type");
-        projection.Add("total");
-        AddBundleEntryProjection(projection, elements);
 
-        FilterObject(jsonObject, projection);
-    }
-
-    private static void AddBundleEntryProjection(ProjectionNode projection, IReadOnlyList<string>? elements)
-    {
-        if (elements?.Any() != true)
+        foreach (var requiredElement in bundleTypeInfo.GetElements().Where(e => e.IsRequired).Select(e => e.ElementName))
         {
-            projection.Add("entry");
-            return;
+            projection.Add(requiredElement);
         }
 
-        var includeEntryResource = false;
+        var includesEntry = false;
         foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
         {
             var normalizedElement = NormalizeBundleElementPath(element);
             if (string.Equals(normalizedElement, "entry", StringComparison.Ordinal))
             {
+                includesEntry = true;
                 projection.Add("entry");
-                return;
+                continue;
             }
 
             if (string.Equals(normalizedElement, "entry.resource", StringComparison.Ordinal) ||
                 normalizedElement.StartsWith("entry.resource.", StringComparison.Ordinal))
             {
-                includeEntryResource = true;
+                includesEntry = true;
+                projection.Add("entry.resource");
                 continue;
             }
 
             if (normalizedElement.StartsWith("entry.", StringComparison.Ordinal))
             {
+                includesEntry = true;
                 projection.Add(normalizedElement);
                 continue;
             }
 
-            includeEntryResource = true;
+            if (IsBundleShellElement(normalizedElement, bundleElementNames))
+            {
+                projection.Add(normalizedElement, "Bundle");
+                continue;
+            }
+
+            projection.Add("entry.resource");
+            includesEntry = true;
         }
 
-        if (includeEntryResource)
+        if (includesEntry)
         {
-            projection.Add("entry.resource");
+            projection.Add("total");
         }
+
+        projection.AddNestedRequiredElements(bundleTypeInfo);
+        return projection;
     }
 
-    private static List<string>? GetBundleEntryResourceElements(IReadOnlyList<string>? elements)
+    private static bool ShouldProjectBundleEntryResources(IReadOnlyList<string>? elements, ISet<string> bundleElementNames)
+    {
+        if (elements?.Any() != true)
+        {
+            return true;
+        }
+
+        foreach (var element in elements.Where(e => !string.IsNullOrWhiteSpace(e)))
+        {
+            var normalizedElement = NormalizeBundleElementPath(element);
+            if (string.Equals(normalizedElement, "entry", StringComparison.Ordinal) ||
+                string.Equals(normalizedElement, "entry.resource", StringComparison.Ordinal) ||
+                normalizedElement.StartsWith("entry.resource.", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (normalizedElement.StartsWith("entry.", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!IsBundleShellElement(normalizedElement, bundleElementNames))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<string>? GetBundleEntryResourceElements(IReadOnlyList<string>? elements, ISet<string> bundleElementNames)
     {
         if (elements?.Any() != true)
         {
@@ -389,11 +444,23 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
 
             if (!normalizedElement.StartsWith("entry.", StringComparison.Ordinal))
             {
-                entryResourceElements.Add(normalizedElement);
+                if (!IsBundleShellElement(normalizedElement, bundleElementNames))
+                {
+                    entryResourceElements.Add(normalizedElement);
+                }
             }
         }
 
         return entryResourceElements.Count == 0 ? null : entryResourceElements;
+    }
+
+    private static bool IsBundleShellElement(string normalizedElement, ISet<string> bundleElementNames)
+    {
+        var firstSegment = normalizedElement.Split('.', 2, StringSplitOptions.TrimEntries)[0];
+        return string.Equals(firstSegment, "resourceType", StringComparison.Ordinal) ||
+            string.Equals(firstSegment, "id", StringComparison.Ordinal) ||
+            string.Equals(firstSegment, "meta", StringComparison.Ordinal) ||
+            bundleElementNames.Contains(firstSegment);
     }
 
     private static string NormalizeBundleElementPath(string element)

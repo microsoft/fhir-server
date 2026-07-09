@@ -532,6 +532,33 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndElementsProjection_WhenBundleShellFieldIsRequested_ThenEntryIsOmitted()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata();
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_elements=link");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        var link = Assert.Single(parsed.Link);
+        Assert.Equal("self", link.Relation);
+        Assert.Equal("https://example.org/fhir/Patient?_id=entry-metadata-patient", link.Url);
+        Assert.Empty(parsed.Entry);
+
+        var jsonObject = JObject.Parse(json);
+        Assert.True(jsonObject.ContainsKey("type"));
+        Assert.True(jsonObject.ContainsKey("link"));
+        Assert.False(jsonObject.ContainsKey("entry"));
+        Assert.False(jsonObject.ContainsKey("total"));
+        Assert.False(jsonObject.ContainsKey("timestamp"));
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndSummaryTrueProjection_WhenWritingBundleResourceJsonNode_ThenEntryResourcesAreSummarizedAndTagged()
     {
         // Arrange
@@ -575,6 +602,38 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.Equal("bundle-summary-patient", patient.Id);
         Assert.Equal("1980-01-01", patient.BirthDate);
         Assert.Empty(patient.Contact);
+        AssertContainsSubsettedTag(patient.Meta);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndSummaryDataProjection_WhenWritingBundleResourceJsonNode_ThenBundleShellDataFieldsAndEntryResourcesArePreserved()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var bundle = CreateBundleWithEntryMetadata(includeNarrative: true);
+        var node = _ignixaSerializer.Parse(bundle.ToJson());
+
+        // Act
+        var json = await WriteObject(formatter, node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode), "?_summary=data");
+
+        // Assert
+        var parsed = Parser.Parse<Bundle>(json);
+        Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
+        Assert.Equal(1, parsed.Total);
+        Assert.Equal(new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)), parsed.Timestamp);
+        var link = Assert.Single(parsed.Link);
+        Assert.Equal("self", link.Relation);
+        Assert.Equal("https://example.org/fhir/Patient?_id=entry-metadata-patient", link.Url);
+
+        var entry = Assert.Single(parsed.Entry);
+        Assert.Equal("https://example.org/fhir/Patient/entry-metadata-patient", entry.FullUrl);
+        Assert.NotNull(entry.Search);
+        Assert.NotNull(entry.Request);
+        Assert.NotNull(entry.Response);
+        var patient = Assert.IsType<Patient>(entry.Resource);
+        Assert.True(patient.Active);
+        Assert.NotEmpty(patient.Name);
+        Assert.Null(patient.Text);
         AssertContainsSubsettedTag(patient.Meta);
     }
 
@@ -959,13 +1018,22 @@ public class IgnixaFhirJsonOutputFormatterTests
         return new RawResourceElement(wrapper);
     }
 
-    private static Bundle CreateBundleWithEntryMetadata()
+    private static Bundle CreateBundleWithEntryMetadata(bool includeNarrative = false)
     {
         return new Bundle
         {
             Id = "entry-metadata-bundle",
             Type = Bundle.BundleType.Searchset,
             Total = 1,
+            Timestamp = new DateTimeOffset(2026, 7, 9, 7, 41, 26, TimeSpan.FromHours(-7)),
+            Link =
+            {
+                new Bundle.LinkComponent
+                {
+                    Relation = "self",
+                    Url = "https://example.org/fhir/Patient?_id=entry-metadata-patient",
+                },
+            },
             Entry =
             {
                 new Bundle.EntryComponent
@@ -989,6 +1057,13 @@ public class IgnixaFhirJsonOutputFormatterTests
                     {
                         Id = "entry-metadata-patient",
                         Active = true,
+                        Text = includeNarrative
+                            ? new Narrative
+                            {
+                                Status = Narrative.NarrativeStatus.Generated,
+                                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Hidden narrative</div>",
+                            }
+                            : null,
                         Name = { new HumanName { Family = "Hidden" } },
                     },
                 },
