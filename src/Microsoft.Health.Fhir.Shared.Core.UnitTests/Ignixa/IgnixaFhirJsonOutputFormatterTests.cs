@@ -219,6 +219,46 @@ public class IgnixaFhirJsonOutputFormatterTests
     }
 
     [Fact]
+    public async Task GivenIgnixaModeAndSummaryDataProjection_WhenWritingIgnixaResourceElement_ThenProjectionIsAppliedWithoutFirelyFallback()
+    {
+        // Arrange
+        var formatter = CreateFormatter(FhirSdkMode.Ignixa);
+        var patient = new Patient
+        {
+            Id = "summary-data-element-test",
+            Active = true,
+            Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Hidden narrative</div>",
+            },
+            Name = { new HumanName { Family = "Visible", Given = new[] { "Data" } } },
+            Contact =
+            {
+                new Patient.ContactComponent
+                {
+                    Name = new HumanName { Family = "Contact" },
+                },
+            },
+        };
+        var node = _ignixaSerializer.Parse(patient.ToJson());
+        var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+        var element = new IgnixaResourceElement(node, schemaContext.Schema);
+
+        // Act
+        var json = await WriteObject(formatter, element, typeof(IgnixaResourceElement), "?_summary=data");
+
+        // Assert
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.Equal("summary-data-element-test", parsed.Id);
+        Assert.True(parsed.Active);
+        Assert.Single(parsed.Name);
+        Assert.Equal("Visible", parsed.Name[0].Family);
+        Assert.NotEmpty(parsed.Contact);
+        Assert.Null(parsed.Text);
+    }
+
+    [Fact]
     public async Task GivenIgnixaModeAndSummaryTextProjection_WhenWritingResourceJsonNode_ThenOnlyTextAndMandatoryFieldsArePreserved()
     {
         // Arrange
@@ -369,6 +409,7 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.Equal(Bundle.BundleType.Searchset, parsed.Type);
         Assert.Equal(42, parsed.Total);
         Assert.Empty(parsed.Entry);
+        AssertContainsSubsettedTag(parsed.Meta);
 
         var jsonObject = JObject.Parse(json);
         Assert.True(jsonObject.ContainsKey("type"));
@@ -469,7 +510,11 @@ public class IgnixaFhirJsonOutputFormatterTests
 
     [Theory]
     [InlineData("?_elements=entry")]
+    [InlineData("?_elements=entry,active")]
+    [InlineData("?_elements=active,entry")]
     [InlineData("?_elements=entry.resource")]
+    [InlineData("?_elements=entry.resource,active")]
+    [InlineData("?_elements=active,entry.resource")]
     public async Task GivenIgnixaModeAndElementsProjection_WhenFullBundleEntryOrResourceIsRequested_ThenNestedResourceIsNotMarkedSubsetted(string query)
     {
         // Arrange

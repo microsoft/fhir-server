@@ -259,17 +259,6 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         await response.Body.FlushAsync().ConfigureAwait(false);
     }
 
-    private async System.Threading.Tasks.Task<Resource> ToFirelyResourceAsync(ResourceJsonNode resourceNode)
-    {
-        using var stream = new MemoryStream();
-        _serializer.Serialize(resourceNode, stream, pretty: false);
-        stream.Position = 0;
-
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        using var jsonReader = new JsonTextReader(reader);
-        return await Parser.ParseAsync<Resource>(jsonReader).ConfigureAwait(false);
-    }
-
     private ResourceJsonNode ProjectResource(ResourceJsonNode resourceNode, IReadOnlyList<string>? elements, SummaryType summaryType)
     {
         var jsonObject = JsonNode.Parse(_serializer.Serialize(resourceNode, pretty: false)) as JsonObject
@@ -289,7 +278,7 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
             }
 
             ApplySummaryProjection(jsonObject, summaryType);
-            if (summaryType != SummaryType.Count)
+            if (summaryType != SummaryType.Count || IsBundle(jsonObject))
             {
                 AddSubsettedTag(jsonObject);
             }
@@ -457,6 +446,11 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         {
             var normalizedElement = NormalizeBundleElementPath(element);
             const string EntryResourcePrefix = "entry.resource.";
+            if (string.Equals(normalizedElement, "entry", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
             if (normalizedElement.StartsWith(EntryResourcePrefix, StringComparison.Ordinal))
             {
                 entryResourceElements.Add(normalizedElement[EntryResourcePrefix.Length..]);
