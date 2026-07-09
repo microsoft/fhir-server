@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
@@ -27,6 +29,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation;
@@ -38,97 +41,6 @@ public class IgnixaResourceValidatorTests
     private readonly IgnixaJsonSerializer _serializer = new IgnixaJsonSerializer();
     private readonly IIgnixaSchemaContext _schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
     private readonly IgnixaResourceValidator _validator;
-
-    public IgnixaResourceValidatorTests()
-    {
-        _validator = CreateValidator(FhirSdkMode.Hybrid);
-    }
-
-    [Fact]
-    public async Task GivenIgnixaResourceWithInvalidDateTime_WhenValidating_ThenInvalidShouldBeReturned()
-    {
-        // Arrange
-        var resource = await CreateResourceElement(ObservationWithInvalidDateTimeJson);
-        var results = new List<ValidationResult>();
-
-        // Act
-        var isValid = _validator.TryValidate(resource, results, recurse: false);
-
-        // Assert
-        Assert.False(isValid);
-        Assert.Contains(results, x => x.ErrorMessage.Contains("format"));
-    }
-
-    [Fact]
-    public async Task GivenIgnixaResourceWithValidDateTimeWithoutOffset_WhenValidating_ThenValidShouldBeReturned()
-    {
-        // Arrange
-        var resource = await CreateResourceElement(ObservationWithValidDateTimeWithoutOffsetJson);
-        var results = new List<ValidationResult>();
-
-        // Act
-        var isValid = _validator.TryValidate(resource, results, recurse: false);
-
-        // Assert
-        Assert.True(isValid);
-        Assert.Empty(results);
-    }
-
-    [Fact]
-    public async Task GivenIgnixaModeAndOrdinaryResource_WhenValidationFallsBackToFirely_ThenInvalidOperationExceptionIsThrown()
-    {
-        // Arrange
-        var validator = CreateValidator(FhirSdkMode.Ignixa);
-        var resource = await CreateResourceElement(ObservationWithValidDateTimeWithoutOffsetJson);
-        var results = new List<ValidationResult>();
-
-        // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
-        Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
-    }
-
-    [Fact]
-    public async Task GivenIgnixaResourceWithInvalidDateTime_WhenValidatingCreate_ThenInvalidShouldBeReturned()
-    {
-        // Arrange
-        var resource = await CreateResourceElement(ObservationWithInvalidDateTimeJson);
-        var validator = CreateCreateResourceValidator();
-
-        // Act
-        var result = validator.Validate(new CreateResourceRequest(resource, bundleResourceContext: null));
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("format"));
-    }
-
-    [Fact]
-    public async Task GivenIgnixaModeAndConformanceResource_WhenValidating_ThenInvalidOperationExceptionIsThrown()
-    {
-        // Arrange
-        var validator = CreateValidator(FhirSdkMode.Ignixa);
-        var resource = await CreateResourceElement(CapabilityStatementJson);
-        var results = new List<ValidationResult>();
-
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
-    }
-
-    [Fact]
-    public async Task GivenHybridModeAndConformanceResource_WhenValidating_ThenFallbackIsPermitted()
-    {
-        // Arrange
-        var validator = CreateValidator(FhirSdkMode.Hybrid);
-        var resource = await CreateResourceElement(CapabilityStatementJson);
-        var results = new List<ValidationResult>();
-
-        // Act
-        var isValid = validator.TryValidate(resource, results, recurse: false);
-
-        // Assert
-        Assert.True(isValid);
-        Assert.Empty(results);
-    }
 
     private const string ObservationWithInvalidDateTimeJson = """
         {
@@ -188,6 +100,126 @@ public class IgnixaResourceValidatorTests
           ]
         }
         """;
+
+    public IgnixaResourceValidatorTests()
+    {
+        _validator = CreateValidator(FhirSdkMode.Hybrid);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaResourceWithInvalidDateTime_WhenValidating_ThenInvalidShouldBeReturned()
+    {
+        // Arrange
+        var resource = await CreateResourceElement(ObservationWithInvalidDateTimeJson);
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = _validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Contains(results, x => x.ErrorMessage.Contains("format"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaResourceWithValidDateTimeWithoutOffset_WhenValidating_ThenValidShouldBeReturned()
+    {
+        // Arrange
+        var resource = await CreateResourceElement(ObservationWithValidDateTimeWithoutOffsetJson);
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = _validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndOrdinaryResource_WhenValidationFallsBackToFirely_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Ignixa);
+        var resource = await CreateResourceElement(ObservationWithValidDateTimeWithoutOffsetJson);
+        var results = new List<ValidationResult>();
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+        Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+    }
+
+    [Fact]
+    public void GivenIgnixaModeAndFirelyBackedResource_WhenValidating_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Ignixa);
+        var resource = new Patient { Id = "firely-backed" }.ToResourceElement();
+        var results = new List<ValidationResult>();
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+        Assert.Contains("Firely fallback is not allowed in Ignixa SDK mode.", exception.Message);
+    }
+
+    [Fact]
+    public void GivenHybridModeAndFirelyBackedResource_WhenValidating_ThenFallbackIsPermitted()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Hybrid);
+        var resource = new Patient { Id = "firely-backed-hybrid" }.ToResourceElement();
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task GivenIgnixaResourceWithInvalidDateTime_WhenValidatingCreate_ThenInvalidShouldBeReturned()
+    {
+        // Arrange
+        var resource = await CreateResourceElement(ObservationWithInvalidDateTimeJson);
+        var validator = CreateCreateResourceValidator();
+
+        // Act
+        var result = validator.Validate(new CreateResourceRequest(resource, bundleResourceContext: null));
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("format"));
+    }
+
+    [Fact]
+    public async Task GivenIgnixaModeAndConformanceResource_WhenValidating_ThenInvalidOperationExceptionIsThrown()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Ignixa);
+        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var results = new List<ValidationResult>();
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => validator.TryValidate(resource, results, recurse: false));
+    }
+
+    [Fact]
+    public async Task GivenHybridModeAndConformanceResource_WhenValidating_ThenFallbackIsPermitted()
+    {
+        // Arrange
+        var validator = CreateValidator(FhirSdkMode.Hybrid);
+        var resource = await CreateResourceElement(CapabilityStatementJson);
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Empty(results);
+    }
 
     private CreateResourceValidator CreateCreateResourceValidator()
     {

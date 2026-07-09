@@ -70,6 +70,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\IgnixaResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonInputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonOutputFormatterTests.cs" />

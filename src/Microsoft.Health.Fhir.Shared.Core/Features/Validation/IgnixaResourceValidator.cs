@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             if (ignixaNode == null)
             {
                 // Fall back to Firely validation for non-Ignixa resources
+                _fallbackGuard.FirelyFallback("Ignixa resource validation", "ResourceElement is not backed by an Ignixa resource node.");
                 return _fallbackValidator.TryValidate(value, validationResults, recurse);
             }
 
