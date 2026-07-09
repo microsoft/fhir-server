@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -113,9 +114,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // This requires IModelInfoProvider which is registered below
             services.AddSingleton<IIgnixaSchemaContext, IgnixaSchemaContext>();
 
-            // Register Ignixa FHIRPath provider for high-performance search indexing
-            // Uses delegate compilation for ~80% of common patterns, ~10x faster than Firely
-            services.AddIgnixaFhirPath(provider => provider.GetRequiredService<IIgnixaSchemaContext>().Schema);
+            var sdkMode = _configuration.Sdk.Mode;
+            var useIgnixaActiveProviders = sdkMode == FhirSdkMode.Ignixa || sdkMode == FhirSdkMode.Hybrid;
 
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(provider =>
             {
@@ -175,21 +175,34 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
-            services.Add<FhirJsonInputFormatter>()
+            var firelyJsonInputFormatterRegistration = services.Add<FhirJsonInputFormatter>()
                 .Singleton()
-                .AsSelf()
-                .AsService<TextInputFormatter>();
+                .AsSelf();
 
-            services.Add<FhirJsonOutputFormatter>()
+            var firelyJsonOutputFormatterRegistration = services.Add<FhirJsonOutputFormatter>()
                 .Singleton()
-                .AsSelf()
-                .AsService<TextOutputFormatter>();
+                .AsSelf();
 
-            // Register Ignixa serialization services and configure as primary JSON formatters
-            // This registers IIgnixaJsonSerializer and inserts Ignixa formatters at the front
-            // of the MVC formatter lists to take precedence over Firely formatters.
-            // The Ignixa formatters support both Ignixa and Firely types for gradual migration.
-            services.AddIgnixaSerializationWithFormatters();
+            if (!useIgnixaActiveProviders)
+            {
+                firelyJsonInputFormatterRegistration.AsService<TextInputFormatter>();
+                firelyJsonOutputFormatterRegistration.AsService<TextOutputFormatter>();
+            }
+
+            if (useIgnixaActiveProviders)
+            {
+                // Register Ignixa FHIRPath provider for high-performance search indexing.
+                services.AddIgnixaFhirPath(provider => provider.GetRequiredService<IIgnixaSchemaContext>().Schema);
+
+                // Register Ignixa serialization services and configure as primary JSON formatters.
+                services.AddIgnixaSerializationWithFormatters();
+            }
+            else
+            {
+                // Firely mode still requires Ignixa JSON serialization services for components that
+                // depend on IIgnixaJsonSerializer before the migration is complete.
+                services.AddIgnixaSerialization();
+            }
 
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()

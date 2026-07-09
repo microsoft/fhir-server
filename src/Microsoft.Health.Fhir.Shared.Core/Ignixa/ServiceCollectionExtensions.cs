@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Ignixa;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds Ignixa FHIR serialization services to the service collection.
+    /// Adds Ignixa FHIR serialization services to the service collection without activating
+    /// Ignixa MVC formatter precedence.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
