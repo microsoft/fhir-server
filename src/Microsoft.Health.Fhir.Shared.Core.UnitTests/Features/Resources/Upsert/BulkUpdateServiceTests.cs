@@ -227,6 +227,78 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Fact]
+        public async Task UpdateMultipleAsync_GivenHybridModeAndIgnixaPersistence_WhenResourceIsUpdated_ThenRawFactoryReceivesIgnixaBackedResource()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var readNextPage = false;
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+            const string patientPatchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Patient\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Hybrid });
+            var fallbackGuard = new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance);
+            var ignixaSerializer = new IgnixaJsonSerializer();
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            var rawResourceFactory = Substitute.For<IRawResourceFactory>();
+            rawResourceFactory.Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(new RawResource("{\"resourceType\":\"Patient\",\"id\":\"updated\"}", FhirResourceFormat.Json, isMetaSet: true));
+            var resourceWrapperFactory = new ResourceWrapperFactory(
+                rawResourceFactory,
+                _fhirRequestContextAccessor,
+                _searchIndexer,
+                _claimsExtractor,
+                _compartmentIndexer,
+                _searchParameterDefinitionManager,
+                _resourceDeserializer);
+            var service = new BulkUpdateService(
+                resourceWrapperFactory,
+                _conformanceProvider,
+                _fhirDataStoreFactory,
+                _searchServiceFactory,
+                _resourceIdProvider,
+                _contextAccessor,
+                _auditLogger,
+                _logger,
+                fallbackGuard,
+                modeProvider,
+                ignixaSerializer,
+                schemaContext);
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Id = Guid.NewGuid().ToString();
+            patient.VersionId = "1";
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                isIncludesRequest).Returns(CreateSearchResult(patient));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(new MergeOutcome(MergeOutcomeFinalState.Completed, new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>()));
+
+            // Act
+            await service.UpdateMultipleAsync(resourceType, patientPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
+
+            // Assert
+            rawResourceFactory.Received().Create(
+                Arg.Is<ResourceElement>(x => x.GetIgnixaNode() != null),
+                keepMeta: true,
+                keepVersion: false);
+        }
+
+        [Fact]
         public async Task UpdateMultipleAsync_WhenResultsReturnedWithHistoricalRecords_OnlyLatestResourcesAreUpdated()
         {
             // Arrange

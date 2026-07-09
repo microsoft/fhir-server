@@ -4,13 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 
@@ -25,18 +29,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private readonly IIgnixaJsonSerializer _serializer;
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IIgnixaSchemaContext _schemaContext;
+        private readonly FhirJsonParser _firelyJsonParser;
+        private readonly ISdkModeProvider _sdkModeProvider;
 
         public ImportResourceParser(
             IIgnixaJsonSerializer serializer,
             IResourceWrapperFactory resourceFactory,
-            IIgnixaSchemaContext schemaContext)
+            IIgnixaSchemaContext schemaContext,
+            FhirJsonParser firelyJsonParser = null,
+            ISdkModeProvider sdkModeProvider = null)
         {
-            _serializer = EnsureArg.IsNotNull(serializer, nameof(serializer));
+            if (sdkModeProvider?.IsFirelyMode != true)
+            {
+                EnsureArg.IsNotNull(serializer, nameof(serializer));
+                EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
+            }
+
+            _serializer = serializer;
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            _schemaContext = EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
+            _schemaContext = schemaContext;
+            _firelyJsonParser = firelyJsonParser ?? new FhirJsonParser();
+            _sdkModeProvider = sdkModeProvider;
         }
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
+        {
+            return _sdkModeProvider?.IsFirelyMode == true
+                ? ParseFirely(index, offset, length, rawResource, importMode)
+                : ParseIgnixa(index, offset, length, rawResource, importMode);
+        }
+
+        private ImportResource ParseIgnixa(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resourceNode = _serializer.Parse(rawResource)
                 ?? throw new InvalidOperationException("Failed to parse resource from raw JSON.");
@@ -73,6 +96,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
         }
 
+        private ImportResource ParseFirely(long index, long offset, int length, string rawResource, ImportMode importMode)
+        {
+            var resource = _firelyJsonParser.Parse<Resource>(rawResource)
+                ?? throw new InvalidOperationException("Failed to parse resource from raw JSON.");
+            ValidateResourceId(resource.Id);
+            CheckConditionalReferenceInFirelyResource(rawResource, importMode);
+
+            resource.Meta ??= new Meta();
+            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
+            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 5 sec is the max for the computers in the domain
+            {
+                throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
+            }
+
+            var keepVersion = true;
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
+            {
+                resource.Meta.VersionId = "1";
+                keepVersion = false;
+            }
+
+            var resourceElement = resource.ToResourceElement();
+            var isDeleted = resourceElement.IsSoftDeleted();
+
+            if (isDeleted)
+            {
+                RemoveSoftDeletedExtension(resource);
+                resourceElement = resource.ToResourceElement();
+            }
+
+            var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
+        }
+
         private void CheckConditionalReferenceInResource(ResourceJsonNode resource, ImportMode importMode)
         {
             if (importMode == ImportMode.IncrementalLoad)
@@ -99,6 +159,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
+            }
+        }
+
+        private static void CheckConditionalReferenceInFirelyResource(string rawResource, ImportMode importMode)
+        {
+            if (importMode == ImportMode.IncrementalLoad)
+            {
+                return;
+            }
+
+            var jsonNode = JsonNode.Parse(rawResource);
+            if (ContainsConditionalReference(jsonNode))
+            {
+                throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
+            }
+        }
+
+        private static bool ContainsConditionalReference(JsonNode node)
+        {
+            switch (node)
+            {
+                case JsonObject jsonObject:
+                    foreach (var property in jsonObject)
+                    {
+                        if (string.Equals(property.Key, "reference", StringComparison.Ordinal) &&
+                            property.Value is JsonValue jsonValue &&
+                            jsonValue.TryGetValue<string>(out var reference) &&
+                            reference.Contains('?', StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+
+                        if (ContainsConditionalReference(property.Value))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+
+                case JsonArray jsonArray:
+                    return jsonArray.Any(ContainsConditionalReference);
+
+                default:
+                    return false;
             }
         }
 
@@ -135,6 +240,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 metaObject.Remove("extension");
             }
+        }
+
+        private static void RemoveSoftDeletedExtension(Resource resource)
+        {
+            if (resource.Meta?.Extension == null)
+            {
+                return;
+            }
+
+            resource.Meta.Extension.RemoveAll(extension =>
+                string.Equals(extension.Url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase));
         }
 
         private static void ValidateResourceId(string resourceId)

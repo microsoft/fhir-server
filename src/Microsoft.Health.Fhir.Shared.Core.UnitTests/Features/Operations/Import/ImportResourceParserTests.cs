@@ -9,11 +9,14 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
@@ -76,6 +79,95 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
             Assert.DoesNotContain(KnownFhirPaths.AzureSoftDeletedExtensionUrl, importResource.ResourceWrapper.RawResource.Data);
             Assert.DoesNotContain("soft-deleted", importResource.ResourceWrapper.RawResource.Data);
+        }
+
+        [Fact]
+        public void GivenFirelyMode_WhenParsed_ThenImportDoesNotRequireIgnixaActiveProviders()
+        {
+            var resourceFactory = Substitute.For<IResourceWrapperFactory>();
+            var patient = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                Active = true,
+            };
+            var rawResource = _jsonSerializer.SerializeToString(patient);
+
+            resourceFactory.Create(
+                    Arg.Any<ResourceElement>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>())
+                .Returns(new ResourceWrapper(
+                    patient.Id,
+                    "1",
+                    nameof(Patient),
+                    new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: true),
+                    request: null,
+                    DateTimeOffset.UtcNow,
+                    deleted: false,
+                    searchIndices: null,
+                    compartmentIndices: null,
+                    lastModifiedClaims: null));
+
+            var parser = new ImportResourceParser(
+                serializer: null,
+                resourceFactory,
+                schemaContext: null,
+                new FhirJsonParser(),
+                new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Firely }));
+
+            var importResource = parser.Parse(0, 0, rawResource.Length, rawResource, ImportMode.IncrementalLoad);
+
+            Assert.NotNull(importResource.ResourceWrapper);
+            resourceFactory.Received().Create(
+                Arg.Is<ResourceElement>(x => x.GetIgnixaNode() == null),
+                deleted: false,
+                keepMeta: true,
+                keepVersion: false);
+        }
+
+        [Fact]
+        public void GivenIgnixaMode_WhenParsed_ThenResourceWrapperReceivesIgnixaBackedResourceElement()
+        {
+            var resourceFactory = Substitute.For<IResourceWrapperFactory>();
+            var patient = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                Active = true,
+            };
+            var rawResource = _jsonSerializer.SerializeToString(patient);
+
+            resourceFactory.Create(
+                    Arg.Any<ResourceElement>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>())
+                .Returns(new ResourceWrapper(
+                    patient.Id,
+                    "1",
+                    nameof(Patient),
+                    new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: true),
+                    request: null,
+                    DateTimeOffset.UtcNow,
+                    deleted: false,
+                    searchIndices: null,
+                    compartmentIndices: null,
+                    lastModifiedClaims: null));
+
+            var parser = new ImportResourceParser(
+                _ignixaSerializer,
+                resourceFactory,
+                _schemaContext,
+                new FhirJsonParser(),
+                new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Ignixa }));
+
+            parser.Parse(0, 0, rawResource.Length, rawResource, ImportMode.IncrementalLoad);
+
+            resourceFactory.Received().Create(
+                Arg.Is<ResourceElement>(x => x.GetIgnixaNode() != null),
+                deleted: false,
+                keepMeta: true,
+                keepVersion: false);
         }
 
         [Theory]

@@ -10,13 +10,17 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Sdk;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -81,6 +85,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
 
             Assert.Equal(Samples.GetInvalidResourceJson().Replace("\r\n", "\n"), Encoding.UTF8.GetString(_serializer.Serialize(newElement)).Replace("\r\n", "\n"));
+        }
+
+        [Fact]
+        public void GivenFirelyMode_WhenSerialized_ThenIgnixaSerializerIsNotRequired()
+        {
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Firely });
+            var serializer = new ResourceToNdjsonBytesSerializer(
+                ignixaSerializer: null,
+                modeProvider,
+                new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance));
+
+            byte[] actualBytes = serializer.Serialize(_resource.ToResourceElement());
+
+            Assert.Equal(_expectedBytes, actualBytes);
+        }
+
+        [Fact]
+        public void GivenIgnixaBackedResource_WhenSerialized_ThenIgnixaNodeIsSerializedDirectly()
+        {
+            var ignixaSerializer = Substitute.For<IIgnixaJsonSerializer>();
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            var resourceNode = _ignixaSerializer.Parse(new FhirJsonSerializer().SerializeToString(_resource));
+            var resourceElement = new IgnixaResourceElement(resourceNode, schemaContext.Schema).ToResourceElement();
+            var modeProvider = new SdkModeProvider(new SdkConfiguration { Mode = FhirSdkMode.Ignixa });
+            ignixaSerializer.Serialize(resourceNode, pretty: false).Returns("{\"resourceType\":\"Observation\",\"id\":\"test\"}");
+            var serializer = new ResourceToNdjsonBytesSerializer(
+                ignixaSerializer,
+                modeProvider,
+                new SdkFallbackGuard(modeProvider, NullLogger<SdkFallbackGuard>.Instance));
+
+            serializer.Serialize(resourceElement);
+
+            ignixaSerializer.Received().Serialize(
+                Arg.Is<global::Ignixa.Serialization.SourceNodes.ResourceJsonNode>(x => ReferenceEquals(x, resourceNode)),
+                pretty: false);
         }
 
         [Fact]

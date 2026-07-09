@@ -45,6 +45,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.JobManagement;
 using Microsoft.VisualBasic;
 using Newtonsoft.Json;
@@ -73,6 +74,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<BulkUpdateService> _logger;
         private readonly ISdkFallbackGuard _sdkFallbackGuard;
+        private readonly ISdkModeProvider _sdkModeProvider;
+        private readonly IIgnixaJsonSerializer _ignixaSerializer;
+        private readonly IIgnixaSchemaContext _schemaContext;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
@@ -85,7 +89,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
             ILogger<BulkUpdateService> logger,
-            ISdkFallbackGuard sdkFallbackGuard = null)
+            ISdkFallbackGuard sdkFallbackGuard = null,
+            ISdkModeProvider sdkModeProvider = null,
+            IIgnixaJsonSerializer ignixaSerializer = null,
+            IIgnixaSchemaContext schemaContext = null)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
@@ -96,6 +103,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _sdkFallbackGuard = sdkFallbackGuard;
+            _sdkModeProvider = sdkModeProvider;
+            _ignixaSerializer = ignixaSerializer;
+            _schemaContext = schemaContext;
         }
 
         /// <summary>
@@ -640,15 +650,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         private ResourceWrapper CreateUpdateWrapper(ResourceElement resourceElement)
         {
+            resourceElement = NormalizeResourceElementForSdkMode(resourceElement);
             resourceElement = StampLastUpdated(resourceElement);
 
             ResourceWrapper updateWrapper = _resourceWrapperFactory.Create(resourceElement, deleted: false, keepMeta: true);
             return updateWrapper;
         }
 
+        private ResourceElement NormalizeResourceElementForSdkMode(ResourceElement resourceElement)
+        {
+            if (_sdkModeProvider == null || _sdkModeProvider.IsFirelyMode || resourceElement.GetIgnixaNode() != null)
+            {
+                return resourceElement;
+            }
+
+            if (_sdkModeProvider.IsIgnixaMode)
+            {
+                throw new InvalidOperationException("Ignixa SDK mode requires bulk update resources to remain backed by an Ignixa ResourceJsonNode.");
+            }
+
+            if (_sdkModeProvider.IsHybridMode && _ignixaSerializer != null && _schemaContext != null)
+            {
+                _sdkFallbackGuard?.IgnixaFallback(
+                    "Bulk update persistence",
+                    "Bulk update persists Firely-patched resources through Ignixa raw-resource factory in hybrid mode.");
+
+                string json = resourceElement.Instance.ToJson();
+                var resourceNode = _ignixaSerializer.Parse(json);
+                return new IgnixaResourceElement(resourceNode, _schemaContext.Schema).ToResourceElement();
+            }
+
+            return resourceElement;
+        }
+
         private static ResourceElement StampLastUpdated(ResourceElement resourceElement)
         {
             var lastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+            var resourceNode = resourceElement.GetIgnixaNode();
+            if (resourceNode != null)
+            {
+                resourceNode.Meta.LastUpdated = new DateTimeOffset(lastUpdated, TimeSpan.Zero);
+                return resourceElement;
+            }
+
             var resource = resourceElement.ToPoco<Resource>();
             resource.Meta ??= new Meta();
             resource.Meta.LastUpdated = lastUpdated;

@@ -136,8 +136,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                             ignixaElement.SetVersionId(version);
                             ignixaElement.SetLastUpdated(lastModified);
 
-                            // Convert to ResourceElement for backward compatibility
-                            return new ResourceElement(ignixaElement.ToTypedElement());
+                            // Convert to ResourceElement while preserving the ResourceJsonNode for mode-aware persistence.
+                            return ignixaElement.ToResourceElement();
                         }
                     },
                     {

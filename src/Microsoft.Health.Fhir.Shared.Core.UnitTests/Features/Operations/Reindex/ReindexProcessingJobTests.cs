@@ -8,8 +8,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Compartment;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -18,12 +26,14 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reindex
 {
@@ -304,6 +314,64 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 2),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ProcessSearchResultsAsync_GivenIgnixaBackedDeserializer_WhenUpdating_ThenSearchIndexerReceivesIgnixaBackedResource()
+        {
+            var resourceType = "Patient";
+            var batchSize = 1;
+            var patientJson = new FhirJsonSerializer().SerializeToString(new Patient { Id = "ignixa-reindex", Active = true });
+            var searchIndexer = Substitute.For<ISearchIndexer>();
+            searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(Array.Empty<SearchIndexEntry>());
+            var ignixaSerializer = new IgnixaJsonSerializer();
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            var resourceDeserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, (json, version, lastModified) =>
+                {
+                    var resourceNode = ignixaSerializer.Parse(json);
+                    var ignixaElement = new IgnixaResourceElement(resourceNode, schemaContext.Schema);
+                    ignixaElement.SetVersionId(version);
+                    ignixaElement.SetLastUpdated(lastModified);
+                    return ignixaElement.ToResourceElement();
+                }));
+            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var resourceWrapperFactory = new ResourceWrapperFactory(
+                Substitute.For<IRawResourceFactory>(),
+                requestContextAccessor,
+                searchIndexer,
+                Substitute.For<IClaimsExtractor>(),
+                Substitute.For<ICompartmentIndexer>(),
+                Substitute.For<ISearchParameterDefinitionManager>(),
+                resourceDeserializer);
+            var job = new ReindexProcessingJob(
+                () => _searchService.CreateMockScope(),
+                () => _fhirDataStore.CreateMockScope(),
+                resourceWrapperFactory,
+                _searchParameterOperations,
+                _searchParameterStatusManager,
+                NullLogger<ReindexProcessingJob>.Instance);
+            var resourceWrapper = new ResourceWrapper(
+                "ignixa-reindex",
+                "1",
+                resourceType,
+                new RawResource(patientJson, FhirResourceFormat.Json, isMetaSet: true),
+                null,
+                DateTimeOffset.MinValue,
+                false,
+                null,
+                null,
+                null);
+            var searchResult = new SearchResult(
+                new[] { new SearchResultEntry(resourceWrapper) },
+                null,
+                null,
+                new List<Tuple<string, string>>());
+
+            await job.ProcessSearchResultsAsync(searchResult, "patientHash", batchSize, _cancellationToken);
+
+            searchIndexer.Received().Extract(
+                Arg.Is<ResourceElement>(resource => resource.GetIgnixaNode() != null));
         }
 
         [Fact]
