@@ -217,6 +217,29 @@ public class IgnixaResourceValidatorTests
         Assert.Contains(results, x => x.ErrorMessage.Contains("SearchParameter.description"));
     }
 
+    [Theory]
+    [InlineData("StructureDefinition", "differential.element.path")]
+    [InlineData("SearchParameter", "component.definition")]
+    [InlineData("ValueSet", "compose.include.concept.code")]
+    [InlineData("CodeSystem", "concept.code")]
+    [InlineData("CodeSystemNestedConcept", "concept.concept.code")]
+    public async Task GivenIgnixaModeAndInvalidNestedConformanceResource_WhenValidating_ThenInvalidShouldBeReturned(
+        string resourceType,
+        string expectedMessage)
+    {
+        // Arrange
+        var validator = CreateIgnixaModeValidator();
+        var resource = await CreateResourceElement(GetInvalidNestedConformanceJson(resourceType));
+        var results = new List<ValidationResult>();
+
+        // Act
+        var isValid = validator.TryValidate(resource, results, recurse: false);
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Contains(results, x => x.ErrorMessage.Contains(expectedMessage, StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task GivenHybridModeAndConformanceResource_WhenValidating_ThenFallbackIsPermitted()
     {
@@ -273,6 +296,19 @@ public class IgnixaResourceValidatorTests
             "CodeSystem" => "{\"resourceType\":\"CodeSystem\",\"url\":\"http://example.org/cs\",\"status\":\"active\",\"content\":\"complete\"}",
             "SearchParameter" => "{\"resourceType\":\"SearchParameter\",\"url\":\"http://example.org/sp\",\"name\":\"X\",\"status\":\"active\",\"description\":\"Example\",\"code\":\"x\",\"base\":[\"Patient\"],\"type\":\"string\",\"expression\":\"Patient.name\"}",
             "StructureDefinition" => "{\"resourceType\":\"StructureDefinition\",\"url\":\"http://example.org/sd\",\"status\":\"active\",\"name\":\"Example\",\"kind\":\"resource\",\"abstract\":false,\"type\":\"Patient\",\"baseDefinition\":\"http://hl7.org/fhir/StructureDefinition/Patient\",\"derivation\":\"constraint\"}",
+            _ => throw new ArgumentOutOfRangeException(nameof(resourceType), resourceType, null),
+        };
+    }
+
+    private static string GetInvalidNestedConformanceJson(string resourceType)
+    {
+        return resourceType switch
+        {
+            "ValueSet" => "{\"resourceType\":\"ValueSet\",\"url\":\"http://example.org/vs\",\"status\":\"active\",\"compose\":{\"include\":[{\"system\":\"http://example.org/system\",\"concept\":[{}]}]}}",
+            "CodeSystem" => "{\"resourceType\":\"CodeSystem\",\"url\":\"http://example.org/cs\",\"status\":\"active\",\"content\":\"complete\",\"concept\":[{}]}",
+            "CodeSystemNestedConcept" => "{\"resourceType\":\"CodeSystem\",\"url\":\"http://example.org/cs\",\"status\":\"active\",\"content\":\"complete\",\"concept\":[{\"code\":\"parent\",\"concept\":[{}]}]}",
+            "SearchParameter" => "{\"resourceType\":\"SearchParameter\",\"url\":\"http://example.org/sp\",\"name\":\"X\",\"status\":\"active\",\"description\":\"Example\",\"code\":\"x\",\"base\":[\"Patient\"],\"type\":\"composite\",\"expression\":\"Patient\",\"component\":[{}]}",
+            "StructureDefinition" => "{\"resourceType\":\"StructureDefinition\",\"url\":\"http://example.org/sd\",\"status\":\"active\",\"name\":\"Example\",\"kind\":\"resource\",\"abstract\":false,\"type\":\"Patient\",\"baseDefinition\":\"http://hl7.org/fhir/StructureDefinition/Patient\",\"derivation\":\"constraint\",\"differential\":{\"element\":[{}]}}",
             _ => throw new ArgumentOutOfRangeException(nameof(resourceType), resourceType, null),
         };
     }

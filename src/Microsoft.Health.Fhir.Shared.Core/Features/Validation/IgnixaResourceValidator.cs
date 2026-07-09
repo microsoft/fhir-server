@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Ignixa.Abstractions;
 using Ignixa.Serialization.SourceNodes;
 using Ignixa.Validation;
@@ -138,7 +139,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             if (ConformanceResourceTypes.Contains(resourceType))
             {
                 var ignixaValidationResults = new List<DataAnnotations.ValidationResult>();
-                if (TryValidateConformanceIgnixa(resourceNode, resourceType, ignixaValidationResults))
+                var isValid = TryValidateConformanceIgnixa(resourceNode, resourceType, ignixaValidationResults);
+                isValid &= TryValidateConformanceBackboneCardinality(value, resourceType, ignixaValidationResults);
+
+                if (isValid)
                 {
                     return true;
                 }
@@ -223,16 +227,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             string resourceType,
             List<DataAnnotations.ValidationResult> validationResults)
         {
-            var typeDefinition = _schemaContext.Schema.GetTypeDefinition(resourceType);
-            if (typeDefinition == null)
+            var schema = GetOrBuildSchema(resourceType);
+            if (schema == null)
             {
                 return true;
             }
-
-            var schema = _schemaBuilder.BuildSchema(
-                typeDefinition,
-                _schemaContext.Schema,
-                terminologyService: null);
 
             var element = resourceNode.ToElement(_schemaContext.Schema);
             var state = new ValidationState()
@@ -253,6 +252,107 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             return result.IsValid;
+        }
+
+        /// <summary>
+        /// Validates required backbone child cardinalities for conformance resources that are not currently reported by Ignixa native validation.
+        /// </summary>
+        /// <param name="value">The resource element being validated.</param>
+        /// <param name="resourceType">The FHIR resource type name.</param>
+        /// <param name="validationResults">Collection to receive validation results.</param>
+        /// <returns>True if validation passed; otherwise false.</returns>
+        private static bool TryValidateConformanceBackboneCardinality(
+            ResourceElement value,
+            string resourceType,
+            List<DataAnnotations.ValidationResult> validationResults)
+        {
+            return resourceType switch
+            {
+                "StructureDefinition" => ValidateRequiredChild(
+                    value.Select("StructureDefinition.differential.element"),
+                    "path",
+                    "StructureDefinition.differential.element.path",
+                    validationResults),
+                "SearchParameter" => ValidateRequiredChildren(
+                    value.Select("SearchParameter.component"),
+                    new[]
+                    {
+                        ("definition", "SearchParameter.component.definition"),
+                        ("expression", "SearchParameter.component.expression"),
+                    },
+                    validationResults),
+                "ValueSet" => ValidateRequiredChild(
+                    value.Select("ValueSet.compose.include.concept"),
+                    "code",
+                    "ValueSet.compose.include.concept.code",
+                    validationResults),
+                "CodeSystem" => ValidateRequiredChild(
+                    value.Select("CodeSystem.concept"),
+                    "code",
+                    "CodeSystem.concept.code",
+                    validationResults) & ValidateCodeSystemNestedConcepts(
+                    value.Select("CodeSystem.concept"),
+                    validationResults),
+                _ => true,
+            };
+        }
+
+        private static bool ValidateCodeSystemNestedConcepts(
+            IEnumerable<ITypedElement> concepts,
+            List<DataAnnotations.ValidationResult> validationResults)
+        {
+            var isValid = true;
+
+            foreach (var concept in concepts)
+            {
+                var childConcepts = concept.Children("concept").ToList();
+                isValid &= ValidateRequiredChild(
+                    childConcepts,
+                    "code",
+                    "CodeSystem.concept.concept.code",
+                    validationResults);
+                isValid &= ValidateCodeSystemNestedConcepts(childConcepts, validationResults);
+            }
+
+            return isValid;
+        }
+
+        private static bool ValidateRequiredChildren(
+            IEnumerable<ITypedElement> elements,
+            (string ChildName, string IssuePath)[] requiredChildren,
+            List<DataAnnotations.ValidationResult> validationResults)
+        {
+            var isValid = true;
+            var elementList = elements.ToList();
+
+            foreach (var (childName, issuePath) in requiredChildren)
+            {
+                isValid &= ValidateRequiredChild(elementList, childName, issuePath, validationResults);
+            }
+
+            return isValid;
+        }
+
+        private static bool ValidateRequiredChild(
+            IEnumerable<ITypedElement> elements,
+            string childName,
+            string issuePath,
+            List<DataAnnotations.ValidationResult> validationResults)
+        {
+            var isValid = true;
+
+            foreach (var element in elements)
+            {
+                if (!element.Children(childName).Any())
+                {
+                    validationResults.Add(new DataAnnotations.ValidationResult(
+                        $"{issuePath} must have at least 1 occurrence(s), but found 0.",
+                        new[] { issuePath }));
+                    isValid = false;
+                }
+            }
+
+            return isValid;
         }
 
         /// <summary>
