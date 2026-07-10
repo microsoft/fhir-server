@@ -11,11 +11,11 @@ namespace Microsoft.Health.Fhir.Core.Data
 {
     public abstract class BaseDatabaseStatusReporter : IDatabaseStatusReporter
     {
-        private DatabaseAvailability _databaseAvailability;
+        private long _databaseAvailability;
 
         protected BaseDatabaseStatusReporter()
         {
-            _databaseAvailability = DatabaseAvailability.Available;
+            _databaseAvailability = (long)DatabaseAvailability.Available;
         }
 
         public abstract bool IsCustomerManagedKeyException(Exception exception);
@@ -25,13 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Data
 #pragma warning disable CA1024 // Use properties where appropriate. Justification: Prefer to keep this as a method for consistency with the other methods in this interface.
         public DatabaseAvailability GetDatabaseAvailability()
         {
-            return _databaseAvailability;
+            return (DatabaseAvailability)Interlocked.Read(ref _databaseAvailability);
         }
 #pragma warning restore CA1024
 
         public void SetDatabaseAvailability(DatabaseAvailability availability)
         {
-            _databaseAvailability = availability;
+            Interlocked.Exchange(ref _databaseAvailability, (long)availability);
         }
     }
 }
