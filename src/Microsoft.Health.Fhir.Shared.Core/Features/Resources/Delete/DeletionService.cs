@@ -218,6 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Delete the matched results...
+            List<Exception> exceptionsOutsideTasks = new List<Exception>();
             try
             {
                 while (results.Any() || !string.IsNullOrEmpty(ct))
@@ -311,6 +312,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting");
+                exceptionsOutsideTasks.Add(ex);
                 await cancellationTokenSource.CancelAsync();
             }
 
@@ -334,9 +336,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, deleteTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
-            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults)
+            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults || exceptionsOutsideTasks.Any())
             {
-                var exceptions = new List<Exception>();
+                var exceptions = new List<Exception>(exceptionsOutsideTasks);
 
                 if (tooManyIncludeResults)
                 {
@@ -395,7 +397,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }));
 
-            var partialResults = new List<(string, string, bool)>();
+            var partialResults = new List<(string ResourceType, string ResourceId, bool IsInclude)>();
             try
             {
                 using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
@@ -438,6 +440,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new IncompleteOperationException<Dictionary<string, long>>(
                     ex.InnerException,
                     ids.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error soft deleting");
+                await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, partialResults);
+                throw new IncompleteOperationException<Dictionary<string, long>>(
+                    ex,
+                    partialResults.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
             }
 
             await CreateAuditLog(
