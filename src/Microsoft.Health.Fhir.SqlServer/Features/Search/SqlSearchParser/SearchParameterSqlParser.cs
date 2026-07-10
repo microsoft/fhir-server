@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly IdSqlParser _idSqlParser;
         private readonly ISqlServerFhirModel _sqlServerFhirModel;
         private readonly IncludeSqlParser _includeSqlParser;
+        private readonly RevIncludeSqlParser _revIncludeSqlParser;
         private readonly ChainedSqlParser _chainedSqlParser;
         private readonly ReversedChainSqlParser _reversedChainSqlParser;
         private readonly LastUpdatedSqlParser _lastUpdatedSqlParser;
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             };
 
             _includeSqlParser = new IncludeSqlParser(parameterCollection, fhirModel);
+            _revIncludeSqlParser = new RevIncludeSqlParser(parameterCollection, fhirModel);
             _chainedSqlParser = new ChainedSqlParser(parameterCollection, this, fhirModel);
             _reversedChainSqlParser = new ReversedChainSqlParser(parameterCollection, this, fhirModel);
         }
@@ -353,7 +355,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     cteIndex++;
 
                     sqlBuilder.AppendLine($",{includeCteName} AS (");
-                    var includeSql = _includeSqlParser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
+
+                    // Choose the appropriate parser based on whether this is _include or _revinclude
+                    ISqlParser parser = orderedInclude.ParameterName.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase)
+                        ? _revIncludeSqlParser
+                        : _includeSqlParser;
+
+                    var includeSql = parser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
                     sqlBuilder.Append(includeSql);
                     sqlBuilder.AppendLine();
                     sqlBuilder.Append(')');

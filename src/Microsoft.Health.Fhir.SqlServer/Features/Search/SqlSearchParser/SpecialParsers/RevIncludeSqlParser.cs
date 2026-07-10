@@ -13,12 +13,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
-    public class IncludeSqlParser : ISqlParser
+    /// <summary>
+    /// Parses _revinclude search parameters to find resources that reference the matched resources.
+    /// This is the reverse of _include which finds resources referenced by the matched resources.
+    /// </summary>
+    public class RevIncludeSqlParser : ISqlParser
     {
         private readonly SqlSearchParameterDefinitionManager _parameterCollection;
         private readonly ISqlServerFhirModel _model;
 
-        public IncludeSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel model)
+        public RevIncludeSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel model)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             ArgumentNullException.ThrowIfNull(model);
@@ -40,6 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             short resourceTypeId = 0;
             var targetResourceTypeIds = new List<short>();
 
+            // Parse the resource type that will reference our matched resources
             if (!string.Equals(parts[0], "*", StringComparison.OrdinalIgnoreCase))
             {
                 resourceTypeId = _model.GetResourceTypeId(parts[0]);
@@ -49,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 wildcardResourceType = true;
             }
 
+            // Parse the search parameter on the referencing resource
             if (parts.Length > 1 && !string.Equals(parts[1], "*", StringComparison.OrdinalIgnoreCase))
             {
                 parameter = _parameterCollection.GetByCode(parts[1], resourceTypeId);
@@ -58,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 wildcardSearchParameter = true;
             }
 
+            // Parse target resource types (the matched resources)
             if (parts.Length > 2)
             {
                 var targetResourceTypes = parts[2].Split(',');
@@ -77,11 +84,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var sqlBuilder = new StringBuilder();
             sqlBuilder.AppendLine("SELECT *, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row");
             sqlBuilder.AppendLine("  FROM (");
-            sqlBuilder.AppendLine($"    SELECT DISTINCT TOP (1001) refTarget.ResourceTypeId, refTarget.ResourceSurrogateId, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
+            sqlBuilder.AppendLine($"    SELECT DISTINCT TOP (1001) refSource.ResourceTypeId, refSource.ResourceSurrogateId, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
             sqlBuilder.AppendLine("      FROM dbo.ReferenceSearchParam refSource");
             sqlBuilder.AppendLine("        JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-            sqlBuilder.AppendLine($"      WHERE EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+            sqlBuilder.AppendLine($"      WHERE EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
 
+            // For revinclude, we want resources (refSource) that reference the matched resources (refTarget)
+            // So we filter on refSource's ResourceTypeId (the referencing resource type)
             if (!wildcardResourceType)
             {
                 sqlBuilder.AppendLine($"        AND refSource.ResourceTypeId = {resourceTypeId}");
@@ -89,16 +98,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (!wildcardSearchParameter)
             {
-                sqlBuilder.AppendLine($"       AND refSource.SearchParamId = {parameter?.Id}");
+                sqlBuilder.AppendLine($"        AND refSource.SearchParamId = {parameter?.Id}");
             }
 
+            // Filter on the target resource type if specified (the matched resources that are being referenced)
             if (targetResourceTypeIds.Count > 0)
             {
-                sqlBuilder.AppendLine($"       AND refTarget.ResourceTypeId IN ({string.Join(",", targetResourceTypeIds)})");
+                sqlBuilder.AppendLine($"        AND refTarget.ResourceTypeId IN ({string.Join(",", targetResourceTypeIds)})");
             }
 
-            sqlBuilder.AppendLine("        AND refTarget.IsHistory = 0");
-            sqlBuilder.AppendLine("        AND refTarget.IsDeleted = 0");
             sqlBuilder.AppendLine("  ) AS a");
 
             return sqlBuilder.ToString();
