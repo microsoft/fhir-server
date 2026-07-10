@@ -54,6 +54,362 @@ This composes across SMART versions. A V1 request, or a V2 request with granular
 - **Side effect: the base SMART compartment result is now more complete.** Because the union enumerates materialized type-specific reference parameters, a patient's own resources that were previously dropped by the non-materialized `clinical-patient` mapping (e.g. an `Encounter`, `ImagingStudy` or `Procedure` linked only via `subject`) are now correctly returned. This is a safe widening (still bounded to resources referencing the compartment root) but it does change result counts; one integration assertion that hard-coded the old undercount was updated accordingly.
 - **The regular (non-SMART) compartment search path is deliberately left untouched.** The additive enumeration above is gated to `SmartCompartmentSearchExpression`; a conventional `Patient/{id}/*` compartment search still builds membership only from the `CompartmentDefinition`-named parameters and keeps its existing behavior — including the same pre-existing under-match for types mapped to the non-materialized combined parameter. This scoping keeps the security fix confined to the SMART path and guarantees it cannot regress non-SMART compartment semantics; broadening the base path is a separate, non-security change that was intentionally not bundled here.
 - **Known residual gap (an under-match, never a disclosure): types whose *only* Patient link is the combined parameter are still not admitted.** `Immunization` is the concrete example. In R4 its sole `Patient`-targeting reference parameter is the combined `patient` parameter (`clinical-patient`); it has no type-specific materialized parameter (its other reference parameters — `location`, `manufacturer`, `performer`, `reaction`, `reason-reference` — do not target `Patient`, and there is no `Immunization-subject`). Because the enumeration only adds *supported, materialized* reference parameters and `clinical-patient` is neither, an `Immunization` linked only through it remains absent from the compartment result (e.g. `Immunization/A1` in the tests). This is a pre-existing completeness gap — the missing rows reference the compartment root itself, so it can never surface another patient's data — and closing it (by materializing the combined parameter or adding an equivalent indexed path) is out of scope for this security fix and left as a follow-up.
-- Adds an `EXISTS` sub-predicate and a re-generated union CTE to include/revinclude statements. Cost is bounded: the produced-row set is small and the membership CTE reuses the `ReferenceSearchParam` index.
+- Adds an `EXISTS` sub-predicate and a re-generated compartment-union CTE to include/revinclude statements. For targeted queries the cost is bounded (a semi-join over a small produced-row set against the `ReferenceSearchParam` index); a reversed wildcard `_revinclude=*:*` is the worst case, where the all-types compartment union dominates the text and is emitted twice. The generated SQL and its performance characteristics — captured before and after the fix — are analyzed in [Generated SQL and Performance Impact](#generated-sql-and-performance-impact).
 - Include/revinclude of genuinely shared, non-patient-specific reference targets (e.g. `Practitioner`, `Organization`, `Location`, `Medication`) must remain available; these are represented in the compartment union's universal-type members so they are not dropped.
 - **SQL-only.** Cosmos is deliberately untouched (deprecated). If Cosmos SMART includes need the same guarantee later, it is a separate follow-up.
+
+## Generated SQL and Performance Impact
+
+A concern raised in review: intersecting the compartment union with includes re-generates CTEs and could enlarge the query, hurting query-plan compilation and execution. To ground this rather than reason about it abstractly, the actual parameterized SQL (`sp_executesql` statement text) emitted by the R4 integration suite against SQL Server 2022 was captured **before** and **after** the fix, for the same requests.
+
+### Representative case — a single `_include`
+
+Request: `GET Coverage?_id=smart-leak-coverage&_include=Coverage:subscriber`, caller confined to `Patient/smart-leak-child` (`@p0 = 'smart-leak-child'`, `@p1 = 'smart-leak-coverage'`).
+
+The query is two statements: a primary statement that materializes the compartment-restricted matches into `@FilteredData`, then an include statement that expands `_include`. The compartment union is `cte0` (rows in `ReferenceSearchParam` that reference the patient) `UNION ALL` `cte1` (the patient's own row) → `cte2`. Two things change with the fix:
+
+1. **Primary `cte0` widens** from 4 to 7 reference-parameter branches (`SearchParamId` 343/345/336/342 → additionally 341/1015/1132), from the additive materialized-parameter enumeration (Fix #1 in the Decision). Same CTE count, a longer `OR` predicate.
+2. **The include statement gains the compartment intersection.** Before, the include CTE (`cte6`) resolved `Coverage:subscriber` with *no* compartment check — the leak. After, the compartment union (`cte0`/`cte1`/`cte2`) is re-generated inside the include statement and `cte6` gains a second `EXISTS`, so the included target must also be in the compartment membership set.
+
+The critical difference is one predicate on `cte6` (the include-target fetch):
+
+```sql
+-- BEFORE (leak): the included target only has to be referenced by a matched row (cte5)
+,cte6 AS (
+    SELECT DISTINCT TOP (@p3) refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refSource.SearchParamId = 345
+        AND refTarget.IsHistory = 0 AND refTarget.IsDeleted = 0
+        AND refSource.ResourceTypeId IN (31)
+        AND EXISTS (SELECT * FROM cte5 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 AND Row < @p4)
+)
+
+-- AFTER (fixed): the included target must ALSO be in the compartment membership CTE (cte2)
+,cte6 AS (
+    SELECT DISTINCT TOP (@p3) refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refSource.SearchParamId = 345
+        AND refTarget.IsHistory = 0 AND refTarget.IsDeleted = 0
+        AND refSource.ResourceTypeId IN (31)
+        AND EXISTS (SELECT * FROM cte5 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 AND Row < @p4)
+        AND EXISTS (SELECT * FROM cte2 WHERE refSource.ReferenceResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1)  -- compartment intersection (the fix)
+)
+```
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Statement text | 104 lines / ~3.9 KB | 170 lines / ~6.1 KB | +66 lines / +63 % |
+| CTEs (primary ; include) | 6 ; 4 | 6 ; 7 | +3 (compartment union re-generated in the include) |
+| Compartment predicate on include | none | one `EXISTS` semi-join | the fix |
+| Primary `INSERT` option | — | `OPTION (RECOMPILE)` | see below |
+
+<details>
+<summary>Full generated SQL — BEFORE (leak)</summary>
+
+```sql
+DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE ((SearchParamId = 343
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 345
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 336
+        AND ResourceTypeId = 31
+        AND ReferenceResourceTypeId = 103 )
+        OR (SearchParamId = 342
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )) 
+        AND ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+), 
+cte3 AS
+(
+    SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
+    FROM dbo.Resource
+         JOIN cte2 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0 
+        AND ResourceTypeId = 31 
+)
+,cte4 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+         JOIN cte3 ON ResourceTypeId = cte3.T1 AND ResourceSurrogateId = cte3.Sid1
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId = 31
+        AND ResourceId = @p1 
+)
+,cte5 AS
+(
+    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *
+    FROM
+    (
+        SELECT DISTINCT TOP (@p2) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial 
+        FROM cte4
+        ORDER BY T1 ASC, Sid1 ASC
+    ) t
+)
+/* HASH 8RoAjbAA9k8Qql6sbY5yVKEt4QG93ilwLWK5XdzxemY= params=@p0 */
+INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte5
+;WITH cte5 AS (SELECT * FROM @FilteredData)
+,cte6 AS
+(
+    SELECT DISTINCT TOP (@p3) refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial 
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refSource.SearchParamId = 345
+        AND refTarget.IsHistory = 0 
+        AND refTarget.IsDeleted = 0 
+        AND refSource.ResourceTypeId IN (31)
+        AND EXISTS (SELECT * FROM cte5 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 AND Row < @p4)
+)
+,cte7 AS
+(
+    SELECT DISTINCT TOP (@p5) T1, Sid1, IsMatch, CASE WHEN count_big(*) over() > @p6 THEN 1 ELSE 0 END AS IsPartial 
+    FROM cte6
+)
+,cte8 AS
+(
+    SELECT T1, Sid1, IsMatch, IsPartial 
+    FROM cte5
+    UNION ALL
+    SELECT T1, Sid1, IsMatch, IsPartial
+    FROM cte7 WHERE NOT EXISTS (SELECT * FROM cte5 WHERE cte5.Sid1 = cte7.Sid1 AND cte5.T1 = cte7.T1)
+)
+SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+FROM dbo.Resource r
+     JOIN cte8 ON r.ResourceTypeId = cte8.T1 AND r.ResourceSurrogateId = cte8.Sid1
+WHERE IsHistory = 0 
+    AND IsDeleted = 0 
+) AS t ORDER BY IsMatch DESC, (CASE WHEN IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC
+```
+
+</details>
+
+<details>
+<summary>Full generated SQL — AFTER (fixed)</summary>
+
+```sql
+DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE ((SearchParamId = 343
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 345
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 336
+        AND ResourceTypeId = 31
+        AND ReferenceResourceTypeId = 103 )
+        OR (SearchParamId = 342
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 341
+        AND ResourceTypeId = 31
+        AND ReferenceResourceTypeId = 103 )
+        OR (SearchParamId = 1015
+        AND ResourceTypeId = 103
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 1132
+        AND ResourceTypeId = 114
+        AND ReferenceResourceTypeId = 103 )) 
+        AND ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+), 
+cte3 AS
+(
+    SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
+    FROM dbo.Resource
+         JOIN cte2 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0 
+        AND ResourceTypeId = 31 
+)
+,cte4 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+         JOIN cte3 ON ResourceTypeId = cte3.T1 AND ResourceSurrogateId = cte3.Sid1
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId = 31
+        AND ResourceId = @p1 
+)
+,cte5 AS
+(
+    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *
+    FROM
+    (
+        SELECT DISTINCT TOP (@p2) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial 
+        FROM cte4
+        ORDER BY T1 ASC, Sid1 ASC
+    ) t
+)
+/* HASH 8RoAjbAA9k8Qql6sbY5yVKEt4QG93ilwLWK5XdzxemY= params=@p0 */
+INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte5
+OPTION (RECOMPILE)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE ((SearchParamId = 343
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 345
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 336
+        AND ResourceTypeId = 31
+        AND ReferenceResourceTypeId = 103 )
+        OR (SearchParamId = 342
+        AND ResourceTypeId = 31
+        AND ((ReferenceResourceTypeId = 100)
+        OR (ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 341
+        AND ResourceTypeId = 31
+        AND ReferenceResourceTypeId = 103 )
+        OR (SearchParamId = 1015
+        AND ResourceTypeId = 103
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  )
+        OR (SearchParamId = 1132
+        AND ResourceTypeId = 114
+        AND ReferenceResourceTypeId = 103 )) 
+        AND ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+)
+,cte5 AS (SELECT * FROM @FilteredData)
+,cte6 AS
+(
+    SELECT DISTINCT TOP (@p3) refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial 
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refSource.SearchParamId = 345
+        AND refTarget.IsHistory = 0 
+        AND refTarget.IsDeleted = 0 
+        AND refSource.ResourceTypeId IN (31)
+        AND EXISTS (SELECT * FROM cte5 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 AND Row < @p4)
+        AND EXISTS (SELECT * FROM cte2 WHERE refSource.ReferenceResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1)
+)
+,cte7 AS
+(
+    SELECT DISTINCT TOP (@p5) T1, Sid1, IsMatch, CASE WHEN count_big(*) over() > @p6 THEN 1 ELSE 0 END AS IsPartial 
+    FROM cte6
+)
+,cte8 AS
+(
+    SELECT T1, Sid1, IsMatch, IsPartial 
+    FROM cte5
+    UNION ALL
+    SELECT T1, Sid1, IsMatch, IsPartial
+    FROM cte7 WHERE NOT EXISTS (SELECT * FROM cte5 WHERE cte5.Sid1 = cte7.Sid1 AND cte5.T1 = cte7.T1)
+)
+SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+FROM dbo.Resource r
+     JOIN cte8 ON r.ResourceTypeId = cte8.T1 AND r.ResourceSurrogateId = cte8.Sid1
+WHERE IsHistory = 0 
+    AND IsDeleted = 0 
+) AS t ORDER BY IsMatch DESC, (CASE WHEN IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC
+```
+
+</details>
+
+### Worst case — reversed wildcard `_revinclude=*:*`
+
+Request: `GET Patient?_id=smart-patient-D&_revinclude=*:*`. There is no bounded list of types that may reference the patient, so the compartment union is emitted over **all** compartment resource types — a single giant `OR` predicate ~4,350 lines long — and, like every include, that union is re-generated once more for the revinclude statement.
+
+| Metric | Before | After |
+|---|---|---|
+| Statement text | 89 lines / ~3.5 KB | 8,814 lines / ~360 KB |
+| Compartment union `cte0` | small (primary types only) | ~4,350 lines, emitted **twice** |
+| `UNION ALL` operators | few | 5 (the bulk is one wide `OR`, not many unions) |
+
+This is the fix's genuine worst case and the sharpest form of the reviewer's concern: the all-types compartment union dominates the text and is duplicated across the two statements. It is the price of enforcing the compartment on every revincluded type. A targeted `_revinclude=Type:param` stays close to the single-`_include` numbers above.
+
+### Why this is acceptable — and where it is not
+
+- **Plan compilation & caching.** The include re-generation reuses the *pre-existing* SMART V2 scope-union pattern, which appends `OPTION (RECOMPILE)` to the `INSERT INTO @FilteredData` (`SqlQueryGenerator`, gated on `_smartV2UnionVisited || _smartCompartmentUnionVisited`). Consequence: the statement is compiled per execution — the optimizer sees the actual literals and the real cardinality of the `@FilteredData` table variable — and, importantly, the large wildcard plan is **not** cached, so it can neither bloat nor evict the plan cache for other workloads. The compartment id stays a parameter (`@p0`) and the predicate is metadata-derived (compartment definition + search-parameter ids), so it is identical across patients and independent of stored data.
+- **Execution.** Compartment membership is applied as a correlated `EXISTS (SELECT * FROM <unionCTE> …)` — a semi-join keyed on `(ResourceTypeId, ResourceSurrogateId)`, the leading columns of the `Resource`/`ReferenceSearchParam` indexes — evaluated only over the produced include rows, which are themselves capped by `TOP (@p3)` (≈1,001). The union CTE is built from `ReferenceSearchParam` index seeks (`SearchParamId = … AND ReferenceResourceId = @p0`). For targeted queries this is a handful of seeks over a bounded row set, not a scan.
+- **Text size / duplication.** The compartment union CTE is emitted twice (primary + include). For targeted SMART queries that is tens of lines; for `_revinclude=*:*` it is thousands. SQL Server parses even the large text quickly, but the wildcard text size and per-execution recompilation are real, non-zero costs.
+- **Net.** For the SMART queries a patient-scoped app actually issues — a resource, or a compartment slice, with targeted includes — the added cost is a bounded semi-join plus a modest predicate, and the plan-cache behavior of non-include queries is unchanged (with no includes the generated SQL is byte-for-byte identical to before). The unbounded `_revinclude=*:*` case is the outlier and a natural follow-up optimization: emit the compartment union **once** (e.g. materialize it into a table variable / temp table and reference it from both statements) rather than re-generating it, and/or cap wildcard-revinclude type expansion. Neither is required to close the disclosure, so both are deferred to keep this change focused on the security fix.
