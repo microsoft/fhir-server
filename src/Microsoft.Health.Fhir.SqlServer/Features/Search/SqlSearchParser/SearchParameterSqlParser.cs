@@ -545,6 +545,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// <summary>
         /// Orders include parameters so that _include:iterate parameters are processed after
         /// all _include parameters that produce the resources they depend on.
+        /// Also handles _revinclude:iterate which has reversed dependency logic.
+        ///
+        /// Examples:
+        /// - _include:iterate requires the SOURCE type to exist:
+        ///   Patient?_include=Observation:subject&amp;_include:iterate=Patient:organization
+        ///   → Observation must be produced first, then we can follow Patient.organization
+        ///
+        /// - _revinclude:iterate requires the TARGET type to exist:
+        ///   Patient?_include=Patient:organization&amp;_revinclude:iterate=Observation:subject:Organization
+        ///   → Organization must be produced first, then we can find Observations that reference it
         /// </summary>
         /// <param name="includeParameters">Dictionary of include parameter names to their values.</param>
         /// <returns>An ordered list of include parameters with their dependency information.</returns>
@@ -564,6 +574,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         ParameterName = kvp.Key,
                         Value = value,
                         IsIterate = kvp.Key.Contains(":iterate", StringComparison.OrdinalIgnoreCase) || kvp.Key.Contains(":recurse", StringComparison.OrdinalIgnoreCase),
+                        IsRevInclude = kvp.Key.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase),
                     };
                     allIncludes.Add(orderedInclude);
                     index++;
@@ -580,24 +591,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 // For each iterate include, find all includes it depends on
                 var iterateInclude = allIncludes[i];
-                var requiredSourceTypes = new HashSet<short>();
+                var requiredResourceTypes = new HashSet<short>();
 
-                // Get all source resource types this iterate include needs
-                var parts = iterateInclude.Value.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length > 0)
+                // For _include:iterate, we need the SOURCE types to be present (to follow their references)
+                // For _revinclude:iterate, we need the TARGET types to be present (to find what references them)
+                if (iterateInclude.IsRevInclude)
                 {
-                    try
+                    // For revinclude:iterate, we need the target resource types from the parameter
+                    var targetTypes = GetIncludeTargetResourceTypes(iterateInclude.Value);
+                    foreach (var targetType in targetTypes)
                     {
-                        var sourceResourceTypeId = _sqlServerFhirModel.GetResourceTypeId(parts[0]);
-                        requiredSourceTypes.Add(sourceResourceTypeId);
+                        requiredResourceTypes.Add(targetType);
                     }
-                    catch
+                }
+                else
+                {
+                    // For include:iterate, we need the source resource type
+                    var parts = iterateInclude.Value.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
                     {
-                        // Invalid resource type, skip
+                        try
+                        {
+                            var sourceResourceTypeId = _sqlServerFhirModel.GetResourceTypeId(parts[0]);
+                            requiredResourceTypes.Add(sourceResourceTypeId);
+                        }
+                        catch
+                        {
+                            // Invalid resource type, skip
+                        }
                     }
                 }
 
-                // Check all other includes to see if they produce any of the required source types
+                // Check all other includes to see if they produce any of the required resource types
                 for (int j = 0; j < allIncludes.Count; j++)
                 {
                     if (i == j)
@@ -609,14 +634,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     var producedTypes = new HashSet<short>();
 
                     // Get all resource types this include could produce
-                    var targetTypes = GetIncludeTargetResourceTypes(potentialDependency.Value);
-                    foreach (var targetType in targetTypes)
+                    // _include produces target types, _revinclude produces source types
+                    var typesProduced = GetProducedResourceTypes(potentialDependency.Value, potentialDependency.IsRevInclude);
+                    foreach (var typeId in typesProduced)
                     {
-                        producedTypes.Add(targetType);
+                        producedTypes.Add(typeId);
                     }
 
-                    // If this include produces any of the required source types, add it as a dependency
-                    if (requiredSourceTypes.Overlaps(producedTypes))
+                    // If this include produces any of the required resource types, add it as a dependency
+                    if (requiredResourceTypes.Overlaps(producedTypes))
                     {
                         iterateInclude.DependsOnIndices.Add(j);
                     }
@@ -753,6 +779,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         }
 
         /// <summary>
+        /// Gets the resource types produced by an include or revinclude operation.
+        /// For _include, this returns the target types (what's referenced).
+        /// For _revinclude, this returns the source types (what's doing the referencing).
+        /// </summary>
+        /// <param name="includeValue">The include parameter value (e.g., "Patient:organization" or "Observation:subject:Patient").</param>
+        /// <param name="isRevInclude">True if this is a _revinclude operation, false for _include.</param>
+        /// <returns>A list of resource type IDs that this operation produces.</returns>
+        private List<short> GetProducedResourceTypes(string includeValue, bool isRevInclude)
+        {
+            var parts = includeValue.Split(':', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+            {
+                return new List<short>();
+            }
+
+            if (isRevInclude)
+            {
+                // For _revinclude, we produce the SOURCE resource types (what's doing the referencing)
+                // This is the first part of the value
+                var producedTypes = new List<short>();
+                try
+                {
+                    var sourceTypeId = _sqlServerFhirModel.GetResourceTypeId(parts[0]);
+                    producedTypes.Add(sourceTypeId);
+                }
+                catch
+                {
+                    // Invalid resource type
+                }
+
+                return producedTypes;
+            }
+            else
+            {
+                // For _include, we produce the TARGET resource types (what's referenced)
+                // Use the existing method for this
+                return GetIncludeTargetResourceTypes(includeValue);
+            }
+        }
+
+        /// <summary>
         /// Represents an ordered include parameter with its dependencies.
         /// </summary>
         private class OrderedInclude
@@ -764,6 +832,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             public string Value { get; set; } = string.Empty;
 
             public bool IsIterate { get; set; }
+
+            public bool IsRevInclude { get; set; }
 
             public HashSet<int> DependsOnIndices { get; set; } = new HashSet<int>();
 
