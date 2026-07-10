@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger.LogInformation("Starting QueryPlanReuseChecker refresh timer.");
 
                 await RefreshCache(stoppingToken);
-                await _timer.ExecuteAsync("QueryPlanReuseChecker.RefreshCache", _refreshPeriod, RefreshCache, stoppingToken);
+                await _timer.ExecuteAsync("QueryPlanReuseChecker.RefreshCache", _refreshPeriod, RefreshCache, stoppingToken, exitOnFailure: true);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -112,6 +112,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             catch (Exception ex)
             {
                 _logger.LogError(ex, "QueryPlanReuseChecker refresh loop failed.");
+            }
+            finally
+            {
+                // The reuse checker is no longer refreshing, so we should not allow query plan reuse.
+                _isInitialized = false;
             }
         }
 

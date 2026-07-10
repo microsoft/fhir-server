@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// <summary>
         /// Runs the execution of the timer until the <see cref="CancellationToken"/> is cancelled.
         /// </summary>
-        public async Task ExecuteAsync(string name, double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken, double initialDelaySec = 0)
+        public async Task ExecuteAsync(string name, double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken, double initialDelaySec = 0, bool exitOnFailure = false)
         {
             Name = EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsNotNull(onNextTick, nameof(onNextTick));
@@ -73,6 +73,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     {
                         logger?.LogWarning($"{Name}: error={e}");
                         _isFailing = true;
+
+                        if (exitOnFailure)
+                        {
+                            throw;
+                        }
                     }
                 }
             }
