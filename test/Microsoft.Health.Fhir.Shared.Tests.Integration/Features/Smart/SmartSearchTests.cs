@@ -703,6 +703,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
         {
             Skip.If(
@@ -729,6 +730,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPatient_WhenDevicesRequested_ThenOnlyOwnAndUnassignedDevicesReturned()
         {
             Skip.If(
@@ -758,6 +760,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPatient_WhenIncludingDevicePatient_ThenOtherPatientDemographicsAreNotLeaked()
         {
             // Security regression guard for the reported Device compartment bypass. The attack was:
@@ -804,6 +807,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPractitioner_WhenDevicesRequested_ThenOnlyUnassignedDevicesReturned()
         {
             Skip.If(
@@ -908,6 +912,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenSmartV2GranularDeviceScopeWithSearchParameter_WhenSearchingDevices_ThenOnlyOwnAndUnassignedDevicesReturned()
         {
             // Exercises the SMART v2 granular-scope union path (AppendSmartNewSetOfUnionAllTableExpressions)
