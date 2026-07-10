@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             var attemptCount = 0;
             _searchParameterOperations
-                .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(callInfo =>
                 {
                     attemptCount++;
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
             _searchParameterOperations
-                .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(_ => throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict));
 
             var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
