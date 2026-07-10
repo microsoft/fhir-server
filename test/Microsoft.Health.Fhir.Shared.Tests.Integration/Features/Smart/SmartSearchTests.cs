@@ -372,6 +372,72 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenIncludeReferencesResourceOutsideCompartment_ThenOutOfCompartmentResourceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // MSRC _include compartment leak reproduction.
+            // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
+            // Coverage/smart-leak-coverage is inside the child's compartment (beneficiary = smart-leak-child),
+            // but its subscriber references Patient/smart-leak-parent, a DIFFERENT patient that is outside the
+            // caller's compartment. Expanding _include=Coverage:subscriber must NOT disclose the parent patient,
+            // because include authorization currently only checks the produced resource type, not the compartment.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-leak-coverage"));
+            query.Add(new Tuple<string, string>("_include", "Coverage:subscriber"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Coverage", query, CancellationToken.None);
+
+            // The in-compartment primary match should still be returned.
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Coverage" && x.Resource.ResourceId == "smart-leak-coverage");
+
+            // The out-of-compartment patient pulled in via _include must NOT be disclosed.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-parent");
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenRevIncludeReturnsResourceOutsideCompartment_ThenOutOfCompartmentResourceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // MSRC _revinclude compartment leak reproduction.
+            // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
+            // Observation/smart-leak-child-obs is inside the child's compartment (subject = smart-leak-child).
+            // DiagnosticReport/smart-leak-parent-report belongs to Patient/smart-leak-parent (subject = parent),
+            // so it is OUTSIDE the caller's compartment, yet its result references the child's observation.
+            // Expanding _revinclude=DiagnosticReport:result must NOT disclose the parent's DiagnosticReport.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-leak-child-obs"));
+            query.Add(new Tuple<string, string>("_revinclude", "DiagnosticReport:result"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // The in-compartment primary match should still be returned.
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-child-obs");
+
+            // The out-of-compartment DiagnosticReport pulled in via _revinclude must NOT be disclosed.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "DiagnosticReport" && x.Resource.ResourceId == "smart-leak-parent-report");
+        }
+
+        [SkippableFact]
         public async Task GivenScopesWithReadForObservation_WhenChainedSearchWithPatientName_ThrowsInvalidSearchException()
         {
             Skip.If(
@@ -725,7 +791,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(39, results.Results.Count());
+
+            // Encounter, ImagingStudy and Procedure reference smart-patient-A via their `subject` element.
+            // The Patient compartment definition maps those types to the common `patient` search parameter
+            // (clinical-patient), whose FHIRPath uses resolve() and is therefore not materialized as an index
+            // row, so before the SMART compartment fix these in-compartment resources were silently dropped.
+            // The SMART compartment now also matches on the materialized type-specific reference parameters,
+            // so the patient's own Encounter, ImagingStudy and Procedure are correctly included (39 -> 42).
+            Assert.Equal(42, results.Results.Count());
         }
 
         [SkippableFact]

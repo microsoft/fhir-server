@@ -83,7 +83,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             // union all those results together
-            return Expression.Union(UnionOperator.All, expressionList);
+            // Flag the union and each of its members so the SQL layer recognizes this as the SMART compartment
+            // union and re-applies it as an intersection on _include / _revinclude produced resources. The flag is
+            // set on multiple levels because downstream rewriters may reconstruct the outer UnionExpression (which
+            // would drop a flag set only on the outermost node); a recursive check then still finds it on a member.
+            foreach (Expression memberExpression in expressionList)
+            {
+                memberExpression.IsSmartCompartmentUnionExpression = true;
+            }
+
+            var compartmentUnion = Expression.Union(UnionOperator.All, expressionList);
+            compartmentUnion.IsSmartCompartmentUnionExpression = true;
+            return compartmentUnion;
         }
     }
 }

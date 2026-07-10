@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -45,6 +46,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 var compartmentResourceTypesToSearch = new HashSet<string>();
                 var searchParameterInfoList = new Dictionary<string, (SearchParameterInfo searchParameterInfo, HashSet<string> ResourceTypes)>();
 
+                void AddCompartmentSearchParameter(SearchParameterInfo searchParameter, string resourceType)
+                {
+                    // Use the URL string as the key.
+                    string searchParamUrl = searchParameter.Url.ToString();
+
+                    if (searchParameterInfoList.TryGetValue(searchParamUrl, out var existing))
+                    {
+                        // Add the compartment resource type if the key exists.
+                        existing.ResourceTypes.Add(resourceType);
+                    }
+                    else
+                    {
+                        // Otherwise, add a new dictionary entry.
+                        searchParameterInfoList[searchParamUrl] = (searchParameter, new HashSet<string> { resourceType });
+                    }
+                }
+
+                // A SMART compartment is broader than a regular compartment search: the smart user has access to any
+                // resource that references them (see SmartCompartmentSearchRewriter). The FHIR compartment definition
+                // maps several resource types (e.g. Encounter, Condition, Procedure, CareTeam) to the common `patient`
+                // search parameter (clinical-patient). That parameter's FHIRPath uses resolve() and is therefore never
+                // materialized as a ReferenceSearchParam index row, so a membership predicate keyed on it matches
+                // nothing and would silently drop legitimately in-compartment resources.
+                bool isSmartCompartment = expression is SmartCompartmentSearchExpression;
+
                 if (CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
                 {
                     if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
@@ -66,19 +92,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         {
                             if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
                             {
-                                // Use the URL string as the key.
-                                string searchParamUrl = sp.Url.ToString();
+                                AddCompartmentSearchParameter(sp, compartmentResourceType);
+                            }
+                        }
+                    }
 
-                                if (searchParameterInfoList.TryGetValue(searchParamUrl, out var info))
-                                {
-                                    // Add the compartment resource type if the key exists.
-                                    info.ResourceTypes.Add(compartmentResourceType);
-                                }
-                                else
-                                {
-                                    // Otherwise, add a new dictionary entry.
-                                    searchParameterInfoList[searchParamUrl] = (sp, new HashSet<string> { compartmentResourceType });
-                                }
+                    // For SMART compartments, also include every materialized reference parameter of the resource type
+                    // that can target the compartment root type. This keeps membership consistent with what is actually
+                    // indexed (e.g. an Encounter is indexed under Encounter-subject, not the unmaterialized
+                    // clinical-patient) and with the SMART model. It is additive and still constrained (below) to the
+                    // compartment root id, so it can only admit resources that reference the compartment root itself and
+                    // never widens the set beyond the caller's compartment.
+                    if (isSmartCompartment)
+                    {
+                        foreach (SearchParameterInfo referenceParameter in SearchParameterDefinitionManager.Value.GetSearchParameters(compartmentResourceType))
+                        {
+                            if (referenceParameter.Type == SearchParamType.Reference
+                                && referenceParameter.IsSupported
+                                && referenceParameter.TargetResourceTypes != null
+                                && referenceParameter.TargetResourceTypes.Contains(compartmentType, StringComparer.Ordinal))
+                            {
+                                AddCompartmentSearchParameter(referenceParameter, compartmentResourceType);
                             }
                         }
                     }

@@ -33,6 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
+        // Sentinel emitted by IncludeExpression.Produces for a reversed wildcard revinclude (e.g. _revinclude=*:*)
+        // whose SMART scope is not restricted to specific resource types. It stands in for the open-ended set of
+        // resource types that may reference the compartment root. See the ExpressionParser reversed wildcard handling.
+        private const string WildcardReferenceType = "*";
+
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
@@ -403,6 +408,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
+            // Resource types the SMART patient compartment union must cover. This includes the primary search
+            // resource types AND the resource types produced by _include / _revinclude expansion, so the compartment
+            // union CTE contains the included resources and the SQL layer can re-apply the compartment membership
+            // predicate to them (preventing disclosure of out-of-compartment resources via include/revinclude).
+            // When there are no include/revinclude expressions this equals the primary types, so behavior is unchanged.
+            var smartCompartmentFilteredResourceTypes = requiredResourceTypes.Distinct().ToArray();
+
+            // A reversed wildcard revinclude (e.g. _revinclude=*:*) whose SMART scope is not restricted to specific
+            // resource types produces the "*" sentinel instead of a concrete type list, because the set of resource
+            // types that may reference the compartment root is open-ended. Map that to DomainResource, the existing
+            // "all compartment resource types" sentinel understood by the compartment rewriter, so every resource type
+            // that references the compartment root is represented in the SMART compartment union and the membership
+            // predicate is correctly re-applied to the revincluded resources.
+            if (smartCompartmentFilteredResourceTypes.Contains(WildcardReferenceType))
+            {
+                smartCompartmentFilteredResourceTypes = new[] { KnownResourceTypes.DomainResource };
+            }
+
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
             var validSearchParameters = new List<SearchParameterInfo>();
@@ -462,7 +485,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     if (useSmartCompartmentDefinition)
                     {
-                        searchExpressions.Add(Expression.SmartCompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(compartmentType, compartmentId, smartCompartmentFilteredResourceTypes));
                     }
                     else
                     {
@@ -491,7 +514,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Don't add the smart compartment twice. this is a patch for bug number AB#152447.
                     if (!searchExpressions.Any(e => e.ValueInsensitiveEquals(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null))))
                     {
-                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, resourceTypesString));
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, smartCompartmentFilteredResourceTypes));
                     }
                 }
                 else

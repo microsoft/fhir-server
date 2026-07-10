@@ -74,6 +74,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             await LoadBundleAsync("SmartPatientD");
             await LoadBundleAsync("SmartCommon");
 
+            // Cross-compartment data used to reproduce the MSRC _include/_revinclude compartment leak.
+            await LoadBundleAsync("SmartCompartmentLeak");
+
             await UpsertResource(Samples.GetJsonSample<Medication>("Medication"));
             await UpsertResource(Samples.GetJsonSample<Organization>("Organization"));
             await UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq"));

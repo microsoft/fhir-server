@@ -48,11 +48,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private int _tableExpressionCounter = -1;
         private int _smartv2ScopeUnionCTE = -1;
+        private int _smartCompartmentUnionCTE = -1; // the index of the re-generated SMART compartment union CTE, reused to restrict included resources
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private bool _unionVisited = false;
         private bool _smartV2UnionVisited = false;
+        private bool _smartCompartmentUnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
@@ -146,6 +148,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 int smartV2TableCounter = 0;
                 UnionExpression smartV2UnionExpression = null;
                 SearchParamTableExpressionQueryGenerator smartV2QueryGenerator = null;
+                int smartCompartmentTableCounter = 0;
+                UnionExpression smartCompartmentUnionExpression = null;
+                SearchParamTableExpressionQueryGenerator smartCompartmentQueryGenerator = null;
                 StringBuilder.AppendLine(";WITH");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
@@ -168,6 +173,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 // As we are going to use these parameters to generate a hash for the include filtered data table
                                 MarkNewParametersAsSmartScopeParameter(parametersBeforeSmartScopesAreApplied.ToHashSet());
                             }
+                        }
+                        else if (tableExpression.HasSmartCompartmentUnionExpression())
+                        {
+                            // The SMART patient compartment union. It participates in the primary query intersection like
+                            // any regular union, but we also capture it here so it can be re-generated and re-applied as an
+                            // intersection to the resources produced by _include / _revinclude. Without this, included
+                            // resources are authorized only by type and can leak outside the caller's compartment.
+                            smartCompartmentTableCounter = _tableExpressionCounter;
+                            smartCompartmentUnionExpression = unionExpression;
+                            smartCompartmentQueryGenerator = tableExpression.QueryGenerator;
+                            _smartCompartmentUnionVisited = true;
+
+                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
                         }
                         else
                         {
@@ -192,15 +210,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
-                            if (_smartV2UnionVisited)
+                            if (_smartV2UnionVisited || _smartCompartmentUnionVisited)
                             {
-                                // If we have smart v2 scopes with search parameters we need to re-generate the scoped restricted data for the include
+                                // If we have smart v2 scopes with search parameters and/or a SMART patient compartment we
+                                // need to re-generate the scope/compartment restricted data set for the include, because the
+                                // include CTEs are emitted in a new ;WITH statement that cannot reference the CTEs above.
                                 sb.AppendLine("OPTION (RECOMPILE)");
                                 sb.AppendLine($";WITH");
                                 int saveTableExpressionCounter = _tableExpressionCounter;
-                                _tableExpressionCounter = smartV2TableCounter;
-                                AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
+                                int saveUnionAggregateCTEIndex = _unionAggregateCTEIndex;
+                                bool regeneratedUnion = false;
+
+                                if (_smartCompartmentUnionVisited)
+                                {
+                                    _tableExpressionCounter = smartCompartmentTableCounter;
+                                    AppendNewSetOfUnionAllTableExpressions(context, smartCompartmentUnionExpression, smartCompartmentQueryGenerator, skipJoinFromPreviousUnions: true, isSmartCompartmentUnion: true);
+                                    regeneratedUnion = true;
+                                }
+
+                                if (_smartV2UnionVisited)
+                                {
+                                    if (regeneratedUnion)
+                                    {
+                                        // Separate the compartment union CTEs from the smart v2 union CTEs.
+                                        sb.AppendLine();
+                                        sb.Append(",");
+                                    }
+
+                                    _tableExpressionCounter = smartV2TableCounter;
+                                    AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
+                                }
+
                                 _tableExpressionCounter = saveTableExpressionCounter;
+                                _unionAggregateCTEIndex = saveUnionAggregateCTEIndex;
                                 sb.AppendLine();
                                 sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
                                 sb.Append(","); // add comma back
@@ -1199,6 +1241,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" = Sid1)");
                     }
                 }
+
+                // Restrict included / revincluded resources to the caller's SMART patient compartment. This applies to
+                // SMART v1 and v2 (including granular scopes) whenever a compartment is enforced, even when the scope
+                // grants access to all resource types, so out-of-compartment resources are never disclosed via includes.
+                if (_smartCompartmentUnionVisited)
+                {
+                    if (!includeExpression.Reversed)
+                    {
+                        // For _include the produced (target) resource must be in the compartment.
+                        var scopeForCompartment = delimited.BeginDelimitedElement();
+                        scopeForCompartment.Append("EXISTS (");
+                        scopeForCompartment.Append("SELECT * FROM ");
+                        scopeForCompartment.Append(TableExpressionName(_smartCompartmentUnionCTE))
+                            .Append(" WHERE ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = T1 AND ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias).Append(" = Sid1)");
+                    }
+                    else
+                    {
+                        // For _revinclude the produced (source) resource must be in the compartment.
+                        var scopeForCompartment = delimited.BeginDelimitedElement();
+                        scopeForCompartment.Append("EXISTS (");
+                        scopeForCompartment.Append("SELECT * FROM ");
+                        scopeForCompartment.Append(TableExpressionName(_smartCompartmentUnionCTE))
+                            .Append(" WHERE ").Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(" = T1 AND ")
+                            .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" = Sid1)");
+                    }
+                }
             }
 
             if (context.IsIncludesOperation)
@@ -1422,7 +1491,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions = false, bool isSmartCompartmentUnion = false)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1448,6 +1517,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Create a final CTE aggregating results from all previous CTEs.
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+            if (isSmartCompartmentUnion)
+            {
+                // Record the aggregate CTE so included / revincluded resources can be intersected with the SMART
+                // patient compartment (see HandleTableKindInclude).
+                _smartCompartmentUnionCTE = _tableExpressionCounter;
+            }
+
             for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
             {
                 using (StringBuilder.Indent())
@@ -1466,7 +1543,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append(")");
 
             // check for a previous union all, and if so, join the new union all with the previous one
-            if (_unionAggregateCTEIndex > -1)
+            if (!skipJoinFromPreviousUnions && _unionAggregateCTEIndex > -1)
             {
                 var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
                 var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
@@ -1490,7 +1567,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(")");
             }
 
-            _unionAggregateCTEIndex = _tableExpressionCounter;
+            // During re-generation for an include, the compartment union is a standalone CTE that is applied via an
+            // EXISTS clause rather than chained into the primary query, so it must not update the shared aggregate index.
+            if (!isSmartCompartmentUnion)
+            {
+                _unionAggregateCTEIndex = _tableExpressionCounter;
+            }
 
             _unionVisited = true;
             _firstChainAfterUnionVisited = false;
