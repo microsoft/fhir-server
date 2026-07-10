@@ -17,6 +17,9 @@ parameters:
 - name: integrationSqlServerName
   type: string
   default: ''
+- name: parallelizeTestCollections
+  type: boolean
+  default: false
 
 steps:
 # Keep integration tests on the project-based dotnet test path used by main. Directly invoking
@@ -29,6 +32,42 @@ steps:
     command: build
     projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
     arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+- ${{ if eq(parameters.parallelizeTestCollections, true) }}:
+  - task: PowerShell@2
+    displayName: 'Configure integration test parallelism'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $testProjectOutputRoot = '$(Pipeline.Workspace)/source/test'
+        $testDllName = 'Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll'
+        $runnerConfig = @{
+          '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
+          parallelizeAssembly = $true
+          parallelizeTestCollections = $true
+        } | ConvertTo-Json
+
+        $testDlls = Get-ChildItem -Path $testProjectOutputRoot -Filter $testDllName -Recurse -File |
+          Where-Object { $_.FullName -notmatch '[\\/](obj|ref)[\\/]' }
+
+        if (-not $testDlls) {
+          throw "Could not find any built integration test assemblies matching '$testDllName' under '$testProjectOutputRoot'. Confirm the preceding build step produced project outputs before enabling parallelizeTestCollections."
+        }
+
+        Write-Host "Found $($testDlls.Count) integration test assembly output(s):"
+        $testDlls |
+          Sort-Object -Property FullName |
+          ForEach-Object { Write-Host " - $($_.FullName)" }
+
+        $testOutputDirectories = $testDlls | Select-Object -ExpandProperty DirectoryName -Unique
+        $testOutputDirectories |
+          Sort-Object |
+          ForEach-Object {
+            $configPath = Join-Path $_ 'xunit.runner.json'
+            Set-Content -Path $configPath -Value $runnerConfig
+            Write-Host "Wrote $configPath"
+          }
 
 - task: AzureKeyVault@1
   displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'

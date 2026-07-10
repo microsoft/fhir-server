@@ -11,11 +11,39 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
+- name: parallelizeTestCollections
+  type: boolean
+  default: false
 
 steps:
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
+
+  - ${{ if eq(parameters.parallelizeTestCollections, true) }}:
+    - task: PowerShell@2
+      displayName: 'Configure E2E test parallelism'
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $runnerConfig = @{
+            '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
+            parallelizeAssembly = $true
+            parallelizeTestCollections = $true
+          } | ConvertTo-Json
+
+          $testDlls = @(Get-ChildItem -Path '$(Agent.TempDirectory)/E2ETests' -Filter 'Microsoft.Health.Fhir.*.Tests.E2E.dll' -Recurse -File)
+          if ($testDlls.Count -eq 0) {
+            throw "Could not find any Microsoft.Health.Fhir.*.Tests.E2E.dll files under $(Agent.TempDirectory)/E2ETests"
+          }
+
+          $testDlls |
+            ForEach-Object {
+              $configPath = Join-Path $_.DirectoryName 'xunit.runner.json'
+              Set-Content -Path $configPath -Value $runnerConfig
+              Write-Host "Wrote $configPath"
+            }
 
   - template: ../tasks/e2e-set-variables.yml
     parameters:
