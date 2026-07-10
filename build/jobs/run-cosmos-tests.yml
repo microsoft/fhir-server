@@ -173,12 +173,20 @@ jobs:
   # RequiresIsolation tests (reindex, bulk delete, custom search params, and anything mutating
   # global/server state) must not overlap the parallel shards on the SAME endpoint. When a dedicated
   # isolation endpoint is supplied (isolationContainerAppName -> its own Cosmos account), this lane
-  # targets that endpoint and runs CONCURRENTLY with the shards (dependsOn: []). Otherwise it falls back
-  # to the serialized terminal lane on the main endpoint, waiting for every shard to finish first.
+  # preserves separate server/database state, but remains terminal and waits for all integration jobs
+  # and regular E2E shards to finish before it begins.
   - ${{ if ne(parameters.isolationContainerAppName, '') }}:
     - job: 'cosmosE2eTests_RequiresIsolation'
       timeoutInMinutes: 75
-      dependsOn: []
+      condition: not(canceled())
+      dependsOn:
+      - ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
+        - CosmosIntegrationTests
+      - ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
+        - ${{ each shard in parameters.integrationTestShards }}:
+          - 'CosmosIntegrationTests_${{ shard.name }}'
+      - ${{ each shard in parameters.e2eTestShards }}:
+        - 'cosmosE2eTests_${{ shard.name }}'
       pool:
         name: '$(InternalPool)'
         demands:
