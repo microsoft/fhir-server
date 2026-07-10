@@ -11,25 +11,33 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
     public sealed class DefaultServiceMetricHandler : BaseMeterMetricHandler, IServiceMetricHandler
     {
-        /// <summary>
-        /// Minimum interval between two availability emissions. The health check endpoint can be polled
-        /// frequently (and can fail on every poll), so emissions are throttled to avoid flooding the
-        /// metric pipeline with a measurement for every evaluation.
-        /// </summary>
-        internal static readonly TimeSpan AvailabilityEmissionInterval = TimeSpan.FromMinutes(1);
+        private static readonly TimeSpan AvailabilityEmissionInterval = TimeSpan.FromSeconds(30);
 
-        private readonly Gauge<long> _availabilityGauge;
-        private readonly object _emissionLock = new object();
+        private readonly Gauge<int> _availabilityUptimeGauge;
+        private readonly Gauge<int> _availabilityDowntimeGauge;
+        private readonly object _emissionLock;
 
         private DateTimeOffset _availabilityLastEmission = DateTimeOffset.MinValue;
 
         public DefaultServiceMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _availabilityGauge = MetricMeter.CreateGauge<long>("Service.Availability");
+            _availabilityUptimeGauge = MetricMeter.CreateGauge<int>("Service.Availability.Uptime");
+            _availabilityDowntimeGauge = MetricMeter.CreateGauge<int>("Service.Availability.Downtime");
+            _emissionLock = new object();
         }
 
-        public void EmitAvailability(bool isAvailable)
+        public void ReportAvailabilityUptime()
+        {
+            EmitAvailabilityMetrics(() => { _availabilityUptimeGauge.Record(1); });
+        }
+
+        public void ReportAvailabilityDowntime()
+        {
+            EmitAvailabilityMetrics(() => { _availabilityDowntimeGauge.Record(1); });
+        }
+
+        private void EmitAvailabilityMetrics(Action reportAvailability)
         {
             DateTimeOffset now = Clock.UtcNow;
 
@@ -40,10 +48,10 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
                     return;
                 }
 
+                reportAvailability();
+
                 _availabilityLastEmission = now;
             }
-
-            _availabilityGauge.Record(isAvailable ? 1 : 0);
         }
     }
 }
