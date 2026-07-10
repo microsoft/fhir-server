@@ -164,12 +164,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
         {
-            if (expression.FieldName == FieldName.TokenText)
+            switch (expression.FieldName)
             {
-                return TokenTextQueryGenerator.Instance;
-            }
+                case FieldName.TokenText:
+                    return TokenTextQueryGenerator.Instance;
 
-            return TokenQueryGenerator.Instance;
+                // A bare reference-field predicate (not wrapped in a reference SearchParameterExpression) must resolve to
+                // the ReferenceSearchParam table. This is produced by the SMART compartment rewriter's collapsed all-types
+                // membership predicate (ReferenceResourceType = root AND ReferenceResourceId = compartmentId). In every
+                // other code path these fields appear under a reference SearchParameterExpression, which is handled by
+                // VisitSearchParameter before this method is reached, so this only affects the collapsed compartment member.
+                case FieldName.ReferenceResourceType:
+                case FieldName.ReferenceResourceId:
+                case FieldName.ReferenceBaseUri:
+                    return ReferenceQueryGenerator.Instance;
+
+                default:
+                    return TokenQueryGenerator.Instance;
+            }
         }
 
         public SearchParamTableExpressionQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)

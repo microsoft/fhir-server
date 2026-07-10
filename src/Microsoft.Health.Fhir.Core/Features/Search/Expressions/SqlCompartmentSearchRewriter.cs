@@ -71,6 +71,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // nothing and would silently drop legitimately in-compartment resources.
                 bool isSmartCompartment = expression is SmartCompartmentSearchExpression;
 
+                // For a SMART compartment that spans every resource type (an unrestricted reversed wildcard such as
+                // _revinclude=*:*, surfaced by SearchOptionsFactory as the DomainResource sentinel), enumerating a
+                // per-(resource type, reference parameter) membership predicate for all compartment types produces
+                // thousands of OR clauses. That union is re-generated wherever the compartment is re-applied (notably the
+                // _include / _revinclude re-generation path), so the enumeration is emitted twice and dominates the query
+                // text. Every enumerated member is ultimately constrained to ReferenceResourceId = compartmentId, so the
+                // union is exactly "any resource that references the compartment root". For the all-types case we emit that
+                // single predicate directly instead of enumerating it: it is equivalent (a superset only over reference
+                // parameters that were previously unmapped, all still strictly bound to the compartment root, consistent
+                // with the SMART "any resource which refers to them" model), still cannot disclose another compartment's
+                // data, and is dramatically smaller.
+                bool isAllTypesSmartCompartment = isSmartCompartment
+                    && !expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal));
+
+                if (isAllTypesSmartCompartment)
+                {
+                    return new List<Expression>
+                    {
+                        Expression.And(
+                            Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
+                            Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)),
+                    };
+                }
+
                 if (CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
                 {
                     if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
