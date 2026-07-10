@@ -24,9 +24,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             return modifier switch
             {
-                "exact" => $"{tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} = '{escapedValue}' COLLATE Latin1_General_Bin",
-                "contains" => $"({tableName}.Text{suffix} like '%{escapedValue}%' OR {tableName}.TextOverflow{suffix} like '%{escapedValue}%')",
-                _ => $"({tableName}.Text{suffix} like '%{escapedValue}%' OR {tableName}.TextOverflow{suffix} like '%{escapedValue}%')",
+                "exact" => $"{tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} = N'{escapedValue}' COLLATE Latin1_General_100_CS_AS",
+                "contains" => $"({tableName}.Text{suffix} like N'%{escapedValue}%' OR {tableName}.TextOverflow{suffix} like N'%{escapedValue}%')",
+                _ => $"({tableName}.Text{suffix} like N'{escapedValue}%' OR {tableName}.TextOverflow{suffix} like N'{escapedValue}%')",
             };
         }
     }

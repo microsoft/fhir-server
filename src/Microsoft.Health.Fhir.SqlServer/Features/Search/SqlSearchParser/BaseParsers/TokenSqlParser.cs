@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (modifier.Equals("text", StringComparison.OrdinalIgnoreCase))
             {
-                return $"({tableName}.Text LIKE '%{value.Replace("'", "''", StringComparison.Ordinal)}%')";
+                return $"({tableName}.Text LIKE N'{value.Replace("'", "''", StringComparison.Ordinal)}%')";
             }
 
             // Parse token value - format can be:
