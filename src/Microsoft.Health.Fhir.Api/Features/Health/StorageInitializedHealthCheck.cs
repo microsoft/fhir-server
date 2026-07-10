@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
@@ -45,8 +44,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             }
 
             // Check if customer-managed key (CMK) is properly set.
-            var isCMKProperlySet = _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(cancellationToken).GetAwaiter().GetResult();
-            if (!isCMKProperlySet)
+            var isCMKProperlySet = _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(cancellationToken).GetAwaiter().GetResult();
+            DatabaseAvailability databaseAvailability = _databaseStatusReporter.GetDatabaseAvailability();
+            if (!isCMKProperlySet || databaseAvailability == DatabaseAvailability.DegradedByCustomerManagedKey)
             {
                 return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, DegradedCMKMessage));
             }

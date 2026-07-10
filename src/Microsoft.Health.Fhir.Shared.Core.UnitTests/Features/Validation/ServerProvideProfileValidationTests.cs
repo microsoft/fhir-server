@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 _options,
                 _mediator,
                 _hostApplicationLifetime,
+                Substitute.For<IDatabaseStatusReporter>(),
                 NullLogger<ServerProvideProfileValidation>.Instance);
         }
 

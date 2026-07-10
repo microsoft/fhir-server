@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         /// <param name="exception">The exception object</param>
         /// <returns>True iff the error is due to client CMK setting.</returns>
-        public static bool IsCmkClientError(this CosmosException exception)
+        public static bool IsCustomerManagedKeyException(this CosmosException exception)
         {
             return exception.StatusCode == HttpStatusCode.Forbidden && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValueClientIssue), exception.SubStatusCode);
         }

@@ -9,23 +9,29 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
-using Microsoft.Health.Fhir.Api.Features.Health;
+using Microsoft.Health.Fhir.Core.Data;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Health
 {
     /// <summary>
     /// SQL implementation of <see cref="IDatabaseStatusReporter"/> using a ValueCache of CustomerKeyHealth.
     /// </summary>
-    public class SqlStatusReporter : IDatabaseStatusReporter
+    public class SqlStatusReporter : BaseDatabaseStatusReporter
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
 
         public SqlStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
+            : base()
         {
             _customerKeyHealthCache = EnsureArg.IsNotNull(customerKeyHealthCache, nameof(customerKeyHealthCache));
         }
 
-        public async Task<bool> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
+        public override bool IsCustomerManagedKeyException(Exception exception)
+        {
+            return exception.IsCustomerManagedKeyException();
+        }
+
+        public override async Task<bool> IsCustomerManagedKeyProperlySetAsync(CancellationToken cancellationToken = default)
         {
             // Check Customer-Managed Key Health - CMK
             CustomerKeyHealth customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);

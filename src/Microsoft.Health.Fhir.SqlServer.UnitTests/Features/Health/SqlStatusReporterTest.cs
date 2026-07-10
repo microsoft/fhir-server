@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             var reporter = new SqlStatusReporter(_customerKeyHealthCache);
 
             // Act
-            bool result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
+            bool result = await reporter.IsCustomerManagedKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
             Assert.True(result);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             var reporter = new SqlStatusReporter(_customerKeyHealthCache);
 
             // Act
-            bool result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
+            bool result = await reporter.IsCustomerManagedKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
             Assert.False(result);

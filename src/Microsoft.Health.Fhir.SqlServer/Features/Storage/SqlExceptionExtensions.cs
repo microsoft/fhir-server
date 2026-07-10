@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {

@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -807,9 +808,12 @@ RAISERROR('Test',18,127)
 
         private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
         {
+            var databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
+
             var wd = new JobMonitorWatchdog(
                 _fixture.SqlRetryService,
                 XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                databaseStatusReporter,
                 mediator)
             {
                 PeriodSec = 1,

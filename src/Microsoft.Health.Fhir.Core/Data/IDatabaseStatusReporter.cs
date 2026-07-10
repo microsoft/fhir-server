@@ -3,10 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Api.Features.Health
+namespace Microsoft.Health.Fhir.Core.Data
 {
     /// <summary>
     /// Provides functionality to report the status of Data Store.
@@ -18,6 +19,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         /// </summary>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
         /// <returns>A task that returns true if the key is healthy; otherwise, false.</returns>
-        Task<bool> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken);
+        Task<bool> IsCustomerManagedKeyProperlySetAsync(CancellationToken cancellationToken);
+
+        bool IsCustomerManagedKeyException(Exception exception);
+
+        DatabaseAvailability GetDatabaseAvailability();
+
+        void SetDatabaseAvailability(DatabaseAvailability availability);
     }
 }

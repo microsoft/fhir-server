@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
@@ -30,16 +31,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         internal const int StaleQueueWarningThresholdSeconds = 600;
 
         private readonly ISqlRetryService _sqlRetryService;
+        private readonly IDatabaseStatusReporter _databaseStatusReporter;
         private readonly IMediator _mediator;
         private readonly ILogger<JobMonitorWatchdog> _logger;
 
         public JobMonitorWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<JobMonitorWatchdog> logger,
+            IDatabaseStatusReporter databaseStatusReporter,
             IMediator mediator)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _databaseStatusReporter = EnsureArg.IsNotNull(databaseStatusReporter, nameof(databaseStatusReporter));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -96,9 +100,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
             catch (Exception ex)
             {
-                // Publish is the last statement of the try, so a failure publishes nothing this cycle
-                // (all-or-nothing, per ADR 2605). Rethrow so FhirTimer records the failing state.
-                _logger.LogError(ex, "JobMonitorWatchdog: queue metrics were not refreshed this cycle.");
+                if (_databaseStatusReporter.IsCustomerManagedKeyException(ex))
+                {
+                    _databaseStatusReporter.SetDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
+                    _logger.LogError(ex, "JobMonitorWatchdog: queue metrics were not refreshed this cycle due a CMK error. Database availability set as degraded.");
+                }
+                else
+                {
+                    // Publish is the last statement of the try, so a failure publishes nothing this cycle
+                    // (all-or-nothing, per ADR 2605). Rethrow so FhirTimer records the failing state.
+                    _logger.LogError(ex, "JobMonitorWatchdog: queue metrics were not refreshed this cycle.");
+                }
+
                 throw;
             }
         }

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             var reporter = new CosmosDbStatusReporter();
 
             // Act
-            bool result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
+            bool result = await reporter.IsCustomerManagedKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
             Assert.True(result);
