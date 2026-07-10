@@ -508,6 +508,8 @@ stages:
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
       isolationContainerAppName: $(DeploymentEnvironmentNameCosmosIso)
+      integrationParallelizeTestCollections: true
+      e2eParallelizeTestCollections: true
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 
@@ -530,6 +532,8 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameSql)
       isolationContainerAppName: $(DeploymentEnvironmentNameSqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationParallelizeTestCollections: true
+      e2eParallelizeTestCollections: true
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 
@@ -551,6 +555,8 @@ stages:
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
       isolationContainerAppName: $(DeploymentEnvironmentNameR4CosmosIso)
+      integrationParallelizeTestCollections: true
+      e2eParallelizeTestCollections: true
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 
@@ -573,6 +579,8 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       isolationContainerAppName: $(DeploymentEnvironmentNameR4SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationParallelizeTestCollections: true
+      e2eParallelizeTestCollections: true
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 
@@ -595,6 +603,8 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       isolationContainerAppName: $(DeploymentEnvironmentNameR5SqlIso)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationParallelizeTestCollections: true
+      e2eParallelizeTestCollections: true
       runShardedIntegrationTests: true
       runShardedE2eJobs: true
 

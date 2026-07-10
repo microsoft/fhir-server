@@ -59,6 +59,12 @@ parameters:
 - name: runBulkUpdateJob
   type: boolean
   default: true
+- name: integrationParallelizeTestCollections
+  type: boolean
+  default: false
+- name: e2eParallelizeTestCollections
+  type: boolean
+  default: false
 jobs:
 
 - ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
@@ -91,6 +97,7 @@ jobs:
         testRunTitle: '${{ parameters.version }} SQL Integration Tests'
         artifactSuffix: 'Sql_${{ parameters.version }}'
         integrationSqlServerName: '${{ parameters.integrationSqlServerName }}'
+        parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
   - ${{ each shard in parameters.integrationTestShards }}:
@@ -124,6 +131,7 @@ jobs:
             testRunTitle: '${{ parameters.version }} SQL Integration Tests ${{ shard.name }}'
             artifactSuffix: 'Sql_${{ parameters.version }}_${{ shard.name }}'
             integrationSqlServerName: '${{ parameters.integrationSqlServerName }}'
+            parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, false) }}:
   - job: 'sqlE2eTests'
@@ -143,6 +151,7 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&${{ parameters.mainCategoryFilter }}'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - ${{ each shard in parameters.e2eTestShards }}:
@@ -164,6 +173,7 @@ jobs:
           appServiceType: 'SqlServer'
           testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runBulkUpdateJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -184,6 +194,7 @@ jobs:
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -204,6 +215,7 @@ jobs:
         appServiceType: 'SqlServer'
         testFilter: 'FullyQualifiedName~SqlServer&Category=IndexAndReindex&FullyQualifiedName!~CustomSearchParamTests'
         testRunTitleSuffix: ' Reindex'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   # RequiresIsolation tests (reindex, bulk delete, and anything mutating global/server state) must not
@@ -230,6 +242,7 @@ jobs:
           appServiceType: 'SqlServer'
           testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
           testRunTitleSuffix: ' RequiresIsolation'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
   - ${{ else }}:
     - job: 'sqlE2eTests_RequiresIsolation'
       timeoutInMinutes: 120
@@ -252,3 +265,4 @@ jobs:
           appServiceType: 'SqlServer'
           testFilter: 'FullyQualifiedName~SqlServer&Category=RequiresIsolation&Category!=ExportLongRunning&Category!=ImportLongRunning'
           testRunTitleSuffix: ' RequiresIsolation'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}

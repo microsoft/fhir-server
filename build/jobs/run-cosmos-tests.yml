@@ -14,6 +14,12 @@ parameters:
 - name: runReindexJob
   type: boolean
   default: true
+- name: integrationParallelizeTestCollections
+  type: boolean
+  default: false
+- name: e2eParallelizeTestCollections
+  type: boolean
+  default: false
 - name: runShardedIntegrationTests
   type: boolean
   default: false
@@ -84,6 +90,7 @@ jobs:
         testFilter: 'FullyQualifiedName!~SqlServer'
         testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
         artifactSuffix: 'Cosmos_${{ parameters.version }}'
+        parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
   - ${{ each shard in parameters.integrationTestShards }}:
@@ -118,6 +125,7 @@ jobs:
           testFilter: 'FullyQualifiedName!~SqlServer&${{ shard.testFilter }}'
           testRunTitle: '${{ parameters.version }} Cosmos Integration Tests ${{ shard.name }}'
           artifactSuffix: 'Cosmos_${{ parameters.version }}_${{ shard.name }}'
+          parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, false) }}:
   - job: 'cosmosE2eTests'
@@ -137,6 +145,7 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
         testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   - ${{ each shard in parameters.e2eTestShards }}:
@@ -158,6 +167,7 @@ jobs:
           appServiceType: 'CosmosDb'
           testFilter: '${{ shard.testFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
   # RequiresIsolation tests (reindex, bulk delete, custom search params, and anything mutating
@@ -184,6 +194,7 @@ jobs:
           appServiceType: 'CosmosDb'
           testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
           testRunTitleSuffix: ' RequiresIsolation'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
   - ${{ else }}:
     - job: 'cosmosE2eTests_RequiresIsolation'
       timeoutInMinutes: 75
@@ -206,6 +217,7 @@ jobs:
           appServiceType: 'CosmosDb'
           testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
           testRunTitleSuffix: ' RequiresIsolation'
+          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if and(eq(parameters.runReindexJob, true), eq(parameters.runShardedE2eJobs, false)) }}:
   - job: 'cosmosE2eTests_Reindex'
@@ -226,3 +238,4 @@ jobs:
         appServiceType: 'CosmosDb'
         testFilter: 'FullyQualifiedName~CosmosDb&Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
+        parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
