@@ -420,6 +420,236 @@ cte0 AS
 
 The collapse is security-equivalent: the predicate is still bound to `ReferenceResourceId = @p0`, so it admits only resources that reference the caller's compartment root — expressed as one index seek instead of thousands of `OR`s. It is in fact a slight **superset** of the enumeration (it also admits resources linked through reference parameters the enumeration omitted, such as the non-materialized combined `patient` parameter — so, unlike the targeted path's documented `Immunization` gap, the all-types wildcard happens to catch even those resources), but every such row still references the compartment root, so it cannot disclose another patient's data. The collapse applies **only** to the all-types wildcard; a targeted `_revinclude=Type:param` still emits the specific per-type union member(s) and stays close to the single-`_include` numbers above.
 
+<details>
+<summary>Full generated SQL — BEFORE fix (leak: no compartment on the revincluded source)</summary>
+
+```sql
+exec sp_executesql N'DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE SearchParamId = 1015
+        AND ResourceTypeId = 103
+        AND ((ReferenceResourceTypeId = 103)
+        OR (ReferenceResourceTypeId = 114)
+        OR (ReferenceResourceTypeId IS NULL))  
+        AND ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+), 
+cte3 AS
+(
+    SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
+    FROM dbo.Resource
+         JOIN cte2 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0 
+        AND ResourceTypeId = 103 
+)
+,cte4 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+         JOIN cte3 ON ResourceTypeId = cte3.T1 AND ResourceSurrogateId = cte3.Sid1
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId = 103
+        AND ResourceId = @p0 
+)
+,cte5 AS
+(
+    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *
+    FROM
+    (
+        SELECT DISTINCT TOP (@p1) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial 
+        FROM cte4
+        ORDER BY T1 ASC, Sid1 ASC
+    ) t
+)
+/* HASH h0w25TcRdP73SZwvgSyrXlOobQd/GXRZr7mG+btMqD4= params=@p0 */
+INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte5
+;WITH cte5 AS (SELECT * FROM @FilteredData)
+,cte6 AS
+(
+    SELECT DISTINCT TOP (@p2) refSource.ResourceTypeId AS T1, refSource.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial 
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refTarget.IsHistory = 0 
+        AND refTarget.IsDeleted = 0 
+        AND refTarget.ResourceTypeId IN (103)
+        AND EXISTS (SELECT * FROM cte5 WHERE refTarget.ResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1 AND Row < @p3)
+)
+,cte7 AS
+(
+    SELECT DISTINCT TOP (@p4) T1, Sid1, IsMatch, CASE WHEN count_big(*) over() > @p5 THEN 1 ELSE 0 END AS IsPartial 
+    FROM cte6
+)
+,cte8 AS
+(
+    SELECT T1, Sid1, IsMatch, IsPartial 
+    FROM cte5
+    UNION ALL
+    SELECT T1, Sid1, IsMatch, IsPartial
+    FROM cte7 WHERE NOT EXISTS (SELECT * FROM cte5 WHERE cte5.Sid1 = cte7.Sid1 AND cte5.T1 = cte7.T1)
+)
+SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+FROM dbo.Resource r
+     JOIN cte8 ON r.ResourceTypeId = cte8.T1 AND r.ResourceSurrogateId = cte8.Sid1
+WHERE IsHistory = 0 
+    AND IsDeleted = 0 
+) AS t ORDER BY IsMatch DESC, (CASE WHEN IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC 
+',N'@p0 varchar(64),@p1 int,@p2 int,@p3 int,@p4 int,@p5 int',@p0='smart-patient-D',@p1=11,@p2=1001,@p3=11,@p4=1001,@p5=1000
+```
+
+</details>
+
+<details>
+<summary>Full generated SQL — AFTER fix (all-types membership collapsed to one predicate + revinclude compartment intersection)</summary>
+
+```sql
+exec sp_executesql N'DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId IN (71,100,108,75,35) 
+),
+cte3 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+    UNION ALL SELECT * FROM cte2
+), 
+cte4 AS
+(
+    SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
+    FROM dbo.Resource
+         JOIN cte3 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0 
+        AND ResourceTypeId = 103 
+)
+,cte5 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+         JOIN cte4 ON ResourceTypeId = cte4.T1 AND ResourceSurrogateId = cte4.Sid1
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId = 103
+        AND ResourceId = @p0 
+)
+,cte6 AS
+(
+    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *
+    FROM
+    (
+        SELECT DISTINCT TOP (@p1) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial 
+        FROM cte5
+        ORDER BY T1 ASC, Sid1 ASC
+    ) t
+)
+/* HASH h0w25TcRdP73SZwvgSyrXlOobQd/GXRZr7mG+btMqD4= params=@p0 */
+INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte6
+OPTION (RECOMPILE)
+;WITH
+cte0 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam
+    WHERE ReferenceResourceTypeId = 103
+        AND ReferenceResourceId = @p0 
+),
+cte1 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceId = @p0
+        AND ResourceTypeId = 103 
+),
+cte2 AS
+(
+    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.Resource
+    WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+        AND ResourceTypeId IN (71,100,108,75,35) 
+),
+cte3 AS
+(
+    SELECT * FROM cte0
+    UNION ALL SELECT * FROM cte1
+    UNION ALL SELECT * FROM cte2
+)
+,cte6 AS (SELECT * FROM @FilteredData)
+,cte7 AS
+(
+    SELECT DISTINCT TOP (@p2) refSource.ResourceTypeId AS T1, refSource.ResourceSurrogateId AS Sid1, 0 AS IsMatch, 0 AS IsPartial 
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+    WHERE refTarget.IsHistory = 0 
+        AND refTarget.IsDeleted = 0 
+        AND refTarget.ResourceTypeId IN (103)
+        AND EXISTS (SELECT * FROM cte6 WHERE refTarget.ResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1 AND Row < @p3)
+        AND EXISTS (SELECT * FROM cte3 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1)
+)
+,cte8 AS
+(
+    SELECT DISTINCT TOP (@p4) T1, Sid1, IsMatch, CASE WHEN count_big(*) over() > @p5 THEN 1 ELSE 0 END AS IsPartial 
+    FROM cte7
+)
+,cte9 AS
+(
+    SELECT T1, Sid1, IsMatch, IsPartial 
+    FROM cte6
+    UNION ALL
+    SELECT T1, Sid1, IsMatch, IsPartial
+    FROM cte8 WHERE NOT EXISTS (SELECT * FROM cte6 WHERE cte6.Sid1 = cte8.Sid1 AND cte6.T1 = cte8.T1)
+)
+SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+FROM dbo.Resource r
+     JOIN cte9 ON r.ResourceTypeId = cte9.T1 AND r.ResourceSurrogateId = cte9.Sid1
+WHERE IsHistory = 0 
+    AND IsDeleted = 0 
+) AS t ORDER BY IsMatch DESC, (CASE WHEN IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC 
+',N'@p0 varchar(64),@p1 int,@p2 int,@p3 int,@p4 int,@p5 int',@p0='smart-patient-D',@p1=11,@p2=1001,@p3=11,@p4=1001,@p5=1000
+```
+
+</details>
 ### Why this is acceptable — and where it is not
 
 - **Plan compilation & caching.** The include re-generation reuses the *pre-existing* SMART V2 scope-union pattern, which appends `OPTION (RECOMPILE)` to the `INSERT INTO @FilteredData` (`SqlQueryGenerator`, gated on `_smartV2UnionVisited || _smartCompartmentUnionVisited`). Consequence: the statement is compiled per execution — the optimizer sees the actual literals and the real cardinality of the `@FilteredData` table variable — and, importantly, the large wildcard plan is **not** cached, so it can neither bloat nor evict the plan cache for other workloads. The compartment id stays a parameter (`@p0`) and the predicate is metadata-derived (compartment definition + search-parameter ids), so it is identical across patients and independent of stored data.
