@@ -40,6 +40,7 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using IncludesContinuationToken = Microsoft.Health.Fhir.SqlServer.Features.Search.IncludesContinuationToken;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
@@ -435,6 +436,83 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // The out-of-compartment DiagnosticReport pulled in via _revinclude must NOT be disclosed.
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "DiagnosticReport" && x.Resource.ResourceId == "smart-leak-parent-report");
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenIncludesOperationExpandsInclude_ThenOutOfCompartmentResourceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // The $includes operation pages through _include/_revinclude results that overflow the include limit.
+            // It runs through a distinct SQL build path (SearchIncludeImpl + IncludesOperationRewriter) rather than
+            // the normal search path, so the SMART patient compartment must be re-applied there independently. If it
+            // were not, a client could page out-of-compartment resources even though the first page is now scoped.
+            // This paging operation is implemented for SQL Server only.
+            Skip.If(_fixture.SqlServerOperationDataStore is null, "The $includes operation is only implemented for SQL Server.");
+
+            // A synthetic $includes continuation token spanning the full matched-resource surrogate-id range. The
+            // surrogate range plus the primary _id filter select the matched Coverage; the match resource type id is a
+            // placeholder because it is only consumed when emitting a follow-on token, which is not reached here.
+            var includesContinuationToken = ContinuationTokenEncoder.Encode(
+                new IncludesContinuationToken(new object[] { (short)0, 0L, long.MaxValue }).ToJson());
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("_id", "smart-leak-coverage"),
+                new Tuple<string, string>("_include", "Coverage:subscriber"),
+                new Tuple<string, string>(Core.Features.KnownQueryParameterNames.IncludesContinuationToken, includesContinuationToken),
+            };
+
+            // Control: with no compartment (unrestricted user scope) the $includes expansion surfaces the
+            // out-of-compartment parent patient, proving this operation genuinely reaches it.
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "user") });
+            var unrestricted = await _searchService.Value.SearchAsync("Coverage", query, CancellationToken.None, isIncludesOperation: true);
+            Assert.Contains(unrestricted.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-parent");
+
+            // Secure: confined to Patient/smart-leak-child, the same $includes operation must NOT disclose the parent.
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient") });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+            var restricted = await _searchService.Value.SearchAsync("Coverage", query, CancellationToken.None, isIncludesOperation: true);
+            Assert.DoesNotContain(restricted.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-parent");
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenIncludesOperationExpandsRevInclude_ThenOutOfCompartmentResourceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Same guarantee as the _include case above, but for the _revinclude direction, which the $includes
+            // paging operation resolves through the same shared SearchIncludeImpl / HandleTableKindInclude path.
+            Skip.If(_fixture.SqlServerOperationDataStore is null, "The $includes operation is only implemented for SQL Server.");
+
+            var includesContinuationToken = ContinuationTokenEncoder.Encode(
+                new IncludesContinuationToken(new object[] { (short)0, 0L, long.MaxValue }).ToJson());
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("_id", "smart-leak-child-obs"),
+                new Tuple<string, string>("_revinclude", "DiagnosticReport:result"),
+                new Tuple<string, string>(Core.Features.KnownQueryParameterNames.IncludesContinuationToken, includesContinuationToken),
+            };
+
+            // Control: with no compartment the $includes expansion surfaces the out-of-compartment parent report.
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "user") });
+            var unrestricted = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None, isIncludesOperation: true);
+            Assert.Contains(unrestricted.Results, x => x.Resource.ResourceTypeName == "DiagnosticReport" && x.Resource.ResourceId == "smart-leak-parent-report");
+
+            // Secure: confined to Patient/smart-leak-child, the same $includes operation must NOT disclose the report.
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient") });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+            var restricted = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None, isIncludesOperation: true);
+            Assert.DoesNotContain(restricted.Results, x => x.Resource.ResourceTypeName == "DiagnosticReport" && x.Resource.ResourceId == "smart-leak-parent-report");
         }
 
         [SkippableFact]
