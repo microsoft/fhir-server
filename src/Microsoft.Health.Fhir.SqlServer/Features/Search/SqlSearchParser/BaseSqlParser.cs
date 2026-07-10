@@ -6,6 +6,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using System.Text;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 modifier = parts[1];
             }
 
-            var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes[0]);
+            var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes.FirstOrDefault());
             if (parameter == null)
             {
                 return null;

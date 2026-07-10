@@ -31,6 +31,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public SearchParameterIdWrapper GetByCode(string code, short resourceType)
         {
+            if (resourceType == 0)
+            {
+                // If the resource type is 0, we are searching for a search parameter that is applicable to all resource types.
+                resourceType = 1;
+            }
+
             return GetByCode(code, _sqlServerFhirModel.GetResourceTypeName(resourceType));
         }
 
@@ -68,6 +74,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public IList<SearchParameterIdWrapper> GetByResourceType(short resourceType)
         {
+            if (resourceType == 0)
+            {
+                // If the resource type is 0, we are searching for a search parameter that is applicable to all resource types.
+                resourceType = 1;
+            }
+
             return GetByResourceType(_sqlServerFhirModel.GetResourceTypeName(resourceType));
         }
 

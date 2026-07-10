@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 { CompositeType.TokenString, new TokenStringCompositeSqlParser(parameterCollection) },
                 { CompositeType.TokenToken, new TokenTokenCompositeSqlParser(parameterCollection) },
                 { CompositeType.TokenQuantity, new TokenQuantityCompositeSqlParser(parameterCollection) },
-                { CompositeType.TokenReference, new TokenReferenceCompositeSqlParser(parameterCollection, fhirModel) },
+                { CompositeType.TokenReference, new ReferenceTokenCompositeSqlParser(parameterCollection, fhirModel) },
                 { CompositeType.TokenDate, new TokenDateTimeCompositeSqlParser(parameterCollection) },
                 { CompositeType.TokenNumberNumber, new TokenNumberNumberCompositeSqlParser(parameterCollection) },
             };

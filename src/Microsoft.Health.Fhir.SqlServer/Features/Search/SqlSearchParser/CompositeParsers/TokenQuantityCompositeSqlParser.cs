@@ -5,6 +5,8 @@
 
 #nullable enable
 
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.BaseParsers;
+
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers
 {
     /// <summary>
@@ -17,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
     {
         public TokenQuantityCompositeSqlParser(
             SqlSearchParameterDefinitionManager parameterCollection)
-            : base(parameterCollection, new TokenSqlParser(parameterCollection), new NumberSqlParser(parameterCollection))
+            : base(parameterCollection, new TokenSqlParser(parameterCollection), new QuantitySqlParser(parameterCollection))
         {
             SetTableName("TokenQuantityCompositeSearchParam");
         }

@@ -47,6 +47,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 _ => throw new ArgumentException($"Invalid operator '{modifier}' for lastUpdated search parameter."),
             };
 
+            sqlBuilder.AppendLine($"  WHERE {whereClause}");
+
             // Add base filters only on the first CTE
             if (options.LastCteName == null)
             {

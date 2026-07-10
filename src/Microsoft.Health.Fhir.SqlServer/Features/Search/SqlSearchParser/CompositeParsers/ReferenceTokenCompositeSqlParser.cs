@@ -15,14 +15,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
     /// Format: "code|system$Patient/123" where the first part is a token and the second is a reference.
     /// Reference format: [ResourceType]/[id] or just [id] (e.g., "Patient/123" or "123").
     /// </summary>
-    public class TokenReferenceCompositeSqlParser : BaseCompositeSqlParser
+    public class ReferenceTokenCompositeSqlParser : BaseCompositeSqlParser
     {
-        public TokenReferenceCompositeSqlParser(
+        public ReferenceTokenCompositeSqlParser(
             SqlSearchParameterDefinitionManager parameterCollection,
             ISqlServerFhirModel fhirModel)
-            : base(parameterCollection, new TokenSqlParser(parameterCollection), new ReferenceSqlParser(parameterCollection, fhirModel))
+            : base(parameterCollection, new ReferenceSqlParser(parameterCollection, fhirModel), new TokenSqlParser(parameterCollection))
         {
-            SetTableName("TokenReferenceCompositeSearchParam");
+            SetTableName("ReferenceTokenCompositeSearchParam");
         }
     }
 }

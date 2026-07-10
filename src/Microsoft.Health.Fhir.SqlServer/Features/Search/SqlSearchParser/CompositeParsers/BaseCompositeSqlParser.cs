@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
                 (SearchParamType.Token, SearchParamType.Quantity) => CompositeType.TokenQuantity,
                 (SearchParamType.Token, SearchParamType.String) => CompositeType.TokenString,
                 (SearchParamType.Token, SearchParamType.Date) => CompositeType.TokenDate,
-                (SearchParamType.Token, SearchParamType.Reference) => CompositeType.TokenReference,
+                (SearchParamType.Reference, SearchParamType.Token) => CompositeType.TokenReference,
                 _ => CompositeType.Unknown,
             };
         }
