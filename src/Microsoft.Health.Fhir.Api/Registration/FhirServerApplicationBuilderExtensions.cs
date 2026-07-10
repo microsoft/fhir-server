@@ -16,6 +16,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
@@ -66,6 +67,9 @@ namespace Microsoft.AspNetCore.Builder
                             Predicate = healthCheckOptionsPredicate,
                             ResponseWriter = async (httpContext, healthReport) =>
                             {
+                                IServiceMetricHandler serviceMetricHandler = httpContext.RequestServices.GetService<IServiceMetricHandler>();
+                                serviceMetricHandler?.EmitAvailability(healthReport.Status != HealthStatus.Unhealthy);
+
                                 var response = JsonConvert.SerializeObject(
                                     new
                                     {
