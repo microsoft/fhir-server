@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const int CollectionSettingsVersion = 3;
         private readonly ILogger<CosmosContainerProvider> _logger;
         private readonly IMediator _mediator;
+        private readonly IDatabaseStatusReporter _databaseStatusReporter;
         private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
         private Lazy<Container> _container;
         private readonly RetryableInitializationOperation _initializationOperation;
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IMediator mediator,
             IEnumerable<ICollectionInitializer> collectionInitializers,
             ICosmosDbDistributedLockFactory distributedLockFactory,
+            IDatabaseStatusReporter databaseStatusReporter,
             ICosmosClientTestProvider cosmosClientTestProvider)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -61,11 +64,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
             EnsureArg.IsNotNull(retryPolicyFactory, nameof(retryPolicyFactory));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(databaseStatusReporter, nameof(databaseStatusReporter));
             EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
 
             _logger = logger;
             _mediator = mediator;
             _distributedLockFactory = distributedLockFactory;
+            _databaseStatusReporter = databaseStatusReporter;
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
@@ -163,6 +168,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 LogLevel logLevel = LogLevel.Critical;
                 _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} Initialization has failed.", cosmosDataStoreConfiguration.DatabaseId);
+
+                if (_databaseStatusReporter.IsCustomerManagedKeyException(ex))
+                {
+                    _databaseStatusReporter.ReportDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
+                }
+
                 throw;
             }
         }

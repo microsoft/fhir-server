@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Data
         }
 #pragma warning restore CA1024
 
-        public void SetDatabaseAvailability(DatabaseAvailability availability)
+        public void ReportDatabaseAvailability(DatabaseAvailability availability)
         {
             Interlocked.Exchange(ref _databaseAvailability, (long)availability);
         }

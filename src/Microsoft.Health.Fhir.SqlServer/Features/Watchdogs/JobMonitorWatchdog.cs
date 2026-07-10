@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 if (_databaseStatusReporter.IsCustomerManagedKeyException(ex))
                 {
-                    _databaseStatusReporter.SetDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
+                    _databaseStatusReporter.ReportDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
                     _logger.LogError(ex, "JobMonitorWatchdog: queue metrics were not refreshed this cycle due a CMK error. Database availability set as degraded.");
                 }
                 else

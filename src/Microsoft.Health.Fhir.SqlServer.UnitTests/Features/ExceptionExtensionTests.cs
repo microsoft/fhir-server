@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -186,6 +188,48 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features
             var result = exception.IsRetriable();
 
             Assert.True(result);
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.KeyVaultCriticalError)]
+        [InlineData(SqlErrorCodes.KeyVaultEncounteredError)]
+        [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo)]
+        public void GivenSqlExceptionWithCmkErrorNumber_WhenCheckingIsCustomerManagedKeyException_ThenReturnsTrue(int sqlCmkErrorCode)
+        {
+            SqlException exception = SqlExceptionUtils.CreateSqlException(sqlCmkErrorCode); // CMK error code
+            Assert.True(exception.IsCustomerManagedKeyException());
+        }
+
+        [Fact]
+        public void GivenSqlExceptionWithDifferentErrorNumber_WhenCheckingIsCustomerManagedKeyException_ThenReturnsFalse()
+        {
+            SqlException exception = SqlExceptionUtils.CreateSqlException(1205); // Deadlock error
+            Assert.False(exception.IsCustomerManagedKeyException());
+        }
+
+        [Fact]
+        public void GivenNullException_WhenCheckingIsCustomerManagedKeyException_ThenReturnsFalse()
+        {
+            Exception exception = null;
+            Assert.False(exception.IsCustomerManagedKeyException());
+        }
+
+        [Fact]
+        public void GivenNonSqlException_WhenCheckingIsCustomerManagedKeyException_ThenReturnsFalse()
+        {
+            var exception = new InvalidOperationException("Not a SQL exception");
+            Assert.False(exception.IsCustomerManagedKeyException());
+        }
+
+        [Theory]
+        [InlineData("(..) is not accessible due to Azure Key Vault critical error (...)")]
+        [InlineData("(...) is not accessible due to Azure Key Vault encountered an error (...)")]
+        [InlineData("(...) is not accessible due to Azure Key Vault error obtaining information (...)")]
+
+        public void GivenSqlExceptionWithKeyVaultErrorMessage_WhenCheckingIsCustomerManagedKeyException_ThenReturnsTrue(string errorMessage)
+        {
+            var exception = SqlExceptionUtils.CreateSqlException("Azure Key Vault critical error", new InvalidOperationException(errorMessage));
+            Assert.True(exception.IsCustomerManagedKeyException());
         }
     }
 }

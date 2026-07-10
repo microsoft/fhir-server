@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     if (_databaseStatusReporter.IsCustomerManagedKeyException(ex))
                     {
-                        _databaseStatusReporter.SetDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
+                        _databaseStatusReporter.ReportDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
                         _logger.LogWarning(ex, "Profiles: Background profile status task failed due to customer managed key issue. Database availability set as degraded. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
                     }
                     else

@@ -54,6 +54,10 @@ public class StorageInitializedHealthCheckTests
     {
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
         {
+            // Arrange
+            _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.Available);
+
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
@@ -68,6 +72,7 @@ public class StorageInitializedHealthCheckTests
         {
             // Arrange
             _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.Available);
 
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
             Assert.Equal(HealthStatus.Degraded, result.Status);
@@ -78,15 +83,18 @@ public class StorageInitializedHealthCheckTests
     [Fact]
     public async Task GivenDatabaseNotAvailable_WhenCheckHealthAsync_ThenReturnsDegraded()
     {
-        // Arrange
-        await _sut.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-        _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.DegradedByCustomerManagedKey);
+        using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
+        {
+            // Arrange
+            _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.DegradedByCustomerManagedKey);
 
-        // Act
-        HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
+            // Act
+            HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
 
-        // Assert
-        Assert.Equal(HealthStatus.Degraded, result.Status);
-        Assert.Contains("The database is not available.", result.Description);
+            // Assert
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+            Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
+        }
     }
 }

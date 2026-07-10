@@ -25,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Data
 
         DatabaseAvailability GetDatabaseAvailability();
 
-        void SetDatabaseAvailability(DatabaseAvailability availability);
+        void ReportDatabaseAvailability(DatabaseAvailability availability);
     }
 }
