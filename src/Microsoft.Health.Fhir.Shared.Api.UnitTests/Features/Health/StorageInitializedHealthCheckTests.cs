@@ -7,9 +7,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -27,7 +27,8 @@ public class StorageInitializedHealthCheckTests
     public StorageInitializedHealthCheckTests()
     {
         _databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
-        _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.Available);
         _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
     }
 
@@ -53,6 +54,10 @@ public class StorageInitializedHealthCheckTests
     {
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
         {
+            // Arrange
+            _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.Available);
+
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
@@ -66,9 +71,28 @@ public class StorageInitializedHealthCheckTests
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
         {
             // Arrange
-            _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+            _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.Available);
 
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+            Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
+        }
+    }
+
+    [Fact]
+    public async Task GivenDatabaseNotAvailable_WhenCheckHealthAsync_ThenReturnsDegraded()
+    {
+        using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
+        {
+            // Arrange
+            _databaseStatusReporter.IsCustomerManagedKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            _databaseStatusReporter.GetDatabaseAvailability().Returns(DatabaseAvailability.DegradedByCustomerManagedKey);
+
+            // Act
+            HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
+
+            // Assert
             Assert.Equal(HealthStatus.Degraded, result.Status);
             Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
         }

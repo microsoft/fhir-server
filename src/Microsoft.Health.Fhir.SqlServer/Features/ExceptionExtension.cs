@@ -4,11 +4,46 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
     public static class ExceptionExtension
     {
+        private static readonly int[] _sqlCustomerManagedKeyErrorCodes = new int[]
+        {
+            SqlErrorCodes.KeyVaultCriticalError,
+            SqlErrorCodes.KeyVaultEncounteredError,
+            SqlErrorCodes.KeyVaultErrorObtainingInfo,
+        };
+
+        public static bool IsCustomerManagedKeyException(this Exception exception)
+        {
+            if (exception == null)
+            {
+                return false;
+            }
+
+            // Handles SQL Exceptions.
+            SqlException sqlException = exception as SqlException;
+            if (sqlException != null && _sqlCustomerManagedKeyErrorCodes.Contains(sqlException.Number))
+            {
+                return true;
+            }
+
+            // Handles non-SQL Exceptions.
+            string exceptionAsString = exception.ToString();
+
+            if (exceptionAsString.Contains("is not accessible due to Azure Key Vault critical error", StringComparison.OrdinalIgnoreCase) ||
+                exceptionAsString.Contains("is not accessible due to Azure Key Vault encountered an error", StringComparison.OrdinalIgnoreCase) ||
+                exceptionAsString.Contains("is not accessible due to Azure Key Vault error obtaining information", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public static bool IsRetriable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();

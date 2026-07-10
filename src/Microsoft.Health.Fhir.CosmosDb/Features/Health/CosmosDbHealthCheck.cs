@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             [attempt, ex.GetType().Name]);
                     }
                 }
-                catch (CosmosException ex) when (ex.IsCmkClientError())
+                catch (CosmosException ex) when (ex.IsCustomerManagedKeyException())
                 {
                     // Handling CMK errors.
                     LogWithDetails(

@@ -3,23 +3,33 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Api.Features.Health;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.Core.Data;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
     /// <summary>
-    /// Cosmos DB implementation of <see cref="IDatabaseStatusReporter"/>.
-    /// Always returns healthy status without performing any checks.
+    /// Cosmos DB implementation of <see cref="BaseDatabaseStatusReporter"/>.
     /// </summary>
-    public class CosmosDbStatusReporter : IDatabaseStatusReporter
+    public class CosmosDbStatusReporter : BaseDatabaseStatusReporter
     {
-        /// <inheritdoc />
-        public Task<bool> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
+        public CosmosDbStatusReporter()
+            : base()
         {
-            // [WI] to implement: https://microsofthealth.visualstudio.com/Health/_workitems/edit/166817
-            return Task.FromResult(true);
+        }
+
+        public override bool IsCustomerManagedKeyException(Exception exception)
+        {
+            return exception is CosmosException cdbe && cdbe.IsCustomerManagedKeyException();
+        }
+
+        public override Task<bool> IsCustomerManagedKeyProperlySetAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(GetDatabaseAvailability() != DatabaseAvailability.DegradedByCustomerManagedKey);
         }
     }
 }

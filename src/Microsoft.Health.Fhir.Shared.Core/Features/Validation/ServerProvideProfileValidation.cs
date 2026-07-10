@@ -24,6 +24,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Data;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Storage;
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
+        private readonly IDatabaseStatusReporter _databaseStatusReporter;
 
         private bool _isDisposed = false;
         private string _mostRecentProfileHash = null;
@@ -61,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator,
             IHostApplicationLifetime hostApplicationLifetime,
+            IDatabaseStatusReporter databaseStatusReporter,
             ILogger<ServerProvideProfileValidation> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -68,11 +72,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(hostApplicationLifetime, nameof(hostApplicationLifetime));
+            EnsureArg.IsNotNull(databaseStatusReporter, nameof(databaseStatusReporter));
 
             _searchServiceFactory = searchServiceFactory;
             _expirationTime = DateTime.UtcNow;
             _validateOperationConfig = options.Value;
             _mediator = mediator;
+            _databaseStatusReporter = databaseStatusReporter;
             _logger = logger;
 
             _resourcesByUri = new FhirMemoryCache<Resource>(
@@ -346,7 +352,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Profiles: Background profile status task failed. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
+                    if (_databaseStatusReporter.IsCustomerManagedKeyException(ex))
+                    {
+                        _databaseStatusReporter.ReportDatabaseAvailability(DatabaseAvailability.DegradedByCustomerManagedKey);
+                        _logger.LogWarning(ex, "Profiles: Background profile status task failed due to customer managed key issue. Database availability set as degraded. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "Profiles: Background profile status task failed. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
+                    }
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds), cancellationToken);
