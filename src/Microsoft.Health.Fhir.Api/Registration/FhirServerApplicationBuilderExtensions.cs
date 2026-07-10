@@ -56,7 +56,7 @@ namespace Microsoft.AspNetCore.Builder
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
 
-            IServiceMetricHandler serviceMetricHandler = app.ApplicationServices.GetService<IServiceMetricHandler>();
+            IServiceMetricHandler serviceMetricHandler = app.ApplicationServices.GetRequiredService<IServiceMetricHandler>();
             HealthCheckResponseWriter healthCheckResponseWriter = new HealthCheckResponseWriter(serviceMetricHandler);
 
             app.UseEndpoints(

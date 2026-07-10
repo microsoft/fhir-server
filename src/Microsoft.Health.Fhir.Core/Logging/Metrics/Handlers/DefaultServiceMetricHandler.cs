@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
     {
         private static readonly TimeSpan AvailabilityEmissionInterval = TimeSpan.FromSeconds(30);
 
-        private readonly Gauge<int> _availabilityUptimeGauge;
-        private readonly Gauge<int> _availabilityDowntimeGauge;
+        private readonly Counter<int> _availabilityUptimeCounter;
+        private readonly Counter<int> _availabilityDowntimeCounter;
         private readonly object _emissionLock;
 
         private DateTimeOffset _availabilityLastEmission = DateTimeOffset.MinValue;
@@ -22,19 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
         public DefaultServiceMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _availabilityUptimeGauge = MetricMeter.CreateGauge<int>("Service.Availability.Uptime");
-            _availabilityDowntimeGauge = MetricMeter.CreateGauge<int>("Service.Availability.Downtime");
+            _availabilityUptimeCounter = MetricMeter.CreateCounter<int>("Service.Availability.Uptime");
+            _availabilityDowntimeCounter = MetricMeter.CreateCounter<int>("Service.Availability.Downtime");
             _emissionLock = new object();
         }
 
         public void ReportAvailabilityUptime()
         {
-            EmitAvailabilityMetrics(() => { _availabilityUptimeGauge.Record(1); });
+            EmitAvailabilityMetrics(() => { _availabilityUptimeCounter.Add(1); });
         }
 
         public void ReportAvailabilityDowntime()
         {
-            EmitAvailabilityMetrics(() => { _availabilityDowntimeGauge.Record(1); });
+            EmitAvailabilityMetrics(() => { _availabilityDowntimeCounter.Add(1); });
         }
 
         private void EmitAvailabilityMetrics(Action reportAvailability)
