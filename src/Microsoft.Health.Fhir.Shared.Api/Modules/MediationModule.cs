@@ -13,8 +13,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Search.Behavior;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -35,7 +37,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             RemovePipelineBehaviorRegistrations<ProvenanceHeaderBehavior>(services);
             RemovePipelineBehaviorRegistrations<ProfileResourcesBehaviour>(services);
+            RemovePipelineBehaviorRegistrations<ListSearchAuthorizationPipeBehavior>(services);
+            RemovePipelineBehaviorRegistrations<ListSearchPipeBehavior>(services);
 
+            services.AddTransient<IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>, ListSearchAuthorizationPipeBehavior>();
+            services.AddTransient<IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>, ListSearchPipeBehavior>();
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
             services.RemoveAll<IPipelineBehavior<BundleRequest, BundleResponse>>();
             services.AddTransient<IPipelineBehavior<BundleRequest, BundleResponse>, ValidateBundlePreProcessor>();

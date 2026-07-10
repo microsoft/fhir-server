@@ -4,14 +4,24 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentValidation;
 using Medino;
+using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Search.Behavior;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
@@ -61,6 +71,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                 validationBehaviors);
         }
 
+        [Fact]
+        public void GivenMediationModule_WhenLoaded_ThenListSearchAuthorizationRunsBeforeListResolution()
+        {
+            var services = new ServiceCollection();
+
+            new MediationModule().Load(services);
+
+            var listSearchBehaviors = services
+                .Where(service => service.ServiceType == typeof(IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>))
+                .Select(service => service.ImplementationType)
+                .Where(type => type == typeof(ListSearchAuthorizationPipeBehavior) ||
+                               type == typeof(ListSearchPipeBehavior))
+                .ToArray();
+
+            Assert.Equal(
+                new[]
+                {
+                    typeof(ListSearchAuthorizationPipeBehavior),
+                    typeof(ListSearchPipeBehavior),
+                },
+                listSearchBehaviors);
+        }
+
         [Theory]
         [InlineData(typeof(ProvenanceHeaderBehavior), true)]
         [InlineData(typeof(ProfileResourcesBehaviour), true)]
@@ -94,9 +127,84 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             }
         }
 
+        [Fact]
+        public async Task GivenOpenGenericCapabilityBehavior_WhenRequestIsSent_ThenCapabilityIsValidatedOnce()
+        {
+            var services = new ServiceCollection();
+            var conformanceProvider = Substitute.For<IConformanceProvider>();
+            conformanceProvider.SatisfiesAsync(
+                Arg.Any<IReadOnlyCollection<CapabilityQuery>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(true);
+            services.AddMedino(typeof(MediationModuleTests).Assembly);
+            services.AddSingleton(conformanceProvider);
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateCapabilityPreProcessor<,>));
+
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            IMediator mediator = provider.GetRequiredService<IMediator>();
+
+            await mediator.SendAsync(new ValidationPipelineTestRequest());
+
+            await conformanceProvider.Received(1).SatisfiesAsync(
+                Arg.Any<IReadOnlyCollection<CapabilityQuery>>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOpenGenericRequestBehavior_WhenRequestIsSent_ThenOnlyTypedValidatorRuns()
+        {
+            var services = new ServiceCollection();
+            var typedValidator = new CountingValidator<ValidationPipelineTestRequest>();
+            var objectValidator = new CountingValidator<object>();
+            services.AddMedino(typeof(MediationModuleTests).Assembly);
+            services.AddSingleton<IValidator<ValidationPipelineTestRequest>>(typedValidator);
+            services.AddSingleton<IValidator<object>>(objectValidator);
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
+
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            IMediator mediator = provider.GetRequiredService<IMediator>();
+
+            await mediator.SendAsync(new ValidationPipelineTestRequest());
+
+            Assert.Equal(1, typedValidator.ExecutionCount);
+            Assert.Equal(0, objectValidator.ExecutionCount);
+        }
+
         private static bool IsPipelineBehavior(Type type)
         {
             return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
+        }
+
+        public sealed class ValidationPipelineTestRequest : IRequest<ValidationPipelineTestResponse>, IRequireCapability
+        {
+            public IEnumerable<CapabilityQuery> RequiredCapabilities()
+            {
+                yield return new CapabilityQuery("true");
+            }
+        }
+
+        public sealed class ValidationPipelineTestResponse
+        {
+        }
+
+        public sealed class ValidationPipelineTestHandler : IRequestHandler<ValidationPipelineTestRequest, ValidationPipelineTestResponse>
+        {
+            public Task<ValidationPipelineTestResponse> HandleAsync(
+                ValidationPipelineTestRequest request,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(new ValidationPipelineTestResponse());
+            }
+        }
+
+        public sealed class CountingValidator<T> : AbstractValidator<T>
+        {
+            public CountingValidator()
+            {
+                RuleFor(x => x).Custom((_, _) => ExecutionCount++);
+            }
+
+            public int ExecutionCount { get; private set; }
         }
     }
 }

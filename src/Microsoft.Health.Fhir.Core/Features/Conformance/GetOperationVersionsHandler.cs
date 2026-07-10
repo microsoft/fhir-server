@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
-    public sealed class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
+    public class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
     {
         private readonly IModelInfoProvider _provider;
 
@@ -24,13 +24,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _provider = provider;
         }
 
-        Task<GetOperationVersionsResponse> IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>.
-            HandleAsync(GetOperationVersionsRequest request, CancellationToken cancellationToken)
+        /// <inheritdoc />
+        public Task<GetOperationVersionsResponse> HandleAsync(
+            GetOperationVersionsRequest request,
+            CancellationToken cancellationToken)
         {
             return Task.FromResult(Handle(request));
         }
 
-        private GetOperationVersionsResponse Handle(GetOperationVersionsRequest request)
+        protected GetOperationVersionsResponse Handle(GetOperationVersionsRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

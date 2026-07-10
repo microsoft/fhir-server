@@ -32,6 +32,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
+            // Medino composes both the strongly typed and object pipelines for each request.
+            // Validation belongs to the strongly typed pipeline only.
+            if (typeof(TRequest) == typeof(object))
+            {
+                return await next();
+            }
+
             if (request is IRequireCapability provider)
             {
                 if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities().ToList(), cancellationToken))

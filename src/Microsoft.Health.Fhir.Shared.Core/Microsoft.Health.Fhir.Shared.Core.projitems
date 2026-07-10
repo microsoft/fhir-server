@@ -95,6 +95,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchAuthorizationPipeBehavior.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchPipeBehavior.cs" />
   </ItemGroup>
 </Project>

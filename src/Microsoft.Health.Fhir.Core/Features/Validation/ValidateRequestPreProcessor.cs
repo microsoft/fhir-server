@@ -34,6 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
+            // Medino composes both the strongly typed and object pipelines for each request.
+            // Validation belongs to the strongly typed pipeline only.
+            if (typeof(TRequest) == typeof(object))
+            {
+                return await next();
+            }
+
             var allResults = (await Task.WhenAll(_validators.Select(x => x.ValidateAsync(request, cancellationToken)))).Where(x => x != null).ToArray();
 
             if (!allResults.All(x => x.IsValid))
