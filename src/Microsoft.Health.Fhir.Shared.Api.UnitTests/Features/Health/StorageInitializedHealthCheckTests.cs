@@ -42,10 +42,10 @@ public class StorageInitializedHealthCheckTests
     }
 
     [Fact]
-    public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenStartsAsDegraded()
+    public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenStartsAsUnhealthy()
     {
         HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
-        Assert.Equal(HealthStatus.Degraded, result.Status);
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
     }
 
     [Fact]

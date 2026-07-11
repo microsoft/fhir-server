@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             TimeSpan waited = Clock.UtcNow - _started;
             if (waited < TimeSpan.FromMinutes(5))
             {
-                return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, $"Storage is initializing. Waited: {(int)waited.TotalSeconds}s."));
+                return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, $"Storage is initializing. Waited: {(int)waited.TotalSeconds}s."));
             }
 
             // Check if customer-managed key (CMK) is properly set.

@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Theory]
         [InlineData(DataStore.SqlServer)]
         [InlineData(DataStore.CosmosDb)]
-        public async Task GivenDefinitionStageFailure_WhenServerStarts_ThenHealthCheckReportsDegraded(DataStore dataStore)
+        public async Task GivenDefinitionStageFailure_WhenServerStarts_ThenHealthCheckReportsUnhealthy(DataStore dataStore)
         {
             await ExecuteAsync<StartupWithDefinitionInitializationFailure>(
                 dataStore,
@@ -46,18 +46,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     (HttpStatusCode statusCode, string responseContent) = await WaitForNonHealthyStatusAsync(httpClient, PollTimeout, PollInterval);
 
-                    Assert.Equal(HttpStatusCode.OK, statusCode);
+                    Assert.Equal(HttpStatusCode.ServiceUnavailable, statusCode);
 
                     string detailStatus = GetDetailStatus(responseContent, "StorageInitializedHealthCheck");
                     Assert.NotNull(detailStatus);
-                    Assert.Equal("Degraded", detailStatus);
+                    Assert.Equal("Unhealthy", detailStatus);
                 });
         }
 
         [Theory]
         [InlineData(DataStore.SqlServer)]
         [InlineData(DataStore.CosmosDb)]
-        public async Task GivenStatusStageFailure_WhenServerStarts_ThenHealthCheckReportsDegraded(DataStore dataStore)
+        public async Task GivenStatusStageFailure_WhenServerStarts_ThenHealthCheckReportsUnhealthy(DataStore dataStore)
         {
             await ExecuteAsync<StartupWithStatusInitializationFailure>(
                 dataStore,
@@ -65,11 +65,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     (HttpStatusCode statusCode, string responseContent) = await WaitForNonHealthyStatusAsync(httpClient, PollTimeout, PollInterval);
 
-                    Assert.Equal(HttpStatusCode.OK, statusCode);
+                    Assert.Equal(HttpStatusCode.ServiceUnavailable, statusCode);
 
                     string detailStatus = GetDetailStatus(responseContent, "StorageInitializedHealthCheck");
                     Assert.NotNull(detailStatus);
-                    Assert.Equal("Degraded", detailStatus);
+                    Assert.Equal("Unhealthy", detailStatus);
                 });
         }
 
