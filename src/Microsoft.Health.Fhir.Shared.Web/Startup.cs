@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders;
@@ -80,6 +81,8 @@ namespace Microsoft.Health.Fhir.Web
                 .AddMemberMatch();
 
             services.AddDevelopmentIdentityProvider(Configuration);
+            services.Configure<StorageInitializedHealthCheckConfiguration>(
+                Configuration.GetSection(StorageInitializedHealthCheckConfiguration.SectionName));
 
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);

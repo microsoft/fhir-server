@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -28,7 +29,7 @@ public class StorageInitializedHealthCheckTests
     {
         _databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
         _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
-        _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
+        _sut = CreateSut();
     }
 
     [Fact]
@@ -61,6 +62,56 @@ public class StorageInitializedHealthCheckTests
     }
 
     [Fact]
+    public async Task GivenStartupDegradedDelayHasElapsed_WhenCheckHealthAsync_ThenReturnsDegraded()
+    {
+        var timeProvider = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow);
+        using (Mock.Property(() => ClockResolver.TimeProvider, timeProvider))
+        {
+            StorageInitializedHealthCheck sut = CreateSut(TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(2));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+
+            HealthCheckResult result = await sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
+
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+            Assert.Contains("Storage is initializing", result.Description);
+        }
+    }
+
+    [Fact]
+    public async Task GivenStorageInitializationTimeoutHasElapsed_WhenCheckHealthAsync_ThenReturnsUnhealthy()
+    {
+        var timeProvider = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow);
+        using (Mock.Property(() => ClockResolver.TimeProvider, timeProvider))
+        {
+            StorageInitializedHealthCheck sut = CreateSut(TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(2));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(2));
+
+            HealthCheckResult result = await sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
+
+            Assert.Equal(HealthStatus.Unhealthy, result.Status);
+            Assert.Contains("Storage has not been initialized", result.Description);
+        }
+    }
+
+    [Fact]
+    public void GivenStartupDegradedDelayExceedsStorageInitializationTimeout_WhenCreatingHealthCheck_ThenThrows()
+    {
+        Assert.Throws<ArgumentException>(() => CreateSut(TimeSpan.FromMilliseconds(2), TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Fact]
+    public void GivenStartupDegradedDelayIsNegative_WhenCreatingHealthCheck_ThenThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CreateSut(TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Fact]
+    public void GivenStorageInitializationTimeoutIsNegative_WhenCreatingHealthCheck_ThenThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CreateSut(TimeSpan.Zero, TimeSpan.FromMilliseconds(-1)));
+    }
+
+    [Fact]
     public async Task GivenUnhealthyCMK_WhenCheckHealthAsyncAfter5Minutes_ThenChangedToDegraded()
     {
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
@@ -72,5 +123,19 @@ public class StorageInitializedHealthCheckTests
             Assert.Equal(HealthStatus.Degraded, result.Status);
             Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
         }
+    }
+
+    private StorageInitializedHealthCheck CreateSut(
+        TimeSpan? startupDegradedDelay = null,
+        TimeSpan? storageInitializationTimeout = null)
+    {
+        return new StorageInitializedHealthCheck(
+            _databaseStatusReporter,
+            Options.Create(
+                new StorageInitializedHealthCheckConfiguration
+                {
+                    StartupDegradedDelay = startupDegradedDelay ?? TimeSpan.FromMinutes(1),
+                    StorageInitializationTimeout = storageInitializationTimeout ?? TimeSpan.FromMinutes(5),
+                }));
     }
 }
