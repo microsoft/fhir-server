@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
-                [Fact]
+        [Fact]
         public async Task GivenParametersWithNullParameterCollection_WhenValidating_ThenShouldNotThrowNullReferenceException()
         {
             var parameters = new Parameters();
