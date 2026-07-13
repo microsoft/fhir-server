@@ -71,10 +71,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
 
-                resource = parameterResource.Parameter?.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase));
-                if (resource?.Resource != null)
+                var resourceParam = parameterResource.Parameter?.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase));
+                if (resourceParam?.Resource != null)
                 {
-                    resource = resource.Resource;
+                    resource = resourceParam.Resource;
                 }
             }
         }
