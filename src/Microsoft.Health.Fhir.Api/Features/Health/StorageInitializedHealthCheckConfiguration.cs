@@ -8,7 +8,7 @@ using System;
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
-    /// Configures the startup health check's transition from unhealthy to degraded.
+    /// Configures the startup health-check gate.
     /// </summary>
     public class StorageInitializedHealthCheckConfiguration
     {
@@ -18,12 +18,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         public const string SectionName = "HealthChecks:StorageInitialization";
 
         /// <summary>
-        /// Gets or sets the time to report an unhealthy status while storage initializes.
-        /// </summary>
-        public TimeSpan StartupDegradedDelay { get; set; } = TimeSpan.FromMinutes(1);
-
-        /// <summary>
-        /// Gets or sets the maximum time to wait for storage initialization before checking CMK health.
+        /// Gets or sets the absolute backstop after which the startup gate hands off to
+        /// readiness (returns Healthy) regardless of initialization state. Must satisfy the
+        /// invariant: legit-init-p99 &lt; StorageInitializationTimeout &lt; k8s-startup-budget.
         /// </summary>
         public TimeSpan StorageInitializationTimeout { get; set; } = TimeSpan.FromMinutes(5);
     }
