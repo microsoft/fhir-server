@@ -66,6 +66,68 @@ This composes across SMART versions. A V1 request, or a V2 request with granular
 
 A concern raised in review: intersecting the compartment union with includes re-generates CTEs and could enlarge the query, hurting query-plan compilation and execution. To ground this rather than reason about it abstractly, the actual parameterized SQL (`sp_executesql` statement text) emitted by the R4 integration suite against SQL Server 2022 was captured **before** and **after** the fix, for the same requests.
 
+### Block structure — before vs after
+
+Both the leaking and fixed queries share the same two-statement shape: a **primary** statement that materializes the compartment-restricted matches into `@FilteredData`, then an **include** statement that expands `_include` / `_revinclude`. The fix changes exactly one thing — it re-applies the compartment membership union to the include statement. The diagrams below use the representative `_include` case (`Coverage?_id=X&_include=Coverage:subscriber`, caller confined to `Patient/child`); the CTE names match the full SQL dumps that follow.
+
+**BEFORE — `main` (leak):** the include statement resolves the included target with no compartment check.
+
+```mermaid
+flowchart TB
+  subgraph S1["STATEMENT 1 — PRIMARY  →  @FilteredData"]
+    direction TB
+    A0["<b>cte0</b> · COMPARTMENT UNION (references)<br/>dbo.ReferenceSearchParam → Patient/@p0<br/>4 nominated params: 343/345/336/342"]
+    A1["<b>cte1</b> · COMPARTMENT UNION (patient's own row)<br/>dbo.Resource · ResourceId=@p0"]
+    A2["<b>cte2</b> · MEMBERSHIP = cte0 ∪ cte1"]
+    A34["<b>cte3–cte4</b> · FHIR SEARCH<br/>Coverage ⋈ membership · _id=@p1"]
+    A5["<b>cte5</b> · PAGINATE (TOP / row_number)"]
+    INS[["INSERT INTO @FilteredData"]]
+    A0 --> A2
+    A1 --> A2
+    A2 --> A34 --> A5 --> INS
+  end
+  subgraph S2["STATEMENT 2 — INCLUDE  ( _include=Coverage:subscriber )"]
+    direction TB
+    B5["<b>cte5</b> = @FilteredData (primary matches)"]
+    B6["<b>cte6</b> · RESOLVE INCLUDE TARGET<br/>SearchParamId=345 · EXISTS(cte5)<br/>❌ no compartment check on target"]
+    B8["<b>cte7–cte8</b> · matches ∪ included → final SELECT"]
+    B5 --> B6 --> B8
+  end
+  INS --> B5
+  LEAK{{"🔓 LEAK — the included subscriber<br/>Patient/RelatedPerson is returned<br/>even if OUTSIDE the compartment"}}
+  B6 -.-> LEAK
+```
+
+**AFTER — this branch (B2, fixed):** the include statement re-generates the compartment union and requires the included resource to be a member.
+
+```mermaid
+flowchart TB
+  subgraph S1["STATEMENT 1 — PRIMARY  →  @FilteredData"]
+    direction TB
+    A0["<b>cte0</b> · COMPARTMENT UNION (references)<br/>now 6 params — adds 1015 Patient-link,<br/>1132 RelatedPerson-patient (covers included types)"]
+    A1["<b>cte1</b> · patient's own row"]
+    A2["<b>cte2</b> · MEMBERSHIP = cte0 ∪ cte1"]
+    A34["<b>cte3–cte4</b> · FHIR SEARCH · _id=@p1"]
+    A5["<b>cte5</b> · PAGINATE"]
+    INS[["INSERT INTO @FilteredData"]]
+    A0 --> A2
+    A1 --> A2
+    A2 --> A34 --> A5 --> INS
+  end
+  subgraph S2["STATEMENT 2 — INCLUDE"]
+    direction TB
+    R0["<b>cte0 / cte1 / cte2</b> · ★ COMPARTMENT UNION<br/>RE-GENERATED inside the include statement"]
+    B5["<b>cte5</b> = @FilteredData"]
+    B6["<b>cte6</b> · RESOLVE INCLUDE TARGET<br/>EXISTS(cte5)  ✅ AND EXISTS(cte2)<br/>★ target must ALSO be in compartment — THE FIX"]
+    B8["<b>cte7–cte8</b> · matches ∪ included → final SELECT"]
+    R0 --> B6
+    B5 --> B6 --> B8
+  end
+  INS --> B5
+```
+
+The only structural change is in the include statement: it re-generates the compartment membership union (`cte0`/`cte1`/`cte2`) and adds a second `EXISTS(cte2)` to `cte6`, so an included resource must be a compartment member. Everything else — the primary statement, paging, and the final hydration `SELECT` — is byte-identical, apart from `cte0` widening as the union's covered types grow. The all-types wildcard `_revinclude=*:*` has the *same* block shape; the only differences are that the compartment union expands to ≈ 92 branches instead of 6, and being a `_revinclude` the intersection (`EXISTS(cte3)`) sits on the include **source** rather than the target.
+
 ### Representative case — a single `_include`
 
 Request: `GET Coverage?_id=smart-leak-coverage&_include=Coverage:subscriber`, caller confined to `Patient/smart-leak-child` (`@p0 = 'smart-leak-child'`, `@p1 = 'smart-leak-coverage'`).
