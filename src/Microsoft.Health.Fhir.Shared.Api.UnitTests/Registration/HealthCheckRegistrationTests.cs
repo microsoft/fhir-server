@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration;
 [Trait(Traits.Category, Categories.Web)]
 public class HealthCheckRegistrationTests
 {
-    private static bool Readiness(HealthCheckRegistration reg) =>
-        reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer) || reg.Tags.Contains(HealthCheckTags.ProbeReadiness);
+    // Uses the production readiness predicate so this coverage tracks UseFhirServer / the startup assertion.
+    private static bool Readiness(HealthCheckRegistration reg) => HealthProbePredicates.Readiness(reg);
 
     [Fact]
     public void GivenSqlDataStoreTag_WhenResolvingReadiness_ThenExactlyOneDataStoreCheck()

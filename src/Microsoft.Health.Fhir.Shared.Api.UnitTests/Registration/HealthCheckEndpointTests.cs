@@ -19,21 +19,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration;
 // These tests assert the aggregate HealthStatus each probe endpoint's predicate produces, using
 // HealthCheckService directly (no web host). ASP.NET Core's default status-code map then yields
 // Healthy/Degraded => HTTP 200 and Unhealthy => HTTP 503; the HTTP mapping itself is framework
-// behavior. The endpoint predicates below mirror UseFhirServer exactly.
+// behavior. The predicates below are the SAME production delegates UseFhirServer maps onto the
+// endpoints, so a routing change in HealthProbePredicates cannot drift away from this coverage.
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Web)]
 public class HealthCheckEndpointTests
 {
-    private static readonly Func<HealthCheckRegistration, bool> CheckPredicate =
-        reg => !reg.Tags.Contains(HealthCheckTags.ProbeStartup);
+    private static readonly Func<HealthCheckRegistration, bool> CheckPredicate = HealthProbePredicates.Diagnostic(null);
 
-    private static readonly Func<HealthCheckRegistration, bool> StartupPredicate =
-        reg => reg.Tags.Contains(HealthCheckTags.ProbeStartup);
+    private static readonly Func<HealthCheckRegistration, bool> StartupPredicate = HealthProbePredicates.Startup;
 
-    private static readonly Func<HealthCheckRegistration, bool> ReadyPredicate =
-        reg => reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer) || reg.Tags.Contains(HealthCheckTags.ProbeReadiness);
+    private static readonly Func<HealthCheckRegistration, bool> ReadyPredicate = HealthProbePredicates.Readiness;
 
-    private static readonly Func<HealthCheckRegistration, bool> LivePredicate = _ => false;
+    private static readonly Func<HealthCheckRegistration, bool> LivePredicate = HealthProbePredicates.Live;
 
     private static async Task<HealthStatus> EvaluateAsync(
         Func<HealthCheckRegistration, bool> predicate,

@@ -68,8 +68,7 @@ namespace Microsoft.AspNetCore.Builder
                         new PathString(KnownRoutes.HealthCheck),
                         new HealthCheckOptions
                         {
-                            Predicate = reg => (healthCheckOptionsPredicate?.Invoke(reg) ?? true)
-                                && !reg.Tags.Contains(HealthCheckTags.ProbeStartup),
+                            Predicate = HealthProbePredicates.Diagnostic(healthCheckOptionsPredicate),
                             ResponseWriter = WriteHealthReportAsync,
                         });
 
@@ -78,7 +77,7 @@ namespace Microsoft.AspNetCore.Builder
                         new PathString(KnownRoutes.HealthCheckStartup),
                         new HealthCheckOptions
                         {
-                            Predicate = reg => reg.Tags.Contains(HealthCheckTags.ProbeStartup),
+                            Predicate = HealthProbePredicates.Startup,
                             ResponseWriter = WriteHealthReportAsync,
                         });
 
@@ -87,8 +86,7 @@ namespace Microsoft.AspNetCore.Builder
                         new PathString(KnownRoutes.HealthCheckReady),
                         new HealthCheckOptions
                         {
-                            Predicate = reg => reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer)
-                                || reg.Tags.Contains(HealthCheckTags.ProbeReadiness),
+                            Predicate = HealthProbePredicates.Readiness,
                             ResponseWriter = WriteHealthReportAsync,
                         });
 
@@ -97,7 +95,7 @@ namespace Microsoft.AspNetCore.Builder
                         new PathString(KnownRoutes.HealthCheckLive),
                         new HealthCheckOptions
                         {
-                            Predicate = _ => false,
+                            Predicate = HealthProbePredicates.Live,
                             ResponseWriter = WriteHealthReportAsync,
                         });
 
@@ -129,11 +127,8 @@ namespace Microsoft.AspNetCore.Builder
         {
             var options = services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value;
 
-            bool ReadinessPredicate(HealthCheckRegistration reg) =>
-                reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer) || reg.Tags.Contains(HealthCheckTags.ProbeReadiness);
-
             int dataStoreCount = options.Registrations.Count(
-                reg => ReadinessPredicate(reg) && string.Equals(reg.Name, HealthCheckTags.DataStoreHealthCheckName, StringComparison.Ordinal));
+                reg => HealthProbePredicates.Readiness(reg) && string.Equals(reg.Name, HealthCheckTags.DataStoreHealthCheckName, StringComparison.Ordinal));
             if (dataStoreCount != 1)
             {
                 throw new InvalidOperationException(
@@ -141,7 +136,7 @@ namespace Microsoft.AspNetCore.Builder
                     "This usually indicates a health-check tag typo or a healthcare-shared-components tag rename/package skew.");
             }
 
-            int startupCount = options.Registrations.Count(reg => reg.Tags.Contains(HealthCheckTags.ProbeStartup));
+            int startupCount = options.Registrations.Count(HealthProbePredicates.Startup);
             if (startupCount != 1)
             {
                 throw new InvalidOperationException(
