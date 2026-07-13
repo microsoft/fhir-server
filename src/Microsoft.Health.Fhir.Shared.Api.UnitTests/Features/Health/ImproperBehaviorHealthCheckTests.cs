@@ -50,5 +50,32 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Health
                 Assert.Contains(message, result.Description);
             }
         }
+
+        [Fact]
+        public async Task GivenConcurrentNotificationsAndProbes_WhenCheckingHealth_ThenStateIsConsistent()
+        {
+            using var cts = new System.Threading.CancellationTokenSource();
+
+            Task reader = Task.Run(async () =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    HealthCheckResult result = await _healthCheck.CheckHealthAsync(null, CancellationToken.None);
+                    if (result.Status == HealthStatus.Unhealthy)
+                    {
+                        // An unhealthy result must always carry the appended message (no torn read).
+                        Assert.Contains("boom", result.Description);
+                    }
+                }
+            });
+
+            await _healthCheck.Handle(new ImproperBehaviorNotification("boom"), CancellationToken.None);
+            cts.Cancel();
+            await reader;
+
+            HealthCheckResult final = await _healthCheck.CheckHealthAsync(null, CancellationToken.None);
+            Assert.Equal(HealthStatus.Unhealthy, final.Status);
+            Assert.Contains("boom", final.Description);
+        }
     }
 }
