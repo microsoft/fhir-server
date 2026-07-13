@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Newtonsoft.Json;
 
@@ -48,6 +49,8 @@ namespace Microsoft.AspNetCore.Builder
                 app.UseMiddleware<PathBaseMiddleware>(pathString);
             }
 
+            ValidateHealthCheckRegistrations(app.ApplicationServices);
+
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
@@ -59,33 +62,91 @@ namespace Microsoft.AspNetCore.Builder
                 endpoints =>
                 {
                     endpoints.MapControllers();
+
+                    // Diagnostic endpoint: everything except the startup gate. Degraded => 200.
                     endpoints.MapHealthChecks(
                         new PathString(KnownRoutes.HealthCheck),
                         new HealthCheckOptions
                         {
-                            Predicate = healthCheckOptionsPredicate,
-                            ResponseWriter = async (httpContext, healthReport) =>
-                            {
-                                var response = JsonConvert.SerializeObject(
-                                    new
-                                    {
-                                        overallStatus = healthReport.Status.ToString(),
-                                        details = healthReport.Entries.Select(entry => new
-                                        {
-                                            name = entry.Key,
-                                            status = Enum.GetName<HealthStatus>(entry.Value.Status),
-                                            description = entry.Value.Description,
-                                            data = entry.Value.Data,
-                                        }),
-                                    });
-                                httpContext.Response.ContentType = MediaTypeNames.Application.Json;
-                                await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
-                            },
+                            Predicate = reg => (healthCheckOptionsPredicate?.Invoke(reg) ?? true)
+                                && !reg.Tags.Contains(HealthCheckTags.ProbeStartup),
+                            ResponseWriter = WriteHealthReportAsync,
                         });
+
+                    // Startup gate: only the storage-init check. Unhealthy => 503 while initializing.
+                    endpoints.MapHealthChecks(
+                        new PathString(KnownRoutes.HealthCheckStartup),
+                        new HealthCheckOptions
+                        {
+                            Predicate = reg => reg.Tags.Contains(HealthCheckTags.ProbeStartup),
+                            ResponseWriter = WriteHealthReportAsync,
+                        });
+
+                    // Readiness/routing: data-store + behavior. Degraded (e.g. CMK) => 200 stays routable.
+                    endpoints.MapHealthChecks(
+                        new PathString(KnownRoutes.HealthCheckReady),
+                        new HealthCheckOptions
+                        {
+                            Predicate = reg => reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer)
+                                || reg.Tags.Contains(HealthCheckTags.ProbeReadiness),
+                            ResponseWriter = WriteHealthReportAsync,
+                        });
+
+                    // Dependency-free HTTP liveness: run no checks => empty report => Healthy => 200.
+                    endpoints.MapHealthChecks(
+                        new PathString(KnownRoutes.HealthCheckLive),
+                        new HealthCheckOptions
+                        {
+                            Predicate = _ => false,
+                            ResponseWriter = WriteHealthReportAsync,
+                        });
+
                     mapAdditionalEndpoints?.Invoke(endpoints);
                 });
 
             return app;
+        }
+
+        private static async Task WriteHealthReportAsync(HttpContext httpContext, HealthReport healthReport)
+        {
+            var response = JsonConvert.SerializeObject(
+                new
+                {
+                    overallStatus = healthReport.Status.ToString(),
+                    details = healthReport.Entries.Select(entry => new
+                    {
+                        name = entry.Key,
+                        status = Enum.GetName<HealthStatus>(entry.Value.Status),
+                        description = entry.Value.Description,
+                        data = entry.Value.Data,
+                    }),
+                });
+            httpContext.Response.ContentType = MediaTypeNames.Application.Json;
+            await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
+        }
+
+        private static void ValidateHealthCheckRegistrations(IServiceProvider services)
+        {
+            var options = services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value;
+
+            bool ReadinessPredicate(HealthCheckRegistration reg) =>
+                reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer) || reg.Tags.Contains(HealthCheckTags.ProbeReadiness);
+
+            int dataStoreCount = options.Registrations.Count(
+                reg => ReadinessPredicate(reg) && string.Equals(reg.Name, "DataStoreHealthCheck", StringComparison.Ordinal));
+            if (dataStoreCount != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Readiness probe must resolve exactly one 'DataStoreHealthCheck' registration but resolved {dataStoreCount}. " +
+                    "This usually indicates a health-check tag typo or a healthcare-shared-components tag rename/package skew.");
+            }
+
+            int startupCount = options.Registrations.Count(reg => reg.Tags.Contains(HealthCheckTags.ProbeStartup));
+            if (startupCount != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Startup probe must resolve exactly one registration but resolved {startupCount}.");
+            }
         }
 
         private class PathBaseMiddleware
