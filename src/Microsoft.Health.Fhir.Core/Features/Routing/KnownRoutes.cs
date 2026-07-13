@@ -78,6 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string Versions = "$versions";
 
         public const string HealthCheck = "/health/check";
+        public const string HealthCheckStartup = "/health/startup";
+        public const string HealthCheckReady = "/health/ready";
+        public const string HealthCheckLive = "/health/live";
         public const string CustomError = "/CustomError";
 
         public const string SearchParameters = "SearchParameter/";
