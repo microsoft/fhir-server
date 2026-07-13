@@ -22,6 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SqlCompartmentSearchRewriter : CompartmentSearchRewriter
     {
+        /// <summary>
+        /// The materialized reference parameter that carries Patient-compartment membership for resource types whose
+        /// FHIR CompartmentDefinition nominates the non-materialized combined <c>patient</c> parameter. For the Patient
+        /// compartment this is always the type's <c>subject</c> parameter (e.g. Encounter.subject, ImagingStudy.subject).
+        /// </summary>
+        private const string MaterializedCompartmentCarrierCode = "subject";
+
         public SqlCompartmentSearchRewriter(
             Lazy<ICompartmentDefinitionManager> compartmentDefinitionManager,
             Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
@@ -63,37 +70,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     }
                 }
 
-                // A SMART compartment is broader than a regular compartment search: the smart user has access to any
-                // resource that references them (see SmartCompartmentSearchRewriter). The FHIR compartment definition
-                // maps several resource types (e.g. Encounter, Condition, Procedure, CareTeam) to the common `patient`
-                // search parameter (clinical-patient). That parameter's FHIRPath uses resolve() and is therefore never
-                // materialized as a ReferenceSearchParam index row, so a membership predicate keyed on it matches
-                // nothing and would silently drop legitimately in-compartment resources.
+                // A SMART compartment is broader than a regular compartment search: the SMART user has access to any
+                // resource that references them (see SmartCompartmentSearchRewriter). Membership is still defined by the
+                // FHIR CompartmentDefinition -- only the parameters it nominates confer compartment membership. We must
+                // NOT admit a resource merely because it carries some reference to the compartment root through an
+                // unrelated parameter (e.g. Observation.focus), otherwise a SMART caller could read another patient's
+                // data (MSRC over-match). The one adjustment made below is a narrow, security-reviewed substitution of
+                // the non-materialized combined `patient` parameter with the resource type's materialized `subject`
+                // carrier, which is the very element the Patient compartment is defined on for those types.
                 bool isSmartCompartment = expression is SmartCompartmentSearchExpression;
-
-                // For a SMART compartment that spans every resource type (an unrestricted reversed wildcard such as
-                // _revinclude=*:*, surfaced by SearchOptionsFactory as the DomainResource sentinel), enumerating a
-                // per-(resource type, reference parameter) membership predicate for all compartment types produces
-                // thousands of OR clauses. That union is re-generated wherever the compartment is re-applied (notably the
-                // _include / _revinclude re-generation path), so the enumeration is emitted twice and dominates the query
-                // text. Every enumerated member is ultimately constrained to ReferenceResourceId = compartmentId, so the
-                // union is exactly "any resource that references the compartment root". For the all-types case we emit that
-                // single predicate directly instead of enumerating it: it is equivalent (a superset only over reference
-                // parameters that were previously unmapped, all still strictly bound to the compartment root, consistent
-                // with the SMART "any resource which refers to them" model), still cannot disclose another compartment's
-                // data, and is dramatically smaller.
-                bool isAllTypesSmartCompartment = isSmartCompartment
-                    && !expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal));
-
-                if (isAllTypesSmartCompartment)
-                {
-                    return new List<Expression>
-                    {
-                        Expression.And(
-                            Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
-                            Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)),
-                    };
-                }
 
                 if (CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
                 {
@@ -117,26 +102,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                             if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
                             {
                                 AddCompartmentSearchParameter(sp, compartmentResourceType);
-                            }
-                        }
-                    }
 
-                    // For SMART compartments, also include every materialized reference parameter of the resource type
-                    // that can target the compartment root type. This keeps membership consistent with what is actually
-                    // indexed (e.g. an Encounter is indexed under Encounter-subject, not the unmaterialized
-                    // clinical-patient) and with the SMART model. It is additive and still constrained (below) to the
-                    // compartment root id, so it can only admit resources that reference the compartment root itself and
-                    // never widens the set beyond the caller's compartment.
-                    if (isSmartCompartment)
-                    {
-                        foreach (SearchParameterInfo referenceParameter in SearchParameterDefinitionManager.Value.GetSearchParameters(compartmentResourceType))
-                        {
-                            if (referenceParameter.Type == SearchParamType.Reference
-                                && referenceParameter.IsSupported
-                                && referenceParameter.TargetResourceTypes != null
-                                && referenceParameter.TargetResourceTypes.Contains(compartmentType, StringComparer.Ordinal))
-                            {
-                                AddCompartmentSearchParameter(referenceParameter, compartmentResourceType);
+                                // SMART-only substitution for the non-materialized combined `patient` compartment
+                                // parameter. The FHIR Patient CompartmentDefinition nominates the combined `patient`
+                                // parameter (code "patient" -> clinical-patient) for the resource types that reference
+                                // the patient through their `subject` element (Encounter, ImagingStudy, Procedure,
+                                // Condition, ...). clinical-patient's FHIRPath uses resolve(), so this server never
+                                // materializes it as a ReferenceSearchParam row; a membership predicate keyed on it
+                                // matches nothing and would silently drop those in-compartment resources. We therefore
+                                // also add the resource type's materialized `subject` parameter, which indexes exactly
+                                // that reference and is precisely the element the Patient compartment is defined on for
+                                // these types.
+                                //
+                                // This mapping is intentionally narrow -- `patient` -> `subject` only. It never
+                                // introduces an unrelated reference such as Observation.focus (the MSRC over-match), so
+                                // it cannot broaden the caller's compartment beyond the FHIR compartment definition.
+                                // Resource types whose patient reference is carried only by the non-materialized
+                                // `patient` element (e.g. Immunization) have no materialized `subject` carrier and
+                                // remain a known gap (ADO #197858).
+                                if (isSmartCompartment
+                                    && IsNonMaterializedCompartmentParameter(sp)
+                                    && SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, MaterializedCompartmentCarrierCode, out SearchParameterInfo carrierParameter)
+                                    && carrierParameter.Type == SearchParamType.Reference
+                                    && carrierParameter.IsSupported
+                                    && carrierParameter.TargetResourceTypes != null
+                                    && carrierParameter.TargetResourceTypes.Contains(compartmentType, StringComparer.Ordinal))
+                                {
+                                    AddCompartmentSearchParameter(carrierParameter, compartmentResourceType);
+                                }
                             }
                         }
                     }
@@ -180,6 +173,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
             }
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when the compartment parameter is one of the combined <c>clinical-*</c> parameters (such
+        /// as <c>clinical-patient</c>) whose FHIRPath uses <c>resolve()</c>. The server does not persist a
+        /// <c>ReferenceSearchParam</c> row for those parameters, so a compartment membership predicate keyed on them
+        /// matches nothing. The SMART path uses this to decide when it must substitute the materialized
+        /// <see cref="MaterializedCompartmentCarrierCode"/> carrier, while leaving already-materialized nominations
+        /// (e.g. Observation.subject / Observation.performer, Coverage.beneficiary) untouched.
+        /// </summary>
+        private static bool IsNonMaterializedCompartmentParameter(SearchParameterInfo searchParameter)
+        {
+            return !string.IsNullOrEmpty(searchParameter.Expression)
+                && searchParameter.Expression.Contains("resolve()", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

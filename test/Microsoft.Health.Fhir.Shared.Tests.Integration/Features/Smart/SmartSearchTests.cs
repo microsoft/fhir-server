@@ -439,6 +439,67 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenResourceReferencesCompartmentViaNonCompartmentParam_ThenItIsNotDisclosed()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // MSRC over-match probe (reviewer issue #1).
+            // Observation/smart-leak-focus-obs belongs to Patient/smart-leak-parent (subject = parent), so it is
+            // OUTSIDE the caller's (smart-leak-child) compartment. It merely references smart-leak-child through
+            // `focus`, which is NOT a Patient-compartment parameter in the FHIR CompartmentDefinition (Observation
+            // membership is subject/performer only). A patient/*.read caller confined to smart-leak-child must NOT
+            // see this resource via a direct search.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-leak-focus-obs"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // The out-of-compartment observation (subject = parent) referencing the child only via `focus`
+            // must NOT be disclosed to a child-compartment caller.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-focus-obs");
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenRevIncludeUsesNonCompartmentParam_ThenOutOfCompartmentResourceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // MSRC over-match probe via _revinclude on a non-compartment parameter (reviewer issue #1).
+            // Observation/smart-leak-focus-obs (subject = parent) references smart-leak-child via `focus`.
+            // `_revinclude=Observation:focus` on the child patient must NOT pull in the parent's observation,
+            // because focus does not confer Patient-compartment membership.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-leak-child"));
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:focus"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // The in-compartment primary match should still be returned.
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-child");
+
+            // The out-of-compartment observation pulled in only via the non-compartment `focus` parameter must NOT be disclosed.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-focus-obs");
+        }
+
+        [SkippableFact]
         public async Task GivenPatientScopeReadAll_WhenIncludesOperationExpandsInclude_ThenOutOfCompartmentResourceIsNotReturned()
         {
             Skip.If(
