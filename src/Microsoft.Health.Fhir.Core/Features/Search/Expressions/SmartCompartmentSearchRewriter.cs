@@ -26,6 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
         }
 
+        /// <summary>
+        /// Gets resource types that are shared across SMART patient compartments.
+        /// </summary>
+        public static IReadOnlyCollection<string> UniversalResourceTypes { get; } = Array.AsReadOnly<string>(
+        [
+            KnownResourceTypes.Location,
+            KnownResourceTypes.Organization,
+            KnownResourceTypes.Practitioner,
+            KnownResourceTypes.Medication,
+            KnownCompartmentTypes.Device,
+        ]);
+
         public override Expression VisitSmartCompartment(SmartCompartmentSearchExpression expression, object context)
         {
             SearchParameterInfo resourceTypeSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
@@ -34,9 +46,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             var compartmentType = expression.CompartmentType;
             var compartmentId = expression.CompartmentId;
 
-            // A smart user compartment is used to filter all search results by the resources available to the smart user
+            // A smart user compartment is used to filter all search results by the resources available to the smart user.
             // The smart user has access to 3 things:
-            // 1 - any resource which refers to them
+            // 1 - resources that are formal members of the FHIR compartment
             // 2 - their own resource
             // 3 - any "universal" resources, such as Locations and Medications
 
@@ -54,14 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             expressionList.Add(Expression.And(expressionForResourceItself.ToArray()));
 
             // Finally we add in the "universal" resources, which are resources that are not compartment specific
-            var universalResourceTypes = new List<string>()
-            {
-                KnownResourceTypes.Location,
-                KnownResourceTypes.Organization,
-                KnownResourceTypes.Practitioner,
-                KnownResourceTypes.Medication,
-                KnownCompartmentTypes.Device,
-            };
+            var universalResourceTypes = UniversalResourceTypes.ToList();
 
             // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
             if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
@@ -83,18 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             // union all those results together
-            // Flag the union and each of its members so the SQL layer recognizes this as the SMART compartment
-            // union and re-applies it as an intersection on _include / _revinclude produced resources. The flag is
-            // set on multiple levels because downstream rewriters may reconstruct the outer UnionExpression (which
-            // would drop a flag set only on the outermost node); a recursive check then still finds it on a member.
-            foreach (Expression memberExpression in expressionList)
-            {
-                memberExpression.IsSmartCompartmentUnionExpression = true;
-            }
-
-            var compartmentUnion = Expression.Union(UnionOperator.All, expressionList);
-            compartmentUnion.IsSmartCompartmentUnionExpression = true;
-            return compartmentUnion;
+            return Expression.Union(UnionOperator.All, expressionList);
         }
     }
 }

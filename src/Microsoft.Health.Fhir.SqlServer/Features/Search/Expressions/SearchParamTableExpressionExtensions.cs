@@ -74,15 +74,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Identifies if a <see cref="SearchParamTableExpression"/> contains the SMART patient compartment union expression.
-        /// </summary>
-        /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
-        public static bool HasSmartCompartmentUnionExpression(this SearchParamTableExpression expression)
-        {
-            return ContainsSmartCompartmentUnionFlag(expression.Predicate);
-        }
-
-        /// <summary>
         /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed
         /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
@@ -153,32 +144,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             if (expression is IExpressionsContainer container)
             {
                 return container.Expressions.Any(ContainsSmartV2UnionFlag);
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Recursively checks whether the given expression or any of its descendant expressions
-        /// has the <see cref="Expression.IsSmartCompartmentUnionExpression"/> flag set to true.
-        /// </summary>
-        /// <param name="expression">The root expression to search.</param>
-        /// <returns>True if any expression in the tree has the flag; otherwise, false.</returns>
-        private static bool ContainsSmartCompartmentUnionFlag(Expression expression)
-        {
-            if (expression == null)
-            {
-                return false;
-            }
-
-            if (expression.IsSmartCompartmentUnionExpression)
-            {
-                return true;
-            }
-
-            if (expression is IExpressionsContainer container)
-            {
-                return container.Expressions.Any(ContainsSmartCompartmentUnionFlag);
             }
 
             return false;

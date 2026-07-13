@@ -154,6 +154,180 @@
         },
         {
             "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-focus-obs",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-parent"
+                },
+                "focus": [
+                    {
+                        "reference": "Patient/smart-leak-child"
+                    }
+                ],
+                "effectiveDateTime": "2021-07-01"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-focus-obs"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-root-focus-obs",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-parent"
+                },
+                "focus": [
+                    {
+                        "reference": "Patient/smart-leak-parent"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-root-focus-obs"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-shared-focus-obs",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-parent"
+                },
+                "focus": [
+                    {
+                        "reference": "Practitioner/smart-practitioner-A"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-shared-focus-obs"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-child-obs-with-outside-focus",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-child"
+                },
+                "focus": [
+                    {
+                        "reference": "Patient/smart-leak-parent"
+                    }
+                ],
+                "effectiveDateTime": "2021-07-02"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-child-obs-with-outside-focus"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Procedure",
+                "id": "smart-leak-child-procedure",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "completed",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "80146002",
+                            "display": "Appendectomy"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-child"
+                },
+                "performedDateTime": "2021-06-15"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/smart-leak-child-procedure"
+            }
+        },
+        {
+            "resource": {
                 "resourceType": "DiagnosticReport",
                 "id": "smart-leak-parent-report",
                 "meta": {

@@ -22,6 +22,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SqlCompartmentSearchRewriter : CompartmentSearchRewriter
     {
+        private const string ClinicalPatientSearchParameterUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+        private static readonly Dictionary<string, IReadOnlyCollection<string>> MaterializedEquivalentSearchParameterCodes =
+            new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
+            {
+                [ClinicalPatientSearchParameterUrl] = new[] { "patient", "subject" },
+            };
+
         public SqlCompartmentSearchRewriter(
             Lazy<ICompartmentDefinitionManager> compartmentDefinitionManager,
             Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
@@ -43,77 +51,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                 }
 
-                var compartmentResourceTypesToSearch = new HashSet<string>();
                 var searchParameterInfoList = new Dictionary<string, (SearchParameterInfo searchParameterInfo, HashSet<string> ResourceTypes)>();
 
-                void AddCompartmentSearchParameter(SearchParameterInfo searchParameter, string resourceType)
+                IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> materializedParameters =
+                    GetMaterializedCompartmentSearchParameters(
+                        compartmentType,
+                        expression.FilteredResourceTypes,
+                        includeMaterializedEquivalents: expression is SmartCompartmentSearchExpression);
+
+                foreach ((string compartmentResourceType, IReadOnlyCollection<SearchParameterInfo> searchParameters) in materializedParameters)
                 {
-                    // Use the URL string as the key.
-                    string searchParamUrl = searchParameter.Url.ToString();
-
-                    if (searchParameterInfoList.TryGetValue(searchParamUrl, out var existing))
+                    foreach (SearchParameterInfo searchParameter in searchParameters)
                     {
-                        // Add the compartment resource type if the key exists.
-                        existing.ResourceTypes.Add(resourceType);
-                    }
-                    else
-                    {
-                        // Otherwise, add a new dictionary entry.
-                        searchParameterInfoList[searchParamUrl] = (searchParameter, new HashSet<string> { resourceType });
-                    }
-                }
-
-                // A SMART compartment is broader than a regular compartment search: the smart user has access to any
-                // resource that references them (see SmartCompartmentSearchRewriter). The FHIR compartment definition
-                // maps several resource types (e.g. Encounter, Condition, Procedure, CareTeam) to the common `patient`
-                // search parameter (clinical-patient). That parameter's FHIRPath uses resolve() and is therefore never
-                // materialized as a ReferenceSearchParam index row, so a membership predicate keyed on it matches
-                // nothing and would silently drop legitimately in-compartment resources.
-                bool isSmartCompartment = expression is SmartCompartmentSearchExpression;
-
-                if (CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
-                {
-                    if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
-                    {
-                        resourceTypes = resourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToHashSet();
-                    }
-
-                    foreach (var resourceFilter in resourceTypes)
-                    {
-                        compartmentResourceTypesToSearch.Add(resourceFilter);
-                    }
-                }
-
-                foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
-                {
-                    if (CompartmentDefinitionManager.Value.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
-                    {
-                        foreach (var compartmentSearchParameter in compartmentSearchParameters)
+                        string searchParamUrl = searchParameter.Url.ToString();
+                        if (searchParameterInfoList.TryGetValue(searchParamUrl, out var existing))
                         {
-                            if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
-                            {
-                                AddCompartmentSearchParameter(sp, compartmentResourceType);
-                            }
+                            existing.ResourceTypes.Add(compartmentResourceType);
                         }
-                    }
-
-                    // For SMART compartments, also include every materialized reference parameter of the resource type
-                    // that can target the compartment root type. This keeps membership consistent with what is actually
-                    // indexed (e.g. an Encounter is indexed under Encounter-subject, not the unmaterialized
-                    // clinical-patient) and with the SMART model. It is additive and still constrained (below) to the
-                    // compartment root id, so it can only admit resources that reference the compartment root itself and
-                    // never widens the set beyond the caller's compartment.
-                    if (isSmartCompartment)
-                    {
-                        foreach (SearchParameterInfo referenceParameter in SearchParameterDefinitionManager.Value.GetSearchParameters(compartmentResourceType))
+                        else
                         {
-                            if (referenceParameter.Type == SearchParamType.Reference
-                                && referenceParameter.IsSupported
-                                && referenceParameter.TargetResourceTypes != null
-                                && referenceParameter.TargetResourceTypes.Contains(compartmentType, StringComparer.Ordinal))
-                            {
-                                AddCompartmentSearchParameter(referenceParameter, compartmentResourceType);
-                            }
+                            searchParameterInfoList[searchParamUrl] = (searchParameter, new HashSet<string> { compartmentResourceType });
                         }
                     }
                 }
@@ -156,6 +113,86 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
             }
+        }
+
+        /// <summary>
+        /// Gets the supported, materialized reference parameters that formally establish compartment membership.
+        /// </summary>
+        /// <param name="compartmentType">The compartment resource type.</param>
+        /// <param name="filteredResourceTypes">Optional resource types to include.</param>
+        /// <param name="includeMaterializedEquivalents">Whether unmaterialized combined parameters should resolve to validated materialized equivalents.</param>
+        /// <returns>Materialized membership parameters grouped by resource type.</returns>
+        public IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> GetMaterializedCompartmentSearchParameters(
+            string compartmentType,
+            IEnumerable<string> filteredResourceTypes,
+            bool includeMaterializedEquivalents)
+        {
+            if (!Enum.TryParse(compartmentType, out ValueSets.CompartmentType parsedCompartmentType))
+            {
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+            }
+
+            if (!CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
+            {
+                return new Dictionary<string, IReadOnlyCollection<SearchParameterInfo>>();
+            }
+
+            HashSet<string> filters = filteredResourceTypes?.ToHashSet(StringComparer.Ordinal);
+            bool filterByResourceType = filters?.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)) == true;
+            var result = new Dictionary<string, IReadOnlyCollection<SearchParameterInfo>>(StringComparer.Ordinal);
+
+            foreach (string resourceType in resourceTypes.Where(resourceType => !filterByResourceType || filters.Contains(resourceType)))
+            {
+                if (!CompartmentDefinitionManager.Value.TryGetSearchParams(resourceType, parsedCompartmentType, out HashSet<string> parameterCodes))
+                {
+                    continue;
+                }
+
+                var parameters = new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal);
+                foreach (string parameterCode in parameterCodes)
+                {
+                    if (!SearchParameterDefinitionManager.Value.TryGetSearchParameter(resourceType, parameterCode, out SearchParameterInfo parameter))
+                    {
+                        continue;
+                    }
+
+                    if (includeMaterializedEquivalents
+                        && MaterializedEquivalentSearchParameterCodes.TryGetValue(parameter.Url.AbsoluteUri, out IReadOnlyCollection<string> equivalentCodes))
+                    {
+                        bool equivalentFound = false;
+                        foreach (string equivalentCode in equivalentCodes)
+                        {
+                            if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(resourceType, equivalentCode, out SearchParameterInfo equivalent)
+                                && !string.Equals(equivalent.Url.AbsoluteUri, parameter.Url.AbsoluteUri, StringComparison.Ordinal)
+                                && equivalent.Type == SearchParamType.Reference
+                                && equivalent.IsSupported
+                                && equivalent.TargetResourceTypes?.Contains(compartmentType, StringComparer.Ordinal) == true)
+                            {
+                                parameters[equivalent.Url.AbsoluteUri] = equivalent;
+                                equivalentFound = true;
+                            }
+                        }
+
+                        // Some resources use a directly indexable branch of the combined parameter and have no
+                        // resource-specific equivalent. Retain the formal parameter for those resources.
+                        if (!equivalentFound && parameter.Type == SearchParamType.Reference && parameter.IsSupported)
+                        {
+                            parameters[parameter.Url.AbsoluteUri] = parameter;
+                        }
+                    }
+                    else if (parameter.Type == SearchParamType.Reference && parameter.IsSupported)
+                    {
+                        parameters[parameter.Url.AbsoluteUri] = parameter;
+                    }
+                }
+
+                if (parameters.Count > 0)
+                {
+                    result[resourceType] = parameters.Values.ToArray();
+                }
+            }
+
+            return result;
         }
     }
 }

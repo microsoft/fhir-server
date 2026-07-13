@@ -1,8 +1,9 @@
 # ADR-2607: Enforce SMART Patient Compartment Scoping on `_include` / `_revinclude` (SQL)
 
-**Status**: Proposed
+**Status**: Superseded
 **Date**: 2026-07-10
 **Feature**: smart-include-compartment-leak
+**Superseded by**: [Candidate-Driven SMART Compartment Authorization for Includes](../SmartIncludeCandidateAuthorization.md)
 
 Labels: [Security](https://github.com/microsoft/fhir-server/labels/Security) | [Area-SMART](https://github.com/microsoft/fhir-server/labels/Area-SMART) | [Area-Search](https://github.com/microsoft/fhir-server/labels/Area-Search)
 
@@ -35,6 +36,10 @@ These two tests are the RED baseline; the fix turns them GREEN while the pre-exi
 5. **Reuse the SMART compartment UNION the primary query already builds, and intersect it with the produced include/revinclude rows** — the same `SmartCompartmentSearchExpression` → UNION-of-CTEs mechanism that scopes the primary search is extended to the included rows. *(chosen: no new membership store, no deprecated table, and it composes with SMART V1 and V2 — including granular scopes.)*
 
 ## Decision
+
+> This historical decision was superseded before release. The implementation now retains the
+> primary compartment union but authorizes each include candidate through a direct
+> `ReferenceSearchParam` membership seek, as described in the replacement design.
 
 Reuse the compartment restriction the server **already** builds for the primary search rather than inventing a second membership check. `SearchOptionsFactory` emits a `SmartCompartmentSearchExpression`; the SQL rewrite (`SmartCompartmentSearchRewriter` / `SqlCompartmentSearchRewriter`) turns it into a set of per-resource-type CTEs — each keyed on a **materialized, type-specific reference parameter** that points at the compartment id — `UNION`ed into a single "compartment membership" CTE that is then intersected with the primary query. This is the mechanism the user asked us to follow; the leak exists only because that intersection was never applied to includes.
 

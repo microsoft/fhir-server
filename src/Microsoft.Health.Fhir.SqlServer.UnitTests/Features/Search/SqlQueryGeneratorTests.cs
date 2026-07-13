@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -19,6 +20,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Search)]
-public class SqlQueryGeneratorTests
+public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 {
     private readonly ISqlServerFhirModel _fhirModel;
     private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -41,8 +43,9 @@ public class SqlQueryGeneratorTests
     private readonly IndentedStringBuilder _strBuilder = new(new StringBuilder());
     private readonly SqlQueryGenerator _queryGenerator;
 
-    public SqlQueryGeneratorTests()
+    public SqlQueryGeneratorTests(ModelInfoProviderFixture modelInfoProviderFixture)
     {
+        _ = modelInfoProviderFixture;
         _fhirModel = Substitute.For<ISqlServerFhirModel>();
 
         // Create real instances instead of mocking since factory is internal
@@ -212,5 +215,233 @@ public class SqlQueryGeneratorTests
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    [Theory]
+    [InlineData(false, "refTarget")]
+    [InlineData(true, "refSource")]
+    public void GivenSmartCompartmentInclude_WhenSqlGenerated_ThenCandidateMembershipIsCheckedBeforeBranchLimit(
+        bool reversed,
+        string candidateAlias)
+    {
+        // Arrange
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var membershipParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var includeExpression = new IncludeExpression(
+            ["Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            reversed,
+            false);
+        var membership = new SmartCompartmentMembershipContext(
+            "Patient",
+            "patient-a",
+            ["Practitioner"],
+            [new SmartCompartmentMembershipRule("DiagnosticReport", [membershipParameterUrl])]);
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            [],
+            membership);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 1,
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(membershipParameterUrl).Returns((short)41);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("smartCompartmentMembership", generatedSql);
+        Assert.Contains($"smartCompartmentMembership.ResourceTypeId = {candidateAlias}.ResourceTypeId", generatedSql);
+        Assert.Contains($"smartCompartmentMembership.ResourceSurrogateId = {candidateAlias}.ResourceSurrogateId", generatedSql);
+        Assert.Contains("smartCompartmentMembership.BaseUri IS NULL", generatedSql);
+        Assert.DoesNotContain("OPTION (RECOMPILE)", generatedSql);
+        _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
+    }
+
+    [Fact]
+    public void GivenObservationCompartmentDefinition_WhenMembershipCreated_ThenFocusIsNotAMembershipParameter()
+    {
+        // Arrange
+        var subject = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var focus = new SearchParameterInfo(
+            "focus",
+            "focus",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-focus"),
+            null,
+            "Observation.focus",
+            ["Patient"]);
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "Observation",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>
+            {
+                ["subject"] = subject,
+                ["focus"] = focus,
+            });
+
+        // Act
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            Expression.SmartCompartmentSearch("Patient", "patient-a", "Observation"),
+            rewriter);
+
+        // Assert
+        SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
+        Assert.Equal("Observation", rule.ResourceType);
+        Assert.Equal(subject.Url, Assert.Single(rule.SearchParameterUrls));
+        Assert.DoesNotContain(focus.Url, rule.SearchParameterUrls);
+    }
+
+    [Fact]
+    public void GivenUnmaterializedClinicalPatientParameter_WhenMembershipCreated_ThenSubjectEquivalentIsUsed()
+    {
+        // Arrange
+        var clinicalPatient = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-patient"),
+            null,
+            "Condition.subject.where(resolve() is Patient)",
+            ["Patient"]);
+        var subject = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Condition-subject"),
+            null,
+            "Condition.subject",
+            ["Patient"]);
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "Condition",
+            ["patient"],
+            new Dictionary<string, SearchParameterInfo>
+            {
+                ["patient"] = clinicalPatient,
+                ["subject"] = subject,
+            });
+
+        // Act
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            Expression.SmartCompartmentSearch("Patient", "patient-a", "Condition"),
+            rewriter);
+
+        // Assert
+        SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
+        Assert.Equal(subject.Url, Assert.Single(rule.SearchParameterUrls));
+        Assert.DoesNotContain(clinicalPatient.Url, rule.SearchParameterUrls);
+    }
+
+    [Fact]
+    public void GivenClinicalPatientParameterWithoutEquivalent_WhenMembershipCreated_ThenFormalParameterIsRetained()
+    {
+        // Arrange
+        var clinicalPatient = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-patient"),
+            null,
+            "AllergyIntolerance.patient",
+            ["Patient"]);
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "AllergyIntolerance",
+            ["patient"],
+            new Dictionary<string, SearchParameterInfo>
+            {
+                ["patient"] = clinicalPatient,
+            });
+
+        // Act
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            Expression.SmartCompartmentSearch("Patient", "patient-a", "AllergyIntolerance"),
+            rewriter);
+
+        // Assert
+        SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
+        Assert.Equal(clinicalPatient.Url, Assert.Single(rule.SearchParameterUrls));
+    }
+
+    private void ConfigureResourceTypeIds()
+    {
+        var resourceTypeIds = new Dictionary<string, short>(StringComparer.Ordinal)
+        {
+            ["Patient"] = 1,
+            ["Practitioner"] = 2,
+            ["Observation"] = 3,
+            ["DiagnosticReport"] = 4,
+        };
+
+        _fhirModel.TryGetResourceTypeId(Arg.Any<string>(), out Arg.Any<short>())
+            .Returns(call =>
+            {
+                call[1] = resourceTypeIds[(string)call[0]];
+                return true;
+            });
+    }
+
+    private static SqlCompartmentSearchRewriter CreateCompartmentRewriter(
+        string resourceType,
+        HashSet<string> compartmentParameterCodes,
+        IReadOnlyDictionary<string, SearchParameterInfo> searchParameters)
+    {
+        ICompartmentDefinitionManager compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+        compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out Arg.Any<HashSet<string>>())
+            .Returns(call =>
+            {
+                call[1] = new HashSet<string>(StringComparer.Ordinal) { resourceType };
+                return true;
+            });
+        compartmentDefinitionManager.TryGetSearchParams(resourceType, CompartmentType.Patient, out Arg.Any<HashSet<string>>())
+            .Returns(call =>
+            {
+                call[2] = compartmentParameterCodes;
+                return true;
+            });
+
+        ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.TryGetSearchParameter(resourceType, Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+            .Returns(call =>
+            {
+                bool found = searchParameters.TryGetValue((string)call[1], out SearchParameterInfo parameter);
+                call[2] = parameter;
+                return found;
+            });
+
+        return new SqlCompartmentSearchRewriter(
+            new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
     }
 }

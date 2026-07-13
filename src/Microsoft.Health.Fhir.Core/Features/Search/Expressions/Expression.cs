@@ -21,15 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public bool IsSmartV2UnionExpressionForScopesSearchParameters { get; set; }
 
         /// <summary>
-        /// Determines whether the given expression is the SMART patient compartment union expression
-        /// (compartment members + the compartment resource itself + universal resource types) produced by
-        /// <see cref="SmartCompartmentSearchRewriter"/>. This flag is used by the SQL layer to re-apply the
-        /// compartment union as an intersection on <c>_include</c> / <c>_revinclude</c> produced resources so that
-        /// out-of-compartment resources are not disclosed. Applies to both SMART v1 and v2 patient-launch requests.
-        /// </summary>
-        public bool IsSmartCompartmentUnionExpression { get; set; }
-
-        /// <summary>
         /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>

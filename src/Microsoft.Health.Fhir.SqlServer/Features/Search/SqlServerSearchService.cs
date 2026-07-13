@@ -558,6 +558,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludeRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+            expression = AttachSmartCompartmentMembership(expression, searchExpression);
 
             await CreateStats(expression, cancellationToken);
 
@@ -2263,6 +2264,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+            expression = AttachSmartCompartmentMembership(expression, searchExpression);
 
             await CreateStats(expression, cancellationToken);
 
@@ -2513,6 +2515,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        private SqlRootExpression AttachSmartCompartmentMembership(SqlRootExpression sqlExpression, Expression coreExpression)
+        {
+            var sqlCompartmentSearchRewriter = (SqlCompartmentSearchRewriter)_compartmentSearchRewriter;
+            SmartCompartmentMembershipContext membership =
+                SmartCompartmentMembershipContextFactory.Create(coreExpression, sqlCompartmentSearchRewriter);
+
+            return membership == null ? sqlExpression : sqlExpression.WithSmartCompartmentMembership(membership);
         }
 
         /// <summary>
