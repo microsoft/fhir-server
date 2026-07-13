@@ -23,5 +23,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         /// A startup assertion fails loudly if the shared value ever drifts from this literal.
         /// </summary>
         public const string DataStoreSqlServer = "datastore:sqlServer";
+
+        /// <summary>
+        /// Registration name of the data-store health check. This is a check name (not a tag),
+        /// shared between the in-repo Cosmos registration and the readiness startup assertion so
+        /// that the load-bearing name filter cannot silently drift. The healthcare-shared-components
+        /// SQL registration uses the same literal; the assertion fails loudly if that ever changes.
+        /// </summary>
+        public const string DataStoreHealthCheckName = "DataStoreHealthCheck";
     }
 }

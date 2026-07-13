@@ -133,7 +133,7 @@ namespace Microsoft.AspNetCore.Builder
                 reg.Tags.Contains(HealthCheckTags.DataStoreSqlServer) || reg.Tags.Contains(HealthCheckTags.ProbeReadiness);
 
             int dataStoreCount = options.Registrations.Count(
-                reg => ReadinessPredicate(reg) && string.Equals(reg.Name, "DataStoreHealthCheck", StringComparison.Ordinal));
+                reg => ReadinessPredicate(reg) && string.Equals(reg.Name, HealthCheckTags.DataStoreHealthCheckName, StringComparison.Ordinal));
             if (dataStoreCount != 1)
             {
                 throw new InvalidOperationException(
@@ -145,7 +145,9 @@ namespace Microsoft.AspNetCore.Builder
             if (startupCount != 1)
             {
                 throw new InvalidOperationException(
-                    $"Startup probe must resolve exactly one registration but resolved {startupCount}.");
+                    $"Startup probe must resolve exactly one '{HealthCheckTags.ProbeStartup}'-tagged registration " +
+                    $"(expected 'StorageInitializedHealthCheck') but resolved {startupCount}. " +
+                    "This usually indicates a health-check tag typo or a missing/duplicate startup registration.");
             }
         }
 
