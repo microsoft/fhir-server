@@ -81,8 +81,12 @@ namespace Microsoft.Health.Fhir.Web
                 .AddMemberMatch();
 
             services.AddDevelopmentIdentityProvider(Configuration);
-            services.Configure<StorageInitializedHealthCheckConfiguration>(
-                Configuration.GetSection(StorageInitializedHealthCheckConfiguration.SectionName));
+            services.AddOptions<StorageInitializedHealthCheckConfiguration>()
+                .Bind(Configuration.GetSection(StorageInitializedHealthCheckConfiguration.SectionName))
+                .Validate(
+                    c => c.StorageInitializationTimeout >= TimeSpan.Zero,
+                    $"{nameof(StorageInitializedHealthCheckConfiguration.StorageInitializationTimeout)} must be non-negative.")
+                .ValidateOnStart();
 
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
