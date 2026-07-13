@@ -193,7 +193,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IHealthCheck>()
                 .AsService<INotificationHandler<ImproperBehaviorNotification>>();
 
-            services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
+            services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(
+                name: "BehaviorHealthCheck",
+                tags: new[] { HealthCheckTags.ProbeReadiness });
 
             // Registers a health check to ensure storage gets initialized
             services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<SearchParametersInitializedNotification>>()
@@ -203,7 +205,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IHealthCheck>()
                 .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
-            services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
+            services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(
+                name: "StorageInitializedHealthCheck",
+                tags: new[] { HealthCheckTags.ProbeStartup });
 
             services.AddLazy();
             services.AddScoped();
