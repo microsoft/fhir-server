@@ -19,12 +19,14 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     /// <summary>
-    /// E2E tests that validate the server health check correctly reflects search parameter
-    /// initialization failures. The initialization chain is:
+    /// E2E tests that validate the startup probe (<c>health/startup</c>) correctly reflects search
+    /// parameter initialization failures. The initialization chain is:
     /// 1. StorageInitializedNotification → SearchParameterDefinitionManager.EnsureInitializedAsync
     /// 2. SearchParameterDefinitionManagerInitialized → SearchParameterStatusManager.EnsureInitializedAsync
     /// 3. SearchParametersInitializedNotification → StorageInitializedHealthCheck sets healthy
     ///
+    /// StorageInitializedHealthCheck is tagged <c>probe:startup</c> and is only surfaced by the
+    /// <c>health/startup</c> endpoint (it is explicitly excluded from <c>health/check</c>).
     /// Success-path health check validation is already covered by <see cref="Rest.HealthTests"/>.
     /// These tests focus on verifying that initialization failures are externally observable.
     /// </summary>
@@ -82,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             while (stopwatch.Elapsed < timeout)
             {
-                using HttpResponseMessage response = await httpClient.GetAsync("health/check");
+                using HttpResponseMessage response = await httpClient.GetAsync("health/startup");
                 string content = await response.Content.ReadAsStringAsync();
                 string overallStatus = GetOverallStatus(content);
 
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             // Final attempt after timeout
-            using HttpResponseMessage finalResponse = await httpClient.GetAsync("health/check");
+            using HttpResponseMessage finalResponse = await httpClient.GetAsync("health/startup");
             string finalContent = await finalResponse.Content.ReadAsStringAsync();
             return (finalResponse.StatusCode, finalContent);
         }
