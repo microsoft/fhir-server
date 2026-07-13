@@ -97,6 +97,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Registration\HealthCheckRegistrationTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">
