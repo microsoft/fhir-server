@@ -78,7 +78,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         includeDeleted: record.IncludeDeleted,
                         schemaVersion: record.SchemaVersion,
                         typeId: (int)JobType.ExportProcessing,
-                        smartRequest: record.SmartRequest);
+                        smartRequest: record.SmartRequest,
+                        patientId: record.PatientId,
+                        smartCompartmentResourceType: record.SmartCompartmentResourceType,
+                        smartCompartmentId: record.SmartCompartmentId);
             rec.Id = string.Empty;
             rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
 

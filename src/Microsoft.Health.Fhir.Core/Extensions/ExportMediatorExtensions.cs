@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string anonymizationConfigurationCollectionReference,
             string anonymizationConfigLocation,
             string anonymizationConfigFileETag,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string patientId = null)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -55,7 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                                 includeHistory: includeHistory,
                                 anonymizationConfigurationCollectionReference: anonymizationConfigurationCollectionReference,
                                 anonymizationConfigurationLocation: anonymizationConfigLocation,
-                                anonymizationConfigurationFileETag: anonymizationConfigFileETag);
+                                anonymizationConfigurationFileETag: anonymizationConfigFileETag,
+                                patientId: patientId);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

@@ -6,24 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text.Json;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
@@ -109,25 +98,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Assert both data are equal
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
-        }
-
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenCompletedPatientExportHasOutput_WhenObservationSmartScopeRequestsExportStatus_ThenServerShouldReturnNotFound()
-        {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc job setup and development identity provider to issue custom SMART system scopes.");
-
-            Uri contentLocation = await CreateCompletedPatientExportStatusUriAsync();
-
-            string accessToken = await GetSmartAccessTokenAsync("system/Observation.read");
-
-            using HttpClient smartClient = CreateUnauthenticatedHttpClient();
-            using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-            getStatusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-            using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
-
-            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
         }
 
         [Fact]
@@ -253,69 +223,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Assert both data are equal
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, filteredDataFromExport, _outputHelper));
-        }
-
-        private HttpClient CreateUnauthenticatedHttpClient()
-        {
-            return new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
-            {
-                BaseAddress = _fixture.TestFhirServer.BaseAddress,
-            };
-        }
-
-        private async System.Threading.Tasks.Task<Uri> CreateCompletedPatientExportStatusUriAsync()
-        {
-            var inProcServer = (InProcTestFhirServer)_fixture.TestFhirServer;
-            using IServiceScope scope = inProcServer.Server.Host.Services.CreateScope();
-
-            var queueClient = scope.ServiceProvider.GetRequiredService<IQueueClient>();
-            var exportRecord = new ExportJobRecord(
-                new Uri(_fixture.TestFhirServer.BaseAddress, "$export?_type=Patient"),
-                ExportJobType.All,
-                ExportFormatTags.ResourceName,
-                KnownResourceTypes.Patient,
-                filters: null,
-                hash: Guid.NewGuid().ToString(),
-                rollingFileSizeInMB: 64);
-
-            exportRecord.Output.Add(
-                KnownResourceTypes.Patient,
-                new List<ExportFileInfo>
-                {
-                    new ExportFileInfo(KnownResourceTypes.Patient, new Uri("http://localhost/export/Patient.ndjson"), sequence: 1),
-                });
-
-            string serializedRecord = JsonConvert.SerializeObject(exportRecord);
-            JobInfo jobInfo = await queueClient.EnqueueWithStatusAsync(
-                (byte)QueueType.Export,
-                groupId: null,
-                definition: serializedRecord,
-                jobStatus: JobStatus.Completed,
-                result: serializedRecord,
-                startDate: DateTime.UtcNow,
-                cancellationToken: default);
-
-            return new Uri(_fixture.TestFhirServer.BaseAddress, $"_operations/export/{jobInfo.Id}");
-        }
-
-        private async System.Threading.Tasks.Task<string> GetSmartAccessTokenAsync(string scope)
-        {
-            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                { "grant_type", TestApplications.SmartUserClient.GrantType },
-                { "client_id", TestApplications.SmartUserClient.ClientId },
-                { "client_secret", TestApplications.SmartUserClient.ClientSecret },
-                { "scope", scope },
-                { "resource", AuthenticationSettings.Resource },
-            });
-
-            using HttpClient authClient = CreateUnauthenticatedHttpClient();
-            using HttpResponseMessage response = await authClient.PostAsync(_fixture.TestFhirServer.TokenUri, content);
-            response.EnsureSuccessStatusCode();
-
-            string responseJson = await response.Content.ReadAsStringAsync();
-            Dictionary<string, JsonElement> tokenResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
-            return tokenResponse["access_token"].GetString();
         }
     }
 }

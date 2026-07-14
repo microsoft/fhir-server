@@ -14,7 +14,6 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -30,25 +29,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator)
-            : this(fhirOperationDataStore, authorizationService, asyncOperationSmartScopeValidator, DefaultRetryCount, DefaultSleepDurationProvider)
+        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
+            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
         {
         }
 
-        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _asyncOperationSmartScopeValidator = asyncOperationSmartScopeValidator;
             _retryPolicy = Policy.Handle<JobConflictException>()
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
@@ -57,11 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Cancellation requires all-resource read and write SMART scopes for fine-grained restricted callers.
-            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
-            {
-                await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
-            }
+            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
             return await _retryPolicy.ExecuteAsync(async () =>
             {

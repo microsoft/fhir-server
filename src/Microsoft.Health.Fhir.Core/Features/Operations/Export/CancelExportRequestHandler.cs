@@ -32,27 +32,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
         private readonly ILogger<CancelExportRequestHandler> _logger;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator, ILogger<CancelExportRequestHandler> logger)
-            : this(fhirOperationDataStore, authorizationService, asyncOperationSmartScopeValidator, DefaultRetryCount, DefaultSleepDurationProvider, logger)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator, ILogger<CancelExportRequestHandler> logger)
+            : this(fhirOperationDataStore, authorizationService, exportSmartScopeValidator, DefaultRetryCount, DefaultSleepDurationProvider, logger)
         {
         }
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelExportRequestHandler> logger)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelExportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
+            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _asyncOperationSmartScopeValidator = asyncOperationSmartScopeValidator;
+            _exportSmartScopeValidator = exportSmartScopeValidator;
             _logger = logger;
 
             _retryPolicy = Policy.Handle<JobConflictException>()
@@ -63,11 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Cancellation requires all-resource read and write SMART scopes for fine-grained restricted callers.
-            if (!_asyncOperationSmartScopeValidator.ValidateAllResourceReadWriteAccess())
-            {
-                await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
-            }
+            await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
 
             CancelExportResponse cancelResponse;
             try
@@ -75,6 +71,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
+                    try
+                    {
+                        _exportSmartScopeValidator.ValidateJobAccess(outcome.JobRecord);
+                    }
+                    catch (UnauthorizedFhirActionException)
+                    {
+                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+                    }
 
                     // If there exist any processing job with CancelledByUser status, then GetExportJobByIdAsync will throw JobNotFoundException
 

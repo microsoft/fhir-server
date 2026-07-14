@@ -25,17 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator;
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
 
-        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IAsyncOperationSmartScopeValidator asyncOperationSmartScopeValidator)
+        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(asyncOperationSmartScopeValidator, nameof(asyncOperationSmartScopeValidator));
+            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _asyncOperationSmartScopeValidator = asyncOperationSmartScopeValidator;
+            _exportSmartScopeValidator = exportSmartScopeValidator;
         }
 
         public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Apply SMART fine-grained scope authorization for the specific export job's resource types.
             try
             {
-                _asyncOperationSmartScopeValidator.ValidateExportStatusAccess(outcome.JobRecord);
+                _exportSmartScopeValidator.ValidateJobAccess(outcome.JobRecord);
             }
             catch (UnauthorizedFhirActionException)
             {

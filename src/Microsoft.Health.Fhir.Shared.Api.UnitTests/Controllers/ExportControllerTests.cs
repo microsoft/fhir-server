@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
+        public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroupOrPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
                 typeFilter: null,
@@ -155,8 +155,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
-                typeParameter: ResourceType.Patient.ToString(),
+                typeParameter: ResourceType.Observation.ToString(),
                 idParameter: "id"));
+        }
+
+        [Fact]
+        public async Task GivenPatientInstanceExport_WhenRequested_ThenPatientTargetIsSentToMediator()
+        {
+            _exportEnabledController.ControllerContext.HttpContext = new DefaultHttpContext();
+            _fhirRequestContextAccessor.RequestContext = new FhirRequestContext(
+                method: "export",
+                uriString: "https://test.com/Patient/123/$export",
+                baseUriString: "https://test.com/",
+                correlationId: "export",
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>());
+            _urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(new Uri("https://test.com/_operations/export/jobId"));
+
+            CreateExportRequest capturedRequest = null;
+            _mediator.Send(
+                Arg.Do<CreateExportRequest>(request => capturedRequest = request),
+                Arg.Any<CancellationToken>())
+                .Returns(new CreateExportResponse("jobId"));
+
+            await _exportEnabledController.ExportResourceTypeById(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: KnownResourceTypes.Patient,
+                containerName: null,
+                formatName: null,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString(),
+                idParameter: "123");
+
+            Assert.Equal(ExportJobType.Patient, capturedRequest.RequestType);
+            Assert.Equal("123", capturedRequest.PatientId);
+            Assert.Equal(KnownResourceTypes.Patient, capturedRequest.ResourceType);
         }
 
         [Fact]

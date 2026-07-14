@@ -169,6 +169,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string SmartRequest = "smartRequest";
 
+        public const string PatientId = "patientId";
+
+        public const string SmartCompartmentResourceType = "smartCompartmentResourceType";
+
+        public const string SmartCompartmentId = "smartCompartmentId";
+
         public const string DeleteOperation = "deleteOperation";
 
         public const string SearchParameters = "searchParameters";

@@ -194,19 +194,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidatePathTraversalForExportParameter(containerName);
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
-            // Export by ResourceTypeId is supported only for Group resource type.
-            if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
+            if (string.IsNullOrEmpty(idParameter))
+            {
+                throw new RequestNotValidException(Core.Resources.IdRequirements);
+            }
+
+            bool isGroupExport = string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal);
+            bool isPatientExport = string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal);
+            if (!isGroupExport && !isPatientExport)
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
             return await SendExportRequest(
-                exportType: ExportJobType.Group,
+                exportType: isGroupExport ? ExportJobType.Group : ExportJobType.Patient,
                 since: since,
                 till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
-                groupId: idParameter,
+                groupId: isGroupExport ? idParameter : null,
+                patientId: isPatientExport ? idParameter : null,
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: false,
@@ -267,7 +274,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             uint maxCount = 0,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
-            string anonymizationConfigFileETag = null)
+            string anonymizationConfigFileETag = null,
+            string patientId = null)
         {
             bool isParallelWithDefault = GetExportParallelSetting(isParallel, _fhirConfig);
 
@@ -288,7 +296,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                patientId);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);

@@ -106,6 +106,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenPatientInstanceExport_WhenExecuted_ThenTopLevelPatientSearchIsRestrictedToTargetId()
+        {
+            const string patientId = "123";
+            var exportJobRecord = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: KnownResourceTypes.Patient,
+                maximumNumberOfResourcesPerQuery: 1,
+                patientId: patientId);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecord);
+            _searchService.SearchAsync(
+                null,
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(parameters =>
+                    parameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.Id && parameter.Item2 == patientId)),
+                _cancellationToken,
+                true)
+                .Returns(CreateSearchResult());
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            await _searchService.Received(1).SearchAsync(
+                null,
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(parameters =>
+                    parameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.Id && parameter.Item2 == patientId)),
+                _cancellationToken,
+                true);
+        }
+
+        [Fact]
         public async Task GivenAJobWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             bool capturedSearch = false;
@@ -2280,7 +2308,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileEtag = null,
             bool includeHistory = false,
-            bool includeDeleted = false)
+            bool includeDeleted = false,
+            string patientId = null)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -2301,7 +2330,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag,
                 includeHistory: includeHistory,
-                includeDeleted: includeDeleted);
+                includeDeleted: includeDeleted,
+                patientId: patientId);
         }
 
         private ExportJobTask CreateExportJobTask(

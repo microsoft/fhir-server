@@ -29,7 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             uint maxCount = 0,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
-            string anonymizationConfigurationFileETag = null)
+            string anonymizationConfigurationFileETag = null,
+            string patientId = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             IncludeHistory = includeHistory;
             IncludeDeleted = includeDeleted;
             MaxCount = maxCount;
+            PatientId = patientId;
         }
 
         public Uri RequestUri { get; }
@@ -83,5 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public bool IncludeDeleted { get; }
 
         public uint MaxCount { get; }
+
+        public string PatientId { get; }
     }
 }

@@ -9,9 +9,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
@@ -66,102 +64,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             await RunBulkDeleteRequest(resourceTypes);
-        }
-
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeDoesNotCoverAllResourcesRequestsStatus_ThenServerShouldReturnForbidden()
-        {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
-
-            CheckBulkDeleteEnabled();
-
-            // Reading the status of a non-export async job requires SMART system all-resource read + write scopes.
-            // A scope that only covers Observation (even read + write) is not sufficient.
-            Uri contentLocation = await CreateBulkDeleteJobAsync();
-
-            HttpStatusCode statusCode;
-            try
-            {
-                string accessToken = await GetSmartAccessTokenAsync("system/Observation.read system/Observation.write");
-
-                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
-                using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-                getStatusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-                using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
-                statusCode = getStatusResponse.StatusCode;
-            }
-            finally
-            {
-                await CancelBulkDeleteJobAsync(contentLocation);
-            }
-
-            Assert.Equal(HttpStatusCode.Forbidden, statusCode);
-        }
-
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeDoesNotCoverAllResourcesCancels_ThenServerShouldReturnForbidden()
-        {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
-
-            CheckBulkDeleteEnabled();
-
-            // Cancellation of any async job requires SMART system all-resource read + write scopes.
-            // A narrow Observation write scope must therefore be Forbidden from cancelling.
-            Uri contentLocation = await CreateBulkDeleteJobAsync();
-
-            HttpStatusCode statusCode;
-            try
-            {
-                string accessToken = await GetSmartAccessTokenAsync("system/Observation.write");
-
-                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
-                using HttpRequestMessage cancelRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
-                cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-                using HttpResponseMessage cancelResponse = await smartClient.SendAsync(cancelRequest);
-                statusCode = cancelResponse.StatusCode;
-            }
-            finally
-            {
-                await CancelBulkDeleteJobAsync(contentLocation);
-            }
-
-            Assert.Equal(HttpStatusCode.Forbidden, statusCode);
-        }
-
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenSystemBulkDeleteRequest_WhenSmartScopeCoversAllResourcesReadWriteRequestsStatus_ThenServerShouldNotReturnForbidden()
-        {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue custom SMART system scopes.");
-
-            CheckBulkDeleteEnabled();
-
-            // SMART system all-resource read + write scopes (system/*.read system/*.write) satisfy the
-            // non-export async status requirement, so the request must not be Forbidden.
-            Uri contentLocation = await CreateBulkDeleteJobAsync();
-
-            HttpStatusCode statusCode;
-            try
-            {
-                string accessToken = await GetSmartAccessTokenAsync("system/*.read system/*.write");
-
-                using HttpClient smartClient = CreateUnauthenticatedHttpClient();
-                using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-                getStatusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-                using HttpResponseMessage getStatusResponse = await smartClient.SendAsync(getStatusRequest);
-                statusCode = getStatusResponse.StatusCode;
-            }
-            finally
-            {
-                await CancelBulkDeleteJobAsync(contentLocation);
-            }
-
-            Assert.NotEqual(HttpStatusCode.Forbidden, statusCode);
         }
 
         [SkippableTheory]
@@ -889,57 +791,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             request.RequestUri = new Uri(_httpClient.BaseAddress, path);
 
             return request;
-        }
-
-        private HttpClient CreateUnauthenticatedHttpClient()
-        {
-            return new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
-            {
-                BaseAddress = _fixture.TestFhirServer.BaseAddress,
-            };
-        }
-
-        private async Task<Uri> CreateBulkDeleteJobAsync()
-        {
-            // Use a random tag so that no resources actually match; the job simply completes with nothing to delete.
-            using HttpRequestMessage request = GenerateBulkDeleteRequest(Guid.NewGuid().ToString());
-            using HttpResponseMessage response = await _httpClient.SendAsync(request);
-
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-            Assert.NotNull(response.Content.Headers.ContentLocation);
-
-            return response.Content.Headers.ContentLocation;
-        }
-
-        private async Task CancelBulkDeleteJobAsync(Uri location)
-        {
-            if (location == null)
-            {
-                return;
-            }
-
-            using HttpRequestMessage cancelRequest = new HttpRequestMessage(HttpMethod.Delete, location);
-            await _httpClient.SendAsync(cancelRequest);
-        }
-
-        private async Task<string> GetSmartAccessTokenAsync(string scope)
-        {
-            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                { "grant_type", TestApplications.SmartUserClient.GrantType },
-                { "client_id", TestApplications.SmartUserClient.ClientId },
-                { "client_secret", TestApplications.SmartUserClient.ClientSecret },
-                { "scope", scope },
-                { "resource", AuthenticationSettings.Resource },
-            });
-
-            using HttpClient authClient = CreateUnauthenticatedHttpClient();
-            using HttpResponseMessage response = await authClient.PostAsync(_fixture.TestFhirServer.TokenUri, content);
-            response.EnsureSuccessStatusCode();
-
-            string responseJson = await response.Content.ReadAsStringAsync();
-            Dictionary<string, JsonElement> tokenResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
-            return tokenResponse["access_token"].GetString();
         }
 
         private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults)

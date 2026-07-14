@@ -53,7 +53,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             bool includeDeleted = false,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator,
-            bool smartRequest = false)
+            bool smartRequest = false,
+            string patientId = null,
+            string smartCompartmentResourceType = null,
+            string smartCompartmentId = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -107,6 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             FeedRange = feedRange;
 
             SmartRequest = smartRequest;
+            PatientId = patientId;
+            SmartCompartmentResourceType = smartCompartmentResourceType;
+            SmartCompartmentId = smartCompartmentId;
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -238,6 +244,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.SmartRequest)]
         public bool SmartRequest { get; private set; }
+
+        [JsonProperty(JobRecordProperties.PatientId)]
+        public string PatientId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SmartCompartmentResourceType)]
+        public string SmartCompartmentResourceType { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SmartCompartmentId)]
+        public string SmartCompartmentId { get; private set; }
 
         internal ExportJobRecord Clone()
         {

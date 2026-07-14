@@ -1,31 +1,32 @@
-# ADR-2607: Async Operation SMART Scope Authorization
+# ADR-2607: SMART Patient and User Export Authorization
 
 **Status**: Proposed
-**Date**: 2026-07-01
-**Feature**: Async operation SMART scope authorization
+**Date**: 2026-07-14
+**Feature**: SMART export compartment authorization
 
 ## Context
 
-FHIR asynchronous operations expose status, result metadata, and cancellation routes for jobs such as export, import, reindex, bulk delete, and bulk update. These routes are not always tied to a specific request resource type, so the existing route-level authorization can allow narrow SMART clinical scopes to access system-level job state or initiate job cancellation.
+FHIR Bulk Data export is asynchronous: the initiating request creates a job, while separate operation URLs expose status, result metadata, and cancellation. Existing route-level authorization checks the export action but does not bind those operation URLs to the SMART compartment that initiated the job. Predictable job identifiers can therefore expose or mutate another caller's export job unless authorization is repeated against persisted job context.
 
-The security requirement is to make async job access depend on SMART system scopes, not only on the route action. Export status has a narrower safe model because export metadata is resource typed; other async job types and all cancellation operations require broad system privileges because they can expose or affect operational state across the service.
+The [FHIR Bulk Data Access IG](https://hl7.org/fhir/uv/bulkdata/export.html) defines Patient-level export, while [SMART App Launch scopes](https://hl7.org/fhir/smart-app-launch/scopes-and-launch-context.html) and FHIR compartment membership constrain the resources visible to patient and user applications. Non-SMART and SMART system export behavior must remain compatible.
 
 ## Options Considered
 
-1. **Rely on existing route-level authorization** - Keep current `DataActions` checks only. *(rejected: resource-type-less async routes can collapse SMART restrictions too broadly)*
-2. **Bind every async job to its creator and require owner-only access** - Store and compare the creating principal for all job status and cancel operations. *(rejected: useful long term, but it does not directly express the SMART system-scope requirement and requires job schema/compatibility work)*
-3. **Add async-operation SMART scope validation at handler boundaries** - Keep coarse route checks, then validate SMART system scopes using the loaded job metadata. *(viable)*
+1. **Rely on route-level export authorization** - Authorize only the export action on each route. *(rejected: status and cancellation are not bound to the initiating SMART compartment)*
+2. **Require SMART system scope for every export** - Disallow patient and user export requests. *(rejected: prevents standards-aligned compartment export scenarios)*
+3. **Bind patient and user jobs to target and creator context** - Validate the Patient target and resource scopes at creation, persist normalized SMART context, and revalidate loaded jobs. *(chosen)*
 
 ## Decision
 
-We will add a focused async-operation SMART scope validator at the handler layer. Existing route-level authorization remains as the coarse gate, and each async status or cancellation handler applies an additional SMART-aware check before returning job data or mutating job state.
+SMART patient and user scopes may create only `Patient/{id}/$export` jobs with an explicit `_type`. Patient scope requires the target ID to equal the Patient `fhirUser`; user scope requires the target Patient to belong to the user's SMART compartment. Every selected resource type must have export-read access: SMART v1 read or SMART v2 read-by-id plus search, together with export permission. Execution restricts the top-level Patient search to the requested Patient ID.
 
-Export status may be accessed with SMART system scopes restricted to the resource types represented by the export job metadata or results. SMART v1 requires read access, and SMART v2 requires both read-by-id and search (`rs`). If the export metadata includes a resource type outside the caller's SMART system scope, the request is forbidden. All non-export job status/result fetches, and every cancellation endpoint including export cancellation, require all-resource SMART system read and write access.
+Patient- and user-created jobs persist the normalized `fhirUser` resource type and ID. Status and cancellation validate that persisted context and resource coverage after loading the job; a context mismatch is returned as not found to avoid disclosing job existence. SMART system jobs remain resource-scope based and are not creator-bound. Non-SMART export behavior is unchanged.
 
 ## Consequences
 
-- Async operation authorization becomes explicit and resource-aware instead of relying on base operation routes with no resource type.
-- Export status remains usable for appropriately scoped system clients without requiring all-resource access when the export is resource constrained.
-- Import, reindex, bulk delete, bulk update, and all cancellation paths require stronger all-resource system scopes, reducing job-state disclosure and unauthorized operational changes.
-- The implementation must derive export resource requirements from job metadata and outputs, including empty Patient and Group exports.
-- Future async job types must choose whether they can safely support resource-aware status access or should use the all-resource read/write rule.
+- Patient and user exports are constrained to an explicit Patient target and explicitly selected resource types.
+- Status and cancellation cannot cross normalized patient or user contexts.
+- Export job records and processing children carry target and creator-context metadata.
+- Unauthorized job access is indistinguishable from an unknown job identifier.
+- User-scope creation requires a SMART compartment membership search.
+- Other asynchronous operation types are outside this decision and retain their existing behavior.

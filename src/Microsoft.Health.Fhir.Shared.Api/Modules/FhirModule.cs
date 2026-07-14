@@ -183,8 +183,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
 
-            // Register the SMART scope validator used by asynchronous operation status/cancel handlers.
-            services.Add<AsyncOperationSmartScopeValidator>().Transient().AsSelf().AsImplementedInterfaces();
+            services.Add<ExportSmartScopeValidator>().Transient().AsSelf().AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

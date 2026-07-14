@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
 
             _createExportRequestHandler = new CreateExportRequestHandler(
                 _claimsExtractor,
@@ -93,6 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 optionsExportConfig,
                 _requestContextAccessor,
                 _searchOptionsFactory,
+                _exportSmartScopeValidator,
                 Substitute.For<ILogger<CreateExportRequestHandler>>(),
                 true);
         }
@@ -319,6 +323,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.JobId));
+        }
+
+        [Fact]
+        public async Task GivenSmartPatientInstanceExport_WhenCreatingJob_ThenTargetAndCreatorCompartmentArePersisted()
+        {
+            var accessControlContext = new AccessControlContext
+            {
+                ApplyFineGrainedAccessControl = true,
+                CompartmentResourceType = KnownResourceTypes.Patient,
+                CompartmentId = "123",
+            };
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.AccessControlContext.Returns(accessControlContext);
+            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
+            _exportSmartScopeValidator.ValidateCreateAccessAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>()).Returns(true);
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+            var request = new CreateExportRequest(
+                new Uri("https://localhost/Patient/123/$export?_type=Patient"),
+                ExportJobType.Patient,
+                resourceType: KnownResourceTypes.Patient,
+                patientId: "123");
+
+            await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            await _exportSmartScopeValidator.Received(1).ValidateCreateAccessAsync(request, _cancellationToken);
+            Assert.Equal("123", actualRecord.PatientId);
+            Assert.Equal(KnownResourceTypes.Patient, actualRecord.SmartCompartmentResourceType);
+            Assert.Equal("123", actualRecord.SmartCompartmentId);
         }
 
         [MemberData(nameof(ExportUriForDifferentJobs))]

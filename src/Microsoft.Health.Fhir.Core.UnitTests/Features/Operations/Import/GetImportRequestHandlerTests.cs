@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,12 +33,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
     {
         private readonly IMediator _mediator;
         private IQueueClient _queueClient = Substitute.For<IQueueClient>();
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator = Substitute.For<IAsyncOperationSmartScopeValidator>();
 
         public GetImportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance, _asyncOperationSmartScopeValidator)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
@@ -154,29 +152,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Equal(2, result.JobResult.Output.Count);
             Assert.Equal(3, result.JobResult.Error.Count);
-        }
-
-        [Fact]
-        public async Task WhenGettingImportStatus_ThenAllResourceReadWriteScopeValidatorIsInvoked()
-        {
-            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
-            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
-            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 0 };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
-
-            await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
-
-            _asyncOperationSmartScopeValidator.Received(1).ValidateAllResourceReadWriteAccess();
-        }
-
-        [Fact]
-        public async Task WhenSmartScopeValidatorDeniesAccess_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
-        {
-            _asyncOperationSmartScopeValidator
-                .When(x => x.ValidateAllResourceReadWriteAccess())
-                .Do(_ => throw new UnauthorizedFhirActionException());
-
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
         }
 
         [Fact]

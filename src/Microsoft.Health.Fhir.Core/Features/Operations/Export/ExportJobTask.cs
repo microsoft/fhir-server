@@ -531,6 +531,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
+            if (_exportJobRecord.ExportType == ExportJobType.Patient
+                && !string.IsNullOrWhiteSpace(_exportJobRecord.PatientId))
+            {
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, _exportJobRecord.PatientId));
+            }
+
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.

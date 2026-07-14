@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +34,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         private const long JobId = 12345;
 
         private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator = Substitute.For<IAsyncOperationSmartScopeValidator>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -49,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 .Add(sp => new CancelImportRequestHandler(
                     _queueClient,
                     DisabledFhirAuthorizationService.Instance,
-                    _asyncOperationSmartScopeValidator,
                     NullLogger<CancelImportRequestHandler>.Instance))
                 .Singleton()
                 .AsSelf()
@@ -96,26 +93,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             _queueClient.CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new JobNotExistException("Task not exist."));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(JobId, _cancellationToken));
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingImport_ThenAllResourceReadWriteScopeValidatorIsInvoked()
-        {
-            SetupBulkImportJob(JobStatus.Running, false);
-
-            await _mediator.CancelImportAsync(JobId, _cancellationToken);
-
-            _asyncOperationSmartScopeValidator.Received(1).ValidateAllResourceReadWriteAccess();
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesCancelAccess_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
-        {
-            _asyncOperationSmartScopeValidator
-                .When(x => x.ValidateAllResourceReadWriteAccess())
-                .Do(_ => throw new UnauthorizedFhirActionException());
-
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _mediator.CancelImportAsync(JobId, _cancellationToken));
         }
 
         private async Task<List<JobInfo>> SetupAndExecuteCancelImportAsync(JobStatus jobStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private const string JobId = "jobId";
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly IAsyncOperationSmartScopeValidator _asyncOperationSmartScopeValidator = Substitute.For<IAsyncOperationSmartScopeValidator>();
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Add(sp => new CancelExportRequestHandler(
                     _fhirOperationDataStore,
                     DisabledFhirAuthorizationService.Instance,
-                    _asyncOperationSmartScopeValidator,
+                    _exportSmartScopeValidator,
                     _retryCount,
                     _sleepDurationProvider,
                     NullLogger<CancelExportRequestHandler>.Instance))
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var handler = new CancelExportRequestHandler(
                 _fhirOperationDataStore,
                 authorizationService,
-                _asyncOperationSmartScopeValidator,
+                _exportSmartScopeValidator,
                 _retryCount,
                 _sleepDurationProvider,
                 NullLogger<CancelExportRequestHandler>.Instance);
@@ -309,27 +309,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// Verifies that cancelling an export invokes the SMART all-resource read/write scope validator
+        /// Verifies that cancelling an export invokes the SMART export job validator
         /// and that a denial from the validator propagates without mutating the job.
         /// </summary>
         [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingExportJob_ThenAllResourceReadWriteScopeValidatorIsInvoked()
+        public async Task GivenAFhirMediator_WhenCancelingExportJob_ThenSmartExportJobValidatorIsInvoked()
         {
             SetupExportJob(OperationStatus.Running);
 
             await _mediator.CancelExportAsync(JobId, _cancellationToken);
 
-            _asyncOperationSmartScopeValidator.Received(1).ValidateAllResourceReadWriteAccess();
+            _exportSmartScopeValidator.Received(1).ValidateJobAccess(Arg.Any<ExportJobRecord>());
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesCancelAccess_ThenUnauthorizedFhirActionExceptionShouldBeThrownAndJobNotUpdated()
+        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesCancelAccess_ThenJobNotFoundExceptionShouldBeThrownAndJobNotUpdated()
         {
-            _asyncOperationSmartScopeValidator
-                .When(x => x.ValidateAllResourceReadWriteAccess())
+            SetupExportJob(OperationStatus.Running);
+            _exportSmartScopeValidator
+                .When(x => x.ValidateJobAccess(Arg.Any<ExportJobRecord>()))
                 .Do(_ => throw new UnauthorizedFhirActionException());
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
 
             await _fhirOperationDataStore.DidNotReceive().UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
