@@ -355,12 +355,10 @@ try {
         $duplicatePackageGroups[$identityKey].Add($package) | Out-Null
     }
 
-    $hasBlockingInvariantFailure = $false
     $invalidPackagePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($identityKey in ($duplicatePackageGroups.Keys | Sort-Object)) {
         $group = $duplicatePackageGroups[$identityKey]
         if ($group.Count -gt 1) {
-            $hasBlockingInvariantFailure = $true
             $packagePaths = @($group | Sort-Object Path | ForEach-Object { "'$($_.Path)'" })
             foreach ($packagePath in @($group | Select-Object -ExpandProperty Path)) {
                 $invalidPackagePaths.Add([string]$packagePath) | Out-Null
@@ -387,9 +385,7 @@ try {
         }
 
         $distinctPackageIds = @($distinctPackageIdSet)
-
         if ($distinctPackageIds.Count -gt 1) {
-            $hasBlockingInvariantFailure = $true
             foreach ($packagePath in @($group | Select-Object -ExpandProperty Path)) {
                 $invalidPackagePaths.Add([string]$packagePath) | Out-Null
             }
@@ -570,9 +566,13 @@ finally {
     }
 }
 
-$distinctErrors = @($errors | Sort-Object -Unique)
-if ($distinctErrors.Count -gt 0) {
-    foreach ($errorMessage in $distinctErrors) {
+$orderedErrors = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($errorMessage in $errors) {
+    $orderedErrors.Add([string]$errorMessage) | Out-Null
+}
+
+if ($orderedErrors.Count -gt 0) {
+    foreach ($errorMessage in $orderedErrors) {
         Write-Output $errorMessage
     }
 
