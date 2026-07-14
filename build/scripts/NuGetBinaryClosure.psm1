@@ -245,6 +245,7 @@ function New-BinaryClosureConsumerProject {
     <OutputType>Exe</OutputType>
     <TargetFrameworks>$escapedFrameworks</TargetFrameworks>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
