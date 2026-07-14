@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the collection of search parameters used for filtering and querying resources.
         /// </summary>
-        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
+        public IList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.

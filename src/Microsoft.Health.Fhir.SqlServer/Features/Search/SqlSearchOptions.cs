@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -23,7 +24,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Sets whether this search query is of type sort with filter.
         /// </summary>
-        public bool IsSortWithFilter { get; internal set; } = false;
+        public bool IsSortWithFilter
+        {
+            get
+            {
+                if (Sort.Count == 0)
+                {
+                    return false;
+                }
+
+                return QueryParams.ContainsKey(Sort[0].searchParameterInfo.Code);
+            }
+        }
 
         /// <summary>
         /// Keeps track of whether we searched for sort values as part of the current SQL query.
@@ -33,7 +45,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Keeps track of whether missing modifier is specified for search parameter used in sort.
         /// </summary>
-        public bool SortHasMissingModifier { get; internal set; }
+        public bool SortHasMissingModifier
+        {
+            get
+            {
+                if (Sort.Count == 0)
+                {
+                    return false;
+                }
+
+                return QueryParams.ContainsKey(Sort[0].searchParameterInfo.Code + ":missing");
+            }
+        }
 
         /// <summary>
         /// Performs a shallow clone of this instance

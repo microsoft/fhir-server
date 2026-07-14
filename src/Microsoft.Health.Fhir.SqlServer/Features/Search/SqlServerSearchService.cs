@@ -241,6 +241,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
+                !sqlSearchOptions.SortHasMissingModifier &&
+                !sqlSearchOptions.SortQuerySecondPhase &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= sqlSearchOptions.MaxItemCount &&
                 sqlSearchOptions.Sort != null &&
@@ -249,8 +251,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
-                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
+                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending)
+                    || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending)
+                    || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
@@ -428,6 +431,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     _logger.LogWarning("Bad Request (InvalidContinuationToken)");
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
+
+                if (continuationToken.SortValue != null && continuationToken.SortValue.Equals(SqlSearchConstants.SortSentinelValueForCt, StringComparison.OrdinalIgnoreCase))
+                {
+                    continuationToken = null;
+                    sqlSearchOptions.SortQuerySecondPhase = true;
+                }
             }
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
@@ -498,6 +507,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+                            isSortValueNeeded = queryText.Contains("SortValue", StringComparison.OrdinalIgnoreCase);
 
                             if (!string.IsNullOrEmpty(customQuery))
                             {
@@ -733,18 +743,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
                                     sqlSearchOptions.DidWeSearchForSortValue = isSortValueNeeded;
-                                }
-
-                                // This value is set inside the SortRewriter. If it is set, we need to pass
-                                // this value back to the caller.
-                                if (clonedSearchOptions.IsSortWithFilter)
-                                {
-                                    sqlSearchOptions.IsSortWithFilter = true;
-                                }
-
-                                if (clonedSearchOptions.SortHasMissingModifier)
-                                {
-                                    sqlSearchOptions.SortHasMissingModifier = true;
                                 }
 
                                 _logger.LogInformation("Continuation token is {ContinuationTokenPresent}returned. {MaxSurrogateId}", continuationToken != null ? string.Empty : "not ", newContinuationId);

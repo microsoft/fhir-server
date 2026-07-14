@@ -38,5 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public bool SortIsSpecialParameter { get; set; }
 
         public bool SortQuerySecondPhase { get; set; }
+
+        public string SortContinuationToken { get; set; } = string.Empty;
     }
 }
