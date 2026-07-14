@@ -280,7 +280,11 @@ function New-BinaryClosureRestoreConfig {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$PackageDirectory
+        [string]$PackageDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$LocalPackageIds
     )
 
     if (-not (Test-Path -LiteralPath $SourceConfigPath -PathType Leaf)) {
@@ -332,9 +336,22 @@ function New-BinaryClosureRestoreConfig {
 
     $localMappingNode = $configXml.CreateElement('packageSource')
     [void]$localMappingNode.SetAttribute('key', 'binary-closure-local')
-    $localPatternNode = $configXml.CreateElement('package')
-    [void]$localPatternNode.SetAttribute('pattern', '*')
-    [void]$localMappingNode.AppendChild($localPatternNode)
+    $sortedLocalPackageIds = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($localPackageId in $LocalPackageIds) {
+        if (-not [string]::IsNullOrWhiteSpace($localPackageId)) {
+            $sortedLocalPackageIds.Add($localPackageId) | Out-Null
+        }
+    }
+
+    if ($sortedLocalPackageIds.Count -eq 0) {
+        throw 'At least one local package id is required.'
+    }
+
+    foreach ($localPackageId in $sortedLocalPackageIds) {
+        $localPatternNode = $configXml.CreateElement('package')
+        [void]$localPatternNode.SetAttribute('pattern', $localPackageId)
+        [void]$localMappingNode.AppendChild($localPatternNode)
+    }
 
     $firstMappingNode = $mappingNode.SelectSingleNode('packageSource')
     if ($null -ne $firstMappingNode) {

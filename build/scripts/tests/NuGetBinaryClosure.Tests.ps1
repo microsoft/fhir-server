@@ -123,6 +123,8 @@ function Invoke-ValidatorScript {
         [Parameter(Mandatory = $true)]
         [string]$WorkDirectory,
 
+        [string]$NuGetConfigPath = $script:SourceConfigPath,
+
         [string]$CheckBinaryCompatPath = [System.Diagnostics.Process]::GetCurrentProcess().Path,
 
         [string[]]$SupportedFrameworks = @('net8.0', 'net9.0')
@@ -142,7 +144,7 @@ function Invoke-ValidatorScript {
         '-WorkDirectory'
         $WorkDirectory
         '-NuGetConfigPath'
-        $script:SourceConfigPath
+        $NuGetConfigPath
         '-CheckBinaryCompatPath'
         $CheckBinaryCompatPath
         '-SupportedFrameworks'
@@ -263,7 +265,9 @@ function New-FakeCheckBinaryCompatScript {
 
         [bool]$CreateAssembliesFile = $true,
 
-        [string]$ReportContent = ''
+        [string]$ReportContent = '',
+
+        [int]$ExitCode = 0
     )
 
     $parentDirectory = Split-Path -Parent $Path
@@ -301,10 +305,45 @@ function New-FakeCheckBinaryCompatScript {
     }
 
     $scriptLines.Add('Write-Output ''Fake checker executed.''') | Out-Null
+    if ($ExitCode -ne 0) {
+        $scriptLines.Add("exit $ExitCode") | Out-Null
+    }
     $scriptContent = $scriptLines -join [System.Environment]::NewLine
 
     Set-Content -LiteralPath $Path -Value $scriptContent -Encoding utf8
     return $Path
+}
+
+function Update-TestPackageNuspecVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackagePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    $extractDirectory = Join-Path ([System.IO.Path]::GetDirectoryName($PackagePath)) ([System.IO.Path]::GetFileNameWithoutExtension($PackagePath))
+    if (Test-Path -LiteralPath $extractDirectory) {
+        Remove-Item -LiteralPath $extractDirectory -Recurse -Force
+    }
+
+    Expand-Archive -LiteralPath $PackagePath -DestinationPath $extractDirectory
+    try {
+        $nuspecPath = (Get-ChildItem -LiteralPath $extractDirectory -Filter *.nuspec | Select-Object -First 1).FullName
+        [xml]$nuspecXml = Get-Content -LiteralPath $nuspecPath -Raw
+        $versionNode = $nuspecXml.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]/*[local-name()="version"]')
+        $versionNode.InnerText = $Version
+        $nuspecXml.Save($nuspecPath)
+
+        Remove-Item -LiteralPath $PackagePath -Force
+        Compress-Archive -Path (Join-Path $extractDirectory '*') -DestinationPath $PackagePath
+    }
+    finally {
+        if (Test-Path -LiteralPath $extractDirectory) {
+            Remove-Item -LiteralPath $extractDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function New-TestNupkg {
@@ -521,6 +560,48 @@ try {
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after success'
     }
 
+    Invoke-TestCase 'validator restores Microsoft.Health packages from exact local source mappings' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-microsoft-health-local'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $customConfigPath = Join-Path $rootDirectory 'NuGet.config'
+        $emptyRemoteDirectory = Join-Path $rootDirectory 'empty-remote'
+        $packageId = 'Microsoft.Health.Fhir.Local'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-Item -ItemType Directory -Path $emptyRemoteDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+        Set-Content -LiteralPath $customConfigPath -Encoding utf8 -Value @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="empty-remote" value="$emptyRemoteDirectory" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="empty-remote">
+      <package pattern="Microsoft.Health.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+"@
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -NuGetConfigPath $customConfigPath -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should restore Microsoft.Health.* packages from local exact mappings even when a conflicting remote mapping exists'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Microsoft.Health local restore success summary mismatch'
+        $successReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.txt')) 'Microsoft.Health local restore should retain BinaryCompatReport.txt'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'Comparison.txt')) 'Microsoft.Health local restore should retain Comparison.txt'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'Microsoft.Health local restore should retain BinaryCompatReport.Assemblies.txt'
+    }
+
     Invoke-TestCase 'validator continues producing reports for valid packages when others are invalid' {
         $rootDirectory = Join-Path $script:TempRoot 'validator-partial-success'
         $packageDirectory = Join-Path $rootDirectory 'packages'
@@ -580,6 +661,55 @@ try {
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after assemblies report failure'
     }
 
+    Invoke-TestCase 'validator detects baseline drift for non-empty existing and actual reports' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-baseline-drift'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Drift.Detection.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'actual report content' | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $baselineDirectory "$packageId.net8.0.txt"), 'expected baseline content')
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when an existing non-empty baseline differs from the actual report'
+        Assert-Contains "Binary closure baseline drift detected for package '$packageId' target framework 'net8.0'" $result.Output 'Non-empty baseline drift message mismatch'
+        $driftReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        Assert-Equal 'actual report content' ([System.IO.File]::ReadAllText((Join-Path $driftReportDirectory 'BinaryCompatReport.txt'))) 'Actual BinaryCompatReport.txt should be preserved on drift'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $driftReportDirectory 'Comparison.txt')) 'Comparison.txt should be retained on drift'
+    }
+
+    Invoke-TestCase 'validator aggregates nonzero checker exits while preserving reports' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-checker-exit'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Checker.Exit.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -ExitCode 3 | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when checkbinarycompat exits nonzero'
+        Assert-Contains "checkbinarycompat failed for package '$packageId' version '$version' target framework 'net8.0' with exit code 3" $result.Output 'Nonzero checker exit should be aggregated with the actual exit code'
+        $checkerExitReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $checkerExitReportDirectory 'BinaryCompatReport.txt')) 'BinaryCompatReport.txt should be retained on checker nonzero exit'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $checkerExitReportDirectory 'Comparison.txt')) 'Comparison.txt should be retained on checker nonzero exit'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $checkerExitReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained on checker nonzero exit'
+    }
+
     Invoke-TestCase 'validator reports missing baselines without adding synthetic drift failures' {
         $rootDirectory = Join-Path $script:TempRoot 'validator-missing-baseline'
         $packageDirectory = Join-Path $rootDirectory 'packages'
@@ -603,6 +733,50 @@ try {
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'BinaryCompatReport.txt')) 'Missing baseline run should still retain BinaryCompatReport.txt'
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'Comparison.txt')) 'Missing baseline run should still retain Comparison.txt'
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'Missing baseline run should still retain BinaryCompatReport.Assemblies.txt'
+    }
+
+    Invoke-TestCase 'validator accepts semantically equivalent normalized NuGet versions' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-version-normalization'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Normalized.Version.Package'
+        $packageVersion = '1.2.3.0'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        $package = New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version '1.2.3' -Framework 'net8.0'
+        Update-TestPackageNuspecVersion -PackagePath $package.PackagePath -Version $packageVersion
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should treat semantically equivalent NuGet versions as equal'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Normalized version success summary mismatch'
+    }
+
+    Invoke-TestCase 'validator accepts semantically equivalent NuGet versions with build metadata' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-version-metadata'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Metadata.Version.Package'
+        $packageVersion = '1.2.3+AbC'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        $package = New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version '1.2.3' -Framework 'net8.0'
+        Update-TestPackageNuspecVersion -PackagePath $package.PackagePath -Version $packageVersion
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should treat NuGet build metadata as semantically equivalent for exact restores'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Build metadata normalization success summary mismatch'
     }
 
     Invoke-TestCase 'package metadata discovery filters frameworks and safe id' {
@@ -744,7 +918,12 @@ try {
         $packageDirectory = Join-Path $script:TempRoot 'local-packages'
         New-Item -ItemType Directory -Path $packageDirectory -Force | Out-Null
 
-        New-BinaryClosureRestoreConfig -SourceConfigPath $script:SourceConfigPath -DestinationPath $destinationPath -PackageDirectory $packageDirectory | Out-Null
+        New-BinaryClosureRestoreConfig -SourceConfigPath $script:SourceConfigPath -DestinationPath $destinationPath -PackageDirectory $packageDirectory -LocalPackageIds @(
+            'Microsoft.Health.Fhir.Core'
+            'Hl7.Fhir.R4'
+            'Microsoft.Health.Fhir.Api'
+            'Microsoft.Health.Fhir.Core'
+        ) | Out-Null
 
         Assert-Equal $true (Test-Path -LiteralPath $destinationPath) 'Restore config was not created'
 
@@ -757,8 +936,9 @@ try {
         $mappingKeys = @($configXml.SelectNodes('/configuration/packageSourceMapping/packageSource') | Select-Object -ExpandProperty key)
         Assert-SequenceEqual @('binary-closure-local', 'nuget.org', 'Microsoft Health OSS') $mappingKeys 'Package source mapping order mismatch'
 
-        $localPattern = $configXml.SelectSingleNode('/configuration/packageSourceMapping/packageSource[@key="binary-closure-local"]/package').pattern
-        Assert-Equal '*' $localPattern 'Local package source mapping mismatch'
+        $localPatterns = @($configXml.SelectNodes('/configuration/packageSourceMapping/packageSource[@key="binary-closure-local"]/package') | Select-Object -ExpandProperty pattern)
+        Assert-SequenceEqual @('Hl7.Fhir.R4', 'Microsoft.Health.Fhir.Api', 'Microsoft.Health.Fhir.Core') $localPatterns 'Local package source mapping should use exact sorted unique package ids'
+        Assert-Equal 0 (@($localPatterns | Where-Object { $_ -eq '*' }).Count) 'Local package source mapping must not include a wildcard pattern'
     }
 
     Invoke-TestCase 'restore config generation resolves relative destination against PowerShell location' {
@@ -776,13 +956,14 @@ try {
             Set-Location -LiteralPath $relativeRoot
             [System.IO.Directory]::SetCurrentDirectory($script:RepoRoot)
 
-            New-BinaryClosureRestoreConfig -SourceConfigPath $script:SourceConfigPath -DestinationPath $relativeDestination -PackageDirectory $packageDirectory | Out-Null
+            New-BinaryClosureRestoreConfig -SourceConfigPath $script:SourceConfigPath -DestinationPath $relativeDestination -PackageDirectory $packageDirectory -LocalPackageIds @('Relative.Package') | Out-Null
 
             $expectedPath = Join-Path $relativeRoot $relativeDestination
             Assert-Equal $true (Test-Path -LiteralPath $expectedPath) 'Relative restore config was not created under the PowerShell location'
 
             [xml]$configXml = Get-Content -LiteralPath $expectedPath -Raw
             Assert-Equal 'binary-closure-local' ($configXml.SelectSingleNode('/configuration/packageSources/add').key) 'Relative restore config package source mismatch'
+            Assert-Equal 'Relative.Package' ($configXml.SelectSingleNode('/configuration/packageSourceMapping/packageSource[@key="binary-closure-local"]/package').pattern) 'Relative restore config local package id mismatch'
         }
         finally {
             Set-Location -LiteralPath $originalLocation.Path
