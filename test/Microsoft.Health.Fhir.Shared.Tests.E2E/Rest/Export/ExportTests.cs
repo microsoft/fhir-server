@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Theory]
         [InlineData("Observation/$export")]
-        [InlineData("Patient/id/$export")]
+        [InlineData("Observation/id/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceType_ThenServerShouldReturnBadRequest(string path)
         {
             using HttpRequestMessage request = GenerateExportRequest(path);
