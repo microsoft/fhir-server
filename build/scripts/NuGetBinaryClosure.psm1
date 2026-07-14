@@ -291,7 +291,8 @@ function New-BinaryClosureRestoreConfig {
         throw "Package directory '$PackageDirectory' was not found."
     }
 
-    $destinationParent = Split-Path -Parent $DestinationPath
+    $resolvedDestinationPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DestinationPath)
+    $destinationParent = Split-Path -Parent $resolvedDestinationPath
     if (-not [string]::IsNullOrWhiteSpace($destinationParent)) {
         New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
     }
@@ -343,9 +344,9 @@ function New-BinaryClosureRestoreConfig {
         [void]$mappingNode.AppendChild($localMappingNode)
     }
 
-    $configXml.Save($DestinationPath)
+    $configXml.Save($resolvedDestinationPath)
 
-    return $DestinationPath
+    return $resolvedDestinationPath
 }
 
 Export-ModuleMember -Function @(
