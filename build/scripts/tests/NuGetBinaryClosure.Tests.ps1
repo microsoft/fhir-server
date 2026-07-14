@@ -899,6 +899,7 @@ try {
         Assert-Equal 'Exe' $projectXml.Project.PropertyGroup.OutputType 'OutputType mismatch'
         Assert-Equal 'net8.0;net9.0' $projectXml.Project.PropertyGroup.TargetFrameworks 'TargetFrameworks mismatch'
         Assert-Equal 'true' $projectXml.Project.PropertyGroup.CopyLocalLockFileAssemblies 'CopyLocalLockFileAssemblies mismatch'
+        Assert-Equal 'false' $projectXml.Project.PropertyGroup.ManagePackageVersionsCentrally 'ManagePackageVersionsCentrally mismatch'
         Assert-Equal 'enable' $projectXml.Project.PropertyGroup.ImplicitUsings 'ImplicitUsings mismatch'
         Assert-Equal 'enable' $projectXml.Project.PropertyGroup.Nullable 'Nullable mismatch'
         Assert-Equal 'My.Package' $projectXml.Project.ItemGroup.PackageReference.Include 'PackageReference include mismatch'
@@ -907,6 +908,68 @@ try {
         $programText = Get-Content -LiteralPath $result.ProgramPath -Raw
         if ($programText -notmatch 'Console\.WriteLine') {
             throw 'Program.cs content mismatch'
+        }
+    }
+
+    Invoke-TestCase 'consumer project restore under repo tree opts out of central package versions' {
+        Import-TestModule
+
+        $fixtureRoot = Join-Path (Join-Path $script:RepoRoot 'artifacts') ("NuGetBinaryClosure.Tests.$([guid]::NewGuid().ToString('N'))")
+        $fixturePropsPath = Join-Path $fixtureRoot 'Directory.Build.props'
+        $sourceConfigPath = Join-Path $fixtureRoot 'Source.NuGet.config'
+        $restoreConfigPath = Join-Path $fixtureRoot 'Restore.NuGet.config'
+        $consumerDirectory = Join-Path $fixtureRoot 'consumer'
+        $packageCacheDirectory = Join-Path $fixtureRoot 'package-cache'
+        $packageRoot = Join-Path $script:TempRoot 'repo-tree-consumer-package'
+        $packageDirectory = Join-Path $packageRoot 'packages'
+        $packageId = 'Repo.Tree.Consumer.Package'
+        $packageVersion = '1.2.3'
+
+        try {
+            New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
+            Set-Content -LiteralPath $fixturePropsPath -Encoding utf8 -Value @"
+<Project>
+  <Import Project="$script:RepoRoot\Directory.Build.props" />
+  <ItemGroup>
+    <PackageReference Remove="Microsoft.SourceLink.GitHub" />
+    <PackageReference Remove="DotNet.ReproducibleBuilds" />
+    <PackageReference Remove="StyleCop.Analyzers" />
+  </ItemGroup>
+</Project>
+"@
+            Set-Content -LiteralPath $sourceConfigPath -Encoding utf8 -Value @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+  </packageSources>
+</configuration>
+"@
+
+            New-TestPackagedProject -RootDirectory $packageRoot -PackageDirectory $packageDirectory -PackageId $packageId -Version $packageVersion -Framework 'net8.0' | Out-Null
+            New-BinaryClosureRestoreConfig -SourceConfigPath $sourceConfigPath -DestinationPath $restoreConfigPath -PackageDirectory $packageDirectory -LocalPackageIds @($packageId) | Out-Null
+            $consumerProject = New-BinaryClosureConsumerProject -Directory $consumerDirectory -PackageId $packageId -PackageVersion $packageVersion -Frameworks @('net8.0')
+
+            $restoreResult = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
+                'restore'
+                $consumerProject.ProjectPath
+                '--configfile'
+                $restoreConfigPath
+                '--packages'
+                $packageCacheDirectory
+                '--no-cache'
+                '--force'
+                '-v'
+                'minimal'
+            ) -WorkingDirectory $consumerDirectory
+
+            Assert-Equal 0 $restoreResult.ExitCode 'Consumer project under the repo tree should restore successfully with exact PackageReference versions'
+            Assert-DoesNotContain 'NU1008' $restoreResult.Output 'Consumer project should not inherit central package version enforcement'
+        }
+        finally {
+            if (Test-Path -LiteralPath $fixtureRoot) {
+                Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
