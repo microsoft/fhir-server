@@ -602,6 +602,7 @@ try {
                             throw "dotnet publish failed for package '$($package.Id)' version '$($package.Version)' target framework '$framework' with exit code $($publishResult.ExitCode). Output:$([System.Environment]::NewLine)$($publishResult.Output)"
                         }
 
+                        [System.IO.File]::WriteAllText($binaryCompatReportPath, [string]::Empty, [System.Text.UTF8Encoding]::new($false))
                         $comparisonResult = Invoke-ExternalCommand -FilePath $resolvedCheckBinaryCompatPath -ArgumentList @(
                             $publishDirectory
                             '-s'
@@ -615,8 +616,9 @@ try {
 
                         Set-Content -LiteralPath $comparisonPath -Value $comparisonResult.Output -Encoding utf8
 
-                        if (-not (Test-Path -LiteralPath $binaryCompatReportPath -PathType Leaf)) {
-                            throw "checkbinarycompat did not produce '$binaryCompatReportPath' for package '$($package.Id)' target framework '$framework'."
+                        if ($comparisonResult.ExitCode -ne 0) {
+                            Add-ValidationError -Errors $errors -Message "checkbinarycompat failed for package '$($package.Id)' version '$($package.Version)' target framework '$framework' with exit code $($comparisonResult.ExitCode). See '$comparisonPath'."
+                            continue
                         }
 
                         if (-not (Test-Path -LiteralPath $assembliesReportPath -PathType Leaf)) {
@@ -627,10 +629,6 @@ try {
                         $baselineContent = Get-NormalizedFileContent -Path $baselinePath
                         if ((-not $missingBaselineNames.Contains($baselineName)) -and -not [string]::Equals($actualReportContent, $baselineContent, [System.StringComparison]::Ordinal)) {
                             Add-ValidationError -Errors $errors -Message "Binary closure baseline drift detected for package '$($package.Id)' target framework '$framework'. Baseline: '$baselinePath'. Report: '$binaryCompatReportPath'."
-                        }
-
-                        if ($comparisonResult.ExitCode -ne 0) {
-                            Add-ValidationError -Errors $errors -Message "checkbinarycompat failed for package '$($package.Id)' version '$($package.Version)' target framework '$framework' with exit code $($comparisonResult.ExitCode). See '$comparisonPath'."
                         }
                     }
                     catch {
