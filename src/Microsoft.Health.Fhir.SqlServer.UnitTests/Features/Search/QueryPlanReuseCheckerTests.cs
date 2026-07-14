@@ -348,7 +348,7 @@ public class QueryPlanReuseCheckerTests
     /// <summary>
     /// Creates a SearchOptions instance with the specified search parameters.
     /// </summary>
-    private SearchOptions CreateSearchOptions(IReadOnlyList<SearchParameterInfo> searchParameters)
+    private SearchOptions CreateSearchOptions(IList<SearchParameterInfo> searchParameters)
     {
         return new SearchOptions
         {
