@@ -122,16 +122,16 @@ function Get-NuGetPackageMetadata {
             }
         }
 
-        $supportedFrameworkList = [System.Collections.Generic.List[string]]::new()
+        $supportedFrameworkSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         foreach ($framework in @($SupportedFrameworks)) {
-            if (-not [string]::IsNullOrWhiteSpace($framework) -and -not $supportedFrameworkList.Contains($framework)) {
-                $supportedFrameworkList.Add($framework)
+            if (-not [string]::IsNullOrWhiteSpace($framework)) {
+                [void]$supportedFrameworkSet.Add($framework)
             }
         }
 
         $frameworks = [System.Collections.Generic.List[string]]::new()
-        foreach ($framework in $supportedFrameworkList) {
-            if ($discoveredFrameworks.Contains($framework)) {
+        foreach ($framework in $discoveredFrameworks) {
+            if ($supportedFrameworkSet.Contains($framework)) {
                 $frameworks.Add($framework)
             }
         }
