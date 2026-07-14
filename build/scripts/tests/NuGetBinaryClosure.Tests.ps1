@@ -165,7 +165,7 @@ try {
             'lib/net9.0/c.dll'
         )
 
-        $metadata = Get-NuGetPackageMetadata -PackagePath $packagePath -SupportedFrameworks @('net8.0', 'net9.0')
+        $metadata = Get-NuGetPackageMetadata -PackagePath $packagePath -SupportedFrameworks @('net9.0', 'net8.0')
 
         Assert-Equal 'My Package/Name' $metadata.Id 'Package id mismatch'
         Assert-Equal 'My_Package_Name' $metadata.SafePackageId 'Safe package id mismatch'
