@@ -475,10 +475,20 @@ try {
         )
 
         $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0')
+        $outputLines = @(
+            $result.Output -split '\r?\n' |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
 
         Assert-Equal 1 $result.ExitCode 'Validator should fail when invariant violations are aggregated'
         Assert-Contains "Duplicate package identity 'Aggregate.Duplicate/3.4.5'" $result.Output 'Aggregate output should include duplicate identity failure'
         Assert-Contains "Safe package id collision 'Aggregate_Collision'" $result.Output 'Aggregate output should include safe package id collision failure'
+        Assert-SequenceEqual @(
+            "Duplicate package identity 'Aggregate.Duplicate/3.4.5' found in: '$((Resolve-Path -LiteralPath (Join-Path $packageDirectory 'duplicate-a.nupkg')).Path)', '$((Resolve-Path -LiteralPath (Join-Path $packageDirectory 'duplicate-b.nupkg')).Path)'."
+            "Missing baseline 'Aggregate.Duplicate.net8.0.txt'."
+            "Missing baseline 'Aggregate_Collision.net8.0.txt'."
+            "Safe package id collision 'Aggregate_Collision' found for package ids: 'Aggregate/Collision', 'Aggregate_Collision'."
+        ) $outputLines 'Aggregate error output should be ordinal and unique'
         Assert-Equal $true (Test-Path -LiteralPath $reportDirectory -PathType Container) 'Report directory should be retained after aggregated failures'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after aggregated failures'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after aggregated failures'
