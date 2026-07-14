@@ -592,6 +592,30 @@ try {
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained for empty reports'
     }
 
+    Invoke-TestCase 'validator materializes non-empty baseline reports when checker matches without writing them' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-nonempty-report-success'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'NonEmpty.Report.Package'
+        $version = '1.2.3'
+        $baselineContent = "warning one`nwarning two"
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -CreateReportFile $false | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $baselineDirectory "$packageId.net8.0.txt"), $baselineContent, [System.Text.UTF8Encoding]::new($false))
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should succeed when the checker matches a non-empty baseline without writing the report'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Non-empty omitted report success summary mismatch'
+        $reportPath = Join-Path (Join-Path (Join-Path $reportDirectory $packageId) 'net8.0') 'BinaryCompatReport.txt'
+        Assert-Equal $baselineContent ([System.IO.File]::ReadAllText($reportPath)) 'Validator should materialize the baseline content into BinaryCompatReport.txt after a successful checker match'
+    }
+
     Invoke-TestCase 'validator restores Microsoft.Health packages from exact local source mappings' {
         $rootDirectory = Join-Path $script:TempRoot 'validator-microsoft-health-local'
         $packageDirectory = Join-Path $rootDirectory 'packages'
@@ -705,7 +729,7 @@ try {
 
         New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
         New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
-        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'actual report content' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'actual report content' -ExitCode 1 | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $baselineDirectory "$packageId.net8.0.txt"), 'expected baseline content')
 
         $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
@@ -754,7 +778,7 @@ try {
 
         New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
         New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
-        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'warning: new report content' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'warning: new report content' -ExitCode 1 | Out-Null
 
         $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
 
