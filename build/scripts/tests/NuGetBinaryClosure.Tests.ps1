@@ -263,6 +263,8 @@ function New-FakeCheckBinaryCompatScript {
         [Parameter(Mandatory = $true)]
         [string]$Path,
 
+        [bool]$CreateReportFile = $true,
+
         [bool]$CreateAssembliesFile = $true,
 
         [string]$ReportContent = '',
@@ -295,9 +297,12 @@ function New-FakeCheckBinaryCompatScript {
         ''
         '$reportDirectory = Split-Path -Parent $outPath'
         'New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null'
-        "Set-Content -LiteralPath `$outPath -Value '$escapedReportContent' -NoNewline -Encoding utf8"
     )) {
         $scriptLines.Add($line) | Out-Null
+    }
+
+    if ($CreateReportFile) {
+        $scriptLines.Add("Set-Content -LiteralPath `$outPath -Value '$escapedReportContent' -NoNewline -Encoding utf8") | Out-Null
     }
 
     if ($CreateAssembliesFile) {
@@ -558,6 +563,33 @@ try {
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after success'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after success'
+    }
+
+    Invoke-TestCase 'validator preserves empty reports when checker succeeds without writing them' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-empty-report-success'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Empty.Report.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -CreateReportFile $false | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should succeed when the checker omits an empty BinaryCompatReport.txt on a matching baseline'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Empty report success summary mismatch'
+        $emptyReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        $emptyReportPath = Join-Path $emptyReportDirectory 'BinaryCompatReport.txt'
+        Assert-Equal $true (Test-Path -LiteralPath $emptyReportPath) 'Validator should preserve a precreated empty BinaryCompatReport.txt'
+        Assert-Equal 0 ([System.IO.File]::ReadAllBytes($emptyReportPath).Length) 'Precreated BinaryCompatReport.txt should remain empty when the checker omits it'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'Comparison.txt')) 'Comparison.txt should be retained for empty reports'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained for empty reports'
     }
 
     Invoke-TestCase 'validator restores Microsoft.Health packages from exact local source mappings' {
