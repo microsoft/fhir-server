@@ -616,20 +616,30 @@ try {
 
                         Set-Content -LiteralPath $comparisonPath -Value $comparisonResult.Output -Encoding utf8
 
-                        if ($comparisonResult.ExitCode -ne 0) {
-                            Add-ValidationError -Errors $errors -Message "checkbinarycompat failed for package '$($package.Id)' version '$($package.Version)' target framework '$framework' with exit code $($comparisonResult.ExitCode). See '$comparisonPath'."
+                        $hasAssembliesReport = Test-Path -LiteralPath $assembliesReportPath -PathType Leaf
+                        $baselineRawContent = [System.IO.File]::ReadAllText($baselinePath)
+                        $actualReportContent = Get-NormalizedFileContent -Path $binaryCompatReportPath
+                        $baselineContent = Get-NormalizedFileContent -Path $baselinePath
+
+                        if ($comparisonResult.ExitCode -eq 0) {
+                            if (-not $hasAssembliesReport) {
+                                throw "checkbinarycompat did not produce '$assembliesReportPath' for package '$($package.Id)' target framework '$framework'."
+                            }
+
+                            [System.IO.File]::WriteAllText($binaryCompatReportPath, $baselineRawContent, [System.Text.UTF8Encoding]::new($false))
                             continue
                         }
 
-                        if (-not (Test-Path -LiteralPath $assembliesReportPath -PathType Leaf)) {
-                            throw "checkbinarycompat did not produce '$assembliesReportPath' for package '$($package.Id)' target framework '$framework'."
+                        if ($missingBaselineNames.Contains($baselineName)) {
+                            continue
                         }
 
-                        $actualReportContent = Get-NormalizedFileContent -Path $binaryCompatReportPath
-                        $baselineContent = Get-NormalizedFileContent -Path $baselinePath
-                        if ((-not $missingBaselineNames.Contains($baselineName)) -and -not [string]::Equals($actualReportContent, $baselineContent, [System.StringComparison]::Ordinal)) {
+                        if ($hasAssembliesReport -and -not [string]::Equals($actualReportContent, $baselineContent, [System.StringComparison]::Ordinal)) {
                             Add-ValidationError -Errors $errors -Message "Binary closure baseline drift detected for package '$($package.Id)' target framework '$framework'. Baseline: '$baselinePath'. Report: '$binaryCompatReportPath'."
+                            continue
                         }
+
+                        Add-ValidationError -Errors $errors -Message "checkbinarycompat failed for package '$($package.Id)' version '$($package.Version)' target framework '$framework' with exit code $($comparisonResult.ExitCode). See '$comparisonPath'."
                     }
                     catch {
                         Add-ValidationError -Errors $errors -Message $_.Exception.Message
