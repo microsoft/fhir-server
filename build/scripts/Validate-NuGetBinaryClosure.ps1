@@ -150,6 +150,89 @@ function Get-LibraryIdentity {
     }
 }
 
+function ConvertTo-NormalizedNuGetVersion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Version
+    )
+
+    $versionPattern = '^(?<core>\d+(?:\.\d+){0,3})(?:-(?<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?<metadata>\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
+    $match = [System.Text.RegularExpressions.Regex]::Match($Version, $versionPattern)
+    if (-not $match.Success) {
+        throw "NuGet version '$Version' was not in a supported semantic version format."
+    }
+
+    $numericParts = [System.Collections.Generic.List[string]]::new()
+    foreach ($segment in $match.Groups['core'].Value.Split('.')) {
+        $trimmedSegment = $segment.TrimStart('0')
+        if ([string]::IsNullOrEmpty($trimmedSegment)) {
+            $trimmedSegment = '0'
+        }
+
+        $numericParts.Add($trimmedSegment) | Out-Null
+    }
+
+    while (($numericParts.Count -gt 1) -and ($numericParts[$numericParts.Count - 1] -eq '0')) {
+        $numericParts.RemoveAt($numericParts.Count - 1)
+    }
+
+    $normalizedVersion = $numericParts -join '.'
+    if ($match.Groups['prerelease'].Success) {
+        $normalizedVersion = "$normalizedVersion-$($match.Groups['prerelease'].Value.ToLowerInvariant())"
+    }
+
+    return $normalizedVersion
+}
+
+function Test-NuGetVersionEquals {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Left,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Right
+    )
+
+    return [string]::Equals(
+        (ConvertTo-NormalizedNuGetVersion -Version $Left),
+        (ConvertTo-NormalizedNuGetVersion -Version $Right),
+        [System.StringComparison]::Ordinal
+    )
+}
+
+function Assert-ExactVersionRangeEquals {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ActualRange,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ExpectedVersion,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Context
+    )
+
+    $match = [System.Text.RegularExpressions.Regex]::Match($ActualRange, '^\[(?<min>[^,\]]+),\s*(?<max>[^\]]+)\]$')
+    if (-not $match.Success) {
+        throw "$Context used version range '$ActualRange' instead of an exact inclusive range for '$ExpectedVersion'."
+    }
+
+    $minimumVersion = $match.Groups['min'].Value.Trim()
+    $maximumVersion = $match.Groups['max'].Value.Trim()
+    if (-not (Test-NuGetVersionEquals -Left $minimumVersion -Right $ExpectedVersion) -or -not (Test-NuGetVersionEquals -Left $maximumVersion -Right $ExpectedVersion)) {
+        throw "$Context used version range '$ActualRange' instead of the exact version '$ExpectedVersion'."
+    }
+}
+
 function Get-SingleCaseInsensitiveDictionaryKey {
     [CmdletBinding()]
     param(
@@ -219,7 +302,7 @@ function Assert-AssetsRootPackageIdentity {
     }
 
     $resolvedIdentity = Get-LibraryIdentity -Identity $matchingLibraryKeys[0]
-    if (-not [string]::Equals($resolvedIdentity.Version, $PackageVersion, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not (Test-NuGetVersionEquals -Left $resolvedIdentity.Version -Right $PackageVersion)) {
         throw "Restore assets file '$AssetsPath' resolved '$($matchingLibraryKeys[0])' instead of '$PackageId/$PackageVersion'."
     }
 
@@ -251,9 +334,8 @@ function Assert-AssetsRootPackageIdentity {
             throw "Restore assets file '$AssetsPath' dependency '$PackageId' in target framework '$framework' was not restored as a package."
         }
 
-        $expectedVersionRange = "[$PackageVersion, $PackageVersion]"
-        if ($dependency.Contains('version') -and -not [string]::Equals([string]$dependency['version'], $expectedVersionRange, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "Restore assets file '$AssetsPath' dependency '$PackageId' in target framework '$framework' used version range '$($dependency['version'])' instead of '$expectedVersionRange'."
+        if ($dependency.Contains('version')) {
+            Assert-ExactVersionRangeEquals -ActualRange ([string]$dependency['version']) -ExpectedVersion $PackageVersion -Context "Restore assets file '$AssetsPath' dependency '$PackageId' in target framework '$framework'"
         }
     }
 }
@@ -454,7 +536,14 @@ try {
     }
 
     if ($canProcessPackages) {
-        New-BinaryClosureRestoreConfig -SourceConfigPath $resolvedNuGetConfigPath -DestinationPath $restoreConfigPath -PackageDirectory $resolvedPackageDirectory | Out-Null
+        $localPackageIds = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($packageId in @($packages | Select-Object -ExpandProperty Id)) {
+            if (-not [string]::IsNullOrWhiteSpace($packageId)) {
+                $localPackageIds.Add([string]$packageId) | Out-Null
+            }
+        }
+
+        New-BinaryClosureRestoreConfig -SourceConfigPath $resolvedNuGetConfigPath -DestinationPath $restoreConfigPath -PackageDirectory $resolvedPackageDirectory -LocalPackageIds @($localPackageIds) | Out-Null
         foreach ($package in $packagesToProcess) {
             $safeVersionSegment = ConvertTo-BinaryClosureSafePathSegment -Value ([string]$package.Version)
             $consumerDirectory = Join-Path $consumerRootDirectory (Join-Path $package.SafePackageId $safeVersionSegment)
