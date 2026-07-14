@@ -306,6 +306,35 @@ try {
         $localPattern = $configXml.SelectSingleNode('/configuration/packageSourceMapping/packageSource[@key="binary-closure-local"]/package').pattern
         Assert-Equal '*' $localPattern 'Local package source mapping mismatch'
     }
+
+    Invoke-TestCase 'restore config generation resolves relative destination against PowerShell location' {
+        Import-TestModule
+
+        $originalLocation = Get-Location
+        $originalCurrentDirectory = [System.IO.Directory]::GetCurrentDirectory()
+        $relativeRoot = Join-Path $script:TempRoot 'relative-location'
+        $relativeDestination = 'relative/NuGet.config'
+        $packageDirectory = Join-Path $script:TempRoot 'relative-packages'
+        New-Item -ItemType Directory -Path $relativeRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $packageDirectory -Force | Out-Null
+
+        try {
+            Set-Location -LiteralPath $relativeRoot
+            [System.IO.Directory]::SetCurrentDirectory($script:RepoRoot)
+
+            New-BinaryClosureRestoreConfig -SourceConfigPath $script:SourceConfigPath -DestinationPath $relativeDestination -PackageDirectory $packageDirectory | Out-Null
+
+            $expectedPath = Join-Path $relativeRoot $relativeDestination
+            Assert-Equal $true (Test-Path -LiteralPath $expectedPath) 'Relative restore config was not created under the PowerShell location'
+
+            [xml]$configXml = Get-Content -LiteralPath $expectedPath -Raw
+            Assert-Equal 'binary-closure-local' ($configXml.SelectSingleNode('/configuration/packageSources/add').key) 'Relative restore config package source mismatch'
+        }
+        finally {
+            Set-Location -LiteralPath $originalLocation.Path
+            [System.IO.Directory]::SetCurrentDirectory($originalCurrentDirectory)
+        }
+    }
 }
 finally {
     if (Test-Path -LiteralPath $script:TempRoot) {
