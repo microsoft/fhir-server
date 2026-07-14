@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $script:Failures = [System.Collections.Generic.List[string]]::new()
 $script:TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("NuGetBinaryClosure.Tests.$([guid]::NewGuid().ToString('N'))")
 $script:ModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'NuGetBinaryClosure.psm1'
+$script:ValidatorPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Validate-NuGetBinaryClosure.ps1'
 $script:RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 $script:SourceConfigPath = Join-Path $script:RepoRoot 'nuget.config'
 
@@ -52,6 +53,42 @@ function Assert-SequenceEqual {
     }
 }
 
+function Assert-Contains {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedSubstring,
+
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [string]$Actual,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    if (($null -eq $Actual) -or (-not $Actual.Contains($ExpectedSubstring, [System.StringComparison]::Ordinal))) {
+        throw "$Message`nExpected substring: $ExpectedSubstring`nActual: $Actual"
+    }
+}
+
+function Assert-DoesNotContain {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$UnexpectedSubstring,
+
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [string]$Actual,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    if (($null -ne $Actual) -and $Actual.Contains($UnexpectedSubstring, [System.StringComparison]::Ordinal)) {
+        throw "$Message`nUnexpected substring: $UnexpectedSubstring`nActual: $Actual"
+    }
+}
+
 function Invoke-TestCase {
     param(
         [Parameter(Mandatory = $true)]
@@ -70,6 +107,204 @@ function Invoke-TestCase {
         Write-Host "FAIL: $Name"
         Write-Host $_.Exception.Message
     }
+}
+
+function Invoke-ValidatorScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BaselineDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ReportDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$WorkDirectory,
+
+        [string]$CheckBinaryCompatPath = [System.Diagnostics.Process]::GetCurrentProcess().Path,
+
+        [string[]]$SupportedFrameworks = @('net8.0', 'net9.0')
+    )
+
+    $pwshPath = [System.Diagnostics.Process]::GetCurrentProcess().Path
+    $arguments = @(
+        '-NoProfile'
+        '-File'
+        $script:ValidatorPath
+        '-PackageDirectory'
+        $PackageDirectory
+        '-BaselineDirectory'
+        $BaselineDirectory
+        '-ReportDirectory'
+        $ReportDirectory
+        '-WorkDirectory'
+        $WorkDirectory
+        '-NuGetConfigPath'
+        $script:SourceConfigPath
+        '-CheckBinaryCompatPath'
+        $CheckBinaryCompatPath
+        '-SupportedFrameworks'
+    ) + $SupportedFrameworks
+
+    $output = & $pwshPath @arguments 2>&1 | Out-String
+    $exitCode = $LASTEXITCODE
+
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Output = $output
+    }
+}
+
+function Invoke-TestNativeCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+
+        [string]$WorkingDirectory
+    )
+
+    $output = @()
+    if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $output = & $FilePath @ArgumentList 2>&1
+    }
+    else {
+        Push-Location -LiteralPath $WorkingDirectory
+        try {
+            $output = & $FilePath @ArgumentList 2>&1
+        }
+        finally {
+            Pop-Location
+        }
+    }
+
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Output = (@($output | ForEach-Object { $_.ToString() })) -join [System.Environment]::NewLine
+    }
+}
+
+function New-TestPackagedProject {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RootDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PackageDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PackageId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+
+        [string]$Framework = 'net8.0'
+    )
+
+    $projectDirectory = Join-Path $RootDirectory 'project'
+    New-Item -ItemType Directory -Path $projectDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $PackageDirectory -Force | Out-Null
+
+    $projectPath = Join-Path $projectDirectory 'TestPackage.csproj'
+    $sourcePath = Join-Path $projectDirectory 'Class1.cs'
+
+    $projectContent = @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$Framework</TargetFramework>
+    <PackageId>$PackageId</PackageId>
+    <Version>$Version</Version>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
+"@
+
+    $sourceContent = @"
+namespace TestPackage;
+
+public sealed class Class1
+{
+}
+"@
+
+    Set-Content -LiteralPath $projectPath -Value $projectContent -Encoding utf8
+    Set-Content -LiteralPath $sourcePath -Value $sourceContent -Encoding utf8
+
+    $packResult = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
+        'pack'
+        $projectPath
+        '--configuration'
+        'Release'
+        '--output'
+        $PackageDirectory
+        '-v'
+        'minimal'
+    ) -WorkingDirectory $projectDirectory
+
+    if ($packResult.ExitCode -ne 0) {
+        throw "dotnet pack failed for '$PackageId' version '$Version'. Output:$([System.Environment]::NewLine)$($packResult.Output)"
+    }
+
+    return [pscustomobject]@{
+        ProjectPath = $projectPath
+        PackagePath = Join-Path $PackageDirectory "$PackageId.$Version.nupkg"
+    }
+}
+
+function New-FakeCheckBinaryCompatScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [bool]$CreateAssembliesFile = $true,
+
+        [string]$ReportContent = ''
+    )
+
+    $parentDirectory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($parentDirectory)) {
+        New-Item -ItemType Directory -Path $parentDirectory -Force | Out-Null
+    }
+
+    $escapedReportContent = $ReportContent.Replace("'", "''")
+    $scriptLines = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in @(
+        'Set-StrictMode -Version Latest'
+        '$ErrorActionPreference = ''Stop'''
+        ''
+        '$outPath = $null'
+        'foreach ($argument in $args) {'
+        '    if ($argument.StartsWith(''-out:'', [System.StringComparison]::OrdinalIgnoreCase)) {'
+        '        $outPath = $argument.Substring(5)'
+        '        break'
+        '    }'
+        '}'
+        ''
+        'if ([string]::IsNullOrWhiteSpace($outPath)) {'
+        '    throw ''Missing -out argument.'''
+        '}'
+        ''
+        '$reportDirectory = Split-Path -Parent $outPath'
+        'New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null'
+        "Set-Content -LiteralPath `$outPath -Value '$escapedReportContent' -NoNewline -Encoding utf8"
+    )) {
+        $scriptLines.Add($line) | Out-Null
+    }
+
+    if ($CreateAssembliesFile) {
+        $scriptLines.Add('Set-Content -LiteralPath (Join-Path $reportDirectory ''BinaryCompatReport.Assemblies.txt'') -Value ''Fake.Assembly.dll'' -NoNewline -Encoding utf8') | Out-Null
+    }
+
+    $scriptLines.Add('Write-Output ''Fake checker executed.''') | Out-Null
+    $scriptContent = $scriptLines -join [System.Environment]::NewLine
+
+    Set-Content -LiteralPath $Path -Value $scriptContent -Encoding utf8
+    return $Path
 }
 
 function New-TestNupkg {
@@ -149,6 +384,215 @@ try {
             'New-BinaryClosureConsumerProject'
             'New-BinaryClosureRestoreConfig'
         ) $actualCommands 'Exported commands mismatch'
+    }
+
+    Invoke-TestCase 'validator rejects duplicate package identities and preserves reports' {
+        $duplicateRoot = Join-Path $script:TempRoot 'validator-duplicate'
+        $packageDirectory = Join-Path $duplicateRoot 'packages'
+        $baselineDirectory = Join-Path $duplicateRoot 'baselines'
+        $reportDirectory = Join-Path $duplicateRoot 'reports'
+        $workDirectory = Join-Path $duplicateRoot 'work'
+
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-a.nupkg') -Id 'Duplicate.Package' -Version '1.2.3' -EntryNames @(
+            'lib/net8.0/a.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-b.nupkg') -Id 'Duplicate.Package' -Version '1.2.3' -EntryNames @(
+            'lib/net8.0/b.dll'
+        )
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail on duplicate package identities'
+        Assert-Contains "Duplicate package identity 'Duplicate.Package/1.2.3'" $result.Output 'Duplicate package identity error mismatch'
+        Assert-Equal $true (Test-Path -LiteralPath $reportDirectory -PathType Container) 'Report directory should be retained on failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned up on failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned up on failure'
+    }
+
+    Invoke-TestCase 'validator rejects safe package id collisions' {
+        $safeIdRoot = Join-Path $script:TempRoot 'validator-safe-id'
+        $packageDirectory = Join-Path $safeIdRoot 'packages'
+        $baselineDirectory = Join-Path $safeIdRoot 'baselines'
+        $reportDirectory = Join-Path $safeIdRoot 'reports'
+        $workDirectory = Join-Path $safeIdRoot 'work'
+
+        New-TestNupkg -Path (Join-Path $packageDirectory 'collision-a.nupkg') -Id 'Collision/Package' -Version '1.0.0' -EntryNames @(
+            'lib/net8.0/a.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'collision-b.nupkg') -Id 'Collision_Package' -Version '2.0.0' -EntryNames @(
+            'lib/net8.0/b.dll'
+        )
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail on safe package id collisions'
+        Assert-Contains "Safe package id collision 'Collision_Package'" $result.Output 'Safe package id collision error mismatch'
+        Assert-Contains 'Collision/Package' $result.Output 'Safe package id collision should include the first package id'
+        Assert-Contains 'Collision_Package' $result.Output 'Safe package id collision should include the second package id'
+    }
+
+    Invoke-TestCase 'validator rejects multiple versions for the same package id' {
+        $multiVersionRoot = Join-Path $script:TempRoot 'validator-multi-version'
+        $packageDirectory = Join-Path $multiVersionRoot 'packages'
+        $baselineDirectory = Join-Path $multiVersionRoot 'baselines'
+        $reportDirectory = Join-Path $multiVersionRoot 'reports'
+        $workDirectory = Join-Path $multiVersionRoot 'work'
+
+        New-TestNupkg -Path (Join-Path $packageDirectory 'multi-a.nupkg') -Id 'Multi.Version.Package' -Version '1.0.0' -EntryNames @(
+            'lib/net8.0/a.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'multi-b.nupkg') -Id 'Multi.Version.Package' -Version '2.0.0' -EntryNames @(
+            'lib/net8.0/b.dll'
+        )
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when the same package id appears in multiple versions'
+        Assert-Contains "Multiple package versions found for package id 'Multi.Version.Package'" $result.Output 'Multiple package version error mismatch'
+        Assert-Equal $true (Test-Path -LiteralPath $reportDirectory -PathType Container) 'Report directory should be retained on multi-version failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned up on multi-version failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned up on multi-version failure'
+    }
+
+    Invoke-TestCase 'validator aggregates invariant failures deterministically' {
+        $aggregateRoot = Join-Path $script:TempRoot 'validator-aggregate'
+        $packageDirectory = Join-Path $aggregateRoot 'packages'
+        $baselineDirectory = Join-Path $aggregateRoot 'baselines'
+        $reportDirectory = Join-Path $aggregateRoot 'reports'
+        $workDirectory = Join-Path $aggregateRoot 'work'
+
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-a.nupkg') -Id 'Aggregate.Duplicate' -Version '3.4.5' -EntryNames @(
+            'lib/net8.0/a.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-b.nupkg') -Id 'Aggregate.Duplicate' -Version '3.4.5' -EntryNames @(
+            'lib/net8.0/b.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'collision-a.nupkg') -Id 'Aggregate/Collision' -Version '1.0.0' -EntryNames @(
+            'lib/net8.0/c.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'collision-b.nupkg') -Id 'Aggregate_Collision' -Version '2.0.0' -EntryNames @(
+            'lib/net8.0/d.dll'
+        )
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when invariant violations are aggregated'
+        Assert-Contains "Duplicate package identity 'Aggregate.Duplicate/3.4.5'" $result.Output 'Aggregate output should include duplicate identity failure'
+        Assert-Contains "Safe package id collision 'Aggregate_Collision'" $result.Output 'Aggregate output should include safe package id collision failure'
+        Assert-Equal $true (Test-Path -LiteralPath $reportDirectory -PathType Container) 'Report directory should be retained after aggregated failures'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after aggregated failures'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after aggregated failures'
+    }
+
+    Invoke-TestCase 'validator restores publishes and preserves reports on success' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-success'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Success.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 0 $result.ExitCode 'Validator should succeed for a real package with a fake checker'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Success summary mismatch'
+        $successReportDirectory = Join-Path (Join-Path $reportDirectory 'Success.Package') 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.txt')) 'BinaryCompatReport.txt should be retained'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'Comparison.txt')) 'Comparison.txt should be retained'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after success'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after success'
+    }
+
+    Invoke-TestCase 'validator continues producing reports for valid packages when others are invalid' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-partial-success'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId 'Valid.Package' -Version '2.0.0' -Framework 'net8.0' | Out-Null
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-a.nupkg') -Id 'Duplicate.Package' -Version '1.0.0' -EntryNames @(
+            'lib/net8.0/a.dll'
+        )
+        New-TestNupkg -Path (Join-Path $packageDirectory 'duplicate-b.nupkg') -Id 'Duplicate.Package' -Version '1.0.0' -EntryNames @(
+            'lib/net8.0/b.dll'
+        )
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory 'Valid.Package.net8.0.txt'), [byte[]]@())
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory 'Duplicate.Package.net8.0.txt'), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when invalid packages are present'
+        Assert-Contains "Duplicate package identity 'Duplicate.Package/1.0.0'" $result.Output 'Duplicate package error mismatch for mixed package set'
+        $validReportDirectory = Join-Path (Join-Path $reportDirectory 'Valid.Package') 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $validReportDirectory 'BinaryCompatReport.txt')) 'Valid package report should still be produced'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $validReportDirectory 'Comparison.txt')) 'Valid package comparison should still be produced'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $validReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'Valid package assemblies report should still be produced'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after mixed-package failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after mixed-package failure'
+    }
+
+    Invoke-TestCase 'validator fails when checker omits the assemblies report' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-missing-assemblies'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Missing.Assemblies.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -CreateAssembliesFile $false | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.net8.0.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when the checker omits BinaryCompatReport.Assemblies.txt'
+        Assert-Contains 'BinaryCompatReport.Assemblies.txt' $result.Output 'Assemblies report failure mismatch'
+        $reportPath = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $reportPath 'BinaryCompatReport.txt')) 'BinaryCompatReport.txt should still be retained on checker artifact failure'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $reportPath 'Comparison.txt')) 'Comparison.txt should still be retained on checker artifact failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $reportPath 'BinaryCompatReport.Assemblies.txt')) 'Missing assemblies report should remain missing for diagnosis'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after assemblies report failure'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after assemblies report failure'
+    }
+
+    Invoke-TestCase 'validator reports missing baselines without adding synthetic drift failures' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-missing-baseline'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'Missing.Baseline.Package'
+        $version = '1.2.3'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -ReportContent 'warning: new report content' | Out-Null
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
+
+        Assert-Equal 1 $result.ExitCode 'Validator should fail when a baseline is missing'
+        Assert-Contains "Missing baseline '$packageId.net8.0.txt'." $result.Output 'Missing baseline error mismatch'
+        Assert-DoesNotContain 'Binary closure baseline drift detected' $result.Output 'Synthetic empty baselines should not add a second drift failure'
+        $missingBaselineReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'BinaryCompatReport.txt')) 'Missing baseline run should still retain BinaryCompatReport.txt'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'Comparison.txt')) 'Missing baseline run should still retain Comparison.txt'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $missingBaselineReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'Missing baseline run should still retain BinaryCompatReport.Assemblies.txt'
     }
 
     Invoke-TestCase 'package metadata discovery filters frameworks and safe id' {
