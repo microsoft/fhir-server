@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         }
 
         [Fact]
-        public void GivenMediationModule_WhenLoaded_ThenListSearchAuthorizationRunsBeforeListResolution()
+        public void GivenMediationModule_WhenLoaded_ThenListSearchPipeBehaviorIsNotRegistered()
         {
             var services = new ServiceCollection();
 
@@ -81,17 +81,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             var listSearchBehaviors = services
                 .Where(service => service.ServiceType == typeof(IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>))
                 .Select(service => service.ImplementationType)
-                .Where(type => type == typeof(ListSearchAuthorizationPipeBehavior) ||
-                               type == typeof(ListSearchPipeBehavior))
+                .Where(type => type == typeof(ListSearchPipeBehavior))
                 .ToArray();
 
-            Assert.Equal(
-                new[]
-                {
-                    typeof(ListSearchAuthorizationPipeBehavior),
-                    typeof(ListSearchPipeBehavior),
-                },
-                listSearchBehaviors);
+            Assert.Empty(listSearchBehaviors);
         }
 
         [Theory]

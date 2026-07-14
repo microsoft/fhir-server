@@ -141,7 +141,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ServerProvideProfileValidationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateRequestPreProcessorTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchAuthorizationPipeBehaviorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchBehaviorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchAddTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchBuilderTests.cs" />
