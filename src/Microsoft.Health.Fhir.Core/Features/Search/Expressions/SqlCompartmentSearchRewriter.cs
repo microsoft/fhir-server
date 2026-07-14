@@ -24,10 +24,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         private const string ClinicalPatientSearchParameterUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
 
+        // Compartment-definition search parameters whose FHIRPath expression filters a polymorphic reference with
+        // resolve() (e.g. "Encounter.participant.individual.where(resolve() is Practitioner)"). resolve() cannot be
+        // evaluated during indexing, so these parameters are never materialized as ReferenceSearchParam rows and a
+        // membership predicate keyed on them matches nothing. Each entry maps the unmaterialized parameter URL to
+        // the codes of materialized parameters that index the SAME elements; the equivalent is validated at
+        // resolution time (reference type, supported, targets the compartment type) and the membership predicate
+        // additionally constrains the reference to the compartment root's type and id, so an equivalent that
+        // indexes a broader element set cannot widen membership beyond the formal definition.
+        // Known gap: EpisodeOfCare-care-manager (Practitioner compartment) is resolve()-based and has NO
+        // materialized equivalent, so EpisodeOfCare membership in the Practitioner compartment cannot be
+        // enumerated until the parameter is indexable; the formal parameter is retained (matches nothing).
         private static readonly Dictionary<string, IReadOnlyCollection<string>> MaterializedEquivalentSearchParameterCodes =
             new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
             {
+                // Patient compartment.
                 [ClinicalPatientSearchParameterUrl] = new[] { "patient", "subject" },
+                ["http://hl7.org/fhir/SearchParameter/AuditEvent-patient"] = new[] { "agent", "entity" },
+                ["http://hl7.org/fhir/SearchParameter/Basic-patient"] = new[] { "subject" },
+                ["http://hl7.org/fhir/SearchParameter/Invoice-patient"] = new[] { "subject" },
+                ["http://hl7.org/fhir/SearchParameter/MeasureReport-patient"] = new[] { "subject" },
+                ["http://hl7.org/fhir/SearchParameter/Person-patient"] = new[] { "link" },
+                ["http://hl7.org/fhir/SearchParameter/Provenance-patient"] = new[] { "target" },
+
+                // Practitioner compartment.
+                ["http://hl7.org/fhir/SearchParameter/Encounter-practitioner"] = new[] { "participant" },
+                ["http://hl7.org/fhir/SearchParameter/Person-practitioner"] = new[] { "link" },
             };
 
         public SqlCompartmentSearchRewriter(

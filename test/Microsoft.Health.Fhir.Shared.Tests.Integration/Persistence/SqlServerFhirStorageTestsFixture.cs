@@ -103,7 +103,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
-            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
+            // SupportsIncludes matches the production SQL configuration and enables the $includes continuation
+            // path (IncludesContinuationToken); without it, include-paging tests can never receive a token.
+            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration { SupportsIncludes = true });
         }
 
         public string TestConnectionString { get; private set; }

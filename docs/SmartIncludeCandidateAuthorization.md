@@ -176,16 +176,37 @@ tree for the request's `SmartCompartmentSearchExpression`. It then:
 6. Sorts resource types and parameter URLs before creating immutable arrays, so
    generated SQL remains deterministic.
 
-The current explicit equivalent mapping is:
+The current explicit equivalent mapping covers every compartment-definition
+parameter whose FHIRPath expression filters a polymorphic reference with
+`resolve()` (such parameters are never materialized as `ReferenceSearchParam`
+rows, because `resolve()` cannot be evaluated during indexing):
 
 ```text
-clinical-patient -> patient, subject
+# Patient compartment
+clinical-patient      -> patient, subject
+AuditEvent-patient    -> agent, entity
+Basic-patient         -> subject
+Invoice-patient       -> subject
+MeasureReport-patient -> subject
+Person-patient        -> link
+Provenance-patient    -> target
+
+# Practitioner compartment (SMART user launch)
+Encounter-practitioner -> participant
+Person-practitioner    -> link
 ```
 
 Each candidate equivalent must exist for that resource type, be a supported
 reference parameter, and be capable of targeting the compartment root type. If
 no equivalent exists and the formal parameter itself is materialized, the
 formal parameter is retained.
+
+Known gap: `EpisodeOfCare-care-manager` (Practitioner compartment) is
+`resolve()`-based and has **no** materialized equivalent — `EpisodeOfCare` has
+no other reference parameter over `careManager`. The formal parameter is
+retained so the resource type still yields a rule, but it matches nothing until
+the parameter becomes indexable. This mirrors the pre-existing behavior of the
+primary compartment search and is not a regression.
 
 This is deliberately narrower than looking for every parameter that can target
 Patient. For example, `Observation.focus` targets Patient but is not nominated

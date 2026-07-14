@@ -362,6 +362,77 @@
                 "method": "PUT",
                 "url": "DiagnosticReport/smart-leak-parent-report"
             }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
+                "id": "smart-leak-child-report",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-child"
+                },
+                "result": [
+                    {
+                        "reference": "Observation/smart-leak-child-obs-with-outside-focus"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "DiagnosticReport/smart-leak-child-report"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-pract-obs",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-parent"
+                },
+                "performer": [
+                    {
+                        "reference": "Practitioner/smart-practitioner-A"
+                    }
+                ],
+                "effectiveDateTime": "2021-08-01"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-pract-obs"
+            }
         }
     ]
 }
