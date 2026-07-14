@@ -91,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // Collect allowed parameter names (case-insensitive)
                     var allowedParams = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                     {
-                        KnownQueryParameterNames.LastUpdated,
                         KnownQueryParameterNames.MaxCount,
                     };
 
@@ -174,9 +173,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     SearchResult searchResult;
 
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
-
-                    var createDate = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
-                    searchParams.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"));
 
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
                     if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))

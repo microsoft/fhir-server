@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Smart
 {
@@ -37,10 +39,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
+        // Note: search parameter names include ':' and '.' so the full key is captured for chained params
+        // (e.g., subject.name), type/reverse-chaining (e.g., subject:Patient, _has:Observation:patient:code)
+        // and detection of FHIR search modifiers (e.g., category:in, code:text, category:not).
         private static readonly Regex ClinicalScopeRegEx = new Regex(
-            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-]+=[^&\s]+)(?>&[a-zA-Z0-9_\-]+=[^&\s]+)*))?",
+            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:.]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:.]+=[^&\s]+)*))?",
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(100));
+
+        // FHIR search modifiers built from the SearchModifierCode enum: https://hl7.org/fhir/R4/codesystem-search-modifier-code.html
+        // The "iterate" (R4) and "recurse" (STU3) literals are the _include/_revinclude modifiers, which are not part of
+        // the SearchModifierCode value set, so they are added explicitly to ensure scopes like "_include:iterate=..." are rejected.
+        private static readonly HashSet<string> KnownSearchModifiers = new HashSet<string>(
+            Enum.GetValues<SearchModifierCode>()
+                .Select(m => m.GetLiteral())
+                .Concat(new[] { "iterate", "recurse" }),
+            StringComparer.OrdinalIgnoreCase);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -111,6 +125,49 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             return permissions;
         }
 
+        // Returns true when the search parameter key represents a chained search, which is not supported in SMART
+        // on FHIR clinical scopes. Forward chaining uses a '.' in the key (e.g., "subject.name",
+        // "subject:Patient.name"); reverse chaining uses the "_has" prefix (e.g., "_has:Observation:patient:code").
+        private static bool IsChainedSearchParameter(string paramKey)
+        {
+            return paramKey.Contains('.', StringComparison.Ordinal)
+                   || paramKey.StartsWith("_has:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Returns true when the search parameter key uses a FHIR search modifier (e.g., :not, :exact, :missing),
+        // which is not supported in SMART on FHIR clinical scopes. Only tokens in modifier position (after a ':')
+        // are evaluated; the base parameter name (before the first ':') is excluded because it may legitimately
+        // equal a modifier literal (e.g., "identifier" or "type" are valid search parameter names). Reference type
+        // targets (e.g., "subject:Patient") simply do not match any modifier literal, so they pass through. Chained
+        // keys (containing '.') are rejected earlier by IsChainedSearchParameter and never reach this method.
+        private static bool ContainsSearchModifier(string paramKey)
+        {
+            var colonSeparatedTokens = paramKey.Split(':');
+
+            // Skip index 0 (the base parameter name); every later token is in modifier position.
+            for (int i = 1; i < colonSeparatedTokens.Length; i++)
+            {
+                if (KnownSearchModifiers.Contains(colonSeparatedTokens[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Returns true when the search parameter key is a result parameter that pulls in additional resources
+        // (_include / _revinclude). These are not enforceable as SMART on FHIR clinical scope constraints and can
+        // broaden the response to include resource types the scope does not otherwise grant, so they are rejected.
+        // The base name (before any ':') is compared so both the plain form ("_include") and the modifier form
+        // ("_include:iterate") are covered; the modifier form is also caught earlier by ContainsSearchModifier.
+        private static bool IsIncludeParameter(string paramKey)
+        {
+            var baseName = paramKey.Split(':')[0];
+            return baseName.Equals("_include", StringComparison.OrdinalIgnoreCase)
+                   || baseName.Equals("_revinclude", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task Invoke(
             HttpContext context,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -176,10 +233,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     // Decode URL-encoded forward slashes (%2f) to support Azure Entra ID scopes
                     // Azure Entra ID doesn't allow '/' in scopes, so users encode them as '%2f'
-                    // We decode them here before processing with the regex
-                    scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+                    // We decode them here before processing with the regex. Uri.UnescapeDataString is lenient
+                    // on malformed percent-encoding (it leaves invalid sequences as-is), but guard defensively
+                    // so any decode failure surfaces as a BadRequest rather than an unhandled 500.
+                    try
+                    {
+                        scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+                    }
+                    catch (Exception ex) when (ex is UriFormatException || ex is FormatException || ex is ArgumentException)
+                    {
+                        throw new BadHttpRequestException(string.Format(
+                            Api.Resources.SmartScopeInvalidSearchParameters,
+                            scopeClaims));
+                    }
 
-                    var matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    MatchCollection matches;
+                    try
+                    {
+                        matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        throw new BadHttpRequestException(string.Format(
+                            Api.Resources.SmartScopeInvalidSearchParameters,
+                            scopeClaims));
+                    }
+
                     bool smartV1AccessLevelUsed = false;
                     bool smartV2AccessLevelUsed = false;
                     foreach (Match match in matches)
@@ -188,6 +267,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         if (string.IsNullOrEmpty(accessLevel))
                         {
                             continue;
+                        }
+
+                        // The regex finds clinical-scope substrings rather than matching whole tokens, so a
+                        // malformed scope whose token is only partially valid (e.g. "patient/Observation.read-only",
+                        // "patient/Observation.rs?active", "patient/Observation.rsXYZ") still produces a match for
+                        // the valid prefix. If the match is immediately followed by a non-whitespace character the
+                        // token was not fully consumed; reject it rather than silently enforcing the truncated
+                        // prefix, which would grant broader-than-intended access (fail-open).
+                        int matchEnd = match.Index + match.Length;
+                        if (matchEnd < scopeClaims.Length && !char.IsWhiteSpace(scopeClaims[matchEnd]))
+                        {
+                            throw new BadHttpRequestException(string.Format(
+                                Api.Resources.SmartScopeInvalidSearchParameters,
+                                scopeClaims));
                         }
 
                         // Detect v1 vs v2 based on the accessLevel value.
@@ -203,6 +296,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         else
                         {
                             smartV2AccessLevelUsed = true;
+
+                            // A v2 access level is a set of distinct permission letters from "cruds". The regex
+                            // ([cruds]+) also matches repeated letters (e.g. "rrrrrs"), which are malformed even
+                            // though they would idempotently OR the same DataActions flag. Reject duplicates so a
+                            // malformed access level is not silently accepted.
+                            if (accessLevel.Distinct().Count() != accessLevel.Length)
+                            {
+                                throw new BadHttpRequestException(string.Format(
+                                    Api.Resources.SmartScopeInvalidSearchParameters,
+                                    match.Value.Trim()));
+                            }
                         }
 
                         // If both types are detected, throw an error.
@@ -226,6 +330,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 resource = KnownResourceTypes.All;
                             }
 
+                            // Reject scopes that reference a resource type the running FHIR version does not
+                            // recognize (e.g. a typo like "Observaton"). Without this, a malformed type is
+                            // silently stored as a ScopeRestriction that matches nothing, masking client
+                            // misconfiguration. The "all" wildcard is not a concrete resource type, so it is
+                            // excluded from the check.
+                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase)
+                                && !ModelInfoProvider.IsKnownResource(resource))
+                            {
+                                throw new BadHttpRequestException(string.Format(
+                                    Api.Resources.SmartScopeUnknownResourceType,
+                                    match.Value.Trim(),
+                                    resource));
+                            }
+
                             // If Finer-grained resource constraints using search parameters present
                             if (match.Groups["searchParams"].Success)
                             {
@@ -234,9 +352,61 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 var searchParamsPairs = searchParamsString.Split('&');
 
                                 // iterate through each key-value pair and add them to the SearchParams
-                                foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
+                                foreach (var kvPair in searchParamsPairs)
                                 {
-                                    smartScopeSearchParameters.Add(parts[0], parts[1]);
+                                    // Split on the first '=' only. A well-formed constraint is a single
+                                    // "key=value" pair; anything with a missing '=' or an extra '=' (e.g.
+                                    // "code:exact=a=b" or "identifier=x?mrn=12345") is malformed and must be
+                                    // rejected rather than silently dropped, which would broaden the granted
+                                    // access (fail-open).
+                                    var parts = kvPair.Split('=', 2);
+                                    var paramKey = parts[0];
+                                    var paramValue = parts.Length == 2 ? parts[1] : string.Empty;
+
+                                    // Chained search parameters are not enforceable as SMART clinical scope
+                                    // constraints, so reject them rather than silently dropping the constraint.
+                                    // Forward chaining uses a '.' in the key (e.g., "subject.name",
+                                    // "subject:Patient.name"); reverse chaining uses the "_has" prefix
+                                    // (e.g., "_has:Observation:patient:code").
+                                    if (IsChainedSearchParameter(paramKey))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterChainedSearchNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Detect FHIR search modifiers anywhere in the parameter key (e.g.
+                                    // "name:exact", "category:not", "value-quantity:ofType").
+                                    if (ContainsSearchModifier(paramKey))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Result parameters that pull in additional resources (_include/_revinclude)
+                                    // are not enforceable as scope constraints and can broaden the response to
+                                    // resource types the scope does not grant, so reject them.
+                                    if (IsIncludeParameter(paramKey))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeSearchParameterIncludesNotSupported,
+                                            match.Value.Trim(),
+                                            $"{paramKey}={paramValue}"));
+                                    }
+
+                                    // Reject malformed key-value pairs (a missing '=' or a value that still
+                                    // contains '=') instead of silently dropping the constraint (fail-open).
+                                    if (parts.Length != 2 || paramValue.Contains('=', StringComparison.Ordinal))
+                                    {
+                                        throw new BadHttpRequestException(string.Format(
+                                            Api.Resources.SmartScopeInvalidSearchParameters,
+                                            match.Value.Trim()));
+                                    }
+
+                                    smartScopeSearchParameters.Add(paramKey, paramValue);
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)

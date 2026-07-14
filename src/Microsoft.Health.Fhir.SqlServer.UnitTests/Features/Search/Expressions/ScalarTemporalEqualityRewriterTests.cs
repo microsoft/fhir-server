@@ -164,6 +164,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertEndOnlyPredicate(result.Expression, EndOfDay);
         }
 
+        [Fact]
+        public void GivenAllowListedBirthdateExactDayInsideUnionExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicateWithoutNestedUnion()
+        {
+            // Day-precision collapses to a single end-only predicate (no UNION), so an eligible birthdate
+            // equality nested inside a UnionExpression (e.g. the SMART v2 scope union built in
+            // SearchOptionsFactory) is rewritten in place. The outer union is preserved and no invalid
+            // nested UnionExpression is produced.
+            var inner = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
+            var union = Expression.Union(UnionOperator.All, new Expression[] { inner });
+
+            var result = Assert.IsType<UnionExpression>(union.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.DoesNotContain(result.Expressions, e => e is UnionExpression);
+            var rewritten = Assert.Single(result.Expressions);
+            AssertEndOnlyPredicate(rewritten, EndOfDay);
+        }
+
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
         public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
