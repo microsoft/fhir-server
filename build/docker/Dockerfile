@@ -81,7 +81,7 @@ COPY . .
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net10.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.9-azurelinux3.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10-azurelinux3.0 AS runtime
 
 ARG FHIR_VERSION
 
