@@ -6,37 +6,43 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
 {
-    public class ImportResourceParser : IImportResourceParser
+    /// <summary>
+    /// Firely SDK based implementation of <see cref="IImportResourceParser"/> that parses raw NDJSON
+    /// resource content into <see cref="ImportResource"/> instances for the $import operation.
+    /// </summary>
+    public class FirelyImportResourceParser : IImportResourceParser
     {
-        private static readonly Regex ResourceIdValidationRegex = new Regex(
-            "^[A-Za-z0-9\\-\\.]{1,64}$",
-            RegexOptions.Compiled);
-
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FirelyImportResourceParser"/> class.
+        /// </summary>
+        /// <param name="parser">The Firely JSON parser used to deserialize raw resource content.</param>
+        /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
+        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
         }
 
+        /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            ValidateResourceId(resource?.Id);
+            ImportResourceIdValidator.Validate(resource?.Id);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
@@ -92,14 +98,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
-            }
-        }
-
-        private static void ValidateResourceId(string resourceId)
-        {
-            if (string.IsNullOrWhiteSpace(resourceId) || !ResourceIdValidationRegex.IsMatch(resourceId))
-            {
-                throw new BadRequestException($"Invalid resource id: '{resourceId ?? "null or empty"}'. " + Core.Resources.IdRequirements);
             }
         }
     }
