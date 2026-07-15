@@ -1,1 +1,0 @@
-Facade assembly: Microsoft.Bcl.AsyncInterfaces.dll
