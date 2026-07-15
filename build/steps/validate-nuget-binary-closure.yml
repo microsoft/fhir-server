@@ -85,12 +85,20 @@ steps:
           throw 'Unable to resolve the pwsh application path.'
       }
 
+      $requiredPackageIds = @(
+        'Microsoft.Health.Fhir.Stu3.Web'
+        'Microsoft.Health.Fhir.R4.Web'
+        'Microsoft.Health.Fhir.R4B.Web'
+        'Microsoft.Health.Fhir.R5.Web'
+      )
+
       & $pwshPath -NoLogo -NoProfile -File $validatorScriptPath `
         -PackageDirectory '${{ parameters.packageDirectory }}' `
         -BaselineDirectory '${{ parameters.baselineDirectory }}' `
         -ReportDirectory $reportDirectory `
         -WorkDirectory $validationWorkDirectory `
         -NuGetConfigPath '${{ parameters.nuGetConfigPath }}' `
+        -RequiredPackageIds $requiredPackageIds `
         -CheckBinaryCompatPath $checkBinaryCompatPath
 
       $validatorExitCode = $LASTEXITCODE
