@@ -140,7 +140,9 @@ function Invoke-ValidatorScript {
 
         [string]$CheckBinaryCompatPath = [System.Diagnostics.Process]::GetCurrentProcess().Path,
 
-        [string[]]$SupportedFrameworks = @('net8.0', 'net9.0')
+        [string[]]$SupportedFrameworks = @('net8.0', 'net9.0'),
+
+        [string[]]$RequiredPackageIds = @()
     )
 
     $pwshPath = Get-PowerShellApplicationPath
@@ -162,6 +164,11 @@ function Invoke-ValidatorScript {
         $CheckBinaryCompatPath
         '-SupportedFrameworks'
     ) + $SupportedFrameworks
+
+    if ($RequiredPackageIds.Count -gt 0) {
+        $arguments += '-RequiredPackageIds'
+        $arguments += $RequiredPackageIds
+    }
 
     $output = & $pwshPath @arguments 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
@@ -651,6 +658,44 @@ try {
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'consumer')) 'Consumer directory should be cleaned after success'
         Assert-Equal $false (Test-Path -LiteralPath (Join-Path $workDirectory 'package-cache')) 'Package cache directory should be cleaned after success'
+    }
+
+    Invoke-TestCase 'validator processes only required deployment roots' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-required-roots'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory (Join-Path $rootDirectory 'selected') -PackageDirectory $packageDirectory -PackageId 'Selected.Web' -Version '1.0.0' -Framework 'net8.0' | Out-Null
+        New-TestPackagedProject -RootDirectory (Join-Path $rootDirectory 'utility') -PackageDirectory $packageDirectory -PackageId 'Ignored.Utility' -Version '1.0.0' -Framework 'net8.0' | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory 'Selected.Web.net8.0.txt'), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0') -RequiredPackageIds @('Selected.Web')
+
+        Assert-Equal 0 $result.ExitCode 'Selected deployment root should validate successfully'
+        Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Selected closure summary mismatch'
+        Assert-Equal $true (Test-Path -LiteralPath (Join-Path $reportDirectory 'Selected.Web/net8.0/BinaryCompatReport.txt')) 'Selected root report missing'
+        Assert-Equal $false (Test-Path -LiteralPath (Join-Path $reportDirectory 'Ignored.Utility')) 'Ignored utility should not produce reports'
+    }
+
+    Invoke-TestCase 'validator fails when a required deployment root is missing' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-missing-root'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory (Join-Path $rootDirectory 'utility') -PackageDirectory $packageDirectory -PackageId 'Available.Utility' -Version '1.0.0' -Framework 'net8.0' | Out-Null
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -SupportedFrameworks @('net8.0') -RequiredPackageIds @('Missing.Web')
+
+        Assert-Equal 1 $result.ExitCode 'Missing deployment root should fail validation'
+        Assert-Contains "Required package 'Missing.Web' was not found." $result.Output 'Missing root error mismatch'
     }
 
     Invoke-TestCase 'validator preserves empty reports when checker succeeds without writing them' {
