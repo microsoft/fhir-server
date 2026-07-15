@@ -579,7 +579,7 @@ try {
                     $binaryCompatReportPath = Join-Path $packageReportDirectory 'BinaryCompatReport.txt'
                     $assembliesReportPath = Join-Path $packageReportDirectory 'BinaryCompatReport.Assemblies.txt'
                     $comparisonPath = Join-Path $packageReportDirectory 'Comparison.txt'
-                    $checkerInputPath = [System.IO.Path]::GetRelativePath($packageReportDirectory, $publishDirectory)
+                    $publishAssembliesReportPath = Join-Path $publishDirectory 'BinaryCompatReport.Assemblies.txt'
 
                     New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
                     New-Item -ItemType Directory -Path $packageReportDirectory -Force | Out-Null
@@ -604,8 +604,16 @@ try {
                         }
 
                         [System.IO.File]::WriteAllText($binaryCompatReportPath, [string]::Empty, [System.Text.UTF8Encoding]::new($false))
+                        if (Test-Path -LiteralPath $publishAssembliesReportPath -PathType Leaf) {
+                            Remove-Item -LiteralPath $publishAssembliesReportPath -Force
+                        }
+
+                        if (Test-Path -LiteralPath $assembliesReportPath -PathType Leaf) {
+                            Remove-Item -LiteralPath $assembliesReportPath -Force
+                        }
+
                         $comparisonResult = Invoke-ExternalCommand -FilePath $resolvedCheckBinaryCompatPath -ArgumentList @(
-                            $checkerInputPath
+                            '.'
                             '-s'
                             '-l'
                             '-ignoreFrameworkAssemblies'
@@ -613,9 +621,14 @@ try {
                             "-out:$binaryCompatReportPath"
                             '-outputNewWarnings'
                             '-outputSummary'
-                        ) -WorkingDirectory $packageReportDirectory
+                        ) -WorkingDirectory $publishDirectory
 
                         Set-Content -LiteralPath $comparisonPath -Value $comparisonResult.Output -Encoding utf8
+
+                        if (Test-Path -LiteralPath $publishAssembliesReportPath -PathType Leaf) {
+                            Copy-Item -LiteralPath $publishAssembliesReportPath -Destination $assembliesReportPath -Force
+                            Remove-Item -LiteralPath $publishAssembliesReportPath -Force
+                        }
 
                         $hasAssembliesReport = Test-Path -LiteralPath $assembliesReportPath -PathType Leaf
                         $baselineRawContent = [System.IO.File]::ReadAllText($baselinePath)
