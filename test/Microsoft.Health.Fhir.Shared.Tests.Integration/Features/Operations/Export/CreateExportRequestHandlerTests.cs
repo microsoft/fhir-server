@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
 
             _createExportRequestHandler = new CreateExportRequestHandler(
                 _claimsExtractor,
@@ -93,6 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 optionsExportConfig,
                 _requestContextAccessor,
                 _searchOptionsFactory,
+                _exportSmartScopeValidator,
                 Substitute.For<ILogger<CreateExportRequestHandler>>(),
                 true);
         }

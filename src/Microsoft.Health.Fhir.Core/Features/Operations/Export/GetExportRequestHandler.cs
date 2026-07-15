@@ -14,6 +14,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -24,14 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
 
-        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
+        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _exportSmartScopeValidator = exportSmartScopeValidator;
         }
 
         public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
@@ -41,6 +45,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
 
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
+
+            // Apply SMART fine-grained scope authorization for the specific export job's resource types.
+            try
+            {
+                _exportSmartScopeValidator.ValidateJobAccess(outcome.JobRecord);
+            }
+            catch (UnauthorizedFhirActionException)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+            }
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

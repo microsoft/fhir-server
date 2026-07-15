@@ -155,8 +155,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
-                typeParameter: ResourceType.Patient.ToString(),
+                typeParameter: ResourceType.Observation.ToString(),
                 idParameter: "id"));
+        }
+
+        [Fact]
+        public async Task GivenPatientInstanceExport_WhenRequested_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            ConfigureControllerForSuccessfulExport(_exportEnabledController);
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() =>
+                _exportEnabledController.ExportResourceTypeById(
+                   typeFilter: null,
+                   since: null,
+                   till: null,
+                   resourceType: KnownResourceTypes.Patient,
+                   containerName: null,
+                   formatName: null,
+                   maxCount: 0,
+                   anonymizationConfigCollectionReference: null,
+                   anonymizationConfigLocation: null,
+                   anonymizationConfigFileETag: null,
+                   typeParameter: ResourceType.Patient.ToString(),
+                   idParameter: "123"));
         }
 
         [Fact]

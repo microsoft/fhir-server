@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -181,6 +182,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+
+            services.Add<ExportSmartScopeValidator>().Transient().AsSelf().AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

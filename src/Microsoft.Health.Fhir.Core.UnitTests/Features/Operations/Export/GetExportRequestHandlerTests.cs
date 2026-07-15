@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private const string JobId = "jobId";
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -48,7 +50,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             collection
                 .Add(sp => new GetExportRequestHandler(
                     _fhirOperationDataStore,
-                    DisabledFhirAuthorizationService.Instance))
+                    DisabledFhirAuthorizationService.Instance,
+                    _exportSmartScopeValidator))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -70,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var handler = new GetExportRequestHandler(
                 _fhirOperationDataStore,
-                authorizationService);
+                authorizationService,
+                _exportSmartScopeValidator);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
                 handler.Handle(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
@@ -347,6 +351,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(response.JobResult);
             Assert.Single(response.JobResult.Output);
             Assert.Single(response.JobResult.Error);
+        }
+
+        /// <summary>
+        /// Verifies that the SMART export scope validator is invoked with the fetched job record
+        /// and that a denial from the validator propagates to the caller.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingCompletedExportJob_ThenSmartScopeValidatorIsInvoked()
+        {
+            var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
+            var outcome = CreateExportJobOutcome(jobRecord);
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+
+            await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+
+            _exportSmartScopeValidator.Received(1).ValidateJobAccess(jobRecord);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesExportAccess_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
+            var outcome = CreateExportJobOutcome(jobRecord);
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+            _exportSmartScopeValidator
+                .When(x => x.ValidateJobAccess(Arg.Any<ExportJobRecord>()))
+                .Do(_ => throw new UnauthorizedFhirActionException());
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() =>
+                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         private ExportJobRecord CreateExportJobRecord(OperationStatus operationStatus)

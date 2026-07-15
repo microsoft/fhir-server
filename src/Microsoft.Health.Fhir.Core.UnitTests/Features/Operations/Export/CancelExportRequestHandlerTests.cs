@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private const string JobId = "jobId";
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly IExportSmartScopeValidator _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -49,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Add(sp => new CancelExportRequestHandler(
                     _fhirOperationDataStore,
                     DisabledFhirAuthorizationService.Instance,
+                    _exportSmartScopeValidator,
                     _retryCount,
                     _sleepDurationProvider,
                     NullLogger<CancelExportRequestHandler>.Instance))
@@ -74,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var handler = new CancelExportRequestHandler(
                 _fhirOperationDataStore,
                 authorizationService,
+                _exportSmartScopeValidator,
                 _retryCount,
                 _sleepDurationProvider,
                 NullLogger<CancelExportRequestHandler>.Instance);
@@ -302,6 +306,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // No further retries should occur because JobNotFoundException is not in the retry policy.
             await _fhirOperationDataStore.Received(2).GetExportJobByIdAsync(JobId, _cancellationToken);
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), weakETag, Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        /// <summary>
+        /// Verifies that cancelling an export invokes the SMART export job validator
+        /// and that a denial from the validator propagates without mutating the job.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenCancelingExportJob_ThenSmartExportJobValidatorIsInvoked()
+        {
+            SetupExportJob(OperationStatus.Running);
+
+            await _mediator.CancelExportAsync(JobId, _cancellationToken);
+
+            _exportSmartScopeValidator.Received(1).ValidateJobAccess(Arg.Any<ExportJobRecord>());
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesCancelAccess_ThenJobNotFoundExceptionShouldBeThrownAndJobNotUpdated()
+        {
+            SetupExportJob(OperationStatus.Running);
+            _exportSmartScopeValidator
+                .When(x => x.ValidateJobAccess(Arg.Any<ExportJobRecord>()))
+                .Do(_ => throw new UnauthorizedFhirActionException());
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
+
+            await _fhirOperationDataStore.DidNotReceive().UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
         private ExportJobOutcome SetupExportJob(OperationStatus operationStatus, WeakETag weakETag = null)
