@@ -359,6 +359,130 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.DoesNotContain("soft-deleted", ignixa.ResourceWrapper.RawResource.Data, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void GivenSoftDeleteExtensionWithNonCanonicalValue_WhenParsed_ThenBothProvidersLeaveExtensionInPlace()
+        {
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[{
+                      "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                      "valueString":"other"
+                    }]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.False(firely.IsDeleted);
+            Assert.False(ignixa.IsDeleted);
+            Assert.Contains(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                firely.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+            Assert.Contains(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSoftDeleteExtensionWithMissingValue_WhenParsed_ThenBothProvidersLeaveExtensionInPlace()
+        {
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[{
+                      "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}"
+                    }]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.False(firely.IsDeleted);
+            Assert.False(ignixa.IsDeleted);
+            Assert.Contains(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                firely.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+            Assert.Contains(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSoftDeleteExtensionUrlCasingDiffers_WhenParsed_ThenBothProvidersLeaveExtensionInPlace()
+        {
+            string differentCaseUrl = KnownFhirPaths.AzureSoftDeletedExtensionUrl.ToUpperInvariant();
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[{
+                      "url":"{{differentCaseUrl}}",
+                      "valueString":"soft-deleted"
+                    }]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.False(firely.IsDeleted);
+            Assert.False(ignixa.IsDeleted);
+            Assert.Contains(differentCaseUrl, firely.ResourceWrapper.RawResource.Data, StringComparison.Ordinal);
+            Assert.Contains(differentCaseUrl, ignixa.ResourceWrapper.RawResource.Data, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenMultipleSoftDeleteExtensionsWhereOneIsCanonical_WhenParsed_ThenBothProvidersRemoveAllMatchingUrlExtensions()
+        {
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[
+                      {
+                        "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                        "valueString":"other"
+                      },
+                      {
+                        "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                        "valueString":"soft-deleted"
+                      }
+                    ]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.True(firely.IsDeleted);
+            Assert.True(ignixa.IsDeleted);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                firely.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData("{")]
         [InlineData("""{"resourceType":"NoSuchResource","id":"x"}""")]

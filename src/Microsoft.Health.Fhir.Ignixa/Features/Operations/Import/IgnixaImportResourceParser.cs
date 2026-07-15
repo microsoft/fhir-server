@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EnsureThat;
@@ -132,11 +133,23 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         }
 
         /// <summary>
-        /// Removes every meta extension whose URL matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>
-        /// (case-insensitively) from the raw JSON graph, removing the now-empty extension array if applicable.
+        /// Detects the Azure soft-deleted meta extension and, if present, removes every extension whose URL
+        /// matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>, removing the now-empty extension
+        /// array if applicable.
         /// </summary>
+        /// <remarks>
+        /// Mirrors the Firely parser's <c>ResourceElement.IsSoftDeleted()</c> FHIRPath predicate
+        /// (<see cref="KnownFhirPaths.IsSoftDeletedExtension"/>), which requires an exact (case-sensitive)
+        /// URL match AND a <c>valueString</c> of exactly <c>"soft-deleted"</c> before the resource is
+        /// considered deleted. Extensions that only match the URL (wrong/missing value, or a
+        /// differently-cased URL) are left untouched, matching Firely's behavior of not removing extensions
+        /// unless the resource is actually determined to be soft-deleted. Once soft-deleted is confirmed,
+        /// every extension with the matching URL is removed (mirroring Firely's Meta.RemoveExtension, which
+        /// removes all matches by URL regardless of value), so duplicate/invalid-valued extensions sharing
+        /// the same URL are removed alongside the canonical one.
+        /// </remarks>
         /// <param name="root">The raw JSON graph for the resource.</param>
-        /// <returns><c>true</c> if a soft-deleted extension was found and removed; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if a canonical soft-deleted extension was found and removed; otherwise, <c>false</c>.</returns>
         private static bool RemoveSoftDeletedExtension(JsonNode root)
         {
             if (root?["meta"] is not JsonObject meta || meta["extension"] is not JsonArray extensions)
@@ -144,15 +157,25 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 return false;
             }
 
-            var isDeleted = false;
+            var isDeleted = extensions.Any(extension =>
+                extension is JsonObject extensionObject &&
+                extensionObject["url"]?.GetValue<string>() is string url &&
+                string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal) &&
+                extensionObject["valueString"]?.GetValue<string>() is string value &&
+                string.Equals(value, "soft-deleted", StringComparison.Ordinal));
+
+            if (!isDeleted)
+            {
+                return false;
+            }
+
             for (var i = extensions.Count - 1; i >= 0; i--)
             {
                 if (extensions[i] is JsonObject extension &&
                     extension["url"]?.GetValue<string>() is string url &&
-                    string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal))
                 {
                     extensions.RemoveAt(i);
-                    isDeleted = true;
                 }
             }
 
@@ -161,7 +184,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 meta.Remove("extension");
             }
 
-            return isDeleted;
+            return true;
         }
     }
 }
