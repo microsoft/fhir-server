@@ -599,6 +599,7 @@ Create a NuGet.org-only tool configuration and a Linux runner:
 $root = 'artifacts/binarycompat-scope-linux'
 $toolConfig = Join-Path $root 'NuGet.Tools.config'
 $runner = Join-Path $root 'run.sh'
+$validatorWrapper = Join-Path $root 'validate.ps1'
 
 @'
 <?xml version="1.0" encoding="utf-8"?>
@@ -610,6 +611,27 @@ $runner = Join-Path $root 'run.sh'
 </configuration>
 '@ | Set-Content -LiteralPath $toolConfig -Encoding utf8
 
+$validatorContent = @'
+& /repo/build/scripts/Validate-NuGetBinaryClosure.ps1 `
+  -PackageDirectory /repo/artifacts/binarycompat-scope-linux/nupkgs `
+  -BaselineDirectory /repo/build/binarycompat `
+  -ReportDirectory /repo/artifacts/binarycompat-scope-linux/reports `
+  -WorkDirectory /tmp/fhir-binarycompat-scope `
+  -NuGetConfigPath /repo/nuget.config `
+  -CheckBinaryCompatPath /tools/checkbinarycompat `
+  -RequiredPackageIds @(
+    'Microsoft.Health.Fhir.Stu3.Web'
+    'Microsoft.Health.Fhir.R4.Web'
+    'Microsoft.Health.Fhir.R4B.Web'
+    'Microsoft.Health.Fhir.R5.Web'
+  )
+exit $LASTEXITCODE
+'@
+[System.IO.File]::WriteAllText(
+    (Join-Path $PWD $validatorWrapper),
+    ($validatorContent -replace "`r`n?", "`n"),
+    [System.Text.UTF8Encoding]::new($false))
+
 $runnerContent = @'
 set -euo pipefail
 rm -rf /tools /tmp/fhir-binarycompat-scope /repo/artifacts/binarycompat-scope-linux/reports
@@ -617,18 +639,7 @@ dotnet tool install PowerShell --version 7.5.3 --tool-path /tools --configfile /
 dotnet tool install checkbinarycompat --version 1.0.45 --tool-path /tools --configfile /repo/artifacts/binarycompat-scope-linux/NuGet.Tools.config
 export PATH="/tools:$PATH"
 /tools/pwsh -NoLogo -NoProfile -File /repo/build/scripts/tests/NuGetBinaryClosure.Tests.ps1 -RealCheckBinaryCompatPath /tools/checkbinarycompat
-/tools/pwsh -NoLogo -NoProfile -File /repo/build/scripts/Validate-NuGetBinaryClosure.ps1 \
-  -PackageDirectory /repo/artifacts/binarycompat-scope-linux/nupkgs \
-  -BaselineDirectory /repo/build/binarycompat \
-  -ReportDirectory /repo/artifacts/binarycompat-scope-linux/reports \
-  -WorkDirectory /tmp/fhir-binarycompat-scope \
-  -NuGetConfigPath /repo/nuget.config \
-  -CheckBinaryCompatPath /tools/checkbinarycompat \
-  -RequiredPackageIds \
-    Microsoft.Health.Fhir.Stu3.Web \
-    Microsoft.Health.Fhir.R4.Web \
-    Microsoft.Health.Fhir.R4B.Web \
-    Microsoft.Health.Fhir.R5.Web
+/tools/pwsh -NoLogo -NoProfile -File /repo/artifacts/binarycompat-scope-linux/validate.ps1
 '@
 [System.IO.File]::WriteAllText(
     (Join-Path $PWD $runner),
