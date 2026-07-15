@@ -17,7 +17,7 @@
 - Create `build/scripts/tests/NuGetBinaryClosure.Tests.ps1`: dependency-free PowerShell test runner for deterministic helper behavior.
 - Create `build/steps/validate-nuget-binary-closure.yml`: pinned tool installation, validation invocation, and report publication.
 - Modify `build/jobs/package.yml`: invoke validation after `dotnet pack` and before any package artifact publication.
-- Create `build/binarycompat/*.txt`: 88 generated baselines, one for each of 44 packages and two target frameworks.
+- Create `build/binarycompat/*.txt`: 90 generated baselines, one for each of 45 packages and two target frameworks.
 
 ### Baseline inventory
 
@@ -54,6 +54,7 @@ Microsoft.Health.Fhir.R5.Tests.E2E
 Microsoft.Health.Fhir.R5.Web
 Microsoft.Health.Fhir.SchemaManager
 Microsoft.Health.Fhir.SchemaManager.Console
+Microsoft.Health.Fhir.SqlServer
 Microsoft.Health.Fhir.Store.Utils
 Microsoft.Health.Fhir.Stu3.Api
 Microsoft.Health.Fhir.Stu3.Client
@@ -1033,6 +1034,8 @@ git commit -m "Run binary closure checks during packaging" -m "Co-authored-by: C
 - Create: `build/binarycompat/Microsoft.Health.Fhir.SchemaManager.net9.0.txt`
 - Create: `build/binarycompat/Microsoft.Health.Fhir.SchemaManager.Console.net8.0.txt`
 - Create: `build/binarycompat/Microsoft.Health.Fhir.SchemaManager.Console.net9.0.txt`
+- Create: `build/binarycompat/Microsoft.Health.Fhir.SqlServer.net8.0.txt`
+- Create: `build/binarycompat/Microsoft.Health.Fhir.SqlServer.net9.0.txt`
 - Create: `build/binarycompat/Microsoft.Health.Fhir.Store.Utils.net8.0.txt`
 - Create: `build/binarycompat/Microsoft.Health.Fhir.Store.Utils.net9.0.txt`
 - Create: `build/binarycompat/Microsoft.Health.Fhir.Stu3.Api.net8.0.txt`
@@ -1080,7 +1083,7 @@ dotnet pack Microsoft.Health.Fhir.sln `
     -p:PackageVersion=0.0.0-binaryclosure
 ```
 
-Expected: build and pack succeed and exactly 44 `.nupkg` files are present.
+Expected: build and pack succeed and exactly 45 `.nupkg` files are present.
 
 - [ ] **Step 2: Install the pinned checker locally**
 
@@ -1120,7 +1123,7 @@ pwsh -NoLogo -NoProfile -File build/scripts/Validate-NuGetBinaryClosure.ps1 `
     -CheckBinaryCompatPath artifacts/binarycompat-bootstrap/tools/checkbinarycompat
 ```
 
-Expected: exit code 1 with 88 missing-baseline messages and 88 actual `BinaryCompatReport.txt` files.
+Expected: exit code 1 with 90 missing-baseline messages and 90 actual `BinaryCompatReport.txt` files.
 
 - [ ] **Step 4: Copy actual reports into the exact baseline inventory**
 
@@ -1144,12 +1147,12 @@ Get-ChildItem $reportRoot -Filter BinaryCompatReport.txt -Recurse |
     }
 
 $baselines = @(Get-ChildItem build/binarycompat -Filter '*.txt')
-if ($baselines.Count -ne 88) {
-    throw "Expected 88 baselines, found $($baselines.Count)."
+if ($baselines.Count -ne 90) {
+    throw "Expected 90 baselines, found $($baselines.Count)."
 }
 ```
 
-Expected: exactly 88 baseline files.
+Expected: exactly 90 baseline files.
 
 - [ ] **Step 5: Rerun validation against the checked-in baseline candidates**
 
@@ -1167,7 +1170,7 @@ pwsh -NoLogo -NoProfile -File build/scripts/Validate-NuGetBinaryClosure.ps1 `
     -CheckBinaryCompatPath artifacts/binarycompat-bootstrap/tools/checkbinarycompat
 ```
 
-Expected: `Validated 88 binary closures across 44 NuGet packages.` and exit code 0.
+Expected: `Validated 90 binary closures across 45 NuGet packages.` and exit code 0.
 
 - [ ] **Step 6: Commit the reviewed baseline**
 
@@ -1266,7 +1269,7 @@ pwsh -NoLogo -NoProfile -File build/scripts/Validate-NuGetBinaryClosure.ps1 `
 git diff --check
 ```
 
-Expected: helper tests pass, YAML parses, 88 closures validate, and `git diff --check` emits no output.
+Expected: helper tests pass, YAML parses, 90 closures validate, and `git diff --check` emits no output.
 
 - [ ] **Step 4: Review the final change set**
 
@@ -1278,7 +1281,7 @@ git --no-pager diff main...HEAD --stat
 git --no-pager diff main...HEAD -- build/jobs/package.yml build/steps/validate-nuget-binary-closure.yml
 ```
 
-Expected: only the design/plan, helper scripts/tests, validation template, packaging integration, and 88 baselines are present.
+Expected: only the design/plan, helper scripts/tests, validation template, packaging integration, and 90 baselines are present.
 
 - [ ] **Step 5: Commit any verification fixes**
 
