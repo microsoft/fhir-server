@@ -483,6 +483,78 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void GivenSoftDeleteExtensionUsesValueCode_WhenParsed_ThenBothProvidersRemoveExtensionAndMarkDeleted()
+        {
+            // The soft-deleted extension's value is polymorphic (value[x]). Firely's FHIRPath predicate compares
+            // whichever value[x] element is present against the string literal "soft-deleted", and FHIRPath string
+            // equality succeeds for any FHIR primitive that maps to the FHIRPath System.String type - which includes
+            // "code", not just "string". valueCode is the shape reported by an actual soft-delete producer.
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[{
+                      "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                      "valueCode":"soft-deleted"
+                    }]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.True(firely.IsDeleted);
+            Assert.True(ignixa.IsDeleted);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                firely.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenMultipleSoftDeleteExtensionsWhereCanonicalUsesValueCode_WhenParsed_ThenBothProvidersRemoveAllMatchingUrlExtensions()
+        {
+            string json = $$"""
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{
+                    "extension":[
+                      {
+                        "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                        "valueString":"other"
+                      },
+                      {
+                        "url":"{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}",
+                        "valueCode":"soft-deleted"
+                      }
+                    ]
+                  }
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.True(firely.IsDeleted);
+            Assert.True(ignixa.IsDeleted);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                firely.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData("{")]
         [InlineData("""{"resourceType":"NoSuchResource","id":"x"}""")]

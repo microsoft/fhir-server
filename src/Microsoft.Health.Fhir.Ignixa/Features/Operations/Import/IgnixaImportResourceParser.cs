@@ -30,6 +30,28 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         private readonly IgnixaSchemaContext _schemaContext;
 
         /// <summary>
+        /// The extension <c>value[x]</c> property names whose FHIR primitive type maps to the FHIRPath
+        /// <c>System.String</c> type, and therefore compares equal to a string literal (e.g. <c>"soft-deleted"</c>)
+        /// under FHIRPath's <c>=</c> operator. Confirmed empirically against the Firely SDK for STU3/R4/R4B/R5:
+        /// <c>string</c>, <c>code</c>, <c>id</c>, <c>markdown</c>, <c>uri</c>, <c>url</c>, <c>canonical</c>,
+        /// <c>oid</c>, and <c>uuid</c> all satisfy <c>value='soft-deleted'</c> when their content is exactly
+        /// <c>"soft-deleted"</c>; <c>boolean</c>, <c>integer</c>, <c>decimal</c>, <c>dateTime</c>, <c>instant</c>,
+        /// and <c>base64Binary</c> never do (base64Binary additionally fails to parse for non-base64 content).
+        /// </summary>
+        private static readonly string[] StringLikeSoftDeleteValuePropertyNames =
+        {
+            "valueString",
+            "valueCode",
+            "valueId",
+            "valueMarkdown",
+            "valueUri",
+            "valueUrl",
+            "valueCanonical",
+            "valueOid",
+            "valueUuid",
+        };
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
         /// </summary>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
@@ -139,14 +161,18 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// </summary>
         /// <remarks>
         /// Mirrors the Firely parser's <c>ResourceElement.IsSoftDeleted()</c> FHIRPath predicate
-        /// (<see cref="KnownFhirPaths.IsSoftDeletedExtension"/>), which requires an exact (case-sensitive)
-        /// URL match AND a <c>valueString</c> of exactly <c>"soft-deleted"</c> before the resource is
-        /// considered deleted. Extensions that only match the URL (wrong/missing value, or a
-        /// differently-cased URL) are left untouched, matching Firely's behavior of not removing extensions
-        /// unless the resource is actually determined to be soft-deleted. Once soft-deleted is confirmed,
-        /// every extension with the matching URL is removed (mirroring Firely's Meta.RemoveExtension, which
-        /// removes all matches by URL regardless of value), so duplicate/invalid-valued extensions sharing
-        /// the same URL are removed alongside the canonical one.
+        /// (<see cref="KnownFhirPaths.IsSoftDeletedExtension"/>: <c>value='soft-deleted'</c>), which requires an
+        /// exact (case-sensitive) URL match AND a polymorphic <c>value[x]</c> that FHIRPath considers string-equal
+        /// to <c>"soft-deleted"</c> before the resource is considered deleted. Because <c>value[x]</c> is
+        /// polymorphic, the FHIRPath comparison succeeds for any FHIR primitive whose type maps to the FHIRPath
+        /// <c>System.String</c> type (see <see cref="StringLikeSoftDeleteValuePropertyNames"/>), not just
+        /// <c>valueString</c> - confirmed empirically for all four supported FHIR versions. Extensions that only
+        /// match the URL (wrong/missing value, non-string-like value type, or a differently-cased URL) are left
+        /// untouched, matching Firely's behavior of not removing extensions unless the resource is actually
+        /// determined to be soft-deleted. Once soft-deleted is confirmed, every extension with the matching URL is
+        /// removed (mirroring Firely's Meta.RemoveExtension, which removes all matches by URL regardless of
+        /// value), so duplicate/invalid-valued extensions sharing the same URL are removed alongside the
+        /// canonical one.
         /// </remarks>
         /// <param name="root">The raw JSON graph for the resource.</param>
         /// <returns><c>true</c> if a canonical soft-deleted extension was found and removed; otherwise, <c>false</c>.</returns>
@@ -161,8 +187,9 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 extension is JsonObject extensionObject &&
                 extensionObject["url"]?.GetValue<string>() is string url &&
                 string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal) &&
-                extensionObject["valueString"]?.GetValue<string>() is string value &&
-                string.Equals(value, "soft-deleted", StringComparison.Ordinal));
+                StringLikeSoftDeleteValuePropertyNames.Any(propertyName =>
+                    extensionObject[propertyName]?.GetValue<string>() is string value &&
+                    string.Equals(value, "soft-deleted", StringComparison.Ordinal)));
 
             if (!isDeleted)
             {
