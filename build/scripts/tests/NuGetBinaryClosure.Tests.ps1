@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+    [string]$RealCheckBinaryCompatPath
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -382,6 +387,43 @@ function Update-TestPackageNuspecVersion {
         if (Test-Path -LiteralPath $extractDirectory) {
             Remove-Item -LiteralPath $extractDirectory -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+
+function Update-TestPackageDependencyVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackagePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DependencyId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    $extractDirectory = "$PackagePath.expanded"
+    if (Test-Path -LiteralPath $extractDirectory) {
+        Remove-Item -LiteralPath $extractDirectory -Recurse -Force
+    }
+
+    Expand-Archive -LiteralPath $PackagePath -DestinationPath $extractDirectory
+    try {
+        $nuspecPath = (Get-ChildItem -LiteralPath $extractDirectory -Filter *.nuspec | Select-Object -First 1).FullName
+        [xml]$nuspecXml = Get-Content -LiteralPath $nuspecPath -Raw
+        $dependencyNode = $nuspecXml.SelectSingleNode(
+            "/*[local-name()='package']/*[local-name()='metadata']/*[local-name()='dependencies']//*[local-name()='dependency' and @id='$DependencyId']")
+        if ($null -eq $dependencyNode) {
+            throw "Dependency '$DependencyId' was not found in '$PackagePath'."
+        }
+
+        $dependencyNode.SetAttribute('version', "[$Version]")
+        $nuspecXml.Save($nuspecPath)
+        Remove-Item -LiteralPath $PackagePath -Force
+        Compress-Archive -Path (Join-Path $extractDirectory '*') -DestinationPath $PackagePath
+    }
+    finally {
+        Remove-Item -LiteralPath $extractDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -1014,6 +1056,111 @@ try {
 
         Assert-Equal 0 $result.ExitCode 'Validator should treat NuGet build metadata as semantically equivalent for exact restores'
         Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Build metadata normalization success summary mismatch'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RealCheckBinaryCompatPath)) {
+        Invoke-TestCase 'real checker rejects a dependency with a renamed referenced member' {
+            $root = Join-Path $script:TempRoot 'renamed-member'
+            $packages = Join-Path $root 'packages'
+            $baselines = Join-Path $root 'baselines'
+            $reports = Join-Path $root 'reports'
+            $work = Join-Path $root 'work'
+            $config = Join-Path $root 'NuGet.config'
+
+            New-Item -ItemType Directory -Path $packages -Force | Out-Null
+            New-Item -ItemType Directory -Path $baselines -Force | Out-Null
+            Set-Content -LiteralPath $config -Encoding utf8 -Value @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="fixture" value="$packages" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+</configuration>
+"@
+
+            foreach ($version in @('1.0.0', '2.0.0')) {
+                $dependencyRoot = Join-Path $root "dependency-$version"
+                New-Item -ItemType Directory -Path $dependencyRoot -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $dependencyRoot 'Breaking.Dependency.csproj') -Encoding utf8 -Value @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>Breaking.Dependency</PackageId>
+    <Version>$version</Version>
+  </PropertyGroup>
+</Project>
+"@
+                $member = if ($version -eq '1.0.0') { 'public void OldMethod() { }' } else { 'public void RenamedMethod() { }' }
+                Set-Content -LiteralPath (Join-Path $dependencyRoot 'Api.cs') -Encoding utf8 -Value "namespace Breaking.Dependency; public sealed class Api { $member }"
+                $pack = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
+                    'pack'
+                    (Join-Path $dependencyRoot 'Breaking.Dependency.csproj')
+                    '--output'
+                    $packages
+                    '--configuration'
+                    'Release'
+                    '-v'
+                    'minimal'
+                ) -WorkingDirectory $dependencyRoot
+                Assert-Equal 0 $pack.ExitCode "Dependency $version pack failed"
+            }
+
+            $webRoot = Join-Path $root 'web'
+            New-Item -ItemType Directory -Path $webRoot -Force | Out-Null
+            $webProjectPath = Join-Path $webRoot 'Broken.Web.csproj'
+            Set-Content -LiteralPath $webProjectPath -Encoding utf8 -Value @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>Broken.Web</PackageId>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Breaking.Dependency" Version="1.0.0" />
+  </ItemGroup>
+</Project>
+"@
+            Set-Content -LiteralPath (Join-Path $webRoot 'Caller.cs') -Encoding utf8 -Value 'namespace Broken.Web; public static class Caller { public static void Invoke() => new Breaking.Dependency.Api().OldMethod(); }'
+
+            $restore = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
+                'restore'
+                $webProjectPath
+                '--configfile'
+                $config
+                '--no-cache'
+                '--force'
+                '-v'
+                'minimal'
+            ) -WorkingDirectory $webRoot
+            Assert-Equal 0 $restore.ExitCode 'Broken Web package restore failed'
+
+            $pack = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
+                'pack'
+                $webProjectPath
+                '--no-restore'
+                '--output'
+                $packages
+                '--configuration'
+                'Release'
+                '-v'
+                'minimal'
+            ) -WorkingDirectory $webRoot
+            Assert-Equal 0 $pack.ExitCode 'Broken Web package pack failed'
+
+            $webPackage = Join-Path $packages 'Broken.Web.1.0.0.nupkg'
+            Update-TestPackageDependencyVersion -PackagePath $webPackage -DependencyId 'Breaking.Dependency' -Version '2.0.0'
+            [System.IO.File]::WriteAllBytes((Join-Path $baselines 'Broken.Web.net8.0.txt'), [byte[]]@())
+
+            $result = Invoke-ValidatorScript -PackageDirectory $packages -BaselineDirectory $baselines -ReportDirectory $reports -WorkDirectory $work -NuGetConfigPath $config -CheckBinaryCompatPath $RealCheckBinaryCompatPath -SupportedFrameworks @('net8.0') -RequiredPackageIds @('Broken.Web')
+            $actualReportPath = Join-Path (Join-Path (Join-Path $reports 'Broken.Web') 'net8.0') 'BinaryCompatReport.txt'
+            $actualReport = Get-Content -LiteralPath $actualReportPath -Raw
+
+            Assert-Equal 1 $result.ExitCode 'Renamed dependency member should fail closure validation'
+            Assert-Contains 'Binary closure baseline drift detected' $result.Output 'Renamed member should produce baseline drift'
+            Assert-Contains 'Failed to resolve member reference' $actualReport 'Actual report should identify the unresolved member'
+        }
     }
 
     Invoke-TestCase 'package metadata discovery filters frameworks and safe id' {
