@@ -2,15 +2,16 @@
 
 ## Summary
 
-Add a blocking binary-closure validation gate to the NuGet packaging path used by both pull-request and continuous-integration builds. Every generated non-symbol NuGet package will be restored into temporary consumer projects, published for each supported target framework, and checked with a pinned `checkbinarycompat` tool against a checked-in baseline.
+Add a blocking binary-closure validation gate to the NuGet packaging path used by both pull-request and continuous-integration builds. Each supported FHIR Web package will be restored into a temporary consumer project, published for each supported target framework, and checked with a pinned `checkbinarycompat` tool against a checked-in baseline.
 
-This gate detects dependency closure defects that otherwise appear only at runtime, including missing assemblies, version mismatches, missing types, and missing members. It does not replace semantic API compatibility analysis between released package versions.
+This producer gate detects dependency closure defects introduced by OSS dependency or packaging changes. A second, authoritative gate in fhir-paas validates the final published application after all downstream package pins and overrides. Together they detect defects that otherwise appear only at runtime, including missing assemblies, version mismatches, missing types, and missing members. They do not replace semantic API compatibility analysis between released package versions.
 
 ## Goals
 
-- Validate every `.nupkg` produced by the OSS packaging job, excluding `.snupkg` files.
+- Validate the supported FHIR server deployment roots from the OSS packaging job for every supported target framework.
 - Validate the dependency closure that a package consumer receives after restore rather than only the assemblies embedded in the package archive.
 - Run the same blocking check in PR and CI builds.
+- Require fhir-paas to validate each final published application closure after its dependency overrides are resolved.
 - Keep expected diagnostics in deterministic, reviewable baseline files.
 - Publish actual reports when validation fails so maintainers can inspect and intentionally update baselines.
 - Pin validation tooling and constrain tool installation to NuGet.org.
@@ -19,7 +20,8 @@ This gate detects dependency closure defects that otherwise appear only at runti
 
 - Compare the public API surface with the latest package published to NuGet.org.
 - Add validation to pipelines that do not produce the OSS NuGet artifact.
-- Validate web deployment archives or container images.
+- Validate standalone utilities that are not independently deployed to production.
+- Treat the OSS result as sufficient protection against dependency versions selected downstream by fhir-paas.
 - Automatically accept or update changed baselines.
 - Refactor the existing build, test, or packaging stages beyond the shared packaging path.
 
@@ -37,7 +39,7 @@ The validation belongs between steps 2 and 3. Placing it in the shared package t
 
 ### 1. Shared post-pack validation template
 
-Run one reusable validation step after `dotnet pack` and before artifact publication. The validator enumerates packages and target frameworks, restores each package into an isolated consumer project, publishes the closure, and validates it.
+Run one reusable validation step after `dotnet pack` and before artifact publication. The validator selects supported Web packages and target frameworks, restores each package into an isolated consumer project, publishes the closure, and validates it.
 
 **Advantages**
 
@@ -49,7 +51,7 @@ Run one reusable validation step after `dotnet pack` and before artifact publica
 
 **Disadvantages**
 
-- Adds restore and publish work for every package/framework pair.
+- Adds restore and publish work for every supported Web package/framework pair.
 - Requires deterministic temporary source configuration and cleanup.
 
 ### 2. Separate validation stage
@@ -85,7 +87,18 @@ Attach validation targets to each packable project or the repository pack operat
 
 ## Decision
 
-Use the shared post-pack validation template.
+Use the shared post-pack validation template for four deployment-root packages:
+
+- `Microsoft.Health.Fhir.Stu3.Web`
+- `Microsoft.Health.Fhir.R4.Web`
+- `Microsoft.Health.Fhir.R4B.Web`
+- `Microsoft.Health.Fhir.R5.Web`
+
+Each Web package references the shared API, Azure infrastructure, Cosmos DB, SQL Server, authentication, and task-management components. Restoring a Web package therefore validates the complete server runtime graph for both storage implementations. Storage configuration does not produce a distinct assembly closure, so separate SQL Server and Cosmos DB consumers would duplicate the same check.
+
+Validate each package for `net8.0` and `net9.0`, producing eight OSS closures. Add another deployment root only when a standalone utility is independently deployed to production.
+
+The fhir-paas repository must separately validate the exact final publish directory for every deployed FHIR composition after all downstream package pins, central versions, runtime identifiers, and overrides have been applied. This consumer-side check is authoritative because OSS cannot observe dependency selections made downstream.
 
 ## Components
 
@@ -108,8 +121,8 @@ The script will:
 
 1. Enumerate `.nupkg` files in ordinal order and exclude `.snupkg` files.
 2. Read package ID, version, and managed target frameworks from package metadata and archive paths rather than parsing file names.
-3. Reject duplicate package identities or packages without a supported managed target framework.
-4. For every package/framework pair, create an isolated temporary SDK consumer application.
+3. Select the four required Web package IDs and reject a missing, duplicate, or unsupported deployment root.
+4. For every selected package/framework pair, create an isolated temporary SDK consumer application.
 5. Generate a temporary NuGet configuration with:
    - The just-built package directory as the first source.
    - The repository's existing public NuGet sources.
@@ -121,10 +134,10 @@ The script will:
    - A separate actual report path.
    - Assembly-list and summary/new-warning output.
    - Framework-assembly handling appropriate for SDK-style applications.
-9. Aggregate failures and return a nonzero exit code after all package/framework pairs have produced reports.
+9. Aggregate failures and return a nonzero exit code after all selected package/framework pairs have produced reports.
 10. Remove temporary consumer and restore directories in a `finally` block while preserving reports.
 
-All command failures are surfaced. The script will not silently skip a package, framework, missing baseline, or malformed package.
+All command failures are surfaced. The script will not silently skip a selected package, supported framework, missing baseline, or malformed selected package.
 
 ### Baselines
 
@@ -134,7 +147,7 @@ Store baselines under `build/binarycompat/`. Use a deterministic file name based
 build/binarycompat/<PackageId>.<TargetFramework>.txt
 ```
 
-Each file is the sorted `checkbinarycompat` diagnostic report for that consumer closure. An empty expected report is represented by a checked-in empty file. A baseline is required for every generated package/framework pair; missing and orphaned baselines are failures so package additions, removals, and target-framework changes are explicit in review.
+Each file is the sorted `checkbinarycompat` diagnostic report for that consumer closure. An empty expected report is represented by a checked-in empty file. A baseline is required for every selected Web package/framework pair; missing and orphaned baselines are failures so deployment-root and target-framework changes are explicit in review. The expected OSS inventory is eight files.
 
 ### Reports
 
@@ -151,7 +164,7 @@ Each directory contains the actual compatibility report, analyzed assembly list,
 ```mermaid
 flowchart LR
     A[dotnet pack] --> B[nupkgs directory]
-    B --> C[Enumerate package and TFM pairs]
+    B --> C[Select Web package and TFM pairs]
     C --> D[Generate temporary consumer project]
     D --> E[Restore exact local package]
     E --> F[Publish resolved closure]
@@ -160,6 +173,18 @@ flowchart LR
     G --> I[Actual reports artifact]
     G -->|all match| J[Publish NuGet artifact]
     G -->|drift or error| K[Fail packaging job]
+```
+
+The downstream consumer flow is:
+
+```mermaid
+flowchart LR
+    A[fhir-paas dependency resolution] --> B[dotnet publish]
+    B --> C[Exact application publish directory]
+    C --> D[Run pinned checkbinarycompat]
+    E[Checked-in fhir-paas baseline] --> D
+    D -->|all match| F[Assemble and publish image]
+    D -->|drift or error| G[Fail before image publication]
 ```
 
 ## Pipeline Integration
@@ -178,9 +203,9 @@ No direct changes are required in `build/pr-pipeline.yml` or `build/ci-pipeline.
 
 The following conditions fail the packaging job:
 
-- No NuGet packages were generated.
-- A generated package is malformed or has no discoverable supported managed target framework.
-- Two archives declare the same package ID and version.
+- A required Web package was not generated.
+- A selected Web package is malformed or has no discoverable supported managed target framework.
+- Two archives declare the same required Web package ID and version.
 - A package cannot be restored from the local output.
 - Restore resolves a different version than the exact generated package version.
 - Consumer publish fails.
@@ -189,7 +214,7 @@ The following conditions fail the packaging job:
 - `checkbinarycompat` reports output different from the baseline.
 - Tool installation or execution fails.
 
-Validation continues across independent package/framework pairs when possible so one run produces a complete diagnostic artifact. The final exit code remains failing if any pair failed.
+Validation continues across independent selected package/framework pairs when possible so one run produces a complete diagnostic artifact. The final exit code remains failing if any pair failed.
 
 ## Determinism and Security
 
@@ -209,12 +234,16 @@ Exercise the script against a small temporary package set to verify:
 
 - Non-symbol package discovery and `.snupkg` exclusion.
 - Package identity and target-framework discovery.
+- Selection of exactly the four required Web package IDs.
+- Failure when a required Web package is missing.
 - Exact local package restore.
 - Independent `net8.0` and `net9.0` report paths.
 - Success when reports match baselines.
 - Failure with a preserved actual report when a baseline differs.
 - Failure for missing and orphaned baselines.
 - Failure for malformed or duplicate packages.
+- Failure when code compiled against a fixture dependency containing `OldMethod` is published with a dependency version where that member was removed or renamed.
+- Success when the final resolved dependency update remains binary compatible.
 
 Tests should use the repository's existing test tooling where available; no new test framework will be introduced solely for the build script.
 
@@ -230,6 +259,8 @@ Tests should use the repository's existing test tooling where available; no new 
 
 The initial change will generate baselines from the current repository package output. Later dependency or packaging changes may alter a closure. Maintainers must inspect the published actual report, determine that the change is intentional and safe, and replace the corresponding checked-in baseline in the same PR. Baseline updates are never generated or committed automatically by CI.
 
+The fhir-paas repository owns a separate baseline for each final deployed application closure. Those baselines are generated from the same Linux and runtime-identifier environment used to create the deployment image. A downstream dependency pin that introduces a new unresolved member must fail before image publication even if the OSS producer baselines still match.
+
 ## Expected Outcome
 
-PR and CI builds reject OSS NuGet outputs whose restored dependency closures differ from reviewed expectations. The gate is centralized in the shared packaging flow, produces actionable reports, and makes package closure changes explicit without changing runtime or FHIR behavior.
+PR and CI builds reject supported OSS Web package closures that differ from reviewed expectations. The reduced OSS matrix validates eight closures rather than every library package. The authoritative fhir-paas gate rejects final application closures broken by downstream dependency pins before an image can be published. Both gates produce actionable reports and make accepted closure changes explicit without changing runtime or FHIR behavior.
