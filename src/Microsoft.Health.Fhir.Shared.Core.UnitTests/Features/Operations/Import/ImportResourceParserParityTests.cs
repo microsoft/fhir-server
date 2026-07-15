@@ -169,6 +169,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public void GivenNonNumericVersionId_WhenParsedOnIncrementalLoad_ThenBothProvidersResetVersion()
+        {
+            const string json = """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{"versionId":"not-a-number","lastUpdated":"2020-01-01T00:00:00Z"}
+                }
+                """;
+
+            ImportResource firely = _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            Assert.False(firely.KeepVersion);
+            Assert.False(ignixa.KeepVersion);
+            Assert.Equal("1", firely.ResourceWrapper.Version);
+            Assert.Equal("1", ignixa.ResourceWrapper.Version);
+            Assert.Equal(firely.KeepLastUpdated, ignixa.KeepLastUpdated);
+            Assert.Equal(firely.IsDeleted, ignixa.IsDeleted);
+        }
+
+        [Fact]
         public void GivenFutureLastUpdated_WhenParsed_ThenBothProvidersReject()
         {
             const string json = """
