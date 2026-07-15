@@ -77,14 +77,6 @@ steps:
           throw "Unable to locate checkbinarycompat tool in '$toolsDirectory'. Checked: $($toolCandidates -join ', ')"
       }
 
-      $pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
-      $pwshPath = @($pwshCommand.Source, $pwshCommand.Path) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-        Select-Object -First 1
-      if ([string]::IsNullOrWhiteSpace($pwshPath)) {
-          throw 'Unable to resolve the pwsh application path.'
-      }
-
       $requiredPackageIds = @(
         'Microsoft.Health.Fhir.Stu3.Web'
         'Microsoft.Health.Fhir.R4.Web'
@@ -92,7 +84,7 @@ steps:
         'Microsoft.Health.Fhir.R5.Web'
       )
 
-      & $pwshPath -NoLogo -NoProfile -File $validatorScriptPath `
+      & $validatorScriptPath `
         -PackageDirectory '${{ parameters.packageDirectory }}' `
         -BaselineDirectory '${{ parameters.baselineDirectory }}' `
         -ReportDirectory $reportDirectory `
@@ -100,11 +92,6 @@ steps:
         -NuGetConfigPath '${{ parameters.nuGetConfigPath }}' `
         -RequiredPackageIds $requiredPackageIds `
         -CheckBinaryCompatPath $checkBinaryCompatPath
-
-      $validatorExitCode = $LASTEXITCODE
-      if ($validatorExitCode -ne 0) {
-          exit $validatorExitCode
-      }
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish binary closure reports'
