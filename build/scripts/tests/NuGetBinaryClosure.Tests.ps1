@@ -1077,6 +1077,15 @@ try {
     <add key="fixture" value="$packages" />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
+  <packageSourceMapping>
+    <packageSource key="fixture">
+      <package pattern="Breaking.Dependency" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="Microsoft.AspNetCore.App.*" />
+      <package pattern="Microsoft.NETCore.App.*" />
+    </packageSource>
+  </packageSourceMapping>
 </configuration>
 "@
 
@@ -1134,7 +1143,7 @@ try {
                 '-v'
                 'minimal'
             ) -WorkingDirectory $webRoot
-            Assert-Equal 0 $restore.ExitCode 'Broken Web package restore failed'
+            Assert-Equal 0 $restore.ExitCode "Broken Web package restore failed. Output:$([System.Environment]::NewLine)$($restore.Output)"
 
             $pack = Invoke-TestNativeCommand -FilePath 'dotnet' -ArgumentList @(
                 'pack'
@@ -1155,6 +1164,7 @@ try {
 
             $result = Invoke-ValidatorScript -PackageDirectory $packages -BaselineDirectory $baselines -ReportDirectory $reports -WorkDirectory $work -NuGetConfigPath $config -CheckBinaryCompatPath $RealCheckBinaryCompatPath -SupportedFrameworks @('net8.0') -RequiredPackageIds @('Broken.Web')
             $actualReportPath = Join-Path (Join-Path (Join-Path $reports 'Broken.Web') 'net8.0') 'BinaryCompatReport.txt'
+            Assert-Equal $true (Test-Path -LiteralPath $actualReportPath -PathType Leaf) "Actual report should be retained. Validator output:$([System.Environment]::NewLine)$($result.Output)"
             $actualReport = Get-Content -LiteralPath $actualReportPath -Raw
 
             Assert-Equal 1 $result.ExitCode 'Renamed dependency member should fail closure validation'
