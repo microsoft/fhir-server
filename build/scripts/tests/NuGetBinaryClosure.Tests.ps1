@@ -286,7 +286,12 @@ function New-FakeCheckBinaryCompatScript {
         '$ErrorActionPreference = ''Stop'''
         ''
         '$outPath = $null'
+        '$baselinePath = $null'
         'foreach ($argument in $args) {'
+        '    if ($argument.StartsWith(''-baseline:'', [System.StringComparison]::OrdinalIgnoreCase)) {'
+        '        $baselinePath = $argument.Substring(10)'
+        '        continue'
+        '    }'
         '    if ($argument.StartsWith(''-out:'', [System.StringComparison]::OrdinalIgnoreCase)) {'
         '        $outPath = $argument.Substring(5)'
         '        break'
@@ -308,12 +313,14 @@ function New-FakeCheckBinaryCompatScript {
     }
 
     if ($CreateAssembliesFile) {
-        $scriptLines.Add('Set-Content -LiteralPath (Join-Path $reportDirectory ''BinaryCompatReport.Assemblies.txt'') -Value ''Fake.Assembly.dll'' -NoNewline -Encoding utf8') | Out-Null
+        $scriptLines.Add('Set-Content -LiteralPath (Join-Path (Get-Location).Path ''BinaryCompatReport.Assemblies.txt'') -Value ''Fake.Assembly.dll'' -NoNewline -Encoding utf8') | Out-Null
     }
 
     if ($EchoInvocation) {
         $scriptLines.Add('Write-Output (''CWD='' + (Get-Location).Path)') | Out-Null
         $scriptLines.Add('if ($args.Count -gt 0) { Write-Output (''ARG0='' + $args[0]) }') | Out-Null
+        $scriptLines.Add('if ($null -ne $baselinePath) { Write-Output (''BASELINE='' + $baselinePath) }') | Out-Null
+        $scriptLines.Add('Write-Output (''OUT='' + $outPath)') | Out-Null
     }
 
     $scriptLines.Add('Write-Output ''Fake checker executed.''') | Out-Null
@@ -599,14 +606,14 @@ try {
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained for empty reports'
     }
 
-    Invoke-TestCase 'validator passes a relative publish path to the checker from the report directory' {
-        $rootDirectory = Join-Path $script:TempRoot 'validator-relative-checker-input'
+    Invoke-TestCase 'validator runs checker from the publish directory with dot input and relocates assemblies report' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-publish-checker-input'
         $packageDirectory = Join-Path $rootDirectory 'packages'
         $baselineDirectory = Join-Path $rootDirectory 'baselines'
         $reportDirectory = Join-Path $rootDirectory 'reports'
         $workDirectory = Join-Path $rootDirectory 'work'
         $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
-        $packageId = 'RelativePath.Package'
+        $packageId = 'PublishInput.Package'
         $version = '1.2.3'
         $framework = 'net8.0'
 
@@ -617,20 +624,29 @@ try {
 
         $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @($framework)
 
-        Assert-Equal 0 $result.ExitCode 'Validator should succeed while passing a relative checker input path'
+        Assert-Equal 0 $result.ExitCode 'Validator should succeed while running the checker from the publish directory'
         $comparisonPath = Join-Path (Join-Path (Join-Path $reportDirectory $packageId) $framework) 'Comparison.txt'
         $comparisonLines = @(Get-Content -LiteralPath $comparisonPath)
         $cwdLine = $comparisonLines | Where-Object { $_ -like 'CWD=*' } | Select-Object -First 1
         $arg0Line = $comparisonLines | Where-Object { $_ -like 'ARG0=*' } | Select-Object -First 1
+        $baselineLine = $comparisonLines | Where-Object { $_ -like 'BASELINE=*' } | Select-Object -First 1
+        $outLine = $comparisonLines | Where-Object { $_ -like 'OUT=*' } | Select-Object -First 1
         $cwd = $cwdLine.Substring(4)
         $arg0 = $arg0Line.Substring(5)
-
-        Assert-Equal $false ([System.IO.Path]::IsPathRooted($arg0)) 'Checker input path should not be rooted'
-        Assert-Equal $false $arg0.StartsWith('/', [System.StringComparison]::Ordinal) 'Checker input path should not look like a Linux rooted argument'
-
-        $resolvedCheckerInputPath = [System.IO.Path]::GetFullPath((Join-Path $cwd $arg0))
+        $baselineArg = $baselineLine.Substring(9)
+        $outArg = $outLine.Substring(4)
         $expectedPublishPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $workDirectory 'consumer') $packageId) $version) 'publish') $framework
-        Assert-Equal ([System.IO.Path]::GetFullPath($expectedPublishPath)) $resolvedCheckerInputPath 'Checker input path should resolve to the publish directory from the report CWD'
+        $expectedBaselinePath = Join-Path $baselineDirectory "$packageId.$framework.txt"
+        $expectedOutPath = Join-Path (Join-Path (Join-Path $reportDirectory $packageId) $framework) 'BinaryCompatReport.txt'
+        $expectedAssembliesReportPath = Join-Path (Join-Path (Join-Path $reportDirectory $packageId) $framework) 'BinaryCompatReport.Assemblies.txt'
+        $publishAssembliesPath = Join-Path $expectedPublishPath 'BinaryCompatReport.Assemblies.txt'
+
+        Assert-Equal ([System.IO.Path]::GetFullPath($expectedPublishPath)) ([System.IO.Path]::GetFullPath($cwd)) 'Checker working directory should be the publish directory'
+        Assert-Equal '.' $arg0 'Checker positional input should be dot when running from the publish directory'
+        Assert-Equal ([System.IO.Path]::GetFullPath($expectedBaselinePath)) ([System.IO.Path]::GetFullPath($baselineArg)) 'Checker baseline argument should remain an absolute path'
+        Assert-Equal ([System.IO.Path]::GetFullPath($expectedOutPath)) ([System.IO.Path]::GetFullPath($outArg)) 'Checker out argument should remain an absolute report path'
+        Assert-Equal $true (Test-Path -LiteralPath $expectedAssembliesReportPath) 'Assemblies report should be retained in the package report directory'
+        Assert-Equal $false (Test-Path -LiteralPath $publishAssembliesPath) 'Assemblies report should not remain in the publish directory after relocation'
     }
 
     Invoke-TestCase 'validator materializes non-empty baseline reports when checker matches without writing them' {
