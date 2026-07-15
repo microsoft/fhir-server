@@ -1,1 +1,0 @@
-Assembly `Microsoft.Health.Extensions.DependencyInjection` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
