@@ -7,8 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
@@ -20,15 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
     {
         private readonly IMemberMatchService _memberMatchService;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
 
         public MemberMatchHandler(
             IAuthorizationService<DataActions> authorizationService,
-            IMemberMatchService memberMatchService)
+            IMemberMatchService memberMatchService,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(memberMatchService, nameof(memberMatchService));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _memberMatchService = memberMatchService;
             _authorizationService = authorizationService;
+            _requestContextAccessor = requestContextAccessor;
         }
 
         public async Task<MemberMatchResponse> Handle(MemberMatchRequest request, CancellationToken cancellationToken)
@@ -36,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             EnsureArg.IsNotNull(request, nameof(request));
 
             await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
+
+            if (_requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             ResourceElement patient = await _memberMatchService.FindMatch(request.Coverage, request.Patient, cancellationToken);
             return new MemberMatchResponse(patient);
