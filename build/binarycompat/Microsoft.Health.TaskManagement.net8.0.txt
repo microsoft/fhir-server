@@ -1,2 +1,1 @@
 Assembly `Microsoft.Health.Extensions.DependencyInjection` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
-In assembly 'Ensure.That, Version=10.1.0.0, PublicKeyToken=d7cf9132176ba30b': Failed to resolve assembly reference to 'netstandard, Version=2.1.0.0, PublicKeyToken=cc7b13ffcd2ddd51'

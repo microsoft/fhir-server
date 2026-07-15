@@ -1,4 +1,4 @@
-Assembly `Azure.Core` is referencing `System.Text.Encodings.Web, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll`
+Assembly `Azure.Core` is referencing `System.Text.Encodings.Web, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll`
 Assembly `Azure.Core` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
 Assembly `Azure.Storage.Blobs` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
 Assembly `Azure.Storage.Common` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
@@ -6,4 +6,3 @@ Assembly `Microsoft.Health.Extensions.DependencyInjection` is referencing `Micro
 Assembly `System.ClientModel` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
 Assembly `System.Memory.Data` is referencing `System.Text.Json, Version=4.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
 Facade assembly: Microsoft.Bcl.AsyncInterfaces.dll
-In assembly 'Ensure.That, Version=10.1.0.0, PublicKeyToken=d7cf9132176ba30b': Failed to resolve assembly reference to 'netstandard, Version=2.1.0.0, PublicKeyToken=cc7b13ffcd2ddd51'
