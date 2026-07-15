@@ -1,3 +1,2 @@
-Assembly `Hl7.Fhir.Base` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll`
+Assembly `Hl7.Fhir.Base` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll`
 Assembly `Hl7.Fhir.Base` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Text.Json.dll`
-In assembly 'Ensure.That, Version=10.1.0.0, PublicKeyToken=d7cf9132176ba30b': Failed to resolve assembly reference to 'netstandard, Version=2.1.0.0, PublicKeyToken=cc7b13ffcd2ddd51'
