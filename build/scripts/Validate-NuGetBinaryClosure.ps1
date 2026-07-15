@@ -579,6 +579,7 @@ try {
                     $binaryCompatReportPath = Join-Path $packageReportDirectory 'BinaryCompatReport.txt'
                     $assembliesReportPath = Join-Path $packageReportDirectory 'BinaryCompatReport.Assemblies.txt'
                     $comparisonPath = Join-Path $packageReportDirectory 'Comparison.txt'
+                    $checkerInputPath = [System.IO.Path]::GetRelativePath($packageReportDirectory, $publishDirectory)
 
                     New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
                     New-Item -ItemType Directory -Path $packageReportDirectory -Force | Out-Null
@@ -604,7 +605,7 @@ try {
 
                         [System.IO.File]::WriteAllText($binaryCompatReportPath, [string]::Empty, [System.Text.UTF8Encoding]::new($false))
                         $comparisonResult = Invoke-ExternalCommand -FilePath $resolvedCheckBinaryCompatPath -ArgumentList @(
-                            $publishDirectory
+                            $checkerInputPath
                             '-s'
                             '-l'
                             '-ignoreFrameworkAssemblies'
