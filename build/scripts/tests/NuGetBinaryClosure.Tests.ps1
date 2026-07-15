@@ -269,7 +269,9 @@ function New-FakeCheckBinaryCompatScript {
 
         [string]$ReportContent = '',
 
-        [int]$ExitCode = 0
+        [int]$ExitCode = 0,
+
+        [bool]$EchoInvocation = $false
     )
 
     $parentDirectory = Split-Path -Parent $Path
@@ -307,6 +309,11 @@ function New-FakeCheckBinaryCompatScript {
 
     if ($CreateAssembliesFile) {
         $scriptLines.Add('Set-Content -LiteralPath (Join-Path $reportDirectory ''BinaryCompatReport.Assemblies.txt'') -Value ''Fake.Assembly.dll'' -NoNewline -Encoding utf8') | Out-Null
+    }
+
+    if ($EchoInvocation) {
+        $scriptLines.Add('Write-Output (''CWD='' + (Get-Location).Path)') | Out-Null
+        $scriptLines.Add('if ($args.Count -gt 0) { Write-Output (''ARG0='' + $args[0]) }') | Out-Null
     }
 
     $scriptLines.Add('Write-Output ''Fake checker executed.''') | Out-Null
@@ -590,6 +597,40 @@ try {
         Assert-Equal 0 ([System.IO.File]::ReadAllBytes($emptyReportPath).Length) 'Precreated BinaryCompatReport.txt should remain empty when the checker omits it'
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'Comparison.txt')) 'Comparison.txt should be retained for empty reports'
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $emptyReportDirectory 'BinaryCompatReport.Assemblies.txt')) 'BinaryCompatReport.Assemblies.txt should be retained for empty reports'
+    }
+
+    Invoke-TestCase 'validator passes a relative publish path to the checker from the report directory' {
+        $rootDirectory = Join-Path $script:TempRoot 'validator-relative-checker-input'
+        $packageDirectory = Join-Path $rootDirectory 'packages'
+        $baselineDirectory = Join-Path $rootDirectory 'baselines'
+        $reportDirectory = Join-Path $rootDirectory 'reports'
+        $workDirectory = Join-Path $rootDirectory 'work'
+        $checkerPath = Join-Path $rootDirectory 'fake-checkbinarycompat.ps1'
+        $packageId = 'RelativePath.Package'
+        $version = '1.2.3'
+        $framework = 'net8.0'
+
+        New-Item -ItemType Directory -Path $baselineDirectory -Force | Out-Null
+        New-TestPackagedProject -RootDirectory $rootDirectory -PackageDirectory $packageDirectory -PackageId $packageId -Version $version -Framework $framework | Out-Null
+        New-FakeCheckBinaryCompatScript -Path $checkerPath -EchoInvocation $true | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $baselineDirectory "$packageId.$framework.txt"), [byte[]]@())
+
+        $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @($framework)
+
+        Assert-Equal 0 $result.ExitCode 'Validator should succeed while passing a relative checker input path'
+        $comparisonPath = Join-Path (Join-Path (Join-Path $reportDirectory $packageId) $framework) 'Comparison.txt'
+        $comparisonLines = @(Get-Content -LiteralPath $comparisonPath)
+        $cwdLine = $comparisonLines | Where-Object { $_ -like 'CWD=*' } | Select-Object -First 1
+        $arg0Line = $comparisonLines | Where-Object { $_ -like 'ARG0=*' } | Select-Object -First 1
+        $cwd = $cwdLine.Substring(4)
+        $arg0 = $arg0Line.Substring(5)
+
+        Assert-Equal $false ([System.IO.Path]::IsPathRooted($arg0)) 'Checker input path should not be rooted'
+        Assert-Equal $false $arg0.StartsWith('/', [System.StringComparison]::Ordinal) 'Checker input path should not look like a Linux rooted argument'
+
+        $resolvedCheckerInputPath = [System.IO.Path]::GetFullPath((Join-Path $cwd $arg0))
+        $expectedPublishPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $workDirectory 'consumer') $packageId) $version) 'publish') $framework
+        Assert-Equal ([System.IO.Path]::GetFullPath($expectedPublishPath)) $resolvedCheckerInputPath 'Checker input path should resolve to the publish directory from the report CWD'
     }
 
     Invoke-TestCase 'validator materializes non-empty baseline reports when checker matches without writing them' {
