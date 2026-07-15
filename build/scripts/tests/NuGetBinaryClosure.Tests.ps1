@@ -12,6 +12,7 @@ $script:ModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'NuGetBinaryCl
 $script:ValidatorPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Validate-NuGetBinaryClosure.ps1'
 $script:RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 $script:SourceConfigPath = Join-Path $script:RepoRoot 'nuget.config'
+$script:PipelineTemplatePath = Join-Path $script:RepoRoot 'build\steps\validate-nuget-binary-closure.yml'
 
 function Assert-Equal {
     param(
@@ -565,6 +566,23 @@ try {
 
         Assert-Equal 0 $launchResult.ExitCode 'Resolved child PowerShell executable should launch -NoProfile -Command successfully'
         Assert-Contains 'ready' $launchResult.Output 'Resolved child PowerShell executable should emit command output'
+    }
+
+    Invoke-TestCase 'pipeline preserves all required package ids across the validator invocation boundary' {
+        $pipelineTemplate = [System.IO.File]::ReadAllText($script:PipelineTemplatePath)
+
+        foreach ($requiredPackageId in @(
+            'Microsoft.Health.Fhir.Stu3.Web'
+            'Microsoft.Health.Fhir.R4.Web'
+            'Microsoft.Health.Fhir.R4B.Web'
+            'Microsoft.Health.Fhir.R5.Web'
+        )) {
+            Assert-Contains "'$requiredPackageId'" $pipelineTemplate "Pipeline required package list should contain '$requiredPackageId'"
+        }
+
+        Assert-Contains '& $validatorScriptPath `' $pipelineTemplate 'Pipeline should invoke the validator in-process so string arrays retain every required package id'
+        Assert-Contains '-RequiredPackageIds $requiredPackageIds `' $pipelineTemplate 'Pipeline should pass the complete required package id array to the validator'
+        Assert-DoesNotContain '& $pwshPath -NoLogo -NoProfile -File $validatorScriptPath' $pipelineTemplate 'Pipeline should not pass required package ids across a native pwsh -File boundary'
     }
 
     Invoke-TestCase 'validator rejects duplicate package identities and preserves reports' {
