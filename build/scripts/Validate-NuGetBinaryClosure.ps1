@@ -24,6 +24,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$CheckBinaryCompatPath,
 
+    [string[]]$RequiredPackageIds = @(),
+
     [string[]]$SupportedFrameworks = @('net8.0', 'net9.0')
 )
 
@@ -424,9 +426,6 @@ try {
         }
     }
 
-    $packageCount = $packages.Count
-    $closureCount = ($packages | ForEach-Object { @($_.Frameworks).Count } | Measure-Object -Sum).Sum
-
     $duplicatePackageGroups = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($package in $packages) {
         $identityKey = "$($package.Id)/$($package.Version)"
@@ -504,7 +503,16 @@ try {
         }
     }
 
-    $inventory = Compare-BinaryClosureBaselineInventory -Closures $packages -BaselineDirectory $resolvedBaselineDirectory
+    $selection = Select-BinaryClosurePackages -Packages @($packages) -RequiredPackageIds $RequiredPackageIds
+    foreach ($missingPackageId in $selection.Missing) {
+        Add-ValidationError -Errors $errors -Message "Required package '$missingPackageId' was not found."
+    }
+
+    $selectedPackages = @($selection.Selected)
+    $packageCount = $selectedPackages.Count
+    $closureCount = ($selectedPackages | ForEach-Object { @($_.Frameworks).Count } | Measure-Object -Sum).Sum
+
+    $inventory = Compare-BinaryClosureBaselineInventory -Closures $selectedPackages -BaselineDirectory $resolvedBaselineDirectory
     foreach ($baselineName in @($inventory.Missing | Sort-Object)) {
         Add-ValidationError -Errors $errors -Message "Missing baseline '$baselineName'."
         Get-ReportBaselinePath -BaselineDirectoryPath $resolvedBaselineDirectory -EmptyBaselineDirectoryPath $emptyBaselineDirectory -BaselineName $baselineName | Out-Null
@@ -527,7 +535,7 @@ try {
     }
 
     $packagesToProcess = @(
-        $packages |
+        $selectedPackages |
             Where-Object { -not $invalidPackagePaths.Contains([string]$_.Path) }
     )
 
