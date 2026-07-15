@@ -454,7 +454,47 @@ try {
             'Get-NuGetPackageMetadata'
             'New-BinaryClosureConsumerProject'
             'New-BinaryClosureRestoreConfig'
+            'Select-BinaryClosurePackages'
         ) $actualCommands 'Exported commands mismatch'
+    }
+
+    Invoke-TestCase 'package selection uses required ids and reports missing roots' {
+        Import-TestModule
+
+        $packages = @(
+            [pscustomobject]@{ Id = 'Utility.Package'; Version = '1.0.0'; Path = 'utility.nupkg' }
+            [pscustomobject]@{ Id = 'Microsoft.Health.Fhir.R4.Web'; Version = '1.0.0'; Path = 'r4.nupkg' }
+            [pscustomobject]@{ Id = 'Microsoft.Health.Fhir.R5.Web'; Version = '1.0.0'; Path = 'r5.nupkg' }
+        )
+
+        $selection = Select-BinaryClosurePackages -Packages $packages -RequiredPackageIds @(
+            'microsoft.health.fhir.r5.web'
+            'Microsoft.Health.Fhir.R4.Web'
+            'Microsoft.Health.Fhir.Stu3.Web'
+            'Microsoft.Health.Fhir.R4.Web'
+        )
+
+        Assert-SequenceEqual @(
+            'Microsoft.Health.Fhir.R4.Web'
+            'Microsoft.Health.Fhir.R5.Web'
+        ) @($selection.Selected | Select-Object -ExpandProperty Id) 'Selected deployment roots mismatch'
+        Assert-SequenceEqual @(
+            'Microsoft.Health.Fhir.Stu3.Web'
+        ) $selection.Missing 'Missing deployment roots mismatch'
+    }
+
+    Invoke-TestCase 'empty required package ids select all packages' {
+        Import-TestModule
+
+        $packages = @(
+            [pscustomobject]@{ Id = 'Z.Package'; Version = '1.0.0'; Path = 'z.nupkg' }
+            [pscustomobject]@{ Id = 'A.Package'; Version = '1.0.0'; Path = 'a.nupkg' }
+        )
+
+        $selection = Select-BinaryClosurePackages -Packages $packages -RequiredPackageIds @()
+
+        Assert-SequenceEqual @('A.Package', 'Z.Package') @($selection.Selected | Select-Object -ExpandProperty Id) 'Unfiltered package order mismatch'
+        Assert-SequenceEqual @() $selection.Missing 'Unfiltered selection should not report missing packages'
     }
 
     Invoke-TestCase 'child PowerShell resolution uses pwsh application and launches commands' {
