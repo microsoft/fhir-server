@@ -1,191 +1,191 @@
-Assembly `AngleSharp` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `AngleSharp` is referencing `System.Net.ServicePoint, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.ServicePoint, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Net.ServicePoint.dll`
-Assembly `AngleSharp` is referencing `System.Text.Encoding.CodePages, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Text.Encoding.CodePages.dll`
-Assembly `Azure.Core` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `Azure.Core` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Azure.Core` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Azure.Core` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Azure.Core` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
+Assembly `AngleSharp` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `AngleSharp` is referencing `System.Net.ServicePoint, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.ServicePoint, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Net.ServicePoint.dll`
+Assembly `AngleSharp` is referencing `System.Text.Encoding.CodePages, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Text.Encoding.CodePages.dll`
+Assembly `Azure.Core` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `Azure.Core` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Azure.Core` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Azure.Core` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Azure.Core` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
 Assembly `Azure.Identity` is referencing `Azure.Core, Version=1.47.3.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Azure.Identity` is referencing `Microsoft.IdentityModel.Abstractions, Version=6.35.0.0, PublicKeyToken=31bf3856ad364e35` but found `Microsoft.IdentityModel.Abstractions, Version=7.7.1.0, PublicKeyToken=31bf3856ad364e35` at `Microsoft.IdentityModel.Abstractions.dll`
-Assembly `Azure.Identity` is referencing `Microsoft.Win32.Primitives, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.Win32.Primitives.dll`
-Assembly `Azure.Identity` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `Azure.Identity` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Azure.Identity` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Azure.Identity` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Azure.Identity` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
+Assembly `Azure.Identity` is referencing `Microsoft.Win32.Primitives, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.Win32.Primitives.dll`
+Assembly `Azure.Identity` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `Azure.Identity` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Azure.Identity` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Azure.Identity` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Azure.Identity` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
 Assembly `Azure.Storage.Blobs` is referencing `Azure.Core, Version=1.41.0.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Azure.Storage.Blobs` is referencing `System.ClientModel, Version=1.0.0.0, PublicKeyToken=92742159e12e44c8` but found `System.ClientModel, Version=1.6.1.0, PublicKeyToken=92742159e12e44c8` at `System.ClientModel.dll`
-Assembly `Azure.Storage.Blobs` is referencing `System.Diagnostics.DiagnosticSource, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `Azure.Storage.Blobs` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
+Assembly `Azure.Storage.Blobs` is referencing `System.Diagnostics.DiagnosticSource, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `Azure.Storage.Blobs` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
 Assembly `Azure.Storage.Blobs` is referencing `System.Memory.Data, Version=1.0.2.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory.Data, Version=8.0.0.1, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Memory.Data.dll`
-Assembly `Azure.Storage.Blobs` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Azure.Storage.Blobs` is referencing `System.Web.HttpUtility, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Web.HttpUtility, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Web.HttpUtility.dll`
+Assembly `Azure.Storage.Blobs` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Azure.Storage.Blobs` is referencing `System.Web.HttpUtility, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Web.HttpUtility, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Web.HttpUtility.dll`
 Assembly `Azure.Storage.Common` is referencing `Azure.Core, Version=1.41.0.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Azure.Storage.Common` is referencing `System.ClientModel, Version=1.0.0.0, PublicKeyToken=92742159e12e44c8` but found `System.ClientModel, Version=1.6.1.0, PublicKeyToken=92742159e12e44c8` at `System.ClientModel.dll`
-Assembly `Azure.Storage.Common` is referencing `System.Diagnostics.DiagnosticSource, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `Azure.Storage.Common` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
+Assembly `Azure.Storage.Common` is referencing `System.Diagnostics.DiagnosticSource, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `Azure.Storage.Common` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
 Assembly `Azure.Storage.Common` is referencing `System.Memory.Data, Version=1.0.2.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory.Data, Version=8.0.0.1, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Memory.Data.dll`
-Assembly `Azure.Storage.Common` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Hl7.Fhir.Base` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Hl7.Fhir.Base` is referencing `System.Net.Mail, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.Mail, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Net.Mail.dll`
-Assembly `Hl7.Fhir.Base` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Hl7.Fhir.Base` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Hl7.Fhir.R4B` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
+Assembly `Azure.Storage.Common` is referencing `System.Text.Json, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Hl7.Fhir.Base` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Hl7.Fhir.Base` is referencing `System.Net.Mail, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.Mail, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Net.Mail.dll`
+Assembly `Hl7.Fhir.Base` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Hl7.Fhir.Base` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Hl7.Fhir.R4B` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
 Assembly `Hl7.Fhir.Validation.Legacy.R4B` is referencing `Hl7.Fhir.Base, Version=5.11.1.0, PublicKeyToken=d706911480550fc3` but found `Hl7.Fhir.Base, Version=5.11.4.0, PublicKeyToken=d706911480550fc3` at `Hl7.Fhir.Base.dll`
 Assembly `Hl7.Fhir.Validation.Legacy.R4B` is referencing `Hl7.Fhir.Conformance, Version=5.11.1.0, PublicKeyToken=d706911480550fc3` but found `Hl7.Fhir.Conformance, Version=5.11.4.0, PublicKeyToken=d706911480550fc3` at `Hl7.Fhir.Conformance.dll`
 Assembly `Hl7.Fhir.Validation.Legacy.R4B` is referencing `Hl7.Fhir.R4B, Version=5.11.1.0, PublicKeyToken=d706911480550fc3` but found `Hl7.Fhir.R4B, Version=5.11.4.0, PublicKeyToken=d706911480550fc3` at `Hl7.Fhir.R4B.dll`
-Assembly `MediatR` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.DependencyInjection.Abstractions.dll`
-Assembly `Microsoft.AspNetCore.Mvc.Razor.Extensions` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
+Assembly `MediatR` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.DependencyInjection.Abstractions.dll`
+Assembly `Microsoft.AspNetCore.Mvc.Razor.Extensions` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
 Assembly `Microsoft.Azure.ContainerRegistry` is referencing `Microsoft.IdentityModel.Tokens, Version=5.1.2.0, PublicKeyToken=31bf3856ad364e35` but found `Microsoft.IdentityModel.Tokens, Version=7.7.1.0, PublicKeyToken=31bf3856ad364e35` at `Microsoft.IdentityModel.Tokens.dll`
 Assembly `Microsoft.Azure.ContainerRegistry` is referencing `Newtonsoft.Json, Version=10.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` but found `Newtonsoft.Json, Version=13.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` at `Newtonsoft.Json.dll`
 Assembly `Microsoft.Azure.ContainerRegistry` is referencing `System.IdentityModel.Tokens.Jwt, Version=5.1.2.0, PublicKeyToken=31bf3856ad364e35` but found `System.IdentityModel.Tokens.Jwt, Version=7.7.1.0, PublicKeyToken=31bf3856ad364e35` at `System.IdentityModel.Tokens.Jwt.dll`
-Assembly `Microsoft.Build` is referencing `Microsoft.Win32.Primitives, Version=4.1.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.Win32.Primitives.dll`
-Assembly `Microsoft.Build` is referencing `Microsoft.Win32.Registry, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Registry, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.Win32.Registry.dll`
-Assembly `Microsoft.Build` is referencing `System.Collections.Immutable, Version=1.2.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
-Assembly `Microsoft.Build` is referencing `System.Memory, Version=4.1.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.Build` is referencing `System.Reflection.Metadata, Version=1.4.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Reflection.Metadata.dll`
-Assembly `Microsoft.Build` is referencing `System.Runtime.Loader, Version=4.0.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.Loader, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Runtime.Loader.dll`
-Assembly `Microsoft.Build` is referencing `System.Text.Encoding.CodePages, Version=4.0.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Text.Encoding.CodePages.dll`
-Assembly `Microsoft.Build` is referencing `System.Text.Json, Version=4.0.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Microsoft.Build` is referencing `System.Threading.Tasks.Dataflow, Version=4.6.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Threading.Tasks.Dataflow, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Threading.Tasks.Dataflow.dll`
-Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
-Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Memory, Version=4.2.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Reflection.Metadata, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Reflection.Metadata.dll`
-Assembly `Microsoft.CodeAnalysis.Razor` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Memory, Version=4.2.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Reflection.Metadata, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Reflection.Metadata.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Runtime.CompilerServices.Unsafe, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.CompilerServices.Unsafe, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Runtime.CompilerServices.Unsafe.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Runtime.Loader, Version=4.1.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.Loader, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Runtime.Loader.dll`
-Assembly `Microsoft.CodeAnalysis` is referencing `System.Text.Encoding.CodePages, Version=4.1.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Text.Encoding.CodePages.dll`
+Assembly `Microsoft.Build` is referencing `Microsoft.Win32.Primitives, Version=4.1.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.Win32.Primitives.dll`
+Assembly `Microsoft.Build` is referencing `Microsoft.Win32.Registry, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Registry, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.Win32.Registry.dll`
+Assembly `Microsoft.Build` is referencing `System.Collections.Immutable, Version=1.2.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
+Assembly `Microsoft.Build` is referencing `System.Memory, Version=4.1.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.Build` is referencing `System.Reflection.Metadata, Version=1.4.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Reflection.Metadata.dll`
+Assembly `Microsoft.Build` is referencing `System.Runtime.Loader, Version=4.0.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.Loader, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Runtime.Loader.dll`
+Assembly `Microsoft.Build` is referencing `System.Text.Encoding.CodePages, Version=4.0.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Text.Encoding.CodePages.dll`
+Assembly `Microsoft.Build` is referencing `System.Text.Json, Version=4.0.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Microsoft.Build` is referencing `System.Threading.Tasks.Dataflow, Version=4.6.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Threading.Tasks.Dataflow, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Threading.Tasks.Dataflow.dll`
+Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
+Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Memory, Version=4.2.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.CodeAnalysis.CSharp` is referencing `System.Reflection.Metadata, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Reflection.Metadata.dll`
+Assembly `Microsoft.CodeAnalysis.Razor` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Collections.Immutable, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Memory, Version=4.2.1.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Reflection.Metadata, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Reflection.Metadata, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Reflection.Metadata.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Runtime.CompilerServices.Unsafe, Version=5.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.CompilerServices.Unsafe, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Runtime.CompilerServices.Unsafe.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Runtime.Loader, Version=4.1.1.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Runtime.Loader, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Runtime.Loader.dll`
+Assembly `Microsoft.CodeAnalysis` is referencing `System.Text.Encoding.CodePages, Version=4.1.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Text.Encoding.CodePages, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Text.Encoding.CodePages.dll`
 Assembly `Microsoft.Data.SqlClient` is referencing `Azure.Core, Version=1.47.1.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Microsoft.Data.SqlClient` is referencing `Azure.Identity, Version=1.14.2.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Identity, Version=1.16.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Identity.dll`
 Assembly `Microsoft.Data.SqlClient` is referencing `Microsoft.Identity.Client, Version=4.73.1.0, PublicKeyToken=0a613f4dd989e8ae` but found `Microsoft.Identity.Client, Version=4.76.0.0, PublicKeyToken=0a613f4dd989e8ae` at `Microsoft.Identity.Client.dll`
 Assembly `Microsoft.Extensions.Azure` is referencing `Azure.Core, Version=1.46.2.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Microsoft.Extensions.Azure` is referencing `Azure.Identity, Version=1.13.1.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Identity, Version=1.16.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Identity.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Configuration.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Configuration.Abstractions.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration.Binder, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Binder, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Configuration.Binder.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.DependencyInjection.Abstractions.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Logging.Abstractions.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Options, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Options, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Options.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Primitives, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Primitives, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Primitives.dll`
-Assembly `Microsoft.Extensions.Azure` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Configuration.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Configuration.Abstractions.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Configuration.Binder, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Binder, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Configuration.Binder.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.DependencyInjection.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.DependencyInjection.Abstractions.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Logging.Abstractions.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Options, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Options, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Options.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `Microsoft.Extensions.Primitives, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Primitives, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Primitives.dll`
+Assembly `Microsoft.Extensions.Azure` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
 Assembly `Microsoft.Extensions.Http.Polly` is referencing `Polly, Version=7.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` but found `Polly, Version=8.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` at `Polly.dll`
-Assembly `Microsoft.Health.Core` is referencing `Microsoft.Extensions.Configuration.Binder, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Binder, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Configuration.Binder.dll`
-Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `Microsoft.Extensions.Logging, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Logging.dll`
-Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Logging.Abstractions.dll`
-Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
+Assembly `Microsoft.Health.Core` is referencing `Microsoft.Extensions.Configuration.Binder, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Configuration.Binder, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Configuration.Binder.dll`
+Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `Microsoft.Extensions.Logging, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Logging.dll`
+Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Logging.Abstractions.dll`
+Assembly `Microsoft.Health.Fhir.Liquid.Converter` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
 Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Azure.Core, Version=1.35.0.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Core, Version=1.48.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Core.dll`
 Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Azure.Identity, Version=1.10.3.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Identity, Version=1.16.0.0, PublicKeyToken=92742159e12e44c8` at `Azure.Identity.dll`
 Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Azure.Storage.Blobs, Version=12.17.0.0, PublicKeyToken=92742159e12e44c8` but found `Azure.Storage.Blobs, Version=12.21.2.0, PublicKeyToken=92742159e12e44c8` at `Azure.Storage.Blobs.dll`
-Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Microsoft.Extensions.Caching.Abstractions, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Caching.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Caching.Abstractions.dll`
-Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Microsoft.Extensions.Options, Version=6.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Options, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Options.dll`
+Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Microsoft.Extensions.Caching.Abstractions, Version=3.1.9.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Caching.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Caching.Abstractions.dll`
+Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Microsoft.Extensions.Options, Version=6.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Options, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Options.dll`
 Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `Polly, Version=7.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` but found `Polly, Version=8.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` at `Polly.dll`
 Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `System.Memory.Data, Version=1.0.2.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory.Data, Version=8.0.0.1, PublicKeyToken=cc7b13ffcd2ddd51` at `System.Memory.Data.dll`
-Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.IO.FileSystem.AccessControl, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.IO.FileSystem.AccessControl, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.IO.FileSystem.AccessControl.dll`
-Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.Security.AccessControl, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.AccessControl, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.AccessControl.dll`
+Assembly `Microsoft.Health.Fhir.TemplateManagement` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.IO.FileSystem.AccessControl, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.IO.FileSystem.AccessControl, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.IO.FileSystem.AccessControl.dll`
+Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.Security.AccessControl, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.AccessControl, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.AccessControl.dll`
 Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.Security.Cryptography.ProtectedData, Version=4.0.3.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography.ProtectedData, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `System.Security.Cryptography.ProtectedData.dll`
-Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.Security.Principal.Windows, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Principal.Windows, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Principal.Windows.dll`
+Assembly `Microsoft.Identity.Client.Extensions.Msal` is referencing `System.Security.Principal.Windows, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Principal.Windows, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Principal.Windows.dll`
 Assembly `Microsoft.Identity.Client` is referencing `Microsoft.IdentityModel.Abstractions, Version=6.35.0.0, PublicKeyToken=31bf3856ad364e35` but found `Microsoft.IdentityModel.Abstractions, Version=7.7.1.0, PublicKeyToken=31bf3856ad364e35` at `Microsoft.IdentityModel.Abstractions.dll`
-Assembly `Microsoft.Identity.Client` is referencing `Microsoft.Win32.Primitives, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.Win32.Primitives.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Collections.Immutable, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Collections.Immutable.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Net.HttpListener, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.HttpListener, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Net.HttpListener.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Microsoft.Identity.Client` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Microsoft.IdentityModel.Protocols` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `Microsoft.IO.RecyclableMemoryStream` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
+Assembly `Microsoft.Identity.Client` is referencing `Microsoft.Win32.Primitives, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.Win32.Primitives, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.Win32.Primitives.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Collections.Immutable, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Collections.Immutable, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Collections.Immutable.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Net.HttpListener, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Net.HttpListener, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Net.HttpListener.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Microsoft.Identity.Client` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Microsoft.IdentityModel.JsonWebTokens` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Microsoft.IdentityModel.Protocols.OpenIdConnect` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Microsoft.IdentityModel.Protocols` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `Microsoft.IdentityModel.Tokens` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `Microsoft.IO.RecyclableMemoryStream` is referencing `System.Memory, Version=6.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
 Assembly `Microsoft.Rest.ClientRuntime.Azure` is referencing `Newtonsoft.Json, Version=10.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` but found `Newtonsoft.Json, Version=13.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` at `Newtonsoft.Json.dll`
 Assembly `Microsoft.Rest.ClientRuntime` is referencing `Newtonsoft.Json, Version=10.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` but found `Newtonsoft.Json, Version=13.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` at `Newtonsoft.Json.dll`
-Assembly `Namotion.Reflection` is referencing `Microsoft.CSharp, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.CSharp, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.CSharp.dll`
+Assembly `Namotion.Reflection` is referencing `Microsoft.CSharp, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.CSharp, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.CSharp.dll`
 Assembly `Newtonsoft.Json.Bson` is referencing `Newtonsoft.Json, Version=12.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` but found `Newtonsoft.Json, Version=13.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` at `Newtonsoft.Json.dll`
-Assembly `NJsonSchema` is referencing `Microsoft.CSharp, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.CSharp, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\Microsoft.CSharp.dll`
+Assembly `NJsonSchema` is referencing `Microsoft.CSharp, Version=4.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `Microsoft.CSharp, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/Microsoft.CSharp.dll`
 Assembly `NJsonSchema` is referencing `Newtonsoft.Json, Version=9.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` but found `Newtonsoft.Json, Version=13.0.0.0, PublicKeyToken=30ad4fe6b2a6aeed` at `Newtonsoft.Json.dll`
 Assembly `Polly.Extensions.Http` is referencing `Polly, Version=7.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` but found `Polly, Version=8.0.0.0, PublicKeyToken=c8a3ffc3f8f825cc` at `Polly.dll`
-Assembly `System.ClientModel` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs\Microsoft.Extensions.Logging.Abstractions.dll`
-Assembly `System.ClientModel` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Diagnostics.DiagnosticSource.dll`
-Assembly `System.ClientModel` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `System.ClientModel` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `System.ClientModel` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
-Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Memory.dll`
-Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs\System.Security.Cryptography.dll`
-Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Encodings.Web.dll`
-Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs\System.Text.Json.dll`
+Assembly `System.ClientModel` is referencing `Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, PublicKeyToken=adb9793829ddae60` but found `Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.0, PublicKeyToken=adb9793829ddae60` at `refs/Microsoft.Extensions.Logging.Abstractions.dll`
+Assembly `System.ClientModel` is referencing `System.Diagnostics.DiagnosticSource, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Diagnostics.DiagnosticSource, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Diagnostics.DiagnosticSource.dll`
+Assembly `System.ClientModel` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `System.ClientModel` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `System.ClientModel` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
+Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Memory, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Memory, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Memory.dll`
+Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Security.Cryptography, Version=8.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` but found `System.Security.Cryptography, Version=9.0.0.0, PublicKeyToken=b03f5f7f11d50a3a` at `refs/System.Security.Cryptography.dll`
+Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Text.Encodings.Web, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Encodings.Web, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Encodings.Web.dll`
+Assembly `System.IdentityModel.Tokens.Jwt` is referencing `System.Text.Json, Version=8.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` but found `System.Text.Json, Version=9.0.0.0, PublicKeyToken=cc7b13ffcd2ddd51` at `refs/System.Text.Json.dll`
 Facade assembly: Microsoft.Bcl.Cryptography.dll
-Facade assembly: refs\Microsoft.VisualBasic.dll
-Facade assembly: refs\mscorlib.dll
-Facade assembly: refs\netstandard.dll
-Facade assembly: refs\System.AppContext.dll
-Facade assembly: refs\System.Buffers.dll
-Facade assembly: refs\System.ComponentModel.DataAnnotations.dll
-Facade assembly: refs\System.Configuration.dll
-Facade assembly: refs\System.Core.dll
-Facade assembly: refs\System.Data.DataSetExtensions.dll
-Facade assembly: refs\System.Data.dll
-Facade assembly: refs\System.Diagnostics.Debug.dll
-Facade assembly: refs\System.Diagnostics.Tools.dll
-Facade assembly: refs\System.dll
-Facade assembly: refs\System.Drawing.dll
-Facade assembly: refs\System.Dynamic.Runtime.dll
-Facade assembly: refs\System.Globalization.Calendars.dll
-Facade assembly: refs\System.Globalization.dll
-Facade assembly: refs\System.Globalization.Extensions.dll
-Facade assembly: refs\System.IO.Compression.FileSystem.dll
-Facade assembly: refs\System.IO.dll
-Facade assembly: refs\System.IO.FileSystem.dll
-Facade assembly: refs\System.IO.FileSystem.Primitives.dll
-Facade assembly: refs\System.IO.UnmanagedMemoryStream.dll
-Facade assembly: refs\System.Net.dll
-Facade assembly: refs\System.Net.ServicePoint.dll
-Facade assembly: refs\System.Numerics.dll
-Facade assembly: refs\System.Reflection.dll
-Facade assembly: refs\System.Reflection.Extensions.dll
-Facade assembly: refs\System.Resources.Reader.dll
-Facade assembly: refs\System.Resources.ResourceManager.dll
-Facade assembly: refs\System.Runtime.CompilerServices.Unsafe.dll
-Facade assembly: refs\System.Runtime.Extensions.dll
-Facade assembly: refs\System.Runtime.Handles.dll
-Facade assembly: refs\System.Runtime.InteropServices.RuntimeInformation.dll
-Facade assembly: refs\System.Runtime.Serialization.dll
-Facade assembly: refs\System.Security.Cryptography.Algorithms.dll
-Facade assembly: refs\System.Security.Cryptography.Cng.dll
-Facade assembly: refs\System.Security.Cryptography.Csp.dll
-Facade assembly: refs\System.Security.Cryptography.Encoding.dll
-Facade assembly: refs\System.Security.Cryptography.OpenSsl.dll
-Facade assembly: refs\System.Security.Cryptography.Primitives.dll
-Facade assembly: refs\System.Security.Cryptography.X509Certificates.dll
-Facade assembly: refs\System.Security.dll
-Facade assembly: refs\System.Security.Principal.dll
-Facade assembly: refs\System.Security.SecureString.dll
-Facade assembly: refs\System.ServiceModel.Web.dll
-Facade assembly: refs\System.ServiceProcess.dll
-Facade assembly: refs\System.Text.Encoding.dll
-Facade assembly: refs\System.Threading.Tasks.dll
-Facade assembly: refs\System.Threading.Tasks.Extensions.dll
-Facade assembly: refs\System.Threading.Timer.dll
-Facade assembly: refs\System.Transactions.dll
-Facade assembly: refs\System.ValueTuple.dll
-Facade assembly: refs\System.Web.dll
-Facade assembly: refs\System.Windows.dll
-Facade assembly: refs\System.Xml.dll
-Facade assembly: refs\System.Xml.Linq.dll
-Facade assembly: refs\System.Xml.Serialization.dll
-Facade assembly: refs\System.Xml.XmlDocument.dll
-Facade assembly: refs\WindowsBase.dll
+Facade assembly: refs/Microsoft.VisualBasic.dll
+Facade assembly: refs/mscorlib.dll
+Facade assembly: refs/netstandard.dll
+Facade assembly: refs/System.AppContext.dll
+Facade assembly: refs/System.Buffers.dll
+Facade assembly: refs/System.ComponentModel.DataAnnotations.dll
+Facade assembly: refs/System.Configuration.dll
+Facade assembly: refs/System.Core.dll
+Facade assembly: refs/System.Data.DataSetExtensions.dll
+Facade assembly: refs/System.Data.dll
+Facade assembly: refs/System.Diagnostics.Debug.dll
+Facade assembly: refs/System.Diagnostics.Tools.dll
+Facade assembly: refs/System.dll
+Facade assembly: refs/System.Drawing.dll
+Facade assembly: refs/System.Dynamic.Runtime.dll
+Facade assembly: refs/System.Globalization.Calendars.dll
+Facade assembly: refs/System.Globalization.dll
+Facade assembly: refs/System.Globalization.Extensions.dll
+Facade assembly: refs/System.IO.Compression.FileSystem.dll
+Facade assembly: refs/System.IO.dll
+Facade assembly: refs/System.IO.FileSystem.dll
+Facade assembly: refs/System.IO.FileSystem.Primitives.dll
+Facade assembly: refs/System.IO.UnmanagedMemoryStream.dll
+Facade assembly: refs/System.Net.dll
+Facade assembly: refs/System.Net.ServicePoint.dll
+Facade assembly: refs/System.Numerics.dll
+Facade assembly: refs/System.Reflection.dll
+Facade assembly: refs/System.Reflection.Extensions.dll
+Facade assembly: refs/System.Resources.Reader.dll
+Facade assembly: refs/System.Resources.ResourceManager.dll
+Facade assembly: refs/System.Runtime.CompilerServices.Unsafe.dll
+Facade assembly: refs/System.Runtime.Extensions.dll
+Facade assembly: refs/System.Runtime.Handles.dll
+Facade assembly: refs/System.Runtime.InteropServices.RuntimeInformation.dll
+Facade assembly: refs/System.Runtime.Serialization.dll
+Facade assembly: refs/System.Security.Cryptography.Algorithms.dll
+Facade assembly: refs/System.Security.Cryptography.Cng.dll
+Facade assembly: refs/System.Security.Cryptography.Csp.dll
+Facade assembly: refs/System.Security.Cryptography.Encoding.dll
+Facade assembly: refs/System.Security.Cryptography.OpenSsl.dll
+Facade assembly: refs/System.Security.Cryptography.Primitives.dll
+Facade assembly: refs/System.Security.Cryptography.X509Certificates.dll
+Facade assembly: refs/System.Security.dll
+Facade assembly: refs/System.Security.Principal.dll
+Facade assembly: refs/System.Security.SecureString.dll
+Facade assembly: refs/System.ServiceModel.Web.dll
+Facade assembly: refs/System.ServiceProcess.dll
+Facade assembly: refs/System.Text.Encoding.dll
+Facade assembly: refs/System.Threading.Tasks.dll
+Facade assembly: refs/System.Threading.Tasks.Extensions.dll
+Facade assembly: refs/System.Threading.Timer.dll
+Facade assembly: refs/System.Transactions.dll
+Facade assembly: refs/System.ValueTuple.dll
+Facade assembly: refs/System.Web.dll
+Facade assembly: refs/System.Windows.dll
+Facade assembly: refs/System.Xml.dll
+Facade assembly: refs/System.Xml.Linq.dll
+Facade assembly: refs/System.Xml.Serialization.dll
+Facade assembly: refs/System.Xml.XmlDocument.dll
+Facade assembly: refs/WindowsBase.dll
