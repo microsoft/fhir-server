@@ -173,7 +173,7 @@ It must match the current Firely `GetAllChildren<ResourceReference>()` behavior 
 Keep Phase 0 observability small:
 
 - Log the configured provider and migrated seams once at startup.
-- Include the selected provider in import parser failure logs using existing logging infrastructure.
+- Correlate existing import job failures with the startup provider log; do not add parser catch/log wrappers.
 - Reuse existing import job success/failure metrics.
 
 New dashboards, metric dimensions, and fallback-guard infrastructure are separate operational changes unless an existing metric can accept the provider dimension without widening the PR materially.
@@ -194,7 +194,7 @@ Expected mechanical changes:
 - Solution entries.
 - Four version API project references.
 - Four version Core unit-test project references.
-- Docker restore project-copy entries if required by the current Dockerfile pattern.
+- Docker restore project-copy entries required by the current Dockerfile pattern.
 
 Expected new implementation files:
 
