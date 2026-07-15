@@ -77,7 +77,14 @@ steps:
           throw "Unable to locate checkbinarycompat tool in '$toolsDirectory'. Checked: $($toolCandidates -join ', ')"
       }
 
-      $pwshPath = [System.Diagnostics.Process]::GetCurrentProcess().Path
+      $pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
+      $pwshPath = @($pwshCommand.Source, $pwshCommand.Path) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -First 1
+      if ([string]::IsNullOrWhiteSpace($pwshPath)) {
+          throw 'Unable to resolve the pwsh application path.'
+      }
+
       & $pwshPath -NoLogo -NoProfile -File $validatorScriptPath `
         -PackageDirectory '${{ parameters.packageDirectory }}' `
         -BaselineDirectory '${{ parameters.baselineDirectory }}' `

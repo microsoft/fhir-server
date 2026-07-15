@@ -109,6 +109,19 @@ function Invoke-TestCase {
     }
 }
 
+function Get-PowerShellApplicationPath {
+    $pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $pwshPath = @($pwshCommand.Source, $pwshCommand.Path) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -First 1
+
+    if ([string]::IsNullOrWhiteSpace($pwshPath)) {
+        throw 'Unable to resolve the pwsh application path.'
+    }
+
+    return $pwshPath
+}
+
 function Invoke-ValidatorScript {
     param(
         [Parameter(Mandatory = $true)]
@@ -130,7 +143,7 @@ function Invoke-ValidatorScript {
         [string[]]$SupportedFrameworks = @('net8.0', 'net9.0')
     )
 
-    $pwshPath = [System.Diagnostics.Process]::GetCurrentProcess().Path
+    $pwshPath = Get-PowerShellApplicationPath
     $arguments = @(
         '-NoProfile'
         '-File'
@@ -444,6 +457,27 @@ try {
         ) $actualCommands 'Exported commands mismatch'
     }
 
+    Invoke-TestCase 'child PowerShell resolution uses pwsh application and launches commands' {
+        $pwshPath = Get-PowerShellApplicationPath
+        $pwshFileName = [System.IO.Path]::GetFileName($pwshPath)
+
+        if (($pwshFileName -ne 'pwsh') -and ($pwshFileName -ne 'pwsh.exe')) {
+            throw "Resolved child PowerShell executable should be pwsh or pwsh.exe, but was '$pwshFileName'."
+        }
+
+        Assert-DoesNotContain 'dotnet' $pwshFileName 'Resolved child PowerShell executable basename should never be dotnet'
+
+        $launchResult = Invoke-TestNativeCommand -FilePath $pwshPath -ArgumentList @(
+            '-NoLogo'
+            '-NoProfile'
+            '-Command'
+            'Write-Output ready'
+        )
+
+        Assert-Equal 0 $launchResult.ExitCode 'Resolved child PowerShell executable should launch -NoProfile -Command successfully'
+        Assert-Contains 'ready' $launchResult.Output 'Resolved child PowerShell executable should emit command output'
+    }
+
     Invoke-TestCase 'validator rejects duplicate package identities and preserves reports' {
         $duplicateRoot = Join-Path $script:TempRoot 'validator-duplicate'
         $packageDirectory = Join-Path $duplicateRoot 'packages'
@@ -695,9 +729,14 @@ try {
 <configuration>
   <packageSources>
     <clear />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
     <add key="empty-remote" value="$emptyRemoteDirectory" />
   </packageSources>
   <packageSourceMapping>
+    <packageSource key="nuget.org">
+      <package pattern="Microsoft.AspNetCore.App.*" />
+      <package pattern="Microsoft.NETCore.App.*" />
+    </packageSource>
     <packageSource key="empty-remote">
       <package pattern="Microsoft.Health.*" />
     </packageSource>
@@ -707,7 +746,7 @@ try {
 
         $result = Invoke-ValidatorScript -PackageDirectory $packageDirectory -BaselineDirectory $baselineDirectory -ReportDirectory $reportDirectory -WorkDirectory $workDirectory -NuGetConfigPath $customConfigPath -CheckBinaryCompatPath $checkerPath -SupportedFrameworks @('net8.0')
 
-        Assert-Equal 0 $result.ExitCode 'Validator should restore Microsoft.Health.* packages from local exact mappings even when a conflicting remote mapping exists'
+        Assert-Equal 0 $result.ExitCode "Validator should restore Microsoft.Health.* packages from local exact mappings even when a conflicting remote mapping exists. Output:$([System.Environment]::NewLine)$($result.Output)"
         Assert-Contains 'Validated 1 binary closures across 1 NuGet packages.' $result.Output 'Microsoft.Health local restore success summary mismatch'
         $successReportDirectory = Join-Path (Join-Path $reportDirectory $packageId) 'net8.0'
         Assert-Equal $true (Test-Path -LiteralPath (Join-Path $successReportDirectory 'BinaryCompatReport.txt')) 'Microsoft.Health local restore should retain BinaryCompatReport.txt'
@@ -1055,7 +1094,14 @@ try {
 <configuration>
   <packageSources>
     <clear />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
+  <packageSourceMapping>
+    <packageSource key="nuget.org">
+      <package pattern="Microsoft.AspNetCore.App.*" />
+      <package pattern="Microsoft.NETCore.App.*" />
+    </packageSource>
+  </packageSourceMapping>
 </configuration>
 "@
 
@@ -1076,7 +1122,7 @@ try {
                 'minimal'
             ) -WorkingDirectory $consumerDirectory
 
-            Assert-Equal 0 $restoreResult.ExitCode 'Consumer project under the repo tree should restore successfully with exact PackageReference versions'
+            Assert-Equal 0 $restoreResult.ExitCode "Consumer project under the repo tree should restore successfully with exact PackageReference versions. Output:$([System.Environment]::NewLine)$($restoreResult.Output)"
             Assert-DoesNotContain 'NU1008' $restoreResult.Output 'Consumer project should not inherit central package version enforcement'
         }
         finally {
