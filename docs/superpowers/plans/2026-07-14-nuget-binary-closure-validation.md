@@ -1,5 +1,7 @@
 # NuGet Binary Closure Validation Implementation Plan
 
+> **Scope amendment:** The every-package validation matrix in this historical plan is superseded by `docs/superpowers/plans/2026-07-15-reduce-nuget-binary-closure-scope.md`. The final OSS implementation validates four Web deployment roots across two target frameworks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a blocking, reproducible binary-closure check for every non-symbol NuGet package produced by the shared OSS PR and CI packaging flow.
