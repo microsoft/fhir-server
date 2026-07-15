@@ -1,6 +1,6 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
 # Use .NET 10 SDK to support SQL script generation tool, targeting net10.0 and net8.0 in builds
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.301-azurelinux3.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.302-azurelinux3.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
