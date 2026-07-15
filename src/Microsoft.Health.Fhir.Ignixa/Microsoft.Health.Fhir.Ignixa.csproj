@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net9.0</TargetFrameworks>
+    <RootNamespace>Microsoft.Health.Fhir.Ignixa</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Ignixa.Abstractions" />
+    <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Ignixa.Serialization" />
+    <PackageReference Include="Ignixa.Specification" />
+  </ItemGroup>
+</Project>

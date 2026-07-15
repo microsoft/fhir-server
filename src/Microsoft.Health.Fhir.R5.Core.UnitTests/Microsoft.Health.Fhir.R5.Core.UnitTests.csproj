@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Core\Microsoft.Health.Fhir.R5.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.FirelySdk\Microsoft.Health.Fhir.R5.FirelySdk.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Ignixa\Microsoft.Health.Fhir.Ignixa.csproj" Condition="'$(TargetFramework)' == 'net9.0'" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
