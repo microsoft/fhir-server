@@ -153,6 +153,66 @@ function Get-NuGetPackageMetadata {
     }
 }
 
+function Select-BinaryClosurePackages {
+    [CmdletBinding()]
+    param(
+        [object[]]$Packages,
+
+        [string[]]$RequiredPackageIds
+    )
+
+    $packagesById = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($package in @($Packages)) {
+        if ($null -eq $package -or [string]::IsNullOrWhiteSpace([string]$package.Id)) {
+            continue
+        }
+
+        if (-not $packagesById.ContainsKey([string]$package.Id)) {
+            $packagesById[[string]$package.Id] = [System.Collections.Generic.List[object]]::new()
+        }
+
+        $packagesById[[string]$package.Id].Add($package) | Out-Null
+    }
+
+    $requiredIds = [System.Collections.Generic.SortedDictionary[string, string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($requiredPackageId in @($RequiredPackageIds)) {
+        if (-not [string]::IsNullOrWhiteSpace($requiredPackageId)) {
+            $requiredIds[$requiredPackageId] = $requiredPackageId
+        }
+    }
+
+    $selected = [System.Collections.Generic.List[object]]::new()
+    $missing = [System.Collections.Generic.List[string]]::new()
+
+    if ($requiredIds.Count -eq 0) {
+        foreach ($package in @($Packages | Sort-Object Id, Version, Path)) {
+            if ($null -ne $package) {
+                $selected.Add($package) | Out-Null
+            }
+        }
+    }
+    else {
+        foreach ($requiredPackageId in $requiredIds.Values) {
+            if (-not $packagesById.ContainsKey($requiredPackageId)) {
+                $missing.Add($requiredPackageId) | Out-Null
+                continue
+            }
+
+            foreach ($package in @($packagesById[$requiredPackageId] | Sort-Object Id, Version, Path)) {
+                $selected.Add($package) | Out-Null
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Selected = @($selected)
+        Missing = @($missing)
+    }
+}
+
 function Compare-BinaryClosureBaselineInventory {
     [CmdletBinding()]
     param(
@@ -374,4 +434,5 @@ Export-ModuleMember -Function @(
     'Get-NuGetPackageMetadata'
     'New-BinaryClosureConsumerProject'
     'New-BinaryClosureRestoreConfig'
+    'Select-BinaryClosurePackages'
 )
