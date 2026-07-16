@@ -22,17 +22,6 @@ parameters:
   default: false
 
 steps:
-# Keep integration tests on the project-based dotnet test path used by main. Directly invoking
-# prebuilt test DLLs works for execution, but coverage + retry TRX files are not merged correctly
-# by PublishTestResults. When the pipeline moves to .NET 10, revisit prebuilt execution with
-# `dotnet test --test-modules`.
-- task: DotNetCoreCLI@2
-  displayName: 'Build Integration Test Projects'
-  inputs:
-    command: build
-    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-    arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
 - ${{ if eq(parameters.parallelizeTestCollections, true) }}:
   - task: PowerShell@2
     displayName: 'Configure integration test parallelism'
@@ -40,7 +29,6 @@ steps:
       targetType: inline
       pwsh: true
       script: |
-        $testProjectOutputRoot = '$(Pipeline.Workspace)/source/test'
         $testDllName = 'Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll'
         $runnerConfig = @{
           '$schema' = 'https://xunit.net/schema/current/xunit.runner.schema.json'
@@ -48,14 +36,13 @@ steps:
           parallelizeTestCollections = $true
         } | ConvertTo-Json
 
-        $testDlls = Get-ChildItem -Path $testProjectOutputRoot -Filter $testDllName -Recurse -File |
-          Where-Object { $_.FullName -notmatch '[\\/](obj|ref)[\\/]' }
+        $testDlls = Get-ChildItem -Path '$(Agent.TempDirectory)/IntegrationTests' -Filter $testDllName -Recurse -File
 
         if (-not $testDlls) {
-          throw "Could not find any built integration test assemblies matching '$testDllName' under '$testProjectOutputRoot'. Confirm the preceding build step produced project outputs before enabling parallelizeTestCollections."
+          throw "Could not find any extracted integration test assemblies matching '$testDllName'."
         }
 
-        Write-Host "Found $($testDlls.Count) integration test assembly output(s):"
+        Write-Host "Found $($testDlls.Count) extracted integration test assembly(s):"
         $testDlls |
           Sort-Object -Property FullName |
           ForEach-Object { Write-Host " - $($_.FullName)" }
@@ -114,16 +101,35 @@ steps:
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
-- task: DotNetCoreCLI@2
+- task: PowerShell@2
   displayName: 'Run ${{ parameters.dataStore }} Integration Tests ${{ parameters.testRunTitle }} with coverage'
   inputs:
-    command: test
-    projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-    arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "${{ parameters.testFilter }}" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-    testRunTitle: '${{ parameters.testRunTitle }}'
-    # Disable the task's built-in (non-retry-aware) result publishing so the
-    # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
-    publishTestResults: false
+    targetType: inline
+    pwsh: true
+    script: |
+      $ErrorActionPreference = 'Stop'
+      $testRoot = '$(Agent.TempDirectory)/IntegrationTests'
+      $testName = 'Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration'
+      $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+      if (-not $dll) {
+        throw "Could not find $testName.dll under $testRoot"
+      }
+
+      $testArgs = @(
+        '--filter', '${{ parameters.testFilter }}',
+        '--retry-failed-tests', '3',
+        '--coverage',
+        '--coverage-output-format', 'cobertura',
+        '--coverage-settings', '$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml',
+        '--report-trx'
+      )
+
+      Write-Host "Running dotnet $($dll.FullName) $($testArgs -join ' ')"
+      & dotnet $dll.FullName @testArgs
+
+      if ($LASTEXITCODE -ne 0) {
+        throw "${{ parameters.dataStore }} integration tests failed with exit code $LASTEXITCODE"
+      }
   env:
     platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
     'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
