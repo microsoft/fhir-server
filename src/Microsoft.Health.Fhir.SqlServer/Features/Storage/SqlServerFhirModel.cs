@@ -436,7 +436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // Preserve the Unsupported status that comes from unsupported-search-parameters.json.
                 // Overwriting it would cause parameters that the server cannot search on to be reported
-                // as Enabled/Supported, silently returning empty results instead of an OperationOutcome warning.
+                // as Enabled/Supported, and returning 500 error instead of an OperationOutcome warning.
                 if (fs.Status != SearchParameterStatus.Unsupported)
                 {
                     fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
