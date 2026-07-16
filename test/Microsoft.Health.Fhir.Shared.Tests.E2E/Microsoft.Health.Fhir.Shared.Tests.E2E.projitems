@@ -143,7 +143,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryableCredentialProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryAuthenticationHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerAuthenticationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
