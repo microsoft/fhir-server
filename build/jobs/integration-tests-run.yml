@@ -183,6 +183,7 @@ steps:
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish integration test coverage'
+  condition: succeededOrFailed()
   inputs:
     pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
     artifactName: 'Coverage_IntegrationTests_${{ parameters.artifactSuffix }}'
