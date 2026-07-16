@@ -220,15 +220,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenServerShouldReturnForbidden()
+        public async Task GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAcceptedWithInferredType()
         {
             Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
-            using HttpRequestMessage exportRequest = GenerateExportRequest();
-            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
 
-            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+            // Omitting _type is now allowed for a partial system scope: the effective _type is inferred and
+            // narrowed to the eligible scope(s) instead of being rejected.
+            Uri contentLocation = await CreateExportJobAsync(systemClient);
+
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
         }
 
         [SkippableFact]
@@ -291,6 +294,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             AssertStatusIsAcceptedOrOk(wildcardStatusResponse.StatusCode);
             using HttpResponseMessage wildcardCancelResponse = await wildcardClient.DeleteAsync(contentLocation);
             Assert.Equal(HttpStatusCode.Accepted, wildcardCancelResponse.StatusCode);
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPatientRouteWithoutPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
+        {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Patient/$export requires system/Patient selection access in addition to the explicit output type,
+            // independently of whether the output type itself is covered.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                "Patient/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenGroupRouteWithoutGroupSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
+        {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Group/{id}/$export requires both system/Group and system/Patient selection access; Patient plus the
+            // explicit output type alone is not sufficient.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(
+                TestApplications.SmartUserClient,
+                "system/Patient.read system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                $"Group/{Guid.NewGuid()}/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenGroupRouteWithGroupAndPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnAccepted()
+        {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Job creation does not synchronously validate that the referenced Group exists, so a nonexistent
+            // group id is sufficient to exercise the route authorization requirements in isolation.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(
+                TestApplications.SmartUserClient,
+                "system/Group.read system/Patient.read system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                $"Group/{Guid.NewGuid()}/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
         }
 
         [Fact]

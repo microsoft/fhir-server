@@ -360,6 +360,49 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
+        [Fact]
+        public async Task GivenSmartScopeValidatorReturnsInferredResourceType_WhenCreatingAnExportJob_ThenInferredResourceTypeIsPersisted()
+        {
+            // A SMART request without an explicit _type can be authorized against a narrowed, inferred subset of
+            // resource types. That effective subset must be the one persisted on the job record, so that status
+            // and cancel checks are enforced against the same narrowed set going forward.
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+
+            _exportSmartScopeValidator.ValidateCreateAccess(Arg.Any<CreateExportRequest>()).Returns("Observation,Patient");
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.NotNull(actualRecord);
+            Assert.Equal("Observation,Patient", actualRecord.ResourceType);
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeValidatorReturnsNull_WhenCreatingAnExportJobWithExplicitResourceType_ThenOriginalResourceTypeIsPreserved()
+        {
+            // When the validator does not narrow the request (e.g. non-SMART requests, or a system wildcard scope),
+            // the handler must fall back to the caller-supplied resourceType rather than erasing it.
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+
+            _exportSmartScopeValidator.ValidateCreateAccess(Arg.Any<CreateExportRequest>()).Returns((string)null);
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
+
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.NotNull(actualRecord);
+            Assert.Equal("Patient", actualRecord.ResourceType);
+        }
+
         [Theory]
         [InlineData("test1", ExportFormatTags.ResourceName)]
         [InlineData(null, ExportFormatTags.Id)]

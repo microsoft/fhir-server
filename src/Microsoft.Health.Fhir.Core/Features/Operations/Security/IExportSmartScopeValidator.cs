@@ -17,7 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// Validates a request to create an export job.
         /// </summary>
         /// <param name="request">The export request.</param>
-        void ValidateCreateAccess(CreateExportRequest request);
+        /// <returns>
+        /// The effective, comma-separated resource type(s) to persist on the export job, or <c>null</c> when
+        /// the request is unconstrained (either non-SMART, or authorized via a complete system wildcard scope).
+        /// </returns>
+        string ValidateCreateAccess(CreateExportRequest request);
 
         /// <summary>
         /// Validates access to an existing export job.

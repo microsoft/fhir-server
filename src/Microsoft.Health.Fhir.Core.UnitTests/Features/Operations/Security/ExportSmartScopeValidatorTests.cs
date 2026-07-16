@@ -53,6 +53,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient)));
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 validator.ValidateJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
+
+            // Without any explicit _type, an empty scope set has no eligible resource types to infer either.
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.ValidateCreateAccess(CreateExportRequest(resourceType: null)));
         }
 
         [Fact]
@@ -71,33 +75,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         [Theory]
         [InlineData(DataActions.Read | DataActions.Export)]
         [InlineData(DataActions.ReadById | DataActions.Search | DataActions.Export)]
-        public void GivenSystemWildcardExportReadScope_WhenCreatingExportWithoutType_ThenAccessIsAllowed(DataActions actions)
+        public void GivenSystemWildcardExportReadScope_WhenCreatingExportWithoutType_ThenAccessIsAllowedAndTypeStaysUnconstrained(DataActions actions)
         {
             ExportSmartScopeValidator validator = CreateValidator(
                 new ScopeRestriction(KnownResourceTypes.All, actions, "system"));
 
-            validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
+
+            Assert.Null(effectiveResourceType);
         }
 
         [Fact]
-        public void GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenForbiddenIsThrown()
+        public void GivenSinglePartialSystemScope_WhenCreatingExportWithoutType_ThenEffectiveTypeIsInferredAndNarrowed()
         {
+            // A partial system scope with complete export-read actions now narrows the export instead of being forbidden.
             ExportSmartScopeValidator validator = CreateValidator(
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
+
+            Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenMultiplePartialSystemScopes_WhenCreatingExportWithoutType_ThenEffectiveTypeIncludesEveryEligibleType()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
+
+            Assert.Equal("Observation,Patient", effectiveResourceType);
+        }
+
+        [Theory]
+        [InlineData(DataActions.Export)]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.ReadById | DataActions.Export)]
+        [InlineData(DataActions.Search | DataActions.Export)]
+        public void GivenOnlyIncompleteSystemScopeActions_WhenCreatingExportWithoutType_ThenForbiddenIsThrown(DataActions actions)
+        {
+            // No resource-specific scope has complete export-read actions, so there is nothing eligible to infer.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, actions, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 validator.ValidateCreateAccess(CreateExportRequest(resourceType: null)));
         }
 
         [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" , ")]
+        public void GivenPartialSystemScope_WhenCreatingExportWithEffectivelyEmptyType_ThenEffectiveTypeIsInferred(string resourceType)
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(resourceType));
+
+            Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
+        }
+
+        [Theory]
         [InlineData(DataActions.Read | DataActions.Export)]
         [InlineData(DataActions.ReadById | DataActions.Search | DataActions.Export)]
-        public void GivenMatchingSystemExportReadScope_WhenCreatingExportWithExplicitType_ThenAccessIsAllowed(DataActions actions)
+        public void GivenMatchingSystemExportReadScope_WhenCreatingExportWithExplicitType_ThenAccessIsAllowedAndTypeIsPreserved(DataActions actions)
         {
             ExportSmartScopeValidator validator = CreateValidator(
                 new ScopeRestriction(KnownResourceTypes.Patient, actions, "system"));
 
-            validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient));
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient));
+
+            Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
         }
 
         [Fact]
@@ -110,13 +161,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
-        public void GivenSystemScopesCoveringEveryRequestedType_WhenCreatingExportWithExplicitTypes_ThenAccessIsAllowed()
+        public void GivenSystemScopesCoveringEveryRequestedType_WhenCreatingExportWithExplicitTypes_ThenAccessIsAllowedAndSubsetIsPreserved()
         {
             ExportSmartScopeValidator validator = CreateValidator(
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
                 new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"));
 
-            validator.ValidateCreateAccess(CreateExportRequest("Patient,Observation"));
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest("Patient,Observation"));
+
+            Assert.Equal("Patient,Observation", effectiveResourceType);
         }
 
         [Fact]
@@ -143,19 +196,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient)));
         }
 
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData(" , ")]
-        public void GivenPartialSystemScope_WhenCreatingExportWithoutNonemptyExplicitType_ThenForbiddenIsThrown(string resourceType)
-        {
-            ExportSmartScopeValidator validator = CreateValidator(
-                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
-
-            Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.ValidateCreateAccess(CreateExportRequest(resourceType)));
-        }
-
         [Fact]
         public void GivenSearchParameterConstrainedSystemScope_WhenCreatingExport_ThenForbiddenIsThrown()
         {
@@ -169,6 +209,118 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient)));
+        }
+
+        [Fact]
+        public void GivenOnlySearchParameterConstrainedSystemScope_WhenCreatingExportWithoutType_ThenForbiddenIsThrown()
+        {
+            // A search-parameter-constrained scope is never eligible for inference either.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(
+                    KnownResourceTypes.Patient,
+                    V2ExportRead,
+                    "system",
+                    new SearchParams("active", "true")));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.ValidateCreateAccess(CreateExportRequest(resourceType: null)));
+        }
+
+        [Fact]
+        public void GivenPatientRouteWithoutSystemPatientAccess_WhenCreatingExportWithExplicitType_ThenForbiddenIsThrown()
+        {
+            // Patient/$export?_type=Observation must require system/Patient in addition to the explicit output type.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "system"));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient)));
+        }
+
+        [Fact]
+        public void GivenPatientRouteWithSystemPatientAndOutputTypeAccess_WhenCreatingExportWithExplicitType_ThenAccessIsAllowed()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(
+                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient));
+
+            Assert.Equal(KnownResourceTypes.Observation, effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenGroupRouteWithOnlySystemPatientAccess_WhenCreatingExportWithExplicitType_ThenForbiddenIsThrown()
+        {
+            // Group/{id}/$export?_type=Patient must require both system/Group and system/Patient.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.ValidateCreateAccess(CreateExportRequest(KnownResourceTypes.Patient, ExportJobType.Group)));
+        }
+
+        [Fact]
+        public void GivenGroupRouteWithSystemGroupAndPatientAccess_WhenCreatingExportWithExplicitType_ThenAccessIsAllowed()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Group, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(
+                CreateExportRequest(KnownResourceTypes.Patient, ExportJobType.Group));
+
+            Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenGroupRouteWithOnlySystemPatientAccess_WhenCreatingExportWithoutType_ThenForbiddenIsThrown()
+        {
+            // Route prerequisites must be enforced even when the effective _type is being inferred (no explicit _type).
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.ValidateCreateAccess(CreateExportRequest(resourceType: null, requestType: ExportJobType.Group)));
+        }
+
+        [Fact]
+        public void GivenGroupRouteWithSystemGroupAndPatientAccess_WhenCreatingExportWithoutType_ThenEffectiveTypeIsInferred()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Group, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(
+                CreateExportRequest(resourceType: null, requestType: ExportJobType.Group));
+
+            Assert.Equal("Group,Patient", effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenGroupRouteWithSystemWildcardScope_WhenCreatingExportWithoutType_ThenAccessIsAllowed()
+        {
+            // system/* with complete export-read actions satisfies every route prerequisite.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.All, V2ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(
+                CreateExportRequest(resourceType: null, requestType: ExportJobType.Group));
+
+            Assert.Null(effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenPatientRouteWithSystemWildcardScope_WhenCreatingExportWithExplicitType_ThenAccessIsAllowed()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.All, V1ExportRead, "system"));
+
+            string effectiveResourceType = validator.ValidateCreateAccess(
+                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient));
+
+            Assert.Equal(KnownResourceTypes.Observation, effectiveResourceType);
         }
 
         [Theory]
@@ -259,6 +411,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
+        public void GivenPersistedInferredResourceType_WhenValidatingJobAccess_ThenAccessIsAllowed()
+        {
+            // A job created without an explicit _type but narrowed via inference persists a comma-separated ResourceType.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"));
+            ExportJobRecord record = CreateExportJobRecord("Observation,Patient");
+
+            validator.ValidateJobAccess(record);
+        }
+
+        [Fact]
+        public void GivenGroupJobWithOnlySystemPatientAccess_WhenValidatingJobAccess_ThenForbiddenIsThrown()
+        {
+            // Route prerequisites must be re-derived from the persisted ExportType at status/cancel time too.
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+            ExportJobRecord record = CreateExportJobRecord(KnownResourceTypes.Patient, ExportJobType.Group);
+
+            Assert.Throws<UnauthorizedFhirActionException>(() => validator.ValidateJobAccess(record));
+        }
+
+        [Fact]
+        public void GivenGroupJobWithSystemGroupAndPatientAccess_WhenValidatingJobAccess_ThenAccessIsAllowed()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Group, V1ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
+            ExportJobRecord record = CreateExportJobRecord(KnownResourceTypes.Patient, ExportJobType.Group);
+
+            validator.ValidateJobAccess(record);
+        }
+
+        [Fact]
+        public void GivenPatientJobWithoutSystemPatientAccess_WhenValidatingJobAccess_ThenForbiddenIsThrown()
+        {
+            ExportSmartScopeValidator validator = CreateValidator(
+                new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "system"));
+            ExportJobRecord record = CreateExportJobRecord(KnownResourceTypes.Observation, ExportJobType.Patient);
+
+            Assert.Throws<UnauthorizedFhirActionException>(() => validator.ValidateJobAccess(record));
+        }
+
+        [Fact]
         public void GivenNonSmartRequest_WhenValidatingCreateOrJobAccess_ThenValidationIsNotApplied()
         {
             // SMART validation is gated by the explicit fine-grained flag, preserving existing RBAC-only behavior.
@@ -266,8 +462,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 applyFineGrainedAccessControl: false,
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "patient"));
 
-            validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
+            string effectiveResourceType = validator.ValidateCreateAccess(CreateExportRequest(resourceType: null));
             validator.ValidateJobAccess(CreateExportJobRecord(resourceType: null));
+
+            Assert.Null(effectiveResourceType);
         }
 
         private ExportSmartScopeValidator CreateValidator(params ScopeRestriction[] scopeRestrictions)
@@ -298,19 +496,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             return new ExportSmartScopeValidator(_contextAccessor);
         }
 
-        private static CreateExportRequest CreateExportRequest(string resourceType)
+        private static CreateExportRequest CreateExportRequest(string resourceType, ExportJobType requestType = ExportJobType.All)
         {
             return new CreateExportRequest(
                 requestUri: new Uri("http://localhost/$export"),
-                requestType: ExportJobType.All,
+                requestType: requestType,
                 resourceType: resourceType);
         }
 
-        private static ExportJobRecord CreateExportJobRecord(string resourceType)
+        private static ExportJobRecord CreateExportJobRecord(string resourceType, ExportJobType exportType = ExportJobType.All)
         {
             return new ExportJobRecord(
                 requestUri: new Uri("http://localhost/$export"),
-                exportType: ExportJobType.All,
+                exportType: exportType,
                 exportFormat: ExportFormatTags.ResourceName,
                 resourceType: resourceType,
                 filters: Array.Empty<ExportJobFilter>(),
