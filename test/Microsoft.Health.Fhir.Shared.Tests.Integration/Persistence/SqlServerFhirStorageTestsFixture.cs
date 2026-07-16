@@ -124,6 +124,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
 
+        internal FilebasedSearchParameterStatusDataStore FilebasedSearchParameterStatusDataStore => _filebasedSearchParameterStatusDataStore;
+
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
 
         internal SchemaInformation SchemaInformation { get; private set; }

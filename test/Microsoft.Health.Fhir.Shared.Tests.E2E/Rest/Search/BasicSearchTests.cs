@@ -1124,6 +1124,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequestOnASearchParameterMarkedUnsupportedAtStartup_WhenHandled_ReturnsBundleWithNotSupportedWarning()
+        {
+            // http://hl7.org/fhir/SearchParameter/Location-near is listed in Data/{Version}/unsupported-search-parameters.json for every FHIR
+            // version this server ships, so the server must report it as not supported instead of
+            // silently returning an empty search result with 200 OK.
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "near", "Location"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("Location?near=-83.694810|42.256500");
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
         public async Task GivenACompositeTokenNumberNumberSearchParameter_WhenSearching_ReturnsSearchResults()
         {
             var sequenceType = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "Sequence" : "MolecularSequence";
