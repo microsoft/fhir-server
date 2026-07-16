@@ -5,6 +5,7 @@
 
 using System;
 using System.Net.Http;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -23,5 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             return new HttpClientHandler();
         }
+
+        protected override Uri GetClientCredentialTokenEndpoint() => AuthenticationSettings.TestTokenEndpoint;
     }
 }

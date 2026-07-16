@@ -119,7 +119,9 @@ if (-not $authority) {
     exit 1
 }
 $tenantId = $authority.TrimEnd('/').Split('/')[-1]
+$tokenEndpoint = "$($authority.TrimEnd('/'))/oauth2/token"
 Write-Host "  Tenant ID: $tenantId" -ForegroundColor Green
+Write-Host "  Test token endpoint: $tokenEndpoint" -ForegroundColor Green
 Write-Host ""
 
 # Fetch secrets from Key Vault
@@ -215,6 +217,7 @@ $xmlContent = @"
       <!-- Azure AD Configuration -->
       <tenant-id>$tenantId</tenant-id>
       <Resource>$resourceUri</Resource>
+      <TestTokenEndpoint>$tokenEndpoint</TestTokenEndpoint>
 
       <!-- Service Principal Credentials -->
 
