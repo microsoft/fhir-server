@@ -33,9 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
-        // Sentinel emitted by IncludeExpression.Produces for a reversed wildcard revinclude (e.g. _revinclude=*:*)
-        // whose SMART scope is not restricted to specific resource types. It stands in for the open-ended set of
-        // resource types that may reference the compartment root. See the ExpressionParser reversed wildcard handling.
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;

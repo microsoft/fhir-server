@@ -523,6 +523,94 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Equal(careManager.Url, Assert.Single(rule.SearchParameterUrls));
     }
 
+    [Fact]
+    public void GivenSmartCompartmentExpressionInsideAndTree_WhenMembershipCreatedAndSqlGenerated_ThenIncludeCandidatePredicateIsEmitted()
+    {
+        // Canary for the SMART include enforcement chain. SqlServerSearchService derives the membership
+        // context by locating the SmartCompartmentSearchExpression inside the core expression tree and
+        // attaching the result to the SqlRootExpression; the query generator emits the candidate
+        // authorization predicate only when that context is present. If any link breaks — the compartment
+        // expression gets wrapped in a node the factory cannot traverse, a rewriter drops the attached
+        // context, or the generator stops honoring it — include CTEs silently revert to the pre-fix
+        // cross-compartment leak. This test exercises the factory -> attach -> generate chain end to end
+        // with the same tree shape SearchOptionsFactory produces (smart node as a child of the top-level And).
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var membershipParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject");
+        var membershipParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            membershipParameterUrl,
+            null,
+            "DiagnosticReport.subject",
+            ["Patient"]);
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "DiagnosticReport",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>
+            {
+                ["subject"] = membershipParameter,
+            });
+
+        Expression coreExpression = Expression.And(
+            new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Observation", false)),
+            Expression.SmartCompartmentSearch("Patient", "patient-a", "Observation"));
+
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(coreExpression, rewriter);
+
+        Assert.NotNull(membership);
+        Assert.Equal("Patient", membership.CompartmentResourceType);
+        Assert.Equal("patient-a", membership.CompartmentResourceId);
+        SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
+        Assert.Equal("DiagnosticReport", rule.ResourceType);
+        Assert.Equal(membershipParameterUrl, Assert.Single(rule.SearchParameterUrls));
+
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var includeExpression = new IncludeExpression(
+            ["Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            false,
+            false);
+        SqlRootExpression sqlExpression = new SqlRootExpression(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []).WithSmartCompartmentMembership(membership);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 1,
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(membershipParameterUrl).Returns((short)41);
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("smartCompartmentMembership.ResourceTypeId = refTarget.ResourceTypeId", generatedSql);
+        Assert.Contains("smartCompartmentMembership.ResourceSurrogateId = refTarget.ResourceSurrogateId", generatedSql);
+        Assert.Contains("smartCompartmentMembership.BaseUri IS NULL", generatedSql);
+        _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
+    }
+
     private void ConfigureResourceTypeIds()
     {
         var resourceTypeIds = new Dictionary<string, short>(StringComparer.Ordinal)

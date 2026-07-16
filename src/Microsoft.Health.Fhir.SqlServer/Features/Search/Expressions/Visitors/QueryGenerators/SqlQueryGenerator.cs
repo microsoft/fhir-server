@@ -200,12 +200,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 sb.AppendLine("OPTION (RECOMPILE)");
                                 sb.AppendLine($";WITH");
                                 int saveTableExpressionCounter = _tableExpressionCounter;
-                                int saveUnionAggregateCTEIndex = _unionAggregateCTEIndex;
                                 _tableExpressionCounter = smartV2TableCounter;
                                 AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
-
                                 _tableExpressionCounter = saveTableExpressionCounter;
-                                _unionAggregateCTEIndex = saveUnionAggregateCTEIndex;
                                 sb.AppendLine();
                                 sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
                                 sb.Append(","); // add comma back
@@ -1569,7 +1566,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions = false)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1595,7 +1592,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Create a final CTE aggregating results from all previous CTEs.
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
             for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
             {
                 using (StringBuilder.Indent())
@@ -1614,7 +1610,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append(")");
 
             // check for a previous union all, and if so, join the new union all with the previous one
-            if (!skipJoinFromPreviousUnions && _unionAggregateCTEIndex > -1)
+            if (_unionAggregateCTEIndex > -1)
             {
                 var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
                 var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);

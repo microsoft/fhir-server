@@ -2523,7 +2523,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SmartCompartmentMembershipContext membership =
                 SmartCompartmentMembershipContextFactory.Create(coreExpression, sqlCompartmentSearchRewriter);
 
-            return membership == null ? sqlExpression : sqlExpression.WithSmartCompartmentMembership(membership);
+            if (membership == null)
+            {
+                // Fail-open detector. AccessControlContext.CompartmentResourceType is populated only from a
+                // parsed fhirUser claim (system scopes never set it), and SearchOptionsFactory adds a
+                // SmartCompartmentSearchExpression whenever it is set — so a compartment-bound request whose
+                // expression yields no membership context means the include CTEs are about to be generated
+                // WITHOUT compartment authorization (the pre-fix _include/_revinclude leak). This should be
+                // unreachable; if it ever fires, a rewrite step is hiding or dropping the compartment expression.
+                if (!string.IsNullOrWhiteSpace(_requestContextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType)
+                    && sqlExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                {
+                    _logger.LogCritical(
+                        "SMART {CompartmentResourceType} compartment restriction is active but no include authorization context was constructed; _include/_revinclude results are not compartment-filtered for this request.",
+                        _requestContextAccessor.RequestContext.AccessControlContext.CompartmentResourceType);
+                }
+
+                return sqlExpression;
+            }
+
+            return sqlExpression.WithSmartCompartmentMembership(membership);
         }
 
         /// <summary>
