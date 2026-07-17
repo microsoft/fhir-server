@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public string SortContinuationToken { get; set; } = string.Empty;
 
+        public bool IsIterateInclude { get; set; }
+
         public SqlQueryBuilder SqlQueryBuilder { get; set; } = new SqlQueryBuilder();
     }
 }

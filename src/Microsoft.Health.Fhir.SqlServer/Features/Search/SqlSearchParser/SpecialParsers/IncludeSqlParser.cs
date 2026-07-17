@@ -78,8 +78,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.BeginCte("cte" + options.CteNumber);
             sqlBuilder.Select("refTarget.ResourceTypeId", "refTarget.ResourceSurrogateId", "0 AS IsMatch", "CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
             sqlBuilder.From("dbo.ReferenceSearchParam", "refSource");
-            sqlBuilder.JoinMultiLine("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId", "refSource.ReferenceResourceId = refTarget.ResourceId");
-            sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+            sqlBuilder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+
+            if (options.IsIterateInclude)
+            {
+                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId)");
+            }
+            else
+            {
+                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+            }
 
             if (!wildcardResourceType)
             {
@@ -97,7 +105,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "refTarget");
-            sqlBuilder.AppendLine("  ) AS a");
             sqlBuilder.EndCte();
         }
     }

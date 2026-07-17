@@ -83,32 +83,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var sqlBuilder = options.SqlQueryBuilder;
             sqlBuilder.BeginCte($"cte{options.CteNumber}");
-            sqlBuilder.AppendLine("SELECT *, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row");
-            sqlBuilder.AppendLine("  FROM (");
-            sqlBuilder.AppendLine($"    SELECT DISTINCT TOP (1001) refSource.ResourceTypeId, refSource.ResourceSurrogateId, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
-            sqlBuilder.AppendLine("      FROM dbo.ReferenceSearchParam refSource");
-            sqlBuilder.AppendLine("        JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-            sqlBuilder.AppendLine($"      WHERE EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+            sqlBuilder.Select("refSource.ResourceTypeId", "refSource.ResourceSurrogateId", "0 AS IsMatch", "CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
+            sqlBuilder.From("dbo.ReferenceSearchParam", "refSource");
+            sqlBuilder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+            sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
 
             // For revinclude, we want resources (refSource) that reference the matched resources (refTarget)
             // So we filter on refSource's ResourceTypeId (the referencing resource type)
             if (!wildcardResourceType)
             {
-                sqlBuilder.AppendLine($"        AND refSource.ResourceTypeId = {resourceTypeId}");
+                sqlBuilder.And($"refSource.ResourceTypeId = {resourceTypeId}");
             }
 
             if (!wildcardSearchParameter)
             {
-                sqlBuilder.AppendLine($"        AND refSource.SearchParamId = {parameter?.Id}");
+                sqlBuilder.And($"refSource.SearchParamId = {parameter?.Id}");
             }
 
             // Filter on the target resource type if specified (the matched resources that are being referenced)
             if (targetResourceTypeIds.Count > 0)
             {
-                sqlBuilder.AppendLine($"        AND refTarget.ResourceTypeId IN ({string.Join(",", targetResourceTypeIds)})");
+                sqlBuilder.And($"refTarget.ResourceTypeId IN ({string.Join(",", targetResourceTypeIds)})");
             }
 
-            sqlBuilder.AppendLine("  ) AS a");
+            ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "refTarget");
             sqlBuilder.EndCte();
         }
     }

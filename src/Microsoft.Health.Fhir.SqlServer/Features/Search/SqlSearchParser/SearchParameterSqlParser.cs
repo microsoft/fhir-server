@@ -355,8 +355,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                         if (dependencyCteNames.Count > 0)
                         {
-                            // Create union CTE
-                            ParserUtil.AddUnionCte(sqlBuilder, unionCteName, dependencyCteNames);
+                            // Create union CTE for iterate dependencies (no Row column since these are include CTEs)
+                            ParserUtil.AddUnionCte(sqlBuilder, unionCteName, dependencyCteNames, includeRow: false);
                             includeLastCteName = unionCteName;
                         }
                         else
@@ -375,6 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     var includeCteName = $"cte{cteIndex}";
                     parserOptions.CteNumber = cteIndex;
                     parserOptions.LastCteName = includeLastCteName;
+                    parserOptions.IsIterateInclude = orderedInclude.IsIterate;
                     cteIndex++;
 
                     // Choose the appropriate parser based on whether this is _include or _revinclude

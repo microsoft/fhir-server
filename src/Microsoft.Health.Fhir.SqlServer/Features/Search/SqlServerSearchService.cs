@@ -1834,7 +1834,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             cancel);
         }
 
-        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        private Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
 

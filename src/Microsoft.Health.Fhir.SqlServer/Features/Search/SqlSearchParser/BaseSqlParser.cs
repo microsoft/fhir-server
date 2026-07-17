@@ -55,14 +55,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var builder = options.SqlQueryBuilder;
 
-            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "ResourceSurrogateId2";
-            var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "ResourceTypeId2";
+            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "RefResourceSurrogateId";
+            var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "RefResourceTypeId";
 
             // Start the subquery with opening parenthesis and SELECT
             var cteName = options.ChainLevel == 0 ? $"cte{options.CteNumber}" : $"cte{options.CteNumber}chain{options.ChainLevel}";
             builder.BeginCte(cteName);
             builder.IncreaseIndent();
-            builder.SelectWithModifier("DISTINCT", "r.ResourceTypeId", "r.ResourceSurrogateId");
+
+            // When in a chain, select the target resource columns (what we're searching against)
+            if (options.ChainLevel > 0 && options.LastCteName != null)
+            {
+                builder.SelectWithModifier("DISTINCT", $"r.{surrogateIdColumn} AS ResourceSurrogateId", $"r.{typeIdColumn} AS ResourceTypeId");
+            }
+            else
+            {
+                builder.SelectWithModifier("DISTINCT", "r.ResourceTypeId", "r.ResourceSurrogateId");
+            }
 
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {

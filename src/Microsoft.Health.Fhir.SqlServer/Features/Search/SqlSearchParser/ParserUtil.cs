@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
         }
 
-        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false)
+        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true)
         {
             builder.BeginCte(cteName);
             builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
@@ -35,7 +35,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 builder.AppendLine("UNION ALL");
                 builder.IncreaseIndent();
-                builder.AppendLine($"SELECT *{(includeSort ? ", SortValue = NULL" : string.Empty)} FROM {includeCteName}");
+                var extras = string.Empty;
+                if (includeRow)
+                {
+                    extras += ", Row = 0";
+                }
+
+                if (includeSort)
+                {
+                    extras += ", SortValue = NULL";
+                }
+
+                builder.AppendLine($"SELECT *{extras} FROM {includeCteName}");
                 builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
                 builder.DecreaseIndent();
             }
