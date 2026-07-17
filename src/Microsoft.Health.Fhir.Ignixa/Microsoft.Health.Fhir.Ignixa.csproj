@@ -1,12 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <!--
+      net8.0 is a no-op target: this project's own .cs files are wrapped in #if NET10_0_OR_GREATER
+      (matching the convention already used by the Ignixa-dependent test files), and none of the Ignixa
+      package references below apply on net8.0. This target exists only so that solution-wide builds
+      forcing a single TargetFramework (dotnet build Microsoft.Health.Fhir.sln -f net8.0, used by this
+      repo's CI) don't fail with NETSDK1005 trying to resolve net8.0 assets for a project that would
+      otherwise declare only net10.0.
+    -->
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
     <RootNamespace>Microsoft.Health.Fhir.Ignixa</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <PackageReference Include="Ignixa.Abstractions" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
     <PackageReference Include="Ignixa.FhirPath" />

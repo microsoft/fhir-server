@@ -3,6 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+// net8.0 is a no-op target for this project (see Microsoft.Health.Fhir.Ignixa.csproj) - this file has
+// nothing to contribute there, since none of the Ignixa packages it depends on are referenced on net8.0.
+#if NET10_0_OR_GREATER
+
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -182,7 +186,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// <c>resource.ToElement(schema)</c> does NOT reject this shape on its own, so this is the only place
         /// that catches it. A null array item (e.g. <c>[null, {...}]</c>) is treated as absent, not malformed.
         /// </summary>
-        private static void ThrowIfConditionalReference(JsonNode? referenceNode, FhirVersion? fhirVersion)
+        private static void ThrowIfConditionalReference(JsonNode referenceNode, FhirVersion? fhirVersion)
         {
             if (referenceNode is null)
             {
@@ -213,3 +217,5 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         }
     }
 }
+
+#endif

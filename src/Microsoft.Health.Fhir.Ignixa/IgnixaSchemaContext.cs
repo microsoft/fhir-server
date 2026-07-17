@@ -3,6 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+// net8.0 is a no-op target for this project (see Microsoft.Health.Fhir.Ignixa.csproj) - this file has
+// nothing to contribute there, since none of the Ignixa packages it depends on are referenced on net8.0.
+#if NET10_0_OR_GREATER
+
 using System;
 using Ignixa.Abstractions;
 using Ignixa.Specification.Generated;
@@ -45,3 +49,5 @@ namespace Microsoft.Health.Fhir.Ignixa
         }
     }
 }
+
+#endif
