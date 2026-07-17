@@ -76,6 +76,13 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 keepVersion = false;
             }
 
+            // Phase-1 flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
+            // RawResourceFactory can't see the native ResourceJsonNode and falls through to a full ToPoco<T>()
+            // rebuild plus Firely's FhirJsonSerializer - the same cost Firely mode pays, on top of the Ignixa
+            // parse above. The next phase should carry the node through via the two-arg ResourceElement ctor
+            // and add a native-serialize IRawResourceFactory decorator that uses it when present; that's the
+            // biggest single perf win per the sdk-migration import-performance-analysis doc. Don't just swap
+            // the ctor here without adding that decorator in the same change, or nothing downstream will use it.
             var resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
             var isDeleted = resourceElement.IsSoftDeleted();
 
@@ -86,6 +93,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 // the stale pre-mutation element. Re-parse a fresh node from the mutated JSON instead.
                 RemoveSoftDeletedExtension(resource.MutableNode);
                 resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(resource.MutableNode.ToJsonString());
+
+                // Same phase-1 flip point as above.
                 resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
             }
 
