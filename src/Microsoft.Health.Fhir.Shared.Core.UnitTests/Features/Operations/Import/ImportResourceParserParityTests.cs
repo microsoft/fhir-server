@@ -280,6 +280,64 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.Null(Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, importMode)));
         }
 
+        // Regression coverage: a reference field present but not a JSON object at all (schema-invalid) must
+        // not be silently skipped - resource.ToElement(schema) does NOT reject this shape on its own, so the
+        // conditional-reference check is the only place that catches it. Firely's FhirJsonParser (configured
+        // with PermissiveParsing in FhirModule.cs) throws its own StructuralTypeException for this shape, so
+        // both providers are expected to reject it, even though the exact exception type differs.
+        [Fact]
+        public void GivenReferenceFieldIsNotAnObject_WhenParsedOnInitialLoad_ThenBothProvidersReject()
+        {
+            const string json = """
+                {
+                  "resourceType":"Observation",
+                  "id":"obs-1",
+                  "subject":"Patient/123",
+                  "status":"final",
+                  "code":{"text":"test"}
+                }
+                """;
+
+            Assert.NotNull(Record.Exception(() => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad)));
+            Assert.NotNull(Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad)));
+        }
+
+        // Firely's parser (PermissiveParsing) tolerates a lone object where a 0..* reference field
+        // (Patient.generalPractitioner) expects an array, treating it as a single-element collection. Ignixa
+        // must match that leniency rather than rejecting it, and must still detect a conditional reference
+        // inside that lone object.
+        [Fact]
+        public void GivenCollectionReferenceFieldAsLoneObject_WhenParsed_ThenBothProvidersAllow()
+        {
+            const string json = """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "generalPractitioner":{"reference":"Practitioner/1"}
+                }
+                """;
+
+            Assert.Null(Record.Exception(() => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad)));
+            Assert.Null(Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad)));
+        }
+
+        [Fact]
+        public void GivenCollectionReferenceFieldAsLoneObjectWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
+        {
+            const string json = """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "generalPractitioner":{"reference":"Practitioner?identifier=system|value"}
+                }
+                """;
+
+            Assert.Throws<NotSupportedException>(
+                () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+            Assert.Throws<NotSupportedException>(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+        }
+
         // Ignixa's conditional-reference check is intentionally scoped to the resource's own direct,
         // schema-declared reference fields (via IReferenceMetadataProvider) - it does not recurse into
         // `contained` resources or Bundle entries. This matches TypedElementSearchIndexer, which likewise

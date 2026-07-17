@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
     /// </summary>
     public sealed class IgnixaImportResourceParser : IImportResourceParser
     {
+        private const int MaxSoftDeleteExtensionRemovals = 1000;
+
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
 
@@ -55,7 +57,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             }
             catch (JsonException exception)
             {
-                throw new FormatException("Failed to parse import resource JSON.", exception);
+                throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
             }
 
             ImportResourceIdValidator.Validate(resource.Id);
@@ -85,9 +87,17 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             {
                 // SourceNodeExtensions.RemoveExtension only removes one matching extension per call - loop
                 // until none remain, mirroring Firely's Meta.RemoveExtension (which removes every extension
-                // matching the URL, regardless of value).
+                // matching the URL, regardless of value). Each call rescans the (shrinking) extension array
+                // from the start, so this is O(n^2) in the number of matching extensions; MaxSoftDeleteExtensionRemovals
+                // bounds the cost against a resource crafted with a pathological number of duplicates.
+                var softDeleteExtensionsRemoved = 0;
                 while (SourceNodeExtensions.RemoveExtension(resource.Meta, KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 {
+                    if (++softDeleteExtensionsRemoved > MaxSoftDeleteExtensionRemovals)
+                    {
+                        throw new FormatException(
+                            $"Resource has more than {MaxSoftDeleteExtensionRemovals} extensions matching the soft-deleted URL.");
+                    }
                 }
 
                 // ResourceJsonNode caches its converted IElement internally (per node instance); InvalidateCaches()
@@ -131,6 +141,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
             foreach (ReferenceFieldMetadata field in _schemaContext.Schema.ReferenceMetadataProvider.GetMetadata(resource.ResourceType))
             {
+                // Choice-type fields typed as Reference by the schema (e.g. Extension.value[x]) serialize with
+                // the concrete type name suffixed in JSON (valueReference), not the schema's "[x]" placeholder.
                 var propertyName = field.ElementPath.EndsWith("[x]", StringComparison.Ordinal)
                     ? string.Concat(field.ElementPath.AsSpan(0, field.ElementPath.Length - 3), "Reference")
                     : field.ElementPath;
@@ -140,18 +152,20 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                     continue;
                 }
 
-                if (field.IsCollection)
+                if (field.IsCollection && value is JsonArray array)
                 {
-                    if (value is JsonArray array)
+                    foreach (var item in array)
                     {
-                        foreach (var item in array)
-                        {
-                            ThrowIfConditionalReference(item, resource.FhirVersion);
-                        }
+                        ThrowIfConditionalReference(item, resource.FhirVersion);
                     }
                 }
                 else
                 {
+                    // Firely's parser is configured with PermissiveParsing (FhirModule.cs) and tolerates a lone
+                    // object where a 0..* field expects an array, treating it as a single-element collection.
+                    // Match that leniency here (field.IsCollection but value isn't a JsonArray) instead of
+                    // rejecting it - ThrowIfConditionalReference still throws below if this value isn't even
+                    // a JSON object.
                     ThrowIfConditionalReference(value, resource.FhirVersion);
                 }
             }
@@ -161,15 +175,23 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// Reads the reference field through the typed <see cref="ReferenceJsonNode"/> model instead of casting
         /// through raw <see cref="JsonValue"/>. A missing "reference" property (e.g. an identifier-only or
         /// display-only reference, both valid FHIR) yields a null <see cref="ReferenceJsonNode.Reference"/> and
-        /// is skipped, matching the Firely parser. A non-string "reference" property is deliberately not
-        /// guarded against - <see cref="ReferenceJsonNode.Reference"/> throws in that case, since malformed
-        /// elements must not be silently skipped.
+        /// is skipped, matching the Firely parser. A non-string "reference" scalar (e.g. <c>"reference": 123</c>)
+        /// is deliberately not guarded against - <see cref="ReferenceJsonNode.Reference"/> throws in that case.
+        /// A reference field that is present but isn't a JSON object at all (schema-invalid, e.g. a bare string
+        /// or number) also throws here rather than being silently skipped - confirmed empirically that
+        /// <c>resource.ToElement(schema)</c> does NOT reject this shape on its own, so this is the only place
+        /// that catches it. A null array item (e.g. <c>[null, {...}]</c>) is treated as absent, not malformed.
         /// </summary>
-        private static void ThrowIfConditionalReference(JsonNode referenceNode, FhirVersion? fhirVersion)
+        private static void ThrowIfConditionalReference(JsonNode? referenceNode, FhirVersion? fhirVersion)
         {
-            if (referenceNode is not JsonObject referenceObject)
+            if (referenceNode is null)
             {
                 return;
+            }
+
+            if (referenceNode is not JsonObject referenceObject)
+            {
+                throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
             }
 
             var reference = new ReferenceJsonNode(referenceObject, fhirVersion).Reference;
