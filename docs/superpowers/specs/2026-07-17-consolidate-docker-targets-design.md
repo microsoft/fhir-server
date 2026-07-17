@@ -14,6 +14,7 @@ all active build surfaces:
 - Update the Docker build image to `mcr.microsoft.com/dotnet/sdk:10.0.302-azurelinux3.0`.
 - Update the Docker runtime image to `mcr.microsoft.com/dotnet/aspnet:10.0.10-azurelinux3.0`.
 - Restrict the repository-wide target framework to `net10.0`.
+- Remove the `net8.0`-specific ASP.NET package-version selection.
 - Remove Linux .NET 8 CI jobs from both continuous-integration pipeline definitions.
 - Remove the explicit `net8.0` internal-checks build argument.
 - Remove the obsolete `build/dotnet8-compat` SDK configuration.
