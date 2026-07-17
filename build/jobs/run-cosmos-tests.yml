@@ -170,23 +170,15 @@ jobs:
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
-  # RequiresIsolation tests (reindex, bulk delete, custom search params, and anything mutating
-  # global/server state) must not overlap the parallel shards on the SAME endpoint. When a dedicated
-  # isolation endpoint is supplied (isolationContainerAppName -> its own Cosmos account), this lane
-  # preserves separate server/database state, but remains terminal and waits for all integration jobs
-  # and regular E2E shards to finish before it begins.
+  # RequiresIsolation tests (reindex, bulk delete, and anything mutating global/server state) must not
+  # overlap the parallel shards on the SAME endpoint. When a dedicated isolation endpoint is supplied
+  # (isolationContainerAppName -> its own Cosmos account), this lane runs concurrently with serial test
+  # collections. Otherwise, it remains terminal on the main endpoint.
   - ${{ if ne(parameters.isolationContainerAppName, '') }}:
     - job: 'cosmosE2eTests_RequiresIsolation'
       timeoutInMinutes: 75
       condition: not(canceled())
-      dependsOn:
-      - ${{ if eq(parameters.runShardedIntegrationTests, false) }}:
-        - CosmosIntegrationTests
-      - ${{ if eq(parameters.runShardedIntegrationTests, true) }}:
-        - ${{ each shard in parameters.integrationTestShards }}:
-          - 'CosmosIntegrationTests_${{ shard.name }}'
-      - ${{ each shard in parameters.e2eTestShards }}:
-        - 'cosmosE2eTests_${{ shard.name }}'
+      dependsOn: []
       pool:
         name: '$(InternalPool)'
         demands:
@@ -202,7 +194,7 @@ jobs:
           appServiceType: 'CosmosDb'
           testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
           testRunTitleSuffix: ' RequiresIsolation'
-          parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
+          parallelizeTestCollections: false
   - ${{ else }}:
     - job: 'cosmosE2eTests_RequiresIsolation'
       timeoutInMinutes: 75
