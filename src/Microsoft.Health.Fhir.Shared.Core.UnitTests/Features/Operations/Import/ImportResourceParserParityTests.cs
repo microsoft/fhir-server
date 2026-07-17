@@ -237,6 +237,49 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             }
         }
 
+        // Identifier-only and display-only references are valid FHIR (no "reference" string member at all).
+        // Regression coverage for a real NullReferenceException: reading the reference field through
+        // ReferenceJsonNode.Reference returns null (not empty string) when "reference" is absent, so the
+        // conditional-reference check must treat null the same as "no conditional reference" rather than
+        // dereferencing it directly.
+        [Theory]
+        [InlineData(ImportMode.InitialLoad)]
+        [InlineData(ImportMode.IncrementalLoad)]
+        public void GivenIdentifierOnlyReference_WhenParsed_ThenBothProvidersAllow(ImportMode importMode)
+        {
+            const string json = """
+                {
+                  "resourceType":"Observation",
+                  "id":"obs-1",
+                  "subject":{"identifier":{"system":"http://example.org","value":"123"}},
+                  "status":"final",
+                  "code":{"text":"test"}
+                }
+                """;
+
+            Assert.Null(Record.Exception(() => _firelyParser.Parse(0, 0, json.Length, json, importMode)));
+            Assert.Null(Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, importMode)));
+        }
+
+        [Theory]
+        [InlineData(ImportMode.InitialLoad)]
+        [InlineData(ImportMode.IncrementalLoad)]
+        public void GivenDisplayOnlyReference_WhenParsed_ThenBothProvidersAllow(ImportMode importMode)
+        {
+            const string json = """
+                {
+                  "resourceType":"Observation",
+                  "id":"obs-1",
+                  "subject":{"display":"Some Patient"},
+                  "status":"final",
+                  "code":{"text":"test"}
+                }
+                """;
+
+            Assert.Null(Record.Exception(() => _firelyParser.Parse(0, 0, json.Length, json, importMode)));
+            Assert.Null(Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, importMode)));
+        }
+
         // Ignixa's conditional-reference check is intentionally scoped to the resource's own direct,
         // schema-declared reference fields (via IReferenceMetadataProvider) - it does not recurse into
         // `contained` resources or Bundle entries. This matches TypedElementSearchIndexer, which likewise

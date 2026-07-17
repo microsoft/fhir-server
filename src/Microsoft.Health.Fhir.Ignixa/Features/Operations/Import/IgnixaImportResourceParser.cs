@@ -159,14 +159,21 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
         /// <summary>
         /// Reads the reference field through the typed <see cref="ReferenceJsonNode"/> model instead of casting
-        /// through raw <see cref="JsonValue"/>. Deliberately does not guard against a non-string "reference"
-        /// property (<see cref="ReferenceJsonNode.Reference"/> throws in that case) - malformed elements must
-        /// not be silently skipped.
+        /// through raw <see cref="JsonValue"/>. A missing "reference" property (e.g. an identifier-only or
+        /// display-only reference, both valid FHIR) yields a null <see cref="ReferenceJsonNode.Reference"/> and
+        /// is skipped, matching the Firely parser. A non-string "reference" property is deliberately not
+        /// guarded against - <see cref="ReferenceJsonNode.Reference"/> throws in that case, since malformed
+        /// elements must not be silently skipped.
         /// </summary>
         private static void ThrowIfConditionalReference(JsonNode referenceNode, FhirVersion? fhirVersion)
         {
-            if (referenceNode is JsonObject referenceObject &&
-                new ReferenceJsonNode(referenceObject, fhirVersion).Reference.Contains('?', StringComparison.Ordinal))
+            if (referenceNode is not JsonObject referenceObject)
+            {
+                return;
+            }
+
+            var reference = new ReferenceJsonNode(referenceObject, fhirVersion).Reference;
+            if (!string.IsNullOrWhiteSpace(reference) && reference.Contains('?', StringComparison.Ordinal))
             {
                 throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
             }
