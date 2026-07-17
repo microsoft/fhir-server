@@ -1,10 +1,10 @@
-# Consolidate Docker Targets and Retire .NET 8 Support Implementation Plan
+# Consolidate Docker Targets, Retire .NET 8 Support, and Trim Version-Updater Guidance
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Incorporate Docker image updates from PRs #5677 and #5678 while removing all .NET 8 compilation, CI, and compatibility build surfaces.
+**Goal:** Incorporate Docker image updates from PRs #5677 and #5678 while removing all .NET 8 compilation, CI, compatibility build surfaces, and stale .NET 8 compatibility-maintenance instructions from `.github/prompts/updateDotnetVersion.prompt.md`.
 
-**Architecture:** The repository will be a .NET 10-only build. Shared MSBuild configuration defines only `net10.0`; pipeline definitions retain their .NET 10 jobs and remove .NET 8-specific jobs or framework arguments. The Dockerfile continues its existing multi-stage image flow with the requested SDK and ASP.NET runtime image tags.
+**Architecture:** The repository will be a .NET 10-only build. Shared MSBuild configuration defines only `net10.0`; pipeline definitions retain their .NET 10 jobs and remove .NET 8-specific jobs or framework arguments. The Dockerfile continues its existing multi-stage image flow with the requested SDK and ASP.NET runtime image tags. The version-updater prompt keeps only .NET 9 and .NET 10 guidance.
 
 **Tech Stack:** .NET 10, MSBuild, Azure Pipelines YAML, Docker.
 
@@ -21,6 +21,7 @@
 | `build/pr-pipeline.yml` | Runs pull-request tests and Docker builds. |
 | `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml` | Defines the internal PR validation build command. |
 | `build/dotnet8-compat/global.json` | Obsolete .NET 8 compatibility SDK pin; deleted. |
+| `.github/prompts/updateDotnetVersion.prompt.md` | Removes stale .NET 8 compatibility-maintenance instructions; retains only .NET 9 and .NET 10 guidance. |
 
 ### Task 1: Establish Configuration Regression Checks
 
@@ -32,6 +33,7 @@
 - Verify: `build/pr-pipeline.yml`
 - Verify: `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml`
 - Verify: `build/dotnet8-compat/global.json`
+- Verify: `.github/prompts/updateDotnetVersion.prompt.md`
 
 - [ ] **Step 1: Run the pre-change configuration checks**
 
@@ -45,7 +47,8 @@ $paths = @(
   'build/ci-pipeline.yml',
   'build/pr-pipeline.yml',
   'build/.vsts-PRInternalChecks-azureBuild-pipeline.yml',
-  'build/dotnet8-compat/global.json'
+  'build/dotnet8-compat/global.json',
+  '.github/prompts/updateDotnetVersion.prompt.md'
 )
 Select-String -Path $paths -Pattern 'net8\.0|8\.0\.422|10\.0\.301-azurelinux3\.0|10\.0\.9-azurelinux3\.0'
 ```
@@ -71,6 +74,7 @@ Expected: FAIL with `Obsolete .NET 8 compatibility SDK configuration remains.`
 - Modify: `build/ci-pipeline.yml:94-104`
 - Modify: `build/pr-pipeline.yml:54-64`
 - Modify: `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml:35`
+- Modify: `.github/prompts/updateDotnetVersion.prompt.md`
 - Delete: `build/dotnet8-compat/global.json`
 
 - [ ] **Step 1: Update the Docker SDK and runtime tags**
@@ -93,7 +97,7 @@ In `Directory.Build.props`, replace the shared framework list with:
 <TargetFrameworks>net10.0</TargetFrameworks>
 ```
 
-- [ ] **Step 3: Remove the .NET 8 CI jobs**
+- [ ] **Step 3: Remove the .NET 8 package-version branch**
 
 In `Directory.Packages.props`, remove the .NET 8 package-version branch:
 
@@ -139,16 +143,20 @@ arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix
 
 Delete `build/dotnet8-compat/global.json`. The file is the only member of the .NET 8 compatibility directory, so remove the empty directory from the working tree as part of the deletion.
 
-- [ ] **Step 7: Inspect the resulting diff**
+- [ ] **Step 7: Remove stale .NET 8 maintenance guidance from the version-updater prompt**
+
+In `.github/prompts/updateDotnetVersion.prompt.md`, delete the .NET 8 compatibility section and any references to `build/dotnet8-compat/global.json`. Retain the .NET 9 and .NET 10 guidance, examples, and validation language.
+
+- [ ] **Step 8: Inspect the resulting diff**
 
 Run:
 
 ```powershell
 git diff --check
-git diff -- build/docker/Dockerfile Directory.Build.props Directory.Packages.props build/ci-pipeline.yml build/pr-pipeline.yml build/.vsts-PRInternalChecks-azureBuild-pipeline.yml build/dotnet8-compat/global.json
+git diff -- build/docker/Dockerfile Directory.Build.props Directory.Packages.props build/ci-pipeline.yml build/pr-pipeline.yml build/.vsts-PRInternalChecks-azureBuild-pipeline.yml build/dotnet8-compat/global.json .github/prompts/updateDotnetVersion.prompt.md
 ```
 
-Expected: The diff contains only the two Docker tag upgrades and removal of .NET 8 targets, jobs, and compatibility configuration.
+Expected: The diff contains only the two Docker tag upgrades, removal of .NET 8 targets, jobs, compatibility configuration, and cleanup of the version-updater prompt.
 
 ### Task 3: Validate the .NET 10-Only Build Configuration
 
@@ -160,6 +168,7 @@ Expected: The diff contains only the two Docker tag upgrades and removal of .NET
 - Verify: `build/pr-pipeline.yml`
 - Verify: `build/.vsts-PRInternalChecks-azureBuild-pipeline.yml`
 - Verify absence: `build/dotnet8-compat/global.json`
+- Verify: `.github/prompts/updateDotnetVersion.prompt.md`
 
 - [ ] **Step 1: Verify required Docker image tags**
 
@@ -182,7 +191,8 @@ $paths = @(
   'Directory.Packages.props',
   'build/ci-pipeline.yml',
   'build/pr-pipeline.yml',
-  'build/.vsts-PRInternalChecks-azureBuild-pipeline.yml'
+  'build/.vsts-PRInternalChecks-azureBuild-pipeline.yml',
+  '.github/prompts/updateDotnetVersion.prompt.md'
 )
 $net8References = Select-String -Path $paths -Pattern 'net8\.0|dotnet8'
 if ($net8References) {
@@ -192,9 +202,18 @@ if ($net8References) {
 if (Test-Path 'build/dotnet8-compat') {
   throw 'Obsolete .NET 8 compatibility directory remains.'
 }
+if (Select-String -Path '.github/prompts/updateDotnetVersion.prompt.md' -Pattern 'build/dotnet8-compat|\.NET 8 compatibility') {
+  throw 'Obsolete .NET 8 prompt guidance remains.'
+}
+if (-not (Select-String -Path '.github/prompts/updateDotnetVersion.prompt.md' -Pattern '\.NET 9')) {
+  throw 'Version-updater prompt does not retain .NET 9 guidance.'
+}
+if (-not (Select-String -Path '.github/prompts/updateDotnetVersion.prompt.md' -Pattern '\.NET 10')) {
+  throw 'Version-updater prompt does not retain .NET 10 guidance.'
+}
 ```
 
-Expected: No output and exit code 0.
+Expected: No output and exit code 0, with the prompt containing only .NET 9 and .NET 10 guidance.
 
 - [ ] **Step 3: Build the solution with the repository SDK**
 
@@ -211,8 +230,8 @@ Expected: Build succeeds with the .NET 10 SDK selected by `global.json`.
 Run:
 
 ```powershell
-git add build/docker/Dockerfile Directory.Build.props Directory.Packages.props build/ci-pipeline.yml build/pr-pipeline.yml build/.vsts-PRInternalChecks-azureBuild-pipeline.yml build/dotnet8-compat/global.json
+git add build/docker/Dockerfile Directory.Build.props Directory.Packages.props build/ci-pipeline.yml build/pr-pipeline.yml build/.vsts-PRInternalChecks-azureBuild-pipeline.yml build/dotnet8-compat/global.json .github/prompts/updateDotnetVersion.prompt.md
 git commit -m "Retire .NET 8 build targets" -m "Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>" -m "Copilot-Session: 960d034a-d692-44b1-b0b2-8935f4ced9f8"
 ```
 
-Expected: One commit containing the Docker image updates and .NET 8 build-target retirement.
+Expected: One commit containing the Docker image updates, .NET 8 build-target retirement, and version-updater prompt cleanup.
