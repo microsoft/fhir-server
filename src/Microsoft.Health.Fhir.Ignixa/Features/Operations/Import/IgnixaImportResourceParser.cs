@@ -9,7 +9,9 @@ using System.Text.Json.Nodes;
 using EnsureThat;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
+using Ignixa.FhirPath.Evaluation;
 using Ignixa.Serialization;
+using Ignixa.Serialization.Extensions;
 using Ignixa.Serialization.Models;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Core.Extensions;
@@ -76,6 +78,25 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 keepVersion = false;
             }
 
+            var element = resource.ToElement(_schemaContext.Schema);
+            var isDeleted = IsSoftDeleted(element);
+
+            if (isDeleted)
+            {
+                // SourceNodeExtensions.RemoveExtension only removes one matching extension per call - loop
+                // until none remain, mirroring Firely's Meta.RemoveExtension (which removes every extension
+                // matching the URL, regardless of value).
+                while (SourceNodeExtensions.RemoveExtension(resource.Meta, KnownFhirPaths.AzureSoftDeletedExtensionUrl))
+                {
+                }
+
+                // ResourceJsonNode caches its converted IElement internally (per node instance); InvalidateCaches()
+                // clears that cache so the next ToElement() call reflects the mutation above instead of silently
+                // returning the stale pre-mutation element.
+                resource.InvalidateCaches();
+                element = resource.ToElement(_schemaContext.Schema);
+            }
+
             // Phase-1 flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
             // RawResourceFactory can't see the native ResourceJsonNode and falls through to a full ToPoco<T>()
             // rebuild plus Firely's FhirJsonSerializer - the same cost Firely mode pays, on top of the Ignixa
@@ -83,21 +104,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             // and add a native-serialize IRawResourceFactory decorator that uses it when present; that's the
             // biggest single perf win per the sdk-migration import-performance-analysis doc. Don't just swap
             // the ctor here without adding that decorator in the same change, or nothing downstream will use it.
-            var resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
-            var isDeleted = resourceElement.IsSoftDeleted();
-
-            if (isDeleted)
-            {
-                // ResourceJsonNode caches its converted IElement internally (per node instance), so mutating
-                // resource.MutableNode and calling ToElement() again on the *same* node would silently return
-                // the stale pre-mutation element. Re-parse a fresh node from the mutated JSON instead.
-                RemoveSoftDeletedExtension(resource.MutableNode);
-                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(resource.MutableNode.ToJsonString());
-
-                // Same phase-1 flip point as above.
-                resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
-            }
-
+            var resourceElement = new ResourceElement(element.ToTypedElement());
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
@@ -139,58 +146,41 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                     {
                         foreach (var item in array)
                         {
-                            ThrowIfConditionalReference(item);
+                            ThrowIfConditionalReference(item, resource.FhirVersion);
                         }
                     }
                 }
                 else
                 {
-                    ThrowIfConditionalReference(value);
+                    ThrowIfConditionalReference(value, resource.FhirVersion);
                 }
             }
         }
 
-        private static void ThrowIfConditionalReference(JsonNode referenceNode)
+        /// <summary>
+        /// Reads the reference field through the typed <see cref="ReferenceJsonNode"/> model instead of casting
+        /// through raw <see cref="JsonValue"/>. Deliberately does not guard against a non-string "reference"
+        /// property (<see cref="ReferenceJsonNode.Reference"/> throws in that case) - malformed elements must
+        /// not be silently skipped.
+        /// </summary>
+        private static void ThrowIfConditionalReference(JsonNode referenceNode, FhirVersion? fhirVersion)
         {
             if (referenceNode is JsonObject referenceObject &&
-                referenceObject.TryGetPropertyValue("reference", out var referenceValue) &&
-                referenceValue is JsonValue jsonValue &&
-                jsonValue.TryGetValue(out string reference) &&
-                reference.Contains('?', StringComparison.Ordinal))
+                new ReferenceJsonNode(referenceObject, fhirVersion).Reference.Contains('?', StringComparison.Ordinal))
             {
                 throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
             }
         }
 
         /// <summary>
-        /// Removes every extension whose URL matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>,
-        /// removing the now-empty extension array if applicable. Only called once <see cref="ResourceElement"/>'s
-        /// FHIRPath-driven <c>IsSoftDeleted()</c> predicate (the same one the Firely parser uses) has already
-        /// confirmed the resource is soft-deleted, so — mirroring Firely's <c>Meta.RemoveExtension</c> — every
-        /// extension matching the URL is removed regardless of its value.
+        /// Evaluates the same soft-delete predicate the Firely parser uses via <c>ResourceElement.IsSoftDeleted()</c>
+        /// (<see cref="KnownFhirPaths.IsSoftDeletedExtension"/>), but directly against the native Ignixa element
+        /// through Ignixa's own FHIRPath engine - no Firely adapter involved for this check.
         /// </summary>
-        /// <param name="root">The raw JSON graph for the resource.</param>
-        private static void RemoveSoftDeletedExtension(JsonNode root)
+        private static bool IsSoftDeleted(IElement element)
         {
-            if (root?["meta"] is not JsonObject meta || meta["extension"] is not JsonArray extensions)
-            {
-                return;
-            }
-
-            for (var i = extensions.Count - 1; i >= 0; i--)
-            {
-                if (extensions[i] is JsonObject extension &&
-                    extension["url"]?.GetValue<string>() is string url &&
-                    string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal))
-                {
-                    extensions.RemoveAt(i);
-                }
-            }
-
-            if (extensions.Count == 0)
-            {
-                meta.Remove("extension");
-            }
+            var context = new EvaluationContext { Resource = element, RootResource = element };
+            return element.Predicate(KnownFhirPaths.IsSoftDeletedExtension, context);
         }
     }
 }

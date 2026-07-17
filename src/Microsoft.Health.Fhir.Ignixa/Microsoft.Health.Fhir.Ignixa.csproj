@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Ignixa.Abstractions" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Ignixa.FhirPath" />
     <PackageReference Include="Ignixa.Serialization" />
     <PackageReference Include="Ignixa.Specification" />
   </ItemGroup>

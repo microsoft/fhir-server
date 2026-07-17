@@ -69,6 +69,7 @@
     <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Ignixa.Abstractions" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.FhirPath" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
