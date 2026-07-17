@@ -684,6 +684,11 @@ Expected: build fails because `IgnixaSchemaContext` does not exist.
 
 - [ ] **Step 6: Implement schema selection**
 
+> **Revised during review:** `Schema` is typed as `IFhirSchemaProvider` (not the narrower `ISchema`) below —
+> both are implemented by the same generated provider classes, so this is a safe widening — so that the
+> parser can reach `Schema.ReferenceMetadataProvider` for schema-driven conditional-reference checks (see
+> Task 4, Step 3) without any additional package.
+
 ```csharp
 // -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
@@ -715,9 +720,9 @@ namespace Microsoft.Health.Fhir.Ignixa
         }
 
         /// <summary>
-        /// Gets the generated Ignixa schema for the server's FHIR version.
+        /// Gets the generated Ignixa schema for the server's FHIR version, including reference metadata.
         /// </summary>
-        public ISchema Schema { get; }
+        public IFhirSchemaProvider Schema { get; }
 
         private static IFhirSchemaProvider CreateSchema(FhirSpecification version)
         {
@@ -886,6 +891,24 @@ Expected: build fails because `IgnixaImportResourceParser` does not exist.
 
 Use the following class. It deliberately converts to the public Firely-shaped `ResourceElement` before calling `IResourceWrapperFactory`; do not preserve the native node in Phase 0.
 
+> **Revised during review:** the version below supersedes an earlier draft that detected soft-delete via a
+> hardcoded list of `value[x]` property names, and conditional references via a blind recursive walk of the
+> entire raw JSON graph. Both were replaced:
+> - Soft-delete now uses the same FHIRPath predicate the Firely parser uses (`ResourceElement.IsSoftDeleted()`)
+>   instead of hand-rolling the `value='soft-deleted'` comparison — single source of truth, no risk of drifting
+>   from Firely on a future FHIR version or primitive type.
+> - Conditional-reference checking now uses `IFhirSchemaProvider.ReferenceMetadataProvider` (already available
+>   via the `Ignixa.Specification` package this plan already pins — no new package) to check only the
+>   schema-declared reference fields for the resource's own type, instead of walking the whole JSON graph. This
+>   is both faster (bounded by the resource's own reference-field count, not its total size) and intentionally
+>   scoped: it does not recurse into `contained` resources or Bundle entries. `TypedElementSearchIndexer`
+>   likewise never indexes into `contained`, and `Bundle` has no reference metadata of its own (entries are
+>   nested resources, not Reference-typed fields), so both are legitimately out of scope for $import.
+> - A load-bearing gotcha: `ResourceJsonNode` caches its converted `IElement` per instance
+>   (`_cachedElement`/`_cachedProvider` fields). Mutating `MutableNode` and calling `ToElement()` again on the
+>   *same* node silently returns the stale pre-mutation element. When soft-deleted, re-parse a fresh
+>   `ResourceJsonNode` from the mutated JSON before the final `ToElement()` call.
+
 ```csharp
 // -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
@@ -899,6 +922,7 @@ using EnsureThat;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 using Ignixa.Serialization;
+using Ignixa.Serialization.Models;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -909,7 +933,8 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 {
     /// <summary>
-    /// Parses import resources with Ignixa.
+    /// Ignixa based implementation of <see cref="IImportResourceParser"/> that parses raw NDJSON
+    /// resource content into <see cref="ImportResource"/> instances for the $import operation.
     /// </summary>
     public sealed class IgnixaImportResourceParser : IImportResourceParser
     {
@@ -919,14 +944,15 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
         /// </summary>
-        /// <param name="resourceFactory">The existing Core resource-wrapper factory.</param>
-        /// <param name="schemaContext">The generated schema for the current FHIR version.</param>
-        public IgnixaImportResourceParser(
-            IResourceWrapperFactory resourceFactory,
-            IgnixaSchemaContext schemaContext)
+        /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
+        /// <param name="schemaContext">The Ignixa generated schema for the current FHIR version.</param>
+        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext)
         {
-            _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            _schemaContext = EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
+            EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+            EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
+
+            _resourceFactory = resourceFactory;
+            _schemaContext = schemaContext;
         }
 
         /// <inheritdoc />
@@ -935,8 +961,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             ResourceJsonNode resource;
             try
             {
-                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(
-                    EnsureArg.IsNotNullOrWhiteSpace(rawResource, nameof(rawResource)));
+                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(rawResource);
             }
             catch (JsonException exception)
             {
@@ -944,112 +969,132 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             }
 
             ImportResourceIdValidator.Validate(resource.Id);
-            CheckConditionalReferences(resource.MutableNode, importMode);
+            CheckConditionalReferenceInResource(resource, importMode);
+
+            resource.Meta ??= new MetaJsonNode();
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
             var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
-            resource.Meta.LastUpdated = new DateTimeOffset(
-                lastUpdated.DateTime.TruncateToMillisecond(),
-                lastUpdated.Offset);
-
-            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10))
+            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
             }
 
             var keepVersion = true;
-            if (lastUpdatedIsNull ||
-                string.IsNullOrEmpty(resource.Meta.VersionId) ||
-                !int.TryParse(resource.Meta.VersionId, out _))
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
             {
                 resource.Meta.VersionId = "1";
                 keepVersion = false;
             }
 
-            bool isDeleted = RemoveSoftDeletedExtension(resource.MutableNode);
-            IElement element = resource.ToElement(_schemaContext.Schema);
-            var resourceElement = new ResourceElement(element.ToTypedElement());
-            ResourceWrapper wrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+            var resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
+            var isDeleted = resourceElement.IsSoftDeleted();
 
-            return new ImportResource(
-                index,
-                offset,
-                length,
-                !lastUpdatedIsNull,
-                keepVersion,
-                isDeleted,
-                wrapper);
+            if (isDeleted)
+            {
+                // ResourceJsonNode caches its converted IElement internally (per node instance), so mutating
+                // resource.MutableNode and calling ToElement() again on the *same* node would silently return
+                // the stale pre-mutation element. Re-parse a fresh node from the mutated JSON instead.
+                RemoveSoftDeletedExtension(resource.MutableNode);
+                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(resource.MutableNode.ToJsonString());
+                resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
+            }
+
+            var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
         }
 
-        private static void CheckConditionalReferences(JsonNode node, ImportMode importMode)
+        /// <summary>
+        /// Rejects conditional references (a "reference" value containing '?') found in the fields the
+        /// generated Ignixa schema declares as Reference-typed for this resource's own type.
+        /// </summary>
+        /// <remarks>
+        /// Scoped to the resource's direct, schema-declared reference fields only — matching
+        /// <see cref="Microsoft.Health.Fhir.Core.Features.Search.TypedElementSearchIndexer"/>, which likewise
+        /// never indexes into <c>contained</c> resources. Bundle entries are out of scope for $import: the
+        /// generated schema has no reference metadata for <c>Bundle</c> itself (each entry is a distinct,
+        /// independently-typed resource, not a Reference-typed field of Bundle), and import NDJSON is expected
+        /// to contain individual resources rather than transactional Bundles.
+        /// </remarks>
+        private void CheckConditionalReferenceInResource(ResourceJsonNode resource, ImportMode importMode)
         {
-            if (importMode == ImportMode.IncrementalLoad)
+            if (importMode == ImportMode.IncrementalLoad || resource.MutableNode is not JsonObject root)
             {
                 return;
             }
 
-            Visit(node);
-
-            static void Visit(JsonNode current)
+            foreach (ReferenceFieldMetadata field in _schemaContext.Schema.ReferenceMetadataProvider.GetMetadata(resource.ResourceType))
             {
-                if (current is JsonObject obj)
-                {
-                    foreach ((string name, JsonNode value) in obj)
-                    {
-                        if (string.Equals(name, "reference", StringComparison.Ordinal) &&
-                            value is JsonValue jsonValue &&
-                            jsonValue.TryGetValue(out string reference) &&
-                            reference.Contains('?', StringComparison.Ordinal))
-                        {
-                            throw new NotSupportedException(
-                                $"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
-                        }
+                var propertyName = field.ElementPath.EndsWith("[x]", StringComparison.Ordinal)
+                    ? string.Concat(field.ElementPath.AsSpan(0, field.ElementPath.Length - 3), "Reference")
+                    : field.ElementPath;
 
-                        if (value != null)
+                if (!root.TryGetPropertyValue(propertyName, out var value) || value is null)
+                {
+                    continue;
+                }
+
+                if (field.IsCollection)
+                {
+                    if (value is JsonArray array)
+                    {
+                        foreach (var item in array)
                         {
-                            Visit(value);
+                            ThrowIfConditionalReference(item);
                         }
                     }
                 }
-                else if (current is JsonArray array)
+                else
                 {
-                    foreach (JsonNode item in array)
-                    {
-                        if (item != null)
-                        {
-                            Visit(item);
-                        }
-                    }
+                    ThrowIfConditionalReference(value);
                 }
             }
         }
 
-        private static bool RemoveSoftDeletedExtension(JsonNode root)
+        private static void ThrowIfConditionalReference(JsonNode referenceNode)
         {
-            if (root["meta"]?["extension"] is not JsonArray extensions)
+            if (referenceNode is JsonObject referenceObject &&
+                referenceObject.TryGetPropertyValue("reference", out var referenceValue) &&
+                referenceValue is JsonValue jsonValue &&
+                jsonValue.TryGetValue(out string reference) &&
+                reference.Contains('?', StringComparison.Ordinal))
             {
-                return false;
+                throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
+            }
+        }
+
+        /// <summary>
+        /// Removes every extension whose URL matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>,
+        /// removing the now-empty extension array if applicable. Only called once <see cref="ResourceElement"/>'s
+        /// FHIRPath-driven <c>IsSoftDeleted()</c> predicate (the same one the Firely parser uses) has already
+        /// confirmed the resource is soft-deleted, so — mirroring Firely's <c>Meta.RemoveExtension</c> — every
+        /// extension matching the URL is removed regardless of its value.
+        /// </summary>
+        /// <param name="root">The raw JSON graph for the resource.</param>
+        private static void RemoveSoftDeletedExtension(JsonNode root)
+        {
+            if (root?["meta"] is not JsonObject meta || meta["extension"] is not JsonArray extensions)
+            {
+                return;
             }
 
-            bool isDeleted = false;
-            for (int i = extensions.Count - 1; i >= 0; i--)
+            for (var i = extensions.Count - 1; i >= 0; i--)
             {
-                if (extensions[i]?["url"]?.GetValue<string>() is string url &&
-                    string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase))
+                if (extensions[i] is JsonObject extension &&
+                    extension["url"]?.GetValue<string>() is string url &&
+                    string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal))
                 {
                     extensions.RemoveAt(i);
-                    isDeleted = true;
                 }
             }
 
-            if (extensions.Count == 0 && root["meta"] is JsonObject meta)
+            if (extensions.Count == 0)
             {
                 meta.Remove("extension");
             }
-
-            return isDeleted;
         }
-
     }
 }
 ```

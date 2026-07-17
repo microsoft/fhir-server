@@ -237,12 +237,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             }
         }
 
-        [Theory]
-        [InlineData(ImportMode.InitialLoad, true)]
-        [InlineData(ImportMode.IncrementalLoad, false)]
-        public void GivenContainedConditionalReference_WhenParsed_ThenProvidersAgree(
-            ImportMode importMode,
-            bool shouldThrow)
+        // Ignixa's conditional-reference check is intentionally scoped to the resource's own direct,
+        // schema-declared reference fields (via IReferenceMetadataProvider) - it does not recurse into
+        // `contained` resources or Bundle entries. This matches TypedElementSearchIndexer, which likewise
+        // never indexes into `contained`, and reflects that $import NDJSON carries individual resources
+        // rather than transactional Bundles. Firely's parser still walks the whole object graph
+        // (GetAllChildren<ResourceReference>), so these two scenarios are expected to diverge rather than
+        // agree - unlike every other case in this suite.
+        [Fact]
+        public void GivenContainedConditionalReferenceDuringInitialLoad_WhenParsed_ThenFirelyRejectsButIgnixaAllows()
         {
             const string json = """
                 {
@@ -258,21 +261,37 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 }
                 """;
 
-            Exception firely = Record.Exception(() => _firelyParser.Parse(0, 0, json.Length, json, importMode));
-            Exception ignixa = Record.Exception(() => _ignixaParser.Parse(0, 0, json.Length, json, importMode));
-
-            Assert.Equal(shouldThrow, firely != null);
-            Assert.Equal(shouldThrow, ignixa != null);
-
-            if (shouldThrow)
-            {
-                Assert.IsType<NotSupportedException>(firely);
-                Assert.IsType<NotSupportedException>(ignixa);
-            }
+            Assert.Throws<NotSupportedException>(
+                () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+            Assert.Null(Record.Exception(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad)));
         }
 
         [Fact]
-        public void GivenBundleEntryConditionalReferenceDuringInitialLoad_WhenParsed_ThenBothProvidersReject()
+        public void GivenContainedConditionalReferenceDuringIncrementalLoad_WhenParsed_ThenBothProvidersAllow()
+        {
+            const string json = """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "contained":[{
+                    "resourceType":"Observation",
+                    "id":"obs-1",
+                    "subject":{"reference":"Patient?identifier=system|value"},
+                    "status":"final",
+                    "code":{"text":"test"}
+                  }]
+                }
+                """;
+
+            Assert.Null(Record.Exception(
+                () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad)));
+            Assert.Null(Record.Exception(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad)));
+        }
+
+        [Fact]
+        public void GivenBundleEntryConditionalReferenceDuringInitialLoad_WhenParsed_ThenFirelyRejectsButIgnixaAllows()
         {
             const string json = """
                 {
@@ -293,8 +312,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
             Assert.Throws<NotSupportedException>(
                 () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
-            Assert.Throws<NotSupportedException>(
-                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+            Assert.Null(Record.Exception(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad)));
         }
 
         [Fact]

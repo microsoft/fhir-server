@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Ignixa
         }
 
         /// <summary>
-        /// Gets the generated Ignixa schema for the current FHIR version.
+        /// Gets the generated Ignixa schema for the current FHIR version, including reference metadata.
         /// </summary>
-        public ISchema Schema { get; }
+        public IFhirSchemaProvider Schema { get; }
 
         private static IFhirSchemaProvider GetSchemaProvider(FhirSpecification version)
         {

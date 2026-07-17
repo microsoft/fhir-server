@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EnsureThat;
+using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 using Ignixa.Serialization;
 using Ignixa.Serialization.Models;
@@ -28,28 +28,6 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
     {
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
-
-        /// <summary>
-        /// The extension <c>value[x]</c> property names whose FHIR primitive type maps to the FHIRPath
-        /// <c>System.String</c> type, and therefore compares equal to a string literal (e.g. <c>"soft-deleted"</c>)
-        /// under FHIRPath's <c>=</c> operator. Confirmed empirically against the Firely SDK for STU3/R4/R4B/R5:
-        /// <c>string</c>, <c>code</c>, <c>id</c>, <c>markdown</c>, <c>uri</c>, <c>url</c>, <c>canonical</c>,
-        /// <c>oid</c>, and <c>uuid</c> all satisfy <c>value='soft-deleted'</c> when their content is exactly
-        /// <c>"soft-deleted"</c>; <c>boolean</c>, <c>integer</c>, <c>decimal</c>, <c>dateTime</c>, <c>instant</c>,
-        /// and <c>base64Binary</c> never do (base64Binary additionally fails to parse for non-base64 content).
-        /// </summary>
-        private static readonly string[] StringLikeSoftDeleteValuePropertyNames =
-        {
-            "valueString",
-            "valueCode",
-            "valueId",
-            "valueMarkdown",
-            "valueUri",
-            "valueUrl",
-            "valueCanonical",
-            "valueOid",
-            "valueUuid",
-        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
@@ -79,7 +57,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             }
 
             ImportResourceIdValidator.Validate(resource.Id);
-            CheckConditionalReferenceInResource(resource.MutableNode, importMode);
+            CheckConditionalReferenceInResource(resource, importMode);
 
             resource.Meta ??= new MetaJsonNode();
 
@@ -98,10 +76,18 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 keepVersion = false;
             }
 
-            var isDeleted = RemoveSoftDeletedExtension(resource.MutableNode);
+            var resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
+            var isDeleted = resourceElement.IsSoftDeleted();
 
-            var element = resource.ToElement(_schemaContext.Schema);
-            var resourceElement = new ResourceElement(element.ToTypedElement());
+            if (isDeleted)
+            {
+                // ResourceJsonNode caches its converted IElement internally (per node instance), so mutating
+                // resource.MutableNode and calling ToElement() again on the *same* node would silently return
+                // the stale pre-mutation element. Re-parse a fresh node from the mutated JSON instead.
+                RemoveSoftDeletedExtension(resource.MutableNode);
+                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(resource.MutableNode.ToJsonString());
+                resourceElement = new ResourceElement(resource.ToElement(_schemaContext.Schema).ToTypedElement());
+            }
 
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
@@ -109,91 +95,77 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         }
 
         /// <summary>
-        /// Recursively walks the raw JSON graph — including contained resources and Bundle entries —
-        /// rejecting conditional references (a "reference" value containing '?') during an initial load.
+        /// Rejects conditional references (a "reference" value containing '?') found in the fields the
+        /// generated Ignixa schema declares as Reference-typed for this resource's own type.
         /// </summary>
-        private static void CheckConditionalReferenceInResource(JsonNode node, ImportMode importMode)
+        /// <remarks>
+        /// Scoped to the resource's direct, schema-declared reference fields only — matching
+        /// <see cref="Microsoft.Health.Fhir.Core.Features.Search.TypedElementSearchIndexer"/>, which likewise
+        /// never indexes into <c>contained</c> resources. Bundle entries are out of scope for $import: the
+        /// generated schema has no reference metadata for <c>Bundle</c> itself (each entry is a distinct,
+        /// independently-typed resource, not a Reference-typed field of Bundle), and import NDJSON is expected
+        /// to contain individual resources rather than transactional Bundles.
+        /// </remarks>
+        private void CheckConditionalReferenceInResource(ResourceJsonNode resource, ImportMode importMode)
         {
-            if (importMode == ImportMode.IncrementalLoad || node is null)
+            if (importMode == ImportMode.IncrementalLoad || resource.MutableNode is not JsonObject root)
             {
                 return;
             }
 
-            Visit(node);
-
-            static void Visit(JsonNode current)
+            foreach (ReferenceFieldMetadata field in _schemaContext.Schema.ReferenceMetadataProvider.GetMetadata(resource.ResourceType))
             {
-                if (current is JsonObject jsonObject)
-                {
-                    foreach (var property in jsonObject)
-                    {
-                        if (string.Equals(property.Key, "reference", StringComparison.Ordinal) &&
-                            property.Value is JsonValue jsonValue &&
-                            jsonValue.TryGetValue(out string reference) &&
-                            reference.Contains('?', StringComparison.Ordinal))
-                        {
-                            throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
-                        }
+                var propertyName = field.ElementPath.EndsWith("[x]", StringComparison.Ordinal)
+                    ? string.Concat(field.ElementPath.AsSpan(0, field.ElementPath.Length - 3), "Reference")
+                    : field.ElementPath;
 
-                        if (property.Value is not null)
+                if (!root.TryGetPropertyValue(propertyName, out var value) || value is null)
+                {
+                    continue;
+                }
+
+                if (field.IsCollection)
+                {
+                    if (value is JsonArray array)
+                    {
+                        foreach (var item in array)
                         {
-                            Visit(property.Value);
+                            ThrowIfConditionalReference(item);
                         }
                     }
                 }
-                else if (current is JsonArray jsonArray)
+                else
                 {
-                    foreach (var item in jsonArray)
-                    {
-                        if (item is not null)
-                        {
-                            Visit(item);
-                        }
-                    }
+                    ThrowIfConditionalReference(value);
                 }
             }
         }
 
+        private static void ThrowIfConditionalReference(JsonNode referenceNode)
+        {
+            if (referenceNode is JsonObject referenceObject &&
+                referenceObject.TryGetPropertyValue("reference", out var referenceValue) &&
+                referenceValue is JsonValue jsonValue &&
+                jsonValue.TryGetValue(out string reference) &&
+                reference.Contains('?', StringComparison.Ordinal))
+            {
+                throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
+            }
+        }
+
         /// <summary>
-        /// Detects the Azure soft-deleted meta extension and, if present, removes every extension whose URL
-        /// matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>, removing the now-empty extension
-        /// array if applicable.
+        /// Removes every extension whose URL matches <see cref="KnownFhirPaths.AzureSoftDeletedExtensionUrl"/>,
+        /// removing the now-empty extension array if applicable. Only called once <see cref="ResourceElement"/>'s
+        /// FHIRPath-driven <c>IsSoftDeleted()</c> predicate (the same one the Firely parser uses) has already
+        /// confirmed the resource is soft-deleted, so — mirroring Firely's <c>Meta.RemoveExtension</c> — every
+        /// extension matching the URL is removed regardless of its value.
         /// </summary>
-        /// <remarks>
-        /// Mirrors the Firely parser's <c>ResourceElement.IsSoftDeleted()</c> FHIRPath predicate
-        /// (<see cref="KnownFhirPaths.IsSoftDeletedExtension"/>: <c>value='soft-deleted'</c>), which requires an
-        /// exact (case-sensitive) URL match AND a polymorphic <c>value[x]</c> that FHIRPath considers string-equal
-        /// to <c>"soft-deleted"</c> before the resource is considered deleted. Because <c>value[x]</c> is
-        /// polymorphic, the FHIRPath comparison succeeds for any FHIR primitive whose type maps to the FHIRPath
-        /// <c>System.String</c> type (see <see cref="StringLikeSoftDeleteValuePropertyNames"/>), not just
-        /// <c>valueString</c> - confirmed empirically for all four supported FHIR versions. Extensions that only
-        /// match the URL (wrong/missing value, non-string-like value type, or a differently-cased URL) are left
-        /// untouched, matching Firely's behavior of not removing extensions unless the resource is actually
-        /// determined to be soft-deleted. Once soft-deleted is confirmed, every extension with the matching URL is
-        /// removed (mirroring Firely's Meta.RemoveExtension, which removes all matches by URL regardless of
-        /// value), so duplicate/invalid-valued extensions sharing the same URL are removed alongside the
-        /// canonical one.
-        /// </remarks>
         /// <param name="root">The raw JSON graph for the resource.</param>
-        /// <returns><c>true</c> if a canonical soft-deleted extension was found and removed; otherwise, <c>false</c>.</returns>
-        private static bool RemoveSoftDeletedExtension(JsonNode root)
+        private static void RemoveSoftDeletedExtension(JsonNode root)
         {
             if (root?["meta"] is not JsonObject meta || meta["extension"] is not JsonArray extensions)
             {
-                return false;
-            }
-
-            var isDeleted = extensions.Any(extension =>
-                extension is JsonObject extensionObject &&
-                extensionObject["url"]?.GetValue<string>() is string url &&
-                string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.Ordinal) &&
-                StringLikeSoftDeleteValuePropertyNames.Any(propertyName =>
-                    extensionObject[propertyName]?.GetValue<string>() is string value &&
-                    string.Equals(value, "soft-deleted", StringComparison.Ordinal)));
-
-            if (!isDeleted)
-            {
-                return false;
+                return;
             }
 
             for (var i = extensions.Count - 1; i >= 0; i--)
@@ -210,8 +182,6 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             {
                 meta.Remove("extension");
             }
-
-            return true;
         }
     }
 }
