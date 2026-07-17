@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                     x.ImplementationType == typeof(FhirSdkProviderStartupLogger));
         }
 
-#if NET9_0_OR_GREATER
+#if NET10_0_OR_GREATER
         [Fact]
         public void GivenIgnixaConfiguration_WhenModuleLoads_ThenIgnixaParserIsRegistered()
         {
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             NotSupportedException exception = Assert.Throws<NotSupportedException>(
                 () => new OperationsModule(configuration).Load(new ServiceCollection()));
 
-            Assert.Contains("net9.0", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("net10.0", exception.Message, StringComparison.Ordinal);
         }
 #endif
 

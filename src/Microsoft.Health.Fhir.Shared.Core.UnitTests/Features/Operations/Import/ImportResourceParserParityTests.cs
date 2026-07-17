@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-#if NET9_0_OR_GREATER
+#if NET10_0_OR_GREATER
 
 using System;
 using System.Text.Json.Nodes;

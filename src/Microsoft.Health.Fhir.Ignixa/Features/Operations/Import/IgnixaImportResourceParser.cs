@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 element = resource.ToElement(_schemaContext.Schema);
             }
 
-            // Phase-1 flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
+            // Phase-2 flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
             // RawResourceFactory can't see the native ResourceJsonNode and falls through to a full ToPoco<T>()
             // rebuild plus Firely's FhirJsonSerializer - the same cost Firely mode pays, on top of the Ignixa
             // parse above. The next phase should carry the node through via the two-arg ResourceElement ctor
