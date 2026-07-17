@@ -32,11 +32,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _tableName = value;
         }
 
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                return null;
+                throw new ArgumentNullException(nameof(name));
             }
 
             var modifier = string.Empty;
@@ -50,100 +50,130 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var parameter = _parameterCollection.GetByCode(name, options.ResourceTypes.FirstOrDefault());
             if (parameter == null)
             {
-                return null;
+                throw new ArgumentException($"Search Parameter '{name}' not found for resource type '{options.ResourceTypes.FirstOrDefault()}'");
             }
 
-            var sqlBuilder = new StringBuilder();
-            sqlBuilder.AppendLine($"SELECT *, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row");
-            sqlBuilder.AppendLine($"  FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial");
+            var builder = options.SqlQueryBuilder;
 
-            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "RefResourceSurrogateId";
+            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "ResourceSurrogateId2";
+            var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "ResourceTypeId2";
+
+            // Start the subquery with opening parenthesis and SELECT
+            var cteName = options.ChainLevel == 0 ? $"cte{options.CteNumber}" : $"cte{options.CteNumber}chain{options.ChainLevel}";
+            builder.BeginCte(cteName);
+            builder.IncreaseIndent();
+            builder.SelectWithModifier("DISTINCT", "r.ResourceTypeId", "r.ResourceSurrogateId");
 
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {
-                sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
-                sqlBuilder.AppendLine($"  WHERE {(bool.Parse(value) ? "NOT " : string.Empty)}EXISTS (SELECT 1 FROM {GetTableName(modifier)} t WHERE t.ResourceSurrogateId = r.{surrogateIdColumn} AND t.SearchParamId = {parameter.Id})");
+                builder.From(options.LastCteName ?? "dbo.Resource", "r");
+
+                var existsPrefix = bool.Parse(value) ? "NOT " : string.Empty;
+                builder.Where($"{existsPrefix}EXISTS (");
+                builder.IncreaseIndent();
+                builder.Select("1")
+                    .From(GetTableName(modifier), "t")
+                    .Where($"t.ResourceSurrogateId = r.{surrogateIdColumn}")
+                    .And($"t.ResourceTypeId = r.{typeIdColumn}")
+                    .And($"t.SearchParamId = {parameter.Id}");
+                builder.DecreaseIndent();
+                builder.AppendLine(")");
             }
             else
             {
-                sqlBuilder.AppendLine($"  FROM {GetTableName(modifier)} t");
+                builder.From(GetTableName(modifier), "t");
 
                 // Join on Resource table or previous CTE
-                sqlBuilder.AppendLine($"  JOIN {options.LastCteName ?? "dbo.Resource"} r ON t.ResourceSurrogateId = r.{surrogateIdColumn}");
+                builder.InnerJoin(
+                    options.LastCteName ?? "dbo.Resource",
+                    "r",
+                    $"t.ResourceSurrogateId = r.{surrogateIdColumn} AND t.ResourceTypeId = r.{typeIdColumn}");
 
                 var tableName = "t";
 
                 if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
                 {
-                    sqlBuilder.AppendLine($"  WHERE NOT EXISTS (SELECT 1 FROM {GetTableName(modifier)} t2");
+                    builder.Where($"NOT EXISTS (");
+                    builder.IncreaseIndent();
+                    builder.Select("1")
+                        .From(GetTableName(modifier), "t2");
                     tableName = "t2";
+                    builder.Where($"{tableName}.SearchParamId = {parameter.Id}");
                 }
-
-                sqlBuilder.AppendLine($"  WHERE {tableName}.SearchParamId = {parameter.Id}");
+                else
+                {
+                    builder.Where($"{tableName}.SearchParamId = {parameter.Id}");
+                }
 
                 var values = SplitWithEscapeChar(value, ',', '\\');
 
-                sqlBuilder.AppendLine("  AND (");
-                var firstClause = true;
+                builder.And("(");
+                builder.IncreaseIndent();
+
+                bool firstClause = true;
                 foreach (var v in values)
                 {
-                    // Add parameter-specific WHERE conditions
                     var whereClause = BuildWhereClause(v, modifier, columnSuffix: null, tableName: tableName);
 
                     if (!firstClause)
                     {
-                        sqlBuilder.Append("  OR ");
+                        builder.Or(whereClause);
                     }
                     else
                     {
-                        sqlBuilder.Append("  ");
+                        builder.IncreaseIndent(2);
+                        builder.AppendLine(whereClause);
+                        builder.DecreaseIndent(2);
                     }
 
-                    sqlBuilder.AppendLine(whereClause);
                     firstClause = false;
                 }
 
-                sqlBuilder.AppendLine("  )");
+                builder.DecreaseIndent();
+                builder.AppendLine(")");
 
                 if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
                 {
-                    sqlBuilder.AppendLine($"  AND {tableName}.ResourceSurrogateId = t.ResourceSurrogateId");
-                    sqlBuilder.AppendLine($"  AND {tableName}.ResourceTypeId = t.ResourceTypeId");
-                    sqlBuilder.AppendLine("  )");
+                    builder.And($"{tableName}.ResourceSurrogateId = t.ResourceSurrogateId");
+                    builder.And($"{tableName}.ResourceTypeId = t.ResourceTypeId");
+                    builder.DecreaseIndent();
+                    builder.AppendLine(")");
                 }
             }
 
             // Add base filters only on the first CTE
             if (options.LastCteName == null)
             {
-                sqlBuilder.AppendLine($"  AND r.IsHistory = 0 AND r.IsDeleted = 0");
+                builder.And("r.IsHistory = 0");
+                builder.And("r.IsDeleted = 0");
 
                 if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
                 {
                     var resourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                    builder.And($"r.ResourceTypeId IN ({resourceTypeIds})");
                 }
 
                 if (options.ExcludedResourceTypes != null && options.ExcludedResourceTypes.Count > 0)
                 {
                     var excludedResourceTypeIds = string.Join(", ", options.ExcludedResourceTypes);
-                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId NOT IN ({excludedResourceTypeIds})");
+                    builder.And($"r.ResourceTypeId NOT IN ({excludedResourceTypeIds})");
                 }
 
                 if (options.ContinuationToken != null)
                 {
-                    sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+                    var surrogateOperator = options.SortDescending ? "<" : ">";
+                    builder.And($"r.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
 
                     if (options.ContinuationToken.ResourceTypeId != null)
                     {
-                        sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                        var typeOperator = options.SortDescending ? "<" : ">";
+                        builder.And($"r.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
                     }
                 }
             }
 
-            sqlBuilder.Append("  ) as a");
-
-            return sqlBuilder.ToString();
+            builder.DecreaseIndent();
+            builder.EndCte();
         }
 
         /// <summary>

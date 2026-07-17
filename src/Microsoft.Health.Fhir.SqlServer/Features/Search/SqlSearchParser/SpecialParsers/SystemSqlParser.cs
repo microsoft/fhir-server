@@ -16,41 +16,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
     /// </summary>
     public class SystemSqlParser : ISqlParser
     {
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             // SystemSqlParser doesn't use name/value parameters
             // It generates a basic query based on options only
-            var sqlBuilder = new StringBuilder();
+            var sqlBuilder = options.SqlQueryBuilder;
+
+            sqlBuilder.BeginCte($"cte{options.CteNumber}");
 
             // Build the SELECT clause with TOP or without based on whether we're counting
-            sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
+            sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
 
             // FROM clause - always from dbo.Resource for system queries
-            sqlBuilder.AppendLine("  FROM dbo.Resource r");
+            sqlBuilder.From("dbo.Resource", "r");
 
             // WHERE clause - base filters
-            sqlBuilder.AppendLine("  WHERE r.IsHistory = 0 AND r.IsDeleted = 0");
+            sqlBuilder.Where("r.IsHistory = 0")
+                .And("r.IsDeleted = 0");
 
             // Add resource type filter if specified
             if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
             {
                 var resourceTypeIds = string.Join(", ", options.ResourceTypes);
-                sqlBuilder.AppendLine();
-                sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                sqlBuilder.And($"r.ResourceTypeId IN ({resourceTypeIds})");
             }
 
             // Add continuation token support
             if (options.ContinuationToken != null)
             {
-                sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+                sqlBuilder.And($"r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
 
                 if (options.ContinuationToken.ResourceTypeId != null)
                 {
-                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                    sqlBuilder.And($"r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
                 }
             }
 
-            return sqlBuilder.ToString();
+            sqlBuilder.EndCte();
         }
     }
 }

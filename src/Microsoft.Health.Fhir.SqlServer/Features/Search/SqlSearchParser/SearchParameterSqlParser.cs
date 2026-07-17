@@ -80,7 +80,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
             var parametersCopy = DeepCopyParameters(parameters);
 
-            var sqlBuilder = new StringBuilder();
             var cteIndex = 0;
             string? lastCteName = null;
             Dictionary<string, IList<string>> includeParameters = new();
@@ -92,6 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 Count = sqlSearchOptions.MaxItemCount,
                 IncludeTotalCount = sqlSearchOptions.CountOnly,
             };
+            var sqlBuilder = parserOptions.SqlQueryBuilder;
 
             if (continuationToken != null)
             {
@@ -175,22 +175,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             parametersCopy.Remove(KnownQueryParameterNames.IncludesContinuationToken);
             parametersCopy.Remove(KnownQueryParameterNames.IncludesCount);
 
-            sqlBuilder.AppendLine(";WITH");
-
             // *********************************************************************** Basic Search Parameters ***********************************************************************
 
             // If no search parameters, use SystemSqlParser for basic resource retrieval
             if (parametersCopy.Count == 0)
             {
+                parserOptions.CteNumber = cteIndex;
+                _systemSqlParser.Parse(string.Empty, string.Empty, parserOptions);
                 lastCteName = $"cte{cteIndex}";
                 cteIndex++;
-
-                sqlBuilder.AppendLine($"{lastCteName} AS (");
-
-                sqlBuilder.Append(_systemSqlParser.Parse(string.Empty, string.Empty, parserOptions));
-
-                sqlBuilder.AppendLine();
-                sqlBuilder.Append(')');
             }
             else
             {
@@ -223,19 +216,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         }
 
                         var cteName = $"cte{cteIndex}";
-                        parserOptions.CteName = cteName;
+                        parserOptions.CteNumber = cteIndex;
 
-                        if (cteIndex > 0)
-                        {
-                            sqlBuilder.Append(',');
-                        }
-
-                        sqlBuilder.AppendLine($"{cteName} AS (");
-
-                        sqlBuilder.Append(Parse(kvp.Key, value, parserOptions));
-
-                        sqlBuilder.AppendLine();
-                        sqlBuilder.Append(')');
+                        Parse(kvp.Key, value, parserOptions);
 
                         lastCteName = cteName;
                         parserOptions.LastCteName = lastCteName;
@@ -255,9 +238,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     foreach (var value in kvp.Value)
                     {
                         cteName = $"cte{cteIndex}";
-                        parserOptions.CteName = cteName;
+                        parserOptions.CteNumber = cteIndex;
 
-                        sqlBuilder.Append(_chainedSqlParser.Parse(kvp.Key, value, parserOptions));
+                        _chainedSqlParser.Parse(kvp.Key, value, parserOptions);
 
                         lastCteName = cteName;
                         parserOptions.LastCteName = lastCteName;
@@ -276,9 +259,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     foreach (var value in kvp.Value)
                     {
                         cteName = $"cte{cteIndex}";
-                        parserOptions.CteName = cteName;
+                        parserOptions.CteNumber = cteIndex;
 
-                        sqlBuilder.Append(_reversedChainSqlParser.Parse(kvp.Key, value, parserOptions));
+                        _reversedChainSqlParser.Parse(kvp.Key, value, parserOptions);
 
                         lastCteName = cteName;
                         parserOptions.LastCteName = lastCteName;
@@ -319,13 +302,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (!parserOptions.IncludeTotalCount)
             {
                 var cteName = $"cte{cteIndex}";
-                parserOptions.CteName = cteName;
+                parserOptions.CteNumber = cteIndex;
                 cteIndex++;
 
-                sqlBuilder.AppendLine($",{cteName} AS (")
-                    .AppendLine($"SELECT TOP {parserOptions.Count + 1} * FROM {lastCteName} r")
-                    .AppendLine($"  ORDER BY r.ResourceTypeId {(parserOptions.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(parserOptions.SortDescending ? "DESC" : "ASC")}")
-                    .AppendLine(")");
+                sqlBuilder.BeginCte(cteName)
+                    .SelectWithModifier($"TOP {parserOptions.Count + 1}", "*", "IsMatch = 1", "IsPartial = 0", "Row = ROW_NUMBER() OVER (ORDER BY r.ResourceTypeId, r.ResourceSurrogateId)")
+                    .From(lastCteName, "r")
+                    .OrderBy($"r.ResourceTypeId {(parserOptions.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(parserOptions.SortDescending ? "DESC" : "ASC")}")
+                    .EndCte();
 
                 lastCteName = cteName;
                 parserOptions.LastCteName = lastCteName;
@@ -389,21 +373,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                     // Process each value in this include
                     var includeCteName = $"cte{cteIndex}";
-                    parserOptions.CteName = includeCteName;
+                    parserOptions.CteNumber = cteIndex;
                     parserOptions.LastCteName = includeLastCteName;
                     cteIndex++;
-
-                    sqlBuilder.AppendLine($",{includeCteName} AS (");
 
                     // Choose the appropriate parser based on whether this is _include or _revinclude
                     ISqlParser parser = orderedInclude.ParameterName.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase)
                         ? _revIncludeSqlParser
                         : _includeSqlParser;
 
-                    var includeSql = parser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
-                    sqlBuilder.Append(includeSql);
-                    sqlBuilder.AppendLine();
-                    sqlBuilder.Append(')');
+                    parser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
 
                     includeCteNames.Add(includeCteName);
                     orderedInclude.CteNames.Add(includeCteName);
@@ -426,7 +405,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // If this is a count query, return count instead of full results
             if (parserOptions.IncludeTotalCount)
             {
-                sqlBuilder.AppendLine($"SELECT COUNT_BIG(*) AS Total FROM {lastCteName}");
+                sqlBuilder.Select($"COUNT_BIG(*) AS Total")
+                    .From(lastCteName);
             }
             else
             {
@@ -443,20 +423,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         {
                             // _lastUpdated maps to ResourceSurrogateId (which encodes timestamp)
                             orderByClause = parserOptions.SortDescending
-                                ? "ORDER BY t.IsMatch DESC, t.ResourceSurrogateId DESC"
-                                : "ORDER BY t.IsMatch DESC, t.ResourceSurrogateId ASC";
+                                ? "t.IsMatch DESC, t.ResourceSurrogateId DESC"
+                                : "t.IsMatch DESC, t.ResourceSurrogateId ASC";
                         }
                         else if (parserOptions.SortParameterName.Equals(SearchParameterNames.ResourceType, StringComparison.OrdinalIgnoreCase))
                         {
                             // _type maps to ResourceTypeId
                             orderByClause = parserOptions.SortDescending
-                                ? "ORDER BY t.IsMatch DESC, t.ResourceTypeId DESC, t.ResourceSurrogateId DESC"
-                                : "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
+                                ? "t.IsMatch DESC, t.ResourceTypeId DESC, t.ResourceSurrogateId DESC"
+                                : "t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
                         }
                         else
                         {
                             // Fallback to default ordering
-                            orderByClause = "ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
+                            orderByClause = "t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
                         }
                     }
                     else
@@ -477,7 +457,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 else
                 {
                     // No sort parameter - use default ordering
-                    orderByClause = "ORDER BY t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
+                    orderByClause = "t.IsMatch DESC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 1 THEN t.ResourceSurrogateId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceTypeId ELSE NULL END) ASC, (CASE WHEN t.IsMatch = 0 THEN t.ResourceSurrogateId ELSE NULL END) ASC";
                 }
 
                 // Build the SELECT statement - include SortValue if it exists
@@ -487,12 +467,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     selectColumns = $"r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(f.IsMatch AS bit) AS IsMatch, CAST(f.IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource, f.SortValue";
                 }
 
-                sqlBuilder.AppendLine($"SELECT * FROM (")
-                    .AppendLine($"SELECT DISTINCT {selectColumns} ")
-                    .AppendLine("FROM dbo.Resource AS r ")
-                    .AppendLine($"JOIN {lastCteName} AS f ON r.ResourceTypeId = f.ResourceTypeId AND r.ResourceSurrogateId = f.ResourceSurrogateId ")
-                    .AppendLine("WHERE r.IsHistory = 0 AND r.IsDeleted = 0 ")
-                    .AppendLine($") AS t {orderByClause}");
+                sqlBuilder.Select($"*")
+                    .From("(")
+                    .IncreaseIndent()
+                    .SelectWithModifier("DISTINCT", selectColumns)
+                    .From("dbo.Resource", "r")
+                    .JoinMultiLine("INNER", lastCteName, "f", "r.ResourceSurrogateId = f.ResourceSurrogateId", "r.ResourceTypeId = f.ResourceTypeId")
+                    .Where("r.IsHistory = 0")
+                    .And("r.IsDeleted = 0")
+                    .AppendLine(") AS t")
+                    .OrderBy(orderByClause);
             }
 
             return sqlBuilder.ToString();
@@ -554,10 +538,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// <param name="name">The name of the search parameter.</param>
         /// <param name="value">The value of the search parameter.</param>
         /// <param name="options">The parser options.</param>
-        /// <returns>The parsed SQL query.</returns>
         /// <exception cref="ArgumentNullException">If the name is null or whitespace.</exception>
         /// <exception cref="ArgumentException">If the search parameter is not supported or the parser is not found.</exception>
-        private string Parse(string name, string value, ParserOptions options)
+        private void Parse(string name, string value, ParserOptions options)
         {
             var parser = GetParser(name, options.ResourceTypes.FirstOrDefault());
             if (parser == null)
@@ -565,7 +548,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 throw new ArgumentException($"Parser not found for search parameter '{name}'.");
             }
 
-            return parser.Parse(name, value, options) ?? string.Empty;
+            parser.Parse(name, value, options);
         }
 
         /// <summary>

@@ -13,35 +13,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     internal class ParserUtil
     {
-        public static void AddHistoryAndDeletedCheck(StringBuilder sqlBuilder, string tableAlias, bool includeHistory = false, bool includeDeleted = false)
+        public static void AddHistoryAndDeletedCheck(SqlQueryBuilder builder, string tableAlias, bool includeHistory = false, bool includeDeleted = false)
         {
-            if (!includeHistory && !includeDeleted)
+            if (!includeHistory)
             {
-                sqlBuilder.Append($"  AND {tableAlias}.IsHistory = 0 AND {tableAlias}.IsDeleted = 0");
+                builder.And($"{tableAlias}.IsHistory = 0");
             }
-            else if (!includeHistory && includeDeleted)
+
+            if (!includeDeleted)
             {
-                sqlBuilder.Append($"  AND {tableAlias}.IsHistory = 0");
-            }
-            else if (includeHistory && !includeDeleted)
-            {
-                sqlBuilder.Append($"  AND {tableAlias}.IsDeleted = 0");
+                builder.And($"{tableAlias}.IsDeleted = 0");
             }
         }
 
-        public static void AddUnionCte(StringBuilder sqlBuilder, string cteName, IList<string> targetCtes, bool includeSort = false)
+        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false)
         {
-            sqlBuilder.AppendLine($", {cteName} AS (");
-            sqlBuilder.AppendLine($"  SELECT * FROM {targetCtes[0]}");
+            builder.BeginCte(cteName);
+            builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
 
             foreach (var includeCteName in targetCtes.Skip(1))
             {
-                sqlBuilder.AppendLine("  UNION ALL");
-                sqlBuilder.AppendLine($"  SELECT *{(includeSort ? ", SortValue = NULL" : string.Empty)} FROM {includeCteName}");
-                sqlBuilder.AppendLine($"    WHERE NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
+                builder.AppendLine("UNION ALL");
+                builder.IncreaseIndent();
+                builder.AppendLine($"SELECT *{(includeSort ? ", SortValue = NULL" : string.Empty)} FROM {includeCteName}");
+                builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
+                builder.DecreaseIndent();
             }
 
-            sqlBuilder.AppendLine(")");
+            builder.EndCte();
         }
     }
 }

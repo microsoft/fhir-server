@@ -30,11 +30,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _model = model;
         }
 
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                return null;
+                throw new ArgumentNullException(nameof(name));
             }
 
             var parts = value.Split(':');
@@ -73,15 +73,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (parameter == null && !wildcardSearchParameter)
             {
-                return null;
+                throw new ArgumentException($"Search parameter '{parts[1]}' not found for resource type '{parts[0]}'.");
             }
 
             if (string.IsNullOrWhiteSpace(options.LastCteName))
             {
-                return null;
+                throw new ArgumentException("LastCteName must be provided in ParserOptions.");
             }
 
-            var sqlBuilder = new StringBuilder();
+            var sqlBuilder = options.SqlQueryBuilder;
+            sqlBuilder.BeginCte($"cte{options.CteNumber}");
             sqlBuilder.AppendLine("SELECT *, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row");
             sqlBuilder.AppendLine("  FROM (");
             sqlBuilder.AppendLine($"    SELECT DISTINCT TOP (1001) refSource.ResourceTypeId, refSource.ResourceSurrogateId, 0 AS IsMatch, CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
@@ -108,8 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             sqlBuilder.AppendLine("  ) AS a");
-
-            return sqlBuilder.ToString();
+            sqlBuilder.EndCte();
         }
     }
 }

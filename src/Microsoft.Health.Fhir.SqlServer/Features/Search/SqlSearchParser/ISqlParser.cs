@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public interface ISqlParser
     {
-        string? Parse(string name, string value, ParserOptions options);
+        void Parse(string name, string value, ParserOptions options);
     }
 }

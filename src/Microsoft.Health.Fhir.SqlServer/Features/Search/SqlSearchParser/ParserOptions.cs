@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         public ContinuationToken? ContinuationToken { get; set; }
 
-        public string CteName { get; set; } = string.Empty;
+        public int CteNumber { get; set; } = 0;
 
         public string? LastCteName { get; set; }
 
@@ -40,5 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public bool SortQuerySecondPhase { get; set; }
 
         public string SortContinuationToken { get; set; } = string.Empty;
+
+        public SqlQueryBuilder SqlQueryBuilder { get; set; } = new SqlQueryBuilder();
     }
 }

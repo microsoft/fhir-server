@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Hl7.Fhir.Specification.Source;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             _model = model;
         }
 
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -78,34 +79,70 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 throw new ArgumentException($"Reference parameter '{referenceParamCode}' is not supported for resource type '{sourceResourceType}'.", nameof(name));
             }
 
-            var sqlBuilder = new StringBuilder();
-            var refChainCteName = $"{options.CteName}chain{options.ChainLevel}_ref";
-            var searchCteName = $"{options.CteName}chain{options.ChainLevel}_search";
-
-            // Add comma separator if there's a previous CTE
-            if (!string.IsNullOrEmpty(options.LastCteName))
-            {
-                sqlBuilder.Append(',');
-            }
+            var cteName = $"cte{options.CteNumber}";
+            var sqlBuilder = options.SqlQueryBuilder;
+            var refChainCteName = $"{cteName}chain{options.ChainLevel}_ref";
+            var searchSql = string.Empty;
+            ISqlParser? searchParser = null;
 
             // Check if the search parameter is _type (special case)
             if (!searchParamCode.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
             {
                 // Parse the search parameter to filter source resources
-                var searchParser = _parserSource.GetParser(searchParamCode, sourceResourceTypeId);
+                searchParser = _parserSource.GetParser(searchParamCode, sourceResourceTypeId);
                 var searchParserOptions = new ParserOptions
                 {
-                    CteName = options.CteName,
+                    CteNumber = options.CteNumber,
                     ResourceTypes = new List<short> { sourceResourceTypeId },
                     ChainLevel = options.ChainLevel + 1,
+                    LastCteName = refChainCteName,
+                    SqlQueryBuilder = sqlBuilder,
                 };
 
                 // Generate the search parameter filter CTE
-                var searchSql = searchParser.Parse(searchParamCode, value, searchParserOptions);
+                searchParser.Parse(searchParamCode, value, searchParserOptions);
                 if (string.IsNullOrEmpty(searchSql))
                 {
                     throw new ArgumentException("Failed to parse search parameter for _has query.", nameof(name));
                 }
+
+                // Create the CTE for the reverse reference join
+                sqlBuilder.AppendLine($",{refChainCteName} AS (");
+                sqlBuilder.AppendLine("  SELECT DISTINCT refSource.ResourceTypeId AS ResourceTypeId2, refSource.ResourceSurrogateId AS ResourceSurrogateId2, refTarget.ResourceTypeId AS ResourceTypeId, refTarget.ResourceSurrogateId AS ResourceSurrogateId");
+                sqlBuilder.AppendLine("  FROM dbo.ReferenceSearchParam refSource");
+                sqlBuilder.AppendLine($"  JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+
+                // Filter by the reference parameter
+                sqlBuilder.AppendLine($"  WHERE refSource.SearchParamId = {referenceParameter.Id}");
+
+                // Add base filters only on the first CTE
+                if (options.LastCteName == null)
+                {
+                    sqlBuilder.AppendLine("  AND refTarget.IsHistory = 0");
+                    sqlBuilder.AppendLine("  AND refTarget.IsDeleted = 0");
+
+                    if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
+                    {
+                        var targetResourceTypeIds = string.Join(", ", options.ResourceTypes);
+                        sqlBuilder.AppendLine($"  AND refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
+                    }
+
+                    if (options.ContinuationToken != null)
+                    {
+                        sqlBuilder.AppendLine($"  AND refTarget.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                        if (options.ContinuationToken.ResourceTypeId != null)
+                        {
+                            sqlBuilder.AppendLine($"  AND refTarget.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                        }
+                    }
+                }
+                else
+                {
+                    sqlBuilder.AppendLine($"  AND EXISTS (SELECT * FROM {options.LastCteName} r WHERE refTarget.ResourceTypeId = r.ResourceTypeId AND refTarget.ResourceSurrogateId = r.ResourceSurrogateId)");
+                }
+
+                sqlBuilder.AppendLine(")");
 
                 // Wrap the search SQL in a CTE if it's not already nested
                 if (searchParser is ReversedChainSqlParser || searchParser is ChainedSqlParser)
@@ -113,61 +150,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     // Include the search parameter CTE directly for nested chains
                     sqlBuilder.AppendLine(searchSql);
                 }
-                else
-                {
-                    sqlBuilder.AppendLine($"{searchCteName} AS (");
-                    sqlBuilder.AppendLine(searchSql);
-                    sqlBuilder.AppendLine(")");
-                }
-
-                // Create the CTE for the reverse reference join
-                sqlBuilder.AppendLine($",{refChainCteName} AS (");
-                sqlBuilder.AppendLine("  SELECT DISTINCT");
-                sqlBuilder.AppendLine("    target.ResourceTypeId AS ResourceTypeId,");
-                sqlBuilder.AppendLine("    target.ResourceSurrogateId AS ResourceSurrogateId,");
-                sqlBuilder.AppendLine("    1 AS IsMatch,");
-                sqlBuilder.AppendLine("    0 AS IsPartial");
-                sqlBuilder.AppendLine("  FROM dbo.ReferenceSearchParam refSource");
-
-                // Join with the filtered source resources
-                sqlBuilder.AppendLine($"  JOIN {searchCteName} source ON source.ResourceTypeId = refSource.ResourceTypeId AND source.ResourceSurrogateId = refSource.ResourceSurrogateId");
-
-                // Join with the target resources (the ones being referenced)
-                sqlBuilder.AppendLine("  JOIN dbo.Resource target ON refSource.ReferenceResourceTypeId = target.ResourceTypeId AND refSource.ReferenceResourceId = target.ResourceId");
-
-                // Join with the previous CTE to continue the chain (if applicable)
-                if (options.LastCteName != null)
-                {
-                    var prevRef = options.ChainLevel > 0 ? "prev.Ref" : "prev.";
-                    sqlBuilder.AppendLine($"  JOIN {options.LastCteName} prev ON {prevRef}ResourceTypeId = target.ResourceTypeId AND {prevRef}ResourceSurrogateId = target.ResourceSurrogateId");
-                }
-
-                // Filter by the reference parameter
-                sqlBuilder.AppendLine($"  WHERE refSource.SearchParamId = {referenceParameter.Id}");
-                sqlBuilder.AppendLine("  AND target.IsHistory = 0");
-                sqlBuilder.AppendLine("  AND target.IsDeleted = 0");
-
-                // Add base filters only on the first CTE
-                if (options.LastCteName == null)
-                {
-                    if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
-                    {
-                        var targetResourceTypeIds = string.Join(", ", options.ResourceTypes);
-                        sqlBuilder.AppendLine($"  AND target.ResourceTypeId IN ({targetResourceTypeIds})");
-                    }
-
-                    if (options.ContinuationToken != null)
-                    {
-                        sqlBuilder.AppendLine($"  AND target.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
-
-                        if (options.ContinuationToken.ResourceTypeId != null)
-                        {
-                            sqlBuilder.AppendLine($"  AND target.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
-                        }
-                    }
-                }
-
-                sqlBuilder.AppendLine(")");
             }
             else
             {
@@ -230,19 +212,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             // Create the final CTE with row numbering
             if (options.ChainLevel == 0)
             {
-                sqlBuilder.AppendLine($",{options.CteName} AS (")
-                    .AppendLine("  SELECT DISTINCT ResourceTypeId, ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row")
-                    .AppendLine($"  FROM {refChainCteName}")
-                    .AppendLine(")");
+                if (searchParser is ReversedChainSqlParser || searchParser is ChainedSqlParser)
+                {
+                    // Include the search parameter CTE directly for nested chains
+
+                    var searchCteName = $"{cteName}chain{options.ChainLevel}_search";
+                    sqlBuilder.AppendLine($",{cteName} AS (")
+                        .AppendLine($"  SELECT r.ResourceTypeId, r.ResourceSurrogateId")
+                        .AppendLine($"  FROM {searchCteName} r")
+                        .AppendLine(")");
+                }
+                else
+                {
+                    sqlBuilder.AppendLine($",{cteName} AS (")
+                        .AppendLine(searchSql)
+                        .AppendLine(")");
+                }
             }
             else
             {
-                var parentCteName = $"{options.CteName}chain{options.ChainLevel - 1}";
+                var parentCteName = $"{cteName}chain{options.ChainLevel - 1}";
+
+                sqlBuilder.AppendLine($",{parentCteName}_search");
 
                 if (options.ParentIsForwardChain)
                 {
                     sqlBuilder.AppendLine($",{parentCteName}_search AS (")
-                        .AppendLine("  SELECT DISTINCT parent.ResourceTypeId, parent.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY parent.ResourceTypeId ASC, parent.ResourceSurrogateId ASC) AS Row")
+                        .AppendLine("  SELECT parent.ResourceTypeId, parent.ResourceSurrogateIdAS")
                         .AppendLine($"  FROM {refChainCteName} child")
                         .AppendLine($"    JOIN {parentCteName}_ref parent ON parent.RefResourceTypeId = child.ResourceTypeId AND parent.RefResourceSurrogateId = child.ResourceSurrogateId")
                         .AppendLine(")");
@@ -250,13 +246,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 else
                 {
                     sqlBuilder.AppendLine($",{parentCteName}_search AS (")
-                        .AppendLine("  SELECT DISTINCT ResourceTypeId, ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY ResourceTypeId ASC, ResourceSurrogateId ASC) AS Row")
+                        .AppendLine("  SELECT DISNCT ResourceTypeId, ResourceSurrogateId")
                         .AppendLine($"  FROM {refChainCteName}")
                         .AppendLine(")");
                 }
             }
-
-            return sqlBuilder.ToString();
         }
     }
 }

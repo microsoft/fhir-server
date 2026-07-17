@@ -17,11 +17,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
     /// </summary>
     public class IdSqlParser : ISqlParser
     {
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                return null;
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(value));
             }
 
             var parameterParts = name.Split(':');
@@ -31,54 +31,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             var ids = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (ids.Length == 0)
             {
-                return null;
+                throw new ArgumentException("No valid IDs provided.", nameof(value));
             }
 
-            var sqlBuilder = new StringBuilder();
-            sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
-            sqlBuilder.AppendLine("  FROM dbo.Resource r");
+            var sqlBuilder = options.SqlQueryBuilder;
+            sqlBuilder.BeginCte($"cte{options.CteNumber}");
+            sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
+            sqlBuilder.From("dbo.Resource", "r");
 
             if (options.LastCteName != null)
             {
-                sqlBuilder.AppendLine($"  JOIN {options.LastCteName} lcte ON r.ResourceTypeId = lcte.ResourceTypeId AND r.ResourceSurrogateId = lcte.ResourceSurrogateId");
+                sqlBuilder.JoinMultiLine("INNER", options.LastCteName, "lcte", "r.ResourceTypeId = lcte.ResourceTypeId", "r.ResourceSurrogateId = lcte.ResourceSurrogateId");
             }
 
             // Build WHERE clause for ResourceId matching
             if (ids.Length == 1)
             {
                 var escapedId = EscapeSqlValue(ids[0]);
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedId}");
+                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedId}");
             }
             else
             {
                 // Multiple IDs - use IN clause
                 var escapedIds = string.Join(", ", ids.Select(EscapeSqlValue));
-                sqlBuilder.AppendLine($"  WHERE r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "NOT IN" : "IN")} ({escapedIds})");
+                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "NOT IN" : "IN")} ({escapedIds})");
             }
 
             // Add base filters only on the first CTE
             if (options.LastCteName == null)
             {
-                sqlBuilder.AppendLine("  AND r.IsHistory = 0 AND r.IsDeleted = 0");
+                ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "r");
 
                 if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
                 {
                     var resourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                    sqlBuilder.And($"r.ResourceTypeId IN ({resourceTypeIds})");
                 }
 
                 if (options.ContinuationToken != null)
                 {
-                    sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+                    sqlBuilder.And($"r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
 
                     if (options.ContinuationToken.ResourceTypeId != null)
                     {
-                        sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                        sqlBuilder.And($"r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
                     }
                 }
             }
 
-            return sqlBuilder.ToString();
+            sqlBuilder.EndCte();
         }
 
         private static string EscapeSqlValue(string value)

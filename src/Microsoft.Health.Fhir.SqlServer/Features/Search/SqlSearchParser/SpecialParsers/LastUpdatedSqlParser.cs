@@ -18,16 +18,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 {
     public class LastUpdatedSqlParser : ISqlParser
     {
-        public string? Parse(string name, string value, ParserOptions options)
+        public void Parse(string name, string value, ParserOptions options)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                return null;
+                throw new ArgumentNullException(nameof(value));
             }
 
-            var sqlBuilder = new StringBuilder();
-            sqlBuilder.AppendLine($"SELECT DISTINCT r.ResourceTypeId, r.ResourceSurrogateId, 1 AS IsMatch, 0 AS IsPartial, row_number() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC) AS Row");
-            sqlBuilder.AppendLine($"  FROM {options.LastCteName ?? "dbo.Resource"} r");
+            var sqlBuilder = options.SqlQueryBuilder;
+            sqlBuilder.BeginCte($"cte{options.CteNumber}");
+            sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
+            sqlBuilder.From(options.LastCteName ?? "dbo.Resource", "r");
 
             var dateTime = DateTimeSqlParser.ParseValue(value, out var modifier);
             var minSurrogateId = ResourceSurrogateIdHelper.ToSurrogateId(dateTime.Start);
@@ -47,31 +48,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 _ => throw new ArgumentException($"Invalid operator '{modifier}' for lastUpdated search parameter."),
             };
 
-            sqlBuilder.AppendLine($"  WHERE {whereClause}");
+            sqlBuilder.Where(whereClause);
 
             // Add base filters only on the first CTE
             if (options.LastCteName == null)
             {
-                sqlBuilder.AppendLine("  AND r.IsHistory = 0 AND r.IsDeleted = 0");
+                ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "r");
 
                 if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
                 {
                     var resourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    sqlBuilder.AppendLine($"  AND r.ResourceTypeId IN ({resourceTypeIds})");
+                    sqlBuilder.And($"r.ResourceTypeId IN ({resourceTypeIds})");
                 }
 
                 if (options.ContinuationToken != null)
                 {
-                    sqlBuilder.AppendLine($"  AND r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+                    sqlBuilder.And($"r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
 
                     if (options.ContinuationToken.ResourceTypeId != null)
                     {
-                        sqlBuilder.AppendLine($"  AND r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                        sqlBuilder.And($"r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
                     }
                 }
             }
 
-            return sqlBuilder.ToString();
+            sqlBuilder.EndCte();
         }
     }
 }
