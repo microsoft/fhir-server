@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 // Here we check the Body element has exactly 1 child that is a Div
 
                 if (htmlBodyElement?.Children?.Length != 1
-                    || !(htmlBodyElement.Children?.FirstOrDefault() is IHtmlDivElement containerDiv))
+                    || !(htmlBodyElement.Children?[0] is IHtmlDivElement containerDiv))
                 {
                     yield return Core.Resources.IllegalHtmlOuterDiv;
                     yield break;
