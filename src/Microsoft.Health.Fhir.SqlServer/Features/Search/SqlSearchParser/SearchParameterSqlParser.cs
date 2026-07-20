@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly ReversedChainSqlParser _reversedChainSqlParser;
         private readonly LastUpdatedSqlParser _lastUpdatedSqlParser;
         private readonly SortSqlParser _sortSqlParser;
+        private readonly NotReferencedSqlParser _notReferencedSqlParser;
         private readonly ILogger<SearchParameterSqlParser> _logger;
 
         public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel, ILogger<SearchParameterSqlParser> logger)
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _chainedSqlParser = new ChainedSqlParser(parameterCollection, this, fhirModel);
             _reversedChainSqlParser = new ReversedChainSqlParser(parameterCollection, this, fhirModel);
             _sortSqlParser = new SortSqlParser(parameterCollection);
+            _notReferencedSqlParser = new NotReferencedSqlParser(parameterCollection, fhirModel);
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             Dictionary<string, IList<string>> includeParameters = new();
             Dictionary<string, IList<string>> chainedParameters = new();
             Dictionary<string, IList<string>> reversedChainedParameters = new();
+            Dictionary<string, IList<string>> notReferencedParameters = new();
             var parserOptions = new ParserOptions()
             {
                 ContinuationToken = continuationToken,
@@ -203,6 +206,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         continue;
                     }
 
+                    if (string.Equals(kvp.Key, KnownQueryParameterNames.NotReferenced, StringComparison.OrdinalIgnoreCase))
+                    {
+                        notReferencedParameters.Add(kvp.Key, kvp.Value);
+                        continue;
+                    }
+
                     if (kvp.Key.Contains('.', StringComparison.OrdinalIgnoreCase))
                     {
                         chainedParameters.Add(kvp.Key, kvp.Value);
@@ -274,8 +283,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (lastCteName == null)
             {
-                // No search CTEs generated (e.g., only _include/_revinclude params) - generate base system CTE
-                if (includeParameters.Count > 0 || reversedChainedParameters.Count > 0)
+                // No search CTEs generated (e.g., only _include/_revinclude/_not-referenced params) - generate base system CTE
+                if (includeParameters.Count > 0 || reversedChainedParameters.Count > 0 || notReferencedParameters.Count > 0)
                 {
                     parserOptions.CteNumber = cteIndex;
                     _systemSqlParser.Parse(string.Empty, string.Empty, parserOptions);
@@ -285,6 +294,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 else
                 {
                     return null;
+                }
+            }
+
+            // *********************************************************************** Not Referenced Parameters ***********************************************************************
+            if (notReferencedParameters.Count > 0)
+            {
+                foreach (var kvp in notReferencedParameters)
+                {
+                    foreach (var value in kvp.Value)
+                    {
+                        // Skip invalid values (no colon separator)
+                        if (!value.Contains(':', StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var cteName = $"cte{cteIndex}";
+                        parserOptions.CteNumber = cteIndex;
+                        parserOptions.LastCteName = lastCteName;
+
+                        _notReferencedSqlParser.Parse(kvp.Key, value, parserOptions);
+
+                        lastCteName = cteName;
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
+                    }
                 }
             }
 
