@@ -415,20 +415,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             Assert.Throws<UnauthorizedFhirActionException>(() => validator.AuthorizeJobAccess(record));
         }
 
-        [Theory]
-        [InlineData(null)]
-        [InlineData(KnownResourceTypes.Patient)]
-        public void GivenNonSmartRequest_WhenAuthorizingCreateOrJobAccess_ThenRequestedResourceTypeIsPreserved(string resourceType)
+        [Fact]
+        public void GivenNonSmartRequest_WhenAuthorizingJobAccess_ThenValidationIsNotApplied()
         {
-            // SMART validation is gated by the explicit fine-grained flag, preserving existing RBAC-only behavior.
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 applyFineGrainedAccessControl: false,
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "patient"));
 
-            string resourceTypeToPersist = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType));
             validator.AuthorizeJobAccess(CreateExportJobRecord(resourceType: null));
-
-            Assert.Equal(resourceType, resourceTypeToPersist);
         }
 
         private ExportSmartScopeAuthorizer CreateAuthorizer(params ScopeRestriction[] scopeRestrictions)

@@ -85,7 +85,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(request, nameof(request));
 
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
-            string resourceTypeToPersist = _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request);
+
+            AccessControlContext accessControlContext = _contextAccessor?.RequestContext?.AccessControlContext;
+            bool smartRequest = accessControlContext?.ApplyFineGrainedAccessControl == true;
+            string resourceTypeToPersist = smartRequest
+                ? _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request)
+                : request.ResourceType;
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
@@ -99,9 +104,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
             uint maxCount = request.MaxCount > 0 ? request.MaxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery;
-
-            AccessControlContext accessControlContext = _contextAccessor?.RequestContext?.AccessControlContext;
-            bool smartRequest = accessControlContext?.ApplyFineGrainedAccessControl == true;
 
             var jobRecord = new ExportJobRecord(
                 requestUri: request.RequestUri,

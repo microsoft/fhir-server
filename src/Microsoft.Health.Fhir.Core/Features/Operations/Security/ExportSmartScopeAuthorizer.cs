@@ -42,11 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             EnsureArg.IsNotNull(request, nameof(request));
 
             AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
-            if (accessControlContext?.ApplyFineGrainedAccessControl != true)
-            {
-                return request.ResourceType;
-            }
-
             ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
             HashSet<string> routeResourceTypes = GetRouteRequiredResourceTypes(request.RequestType);
             List<string> explicitResourceTypes = ParseExplicitResourceTypes(request.ResourceType);

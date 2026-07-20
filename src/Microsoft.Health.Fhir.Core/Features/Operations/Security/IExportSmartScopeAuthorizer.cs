@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
     public interface IExportSmartScopeAuthorizer
     {
         /// <summary>
-        /// Authorizes a request to create an export job and determines the resource types to persist on it.
+        /// Authorizes a SMART request to create an export job and determines the resource types to persist on it.
         /// </summary>
         /// <param name="request">The export request.</param>
         /// <returns>
