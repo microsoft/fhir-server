@@ -127,10 +127,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     parserOptions.SortDescending = sortDescending;
                     parserOptions.SortIsSpecialParameter = sortIsSpecialParameter;
 
-                    if (parserOptions.ContinuationToken != null)
+                    if (parserOptions.ContinuationToken != null && !sortIsSpecialParameter)
                     {
+                        // For non-special sort, extract sort value and use it in the sort CTE
                         parserOptions.SortContinuationToken = parserOptions.ContinuationToken.SortValue;
-                        parserOptions.ContinuationToken = null; // Clear the continuation token after extracting sort continuation token
+                        parserOptions.SortContinuationResourceSurrogateId = parserOptions.ContinuationToken.ResourceSurrogateId;
+                        parserOptions.ContinuationToken = null;
                     }
                 }
             }
@@ -272,11 +274,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (lastCteName == null)
             {
-                return null;
+                // No search CTEs generated (e.g., only _include/_revinclude params) - generate base system CTE
+                if (includeParameters.Count > 0 || reversedChainedParameters.Count > 0)
+                {
+                    parserOptions.CteNumber = cteIndex;
+                    _systemSqlParser.Parse(string.Empty, string.Empty, parserOptions);
+                    lastCteName = $"cte{cteIndex}";
+                    cteIndex++;
+                }
+                else
+                {
+                    return null;
+                }
             }
 
             // *********************************************************************** Apply Sort (if needed) ***********************************************************************
             // Apply sorting AFTER getting initial results but BEFORE includes
+            bool hasSortCte = false;
             if (!string.IsNullOrEmpty(parserOptions.SortParameterName) && !parserOptions.SortIsSpecialParameter && !parserOptions.IncludeTotalCount)
             {
                 var sortCteName = $"cte{cteIndex}";
@@ -288,13 +302,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     lastCteName!,
                     sortCteName,
                     parserOptions.ResourceTypes.FirstOrDefault(),
-                    parserOptions.SortContinuationToken);
+                    parserOptions.SortContinuationToken,
+                    parserOptions.SortContinuationResourceSurrogateId);
 
                 if (sortCte != null)
                 {
                     sqlBuilder.AppendLine($",{sortCte}");
                     lastCteName = sortCteName;
                     parserOptions.LastCteName = lastCteName;
+                    hasSortCte = true;
                 }
             }
 
@@ -305,10 +321,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parserOptions.CteNumber = cteIndex;
                 cteIndex++;
 
+                // When a sort CTE exists, use SortValue for ordering; otherwise use ResourceTypeId/ResourceSurrogateId
+                string sortDir = parserOptions.SortDescending ? "DESC" : "ASC";
+                string rowOrderBy;
+                string outerOrderBy;
+                if (hasSortCte)
+                {
+                    rowOrderBy = $"CASE WHEN r.SortValue IS NULL THEN 1 ELSE 0 END ASC, r.SortValue {sortDir}, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC";
+                    outerOrderBy = $"CASE WHEN r.SortValue IS NULL THEN 1 ELSE 0 END ASC, r.SortValue {sortDir}, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC";
+                }
+                else
+                {
+                    rowOrderBy = $"r.ResourceTypeId {sortDir}, r.ResourceSurrogateId {sortDir}";
+                    outerOrderBy = $"r.ResourceTypeId {sortDir}, r.ResourceSurrogateId {sortDir}";
+                }
+
                 sqlBuilder.BeginCte(cteName)
-                    .SelectWithModifier($"TOP {parserOptions.Count + 1}", "*", "IsMatch = 1", "IsPartial = 0", "Row = ROW_NUMBER() OVER (ORDER BY r.ResourceTypeId, r.ResourceSurrogateId)")
+                    .SelectWithModifier($"TOP {parserOptions.Count + 1}", "*", "IsMatch = 1", "IsPartial = 0", $"Row = ROW_NUMBER() OVER (ORDER BY {rowOrderBy})")
                     .From(lastCteName, "r")
-                    .OrderBy($"r.ResourceTypeId {(parserOptions.SortDescending ? "DESC" : "ASC")}, r.ResourceSurrogateId {(parserOptions.SortDescending ? "DESC" : "ASC")}")
+                    .OrderBy(outerOrderBy)
                     .EndCte();
 
                 lastCteName = cteName;
@@ -394,7 +425,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var unionCte = $"cte{cteIndex}";
                 cteIndex++;
 
-                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: !string.IsNullOrEmpty(parserOptions.SortParameterName) && !parserOptions.SortIsSpecialParameter);
+                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte);
 
                 lastCteName = unionCte;
                 cteIndex++;
@@ -443,14 +474,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     else
                     {
                         // Regular search parameters - use SortSqlParser
-                        // Check if we added a SortValue column (only happens when CreateSortCte succeeded)
-                        var parameter = _parameterCollection.GetByCode(parserOptions.SortParameterName, parserOptions.ResourceTypes.FirstOrDefault());
-                        if (parameter != null &&
-                            (parameter.SearchParameterInfo.Type == SearchParamType.Date ||
-                             parameter.SearchParameterInfo.Type == SearchParamType.String))
-                        {
-                            hasSortValue = true;
-                        }
+                        hasSortValue = hasSortCte;
 
                         orderByClause = SortSqlParser.CreateOrderByClause(parserOptions.SortDescending, hasSortValue);
                     }

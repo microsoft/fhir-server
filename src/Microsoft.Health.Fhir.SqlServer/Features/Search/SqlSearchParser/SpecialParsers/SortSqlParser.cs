@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
         /// <param name="targetCteName">The name to give the resulting sorted CTE.</param>
         /// <param name="resourceTypeId">The resource type ID to filter on, or 0 for all types.</param>
         /// <param name="continuationPoint">The continuation point to use for paging, or null for no continuation.</param>
+        /// <param name="continuationResourceSurrogateId">The ResourceSurrogateId tiebreaker for paging, or null.</param>
         /// <returns>SQL string for the sort CTE, or null if the parameter is not sortable.</returns>
         public string? CreateSortCte(
             string sortParameterName,
@@ -44,7 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             string sourceCteName,
             string targetCteName,
             short resourceTypeId,
-            string? continuationPoint = null)
+            string? continuationPoint = null,
+            long? continuationResourceSurrogateId = null)
         {
             if (string.IsNullOrWhiteSpace(sortParameterName) || string.IsNullOrWhiteSpace(sourceCteName))
             {
@@ -69,10 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             sqlBuilder.AppendLine($"{targetCteName} AS (");
             sqlBuilder.AppendLine("  SELECT");
             sqlBuilder.AppendLine("    r.ResourceTypeId,");
-            sqlBuilder.AppendLine("    r.ResourceSurrogateId,");
-            sqlBuilder.AppendLine("    r.IsMatch,");
-            sqlBuilder.AppendLine("    r.IsPartial,");
-            sqlBuilder.AppendLine("    r.Row");
+            sqlBuilder.AppendLine("    r.ResourceSurrogateId");
 
             // Determine which table and column to use
             string tableName;
@@ -106,7 +105,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             if (!string.IsNullOrEmpty(continuationPoint))
             {
-                sqlBuilder.AppendLine($"      AND {sortColumn} {(sortDescending ? "<" : ">")}= '{continuationPoint}'");
+                string op = sortDescending ? "<" : ">";
+                if (continuationResourceSurrogateId.HasValue)
+                {
+                    // Use composite continuation: skip past the exact row we left off at
+                    sqlBuilder.AppendLine($"  WHERE ({sortColumn} {op} '{continuationPoint}'");
+                    sqlBuilder.AppendLine($"    OR ({sortColumn} = '{continuationPoint}' AND r.ResourceSurrogateId > {continuationResourceSurrogateId.Value}))");
+                }
+                else
+                {
+                    sqlBuilder.AppendLine($"  WHERE {sortColumn} {op}= '{continuationPoint}'");
+                }
             }
 
             sqlBuilder.Append(')');
@@ -125,10 +134,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             if (!hasSortValue)
             {
                 // No sort parameter - use default ordering
-                return "ORDER BY t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
+                return "t.IsMatch DESC, t.ResourceTypeId ASC, t.ResourceSurrogateId ASC";
             }
 
-            var sqlBuilder = new StringBuilder("ORDER BY t.IsMatch DESC");
+            var sqlBuilder = new StringBuilder("t.IsMatch DESC");
 
             if (sortDescending)
             {
