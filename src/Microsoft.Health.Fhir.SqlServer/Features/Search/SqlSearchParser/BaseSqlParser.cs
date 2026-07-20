@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             // Start the subquery with opening parenthesis and SELECT
             var cteName = options.ChainLevel == 0 ? $"cte{options.CteNumber}" : $"cte{options.CteNumber}chain{options.ChainLevel}";
+            options.ResultCteName = cteName;
             builder.BeginCte(cteName);
             builder.IncreaseIndent();
 

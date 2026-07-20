@@ -119,22 +119,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var remainingParameterParser = _parserSource.GetParser(remainingChain, resourceTypeIds[0]);
 
                 var searchChainLevel = options.ChainLevel + 1;
-                remainingParameterParser.Parse(
-                    remainingChain,
-                    value,
-                    new ParserOptions
-                    {
-                        CteNumber = options.CteNumber,
-                        LastCteName = chainCteName,
-                        ChainLevel = searchChainLevel,
-                        ResourceTypes = resourceTypeIds,
-                        ParentIsForwardChain = true,
-                        SqlQueryBuilder = builder,
-                    });
+                var innerOptions = new ParserOptions
+                {
+                    CteNumber = options.CteNumber,
+                    LastCteName = chainCteName,
+                    ChainLevel = searchChainLevel,
+                    ResourceTypes = resourceTypeIds,
+                    ParentIsForwardChain = true,
+                    SqlQueryBuilder = builder,
+                };
+                remainingParameterParser.Parse(remainingChain, value, innerOptions);
 
-                // The recursive parse creates cte{N}chain{searchChainLevel} - the matching target resources
-                var searchResultCteName = $"cte{options.CteNumber}chain{searchChainLevel}";
-                chainCteName = searchResultCteName;
+                // Use the result CTE name from the inner parser (handles nested chains)
+                chainCteName = innerOptions.ResultCteName ?? $"cte{options.CteNumber}chain{searchChainLevel}";
             }
             else
             {
@@ -145,11 +142,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var baseCteName = $"cte{options.CteNumber}";
             var refCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
+            string resultCteName;
 
             if (options.ChainLevel == 0)
             {
                 // Join the search result (matching targets) back to the ref CTE to get source resources
-                builder.BeginCte(baseCteName);
+                resultCteName = baseCteName;
+                builder.BeginCte(resultCteName);
                 builder.SelectWithModifier(
                     "DISTINCT",
                     "ref_cte.ResourceTypeId",
@@ -164,10 +163,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             else
             {
                 var parentCteName = $"{baseCteName}chain{options.ChainLevel - 1}";
+                resultCteName = $"{parentCteName}_search";
 
                 if (options.ParentIsForwardChain)
                 {
-                    builder.BeginCte($"{parentCteName}_search");
+                    builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
                         "DISTINCT",
                         "parent.ResourceTypeId",
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 }
                 else
                 {
-                    builder.BeginCte($"{parentCteName}_search");
+                    builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
                         "DISTINCT",
                         "ResourceTypeId",
@@ -190,6 +190,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.EndCte();
                 }
             }
+
+            options.ResultCteName = resultCteName;
         }
     }
 }

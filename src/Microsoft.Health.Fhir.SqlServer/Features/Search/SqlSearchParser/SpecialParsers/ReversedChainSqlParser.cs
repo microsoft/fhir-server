@@ -132,27 +132,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             builder.EndCte();
 
             // Step 2: Create the search filter on source resources
-            var searchChainCteName = $"{cteName}chain{options.ChainLevel + 1}";
+            string searchChainCteName;
 
             if (!searchParamCode.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
             {
                 // Parse the search parameter to filter source resources
                 var searchParser = _parserSource.GetParser(searchParamCode, sourceResourceTypeId);
-                searchParser.Parse(
-                    searchParamCode,
-                    value,
-                    new ParserOptions
-                    {
-                        CteNumber = options.CteNumber,
-                        ResourceTypes = new List<short> { sourceResourceTypeId },
-                        ChainLevel = options.ChainLevel + 1,
-                        LastCteName = refChainCteName,
-                        SqlQueryBuilder = builder,
-                    });
+                var innerOptions = new ParserOptions
+                {
+                    CteNumber = options.CteNumber,
+                    ResourceTypes = new List<short> { sourceResourceTypeId },
+                    ChainLevel = options.ChainLevel + 1,
+                    LastCteName = refChainCteName,
+                    SqlQueryBuilder = builder,
+                };
+                searchParser.Parse(searchParamCode, value, innerOptions);
+
+                // Use the result CTE name from the inner parser (handles nested chains)
+                searchChainCteName = innerOptions.ResultCteName ?? $"{cteName}chain{options.ChainLevel + 1}";
             }
             else
             {
                 // Special handling for _type parameter - filter by source resource type
+                searchChainCteName = $"{cteName}chain{options.ChainLevel + 1}";
                 var sourceTypeIds = value.Split(',').Select(v => _model.GetResourceTypeId(v.Trim())).ToList();
                 builder.BeginCte(searchChainCteName);
                 builder.SelectWithModifier("DISTINCT", "r.RefResourceSurrogateId AS ResourceSurrogateId", "r.RefResourceTypeId AS ResourceTypeId");
@@ -162,10 +164,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             }
 
             // Step 3: Create the final CTE that maps matching sources back to targets
+            string resultCteName;
             if (options.ChainLevel == 0)
             {
                 // Final level - output the target resources (Patients)
-                builder.BeginCte(cteName);
+                resultCteName = cteName;
+                builder.BeginCte(resultCteName);
                 builder.SelectWithModifier(
                     "DISTINCT",
                     "ref_cte.ResourceTypeId",
@@ -181,7 +185,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             {
                 // Nested level - output target resources for the parent chain to use
                 var parentCteName = $"{cteName}chain{options.ChainLevel - 1}";
-                builder.BeginCte($"{parentCteName}_search");
+                resultCteName = $"{parentCteName}_search";
+                builder.BeginCte(resultCteName);
                 builder.SelectWithModifier(
                     "DISTINCT",
                     "ref_cte.ResourceTypeId",
@@ -193,6 +198,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
                 builder.EndCte();
             }
+
+            options.ResultCteName = resultCteName;
         }
     }
 }

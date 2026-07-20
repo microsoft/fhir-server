@@ -45,6 +45,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public bool IsIterateInclude { get; set; }
 
+        /// <summary>
+        /// Gets or sets the name of the result CTE produced by the parser.
+        /// Set by chain/reverse-chain parsers so callers know which CTE to reference.
+        /// </summary>
+        public string? ResultCteName { get; set; }
+
         public SqlQueryBuilder SqlQueryBuilder { get; set; } = new SqlQueryBuilder();
     }
 }
