@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             _requestContextAccessor = requestContextAccessor;
         }
 
-        public async Task<MemberMatchResponse> Handle(MemberMatchRequest request, CancellationToken cancellationToken)
+        public async Task<MemberMatchResponse> HandleAsync(MemberMatchRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.<JobName>.Mediator;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new Create<JobName>Request();
 
-            Create<JobName>Response response = await mediator.Send(request, cancellationToken);
+            Create<JobName>Response response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new Get<JobName>Request(jobId);
 
-            Get<JobName>Response response = await mediator.Send(request, cancellationToken);
+            Get<JobName>Response response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new Cancel<JobName>Request(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

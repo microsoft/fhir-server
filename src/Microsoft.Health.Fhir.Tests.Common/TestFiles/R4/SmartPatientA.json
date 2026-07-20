@@ -1248,6 +1248,23 @@
                 "method": "PUT",
                 "url": "Claim/smart-claim-A1"
             }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-A1",
+                "identifier": [{
+                    "system": "http://goodcare.org/devices/id",
+                    "value": "345677"
+                }],
+                "patient": {
+                    "reference": "Patient/smart-patient-A"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-A1"
+            }
         }
     ]
 }	
