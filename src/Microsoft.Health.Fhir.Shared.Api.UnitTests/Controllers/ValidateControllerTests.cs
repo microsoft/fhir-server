@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // The inner resource is null, so there is nothing to validate.
             await Assert.ThrowsAsync<BadRequestException>(() => _controller.Validate(parameters, null));
 
-            await _mediator.DidNotReceive().Send<ValidateOperationResponse>(
+            await _mediator.Received(0).Send<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
         }
