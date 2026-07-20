@@ -354,24 +354,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// Verifies that the SMART export scope validator is invoked with the fetched job record
-        /// and that a denial from the validator propagates to the caller.
+        /// Verifies that the SMART export scope authorizer is invoked with the fetched job record
+        /// and that a denial from the authorizer propagates to the caller.
         /// </summary>
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingCompletedExportJob_ThenSmartScopeValidatorIsInvoked()
+        public async Task GivenAFhirMediator_WhenGettingCompletedExportJob_ThenSmartScopeAuthorizerIsInvoked()
         {
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             var outcome = CreateExportJobOutcome(jobRecord);
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
 
-            await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+            await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
 
             _exportSmartScopeAuthorizer.Received(1).AuthorizeJobAccess(jobRecord);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesExportAccess_ThenJobNotFoundExceptionShouldBeThrown()
+        public async Task GivenAFhirMediator_WhenSmartScopeAuthorizerDeniesExportAccess_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             var outcome = CreateExportJobOutcome(jobRecord);
@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Do(_ => throw new UnauthorizedFhirActionException());
 
             await Assert.ThrowsAsync<JobNotFoundException>(() =>
-                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+                _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
         private ExportJobRecord CreateExportJobRecord(OperationStatus operationStatus)
