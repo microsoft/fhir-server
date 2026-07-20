@@ -1,6 +1,6 @@
 # ADR-2607: SMART System Export Authorization
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-07-14
 **Feature**: SMART export authorization
 
