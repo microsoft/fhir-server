@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, $"Storage has not been initialized. Waited: {(int)waited.TotalSeconds}s."));
         }
 
-        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

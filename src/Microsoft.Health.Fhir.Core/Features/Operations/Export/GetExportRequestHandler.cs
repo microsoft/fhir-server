@@ -10,7 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportSmartScopeValidator = exportSmartScopeValidator;
         }
 
-        public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
+        public async Task<GetExportResponse> HandleAsync(GetExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

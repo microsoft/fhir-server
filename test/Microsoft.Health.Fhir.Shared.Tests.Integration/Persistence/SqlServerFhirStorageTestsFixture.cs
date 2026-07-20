@@ -9,7 +9,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using Azure.Identity;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
-            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager), Options.Create(new CoreFeatureConfiguration()));
 
             _fhirSqlConfiguration = new FhirSqlServerConfiguration();
             var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, _fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);

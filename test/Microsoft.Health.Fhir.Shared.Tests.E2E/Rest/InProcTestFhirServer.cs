@@ -183,6 +183,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return Server.CreateHandler();
         }
 
+        protected override Uri GetClientCredentialTokenEndpoint()
+        {
+            var authority = new Uri(_builtConfiguration["FhirServer:Security:Authentication:Authority"]);
+            return new Uri(authority, "connect/token");
+        }
+
         public override async ValueTask DisposeAsync()
         {
             Server?.Dispose();

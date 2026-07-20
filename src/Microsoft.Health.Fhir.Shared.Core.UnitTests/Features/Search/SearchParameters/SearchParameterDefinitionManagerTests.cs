@@ -11,7 +11,7 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
-            await _searchParameterDefinitionManager.Handle(new Messages.Search.SearchParametersUpdatedNotification(new List<SearchParameterInfo>()), CancellationToken.None);
+            await _searchParameterDefinitionManager.HandleAsync(new Messages.Search.SearchParametersUpdatedNotification(new List<SearchParameterInfo>()), CancellationToken.None);
             var searchParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             var patientHash = searchParams.CalculateSearchParameterHash();
 
@@ -1009,9 +1009,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // Note: The remainder of the chain (StatusManager → SearchParametersInitializedNotification)
             // is not testable here because the mediator is mocked.
             var notification = new Messages.Storage.StorageInitializedNotification();
-            await _searchParameterDefinitionManager.Handle(notification, CancellationToken.None);
+            await _searchParameterDefinitionManager.HandleAsync(notification, CancellationToken.None);
 
-            await _mediator.Received().Publish(
+            await _mediator.Received().PublishAsync(
                 Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1040,13 +1040,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             var notification = new Messages.Storage.StorageInitializedNotification();
-            await definitionManager.Handle(notification, CancellationToken.None);
+            await definitionManager.HandleAsync(notification, CancellationToken.None);
 
             // Should have retried 3 times total and then given up silently
             await searchService.Received(3).SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>());
 
             // SearchParameterDefinitionManagerInitialized should never have been published
-            await mediator.DidNotReceive().Publish(
+            await mediator.DidNotReceive().PublishAsync(
                 Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1083,23 +1083,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             // When SearchParameterDefinitionManagerInitialized is published, simulate a status-stage failure
-            mediator.Publish(
+            mediator.PublishAsync(
                 Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
                 Arg.Any<CancellationToken>())
                 .Returns(_ => throw new InvalidOperationException("Simulated status-stage failure"));
 
             var notification = new Messages.Storage.StorageInitializedNotification();
-            await definitionManager.Handle(notification, CancellationToken.None);
+            await definitionManager.HandleAsync(notification, CancellationToken.None);
 
             // The definition manager retries 3 times; each attempt publishes
             // SearchParameterDefinitionManagerInitialized (which then fails in the status manager)
-            await mediator.Received(3).Publish(
+            await mediator.Received(3).PublishAsync(
                 Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
                 Arg.Any<CancellationToken>());
 
             // SearchParametersInitializedNotification should never have been published
             // because the status manager failed every time
-            await mediator.DidNotReceive().Publish(
+            await mediator.DidNotReceive().PublishAsync(
                 Arg.Any<Messages.Search.SearchParametersInitializedNotification>(),
                 Arg.Any<CancellationToken>());
         }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.None);
             var request = GetReindexRequest(HttpGetName);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
         }
 
         [Fact]
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult<ResourceWrapper>(null));
 
             var request = GetReindexRequest(HttpGetName);
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
         }
 
         [Theory]
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var request = GetReindexRequest(httpMethodName);
 
-            ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var request = GetReindexRequest(httpMethodName);
 
-            ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();

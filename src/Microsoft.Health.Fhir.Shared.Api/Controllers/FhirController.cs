@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var response = await ExecuteWithSearchParameterRetryAsync(
                 resource.TypeName,
-                () => _mediator.Send<UpsertResourceResponse>(
+                () => _mediator.SendAsync<UpsertResourceResponse>(
                 new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted),
                 "ConditionalCreate");
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var response = await ExecuteWithSearchParameterRetryAsync(
                 resource.TypeName,
-                () => _mediator.Send<UpsertResourceResponse>(
+                () => _mediator.SendAsync<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted),
                 "ConditionalUpdate");
@@ -492,7 +492,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var response = await ExecuteWithSearchParameterRetryAsync(
                 typeParameter,
-                () => _mediator.Send(
+                () => _mediator.SendAsync(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
                     conditionalParameters,
