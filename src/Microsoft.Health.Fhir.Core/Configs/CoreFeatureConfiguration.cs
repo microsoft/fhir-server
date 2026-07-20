@@ -152,5 +152,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// When true, the resource is rejected with a validation error.
         /// </summary>
         public bool RejectDangerousNarrativeHrefs { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Device resources in a SMART compartment are restricted
+        /// to those without a patient reference, or (for Patient compartments) those whose patient reference
+        /// matches the compartment. When false, all Device resources are treated as universal resources.
+        /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
+        /// </summary>
+        public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
     }
 }

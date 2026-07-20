@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -17,13 +19,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SmartCompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
     {
+        private const string DevicePatientSearchParameterCode = "patient";
+
         private readonly Lazy<ISearchParameterDefinitionManager> _searchParameterDefinitionManager;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
-        public SmartCompartmentSearchRewriter(CompartmentSearchRewriter compartmentSearchRewriter, Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
+        public SmartCompartmentSearchRewriter(
+            CompartmentSearchRewriter compartmentSearchRewriter,
+            Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _compartmentSearchRewriter = EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public override Expression VisitSmartCompartment(SmartCompartmentSearchExpression expression, object context)
@@ -53,6 +62,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             expressionForResourceItself.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentType, false)));
             expressionList.Add(Expression.And(expressionForResourceItself.ToArray()));
 
+            // Devices assigned to another patient (via Device.patient) must not leak into the compartment.
+            // When restriction applies, Device is removed from the universal list and replaced by two
+            // dedicated union legs below. The NotReferencingExpression is only supported by the SQL query
+            // generator, so this is gated on the SQL compartment rewriter (Cosmos DB support is retired).
+            SearchParameterInfo devicePatientSearchParameter = null;
+            bool restrictDevices = _coreFeatures.EnableSmartCompartmentDeviceRestriction &&
+                _compartmentSearchRewriter is SqlCompartmentSearchRewriter &&
+                _searchParameterDefinitionManager.Value.TryGetSearchParameter(KnownResourceTypes.Device, DevicePatientSearchParameterCode, out devicePatientSearchParameter);
+
             // Finally we add in the "universal" resources, which are resources that are not compartment specific
             var universalResourceTypes = new List<string>()
             {
@@ -60,11 +78,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 KnownResourceTypes.Organization,
                 KnownResourceTypes.Practitioner,
                 KnownResourceTypes.Medication,
-                KnownCompartmentTypes.Device,
             };
 
+            if (!restrictDevices)
+            {
+                universalResourceTypes.Add(KnownCompartmentTypes.Device);
+            }
+
             // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
-            if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
+            bool hasResourceTypeFilter = expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal));
+            if (hasResourceTypeFilter)
             {
                 universalResourceTypes = universalResourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToList();
             }
@@ -79,6 +102,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 else
                 {
                     expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, universalResourceTypes)));
+                }
+            }
+
+            if (restrictDevices && (!hasResourceTypeFilter || expression.FilteredResourceTypes.Contains(KnownResourceTypes.Device, StringComparer.Ordinal)))
+            {
+                // Devices with no patient reference are visible in every smart compartment.
+                expressionList.Add(Expression.NotReferencing(KnownResourceTypes.Device, devicePatientSearchParameter));
+
+                if (string.Equals(compartmentType, KnownResourceTypes.Patient, StringComparison.Ordinal))
+                {
+                    // Devices assigned to this patient. Same shape as the compartment leg built by
+                    // SqlCompartmentSearchRewriter: an indexed seek on ReferenceSearchParam.
+                    var deviceTypeRestriction = Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.Device, false));
+                    expressionList.Add(Expression.And(
+                        Expression.SearchParameter(devicePatientSearchParameter, deviceTypeRestriction),
+                        Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
+                        Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
                 }
             }
 

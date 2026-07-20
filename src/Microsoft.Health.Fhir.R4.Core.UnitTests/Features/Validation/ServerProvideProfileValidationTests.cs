@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;

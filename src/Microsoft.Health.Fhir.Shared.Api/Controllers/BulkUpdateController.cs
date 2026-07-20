@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;

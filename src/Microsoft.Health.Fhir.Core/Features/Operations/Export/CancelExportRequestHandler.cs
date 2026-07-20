@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
-        public async Task<CancelExportResponse> Handle(CancelExportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelExportResponse> HandleAsync(CancelExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
