@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(request, nameof(request));
 
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
-            ExportCreateAuthorizationResult authorizationResult = _exportSmartScopeAuthorizer.AuthorizeCreate(request);
+            string resourceTypeToPersist = _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request);
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 requestUri: request.RequestUri,
                 exportType: request.RequestType,
                 exportFormat: formatConfiguration.Format,
-                resourceType: authorizationResult.ResourceTypeToPersist,
+                resourceType: resourceTypeToPersist,
                 filters: filters,
                 hash: "N/A",
                 rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,

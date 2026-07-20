@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, scopeContext));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Patient)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
@@ -53,13 +53,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer();
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Patient)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
 
             // Without any explicit _type, an empty scope set has no eligible resource types to infer either.
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(resourceType: null)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType: null)));
         }
 
         [Fact]
@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "patient"),
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
-            validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Patient));
+            validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient));
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Observation)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Observation)));
         }
 
         [Theory]
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.All, actions, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest(resourceType: null)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType: null));
 
             Assert.Null(effectiveResourceType);
         }
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest(resourceType: null)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType: null));
 
             Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
         }
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
                 new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest(resourceType: null)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType: null));
 
             Assert.Equal("Observation,Patient", effectiveResourceType);
         }
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, actions, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(resourceType: null)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType: null)));
         }
 
         [Theory]
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest(resourceType)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType));
 
             Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
         }
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.Patient, actions, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Patient)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient));
 
             Assert.Equal(KnownResourceTypes.Patient, effectiveResourceType);
         }
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction("patient", V1ExportRead, "system"));
 
-            validator.AuthorizeCreate(CreateExportRequest("PATIENT"));
+            validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest("PATIENT"));
         }
 
         [Fact]
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
                 new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(CreateExportRequest("Patient,Observation")).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest("Patient,Observation"));
 
             Assert.Equal("Patient,Observation", effectiveResourceType);
         }
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest("Patient,Observation")));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest("Patient,Observation")));
         }
 
         [Theory]
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, actions, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Patient)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
         }
 
         [Theory]
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                     new SearchParams("active", "true")));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(resourceType)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType)));
         }
 
         [Fact]
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient)));
         }
 
         [Fact]
@@ -235,8 +235,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Observation, V1ExportRead, "system"),
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(
-                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient));
 
             Assert.Equal(KnownResourceTypes.Observation, effectiveResourceType);
         }
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
-                validator.AuthorizeCreate(CreateExportRequest(resourceType, ExportJobType.Group)));
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType, ExportJobType.Group)));
         }
 
         [Theory]
@@ -265,8 +265,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 new ScopeRestriction(KnownResourceTypes.Group, V1ExportRead, "system"),
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(
-                CreateExportRequest(resourceType, ExportJobType.Group)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(resourceType, ExportJobType.Group));
 
             Assert.Equal(expectedResourceType, effectiveResourceType);
         }
@@ -278,8 +278,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.All, V2ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(
-                CreateExportRequest(resourceType: null, requestType: ExportJobType.Group)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(resourceType: null, requestType: ExportJobType.Group));
 
             Assert.Null(effectiveResourceType);
         }
@@ -290,8 +290,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.All, V1ExportRead, "system"));
 
-            string effectiveResourceType = validator.AuthorizeCreate(
-                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient)).ResourceTypeToPersist;
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(KnownResourceTypes.Observation, ExportJobType.Patient));
 
             Assert.Equal(KnownResourceTypes.Observation, effectiveResourceType);
         }
@@ -425,7 +425,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 applyFineGrainedAccessControl: false,
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "patient"));
 
-            string resourceTypeToPersist = validator.AuthorizeCreate(CreateExportRequest(resourceType)).ResourceTypeToPersist;
+            string resourceTypeToPersist = validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(resourceType));
             validator.AuthorizeJobAccess(CreateExportJobRecord(resourceType: null));
 
             Assert.Equal(resourceType, resourceTypeToPersist);

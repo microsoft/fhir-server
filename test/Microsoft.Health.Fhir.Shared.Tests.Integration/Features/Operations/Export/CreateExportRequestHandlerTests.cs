@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Do<ExportJobRecord>(record => actualRecord = record),
                 Arg.Any<CancellationToken>());
 
-            _exportSmartScopeAuthorizer.AuthorizeCreate(Arg.Any<CreateExportRequest>()).Returns(new ExportCreateAuthorizationResult("Observation,Patient"));
+            _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>()).Returns("Observation,Patient");
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
 
@@ -391,7 +391,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Do<ExportJobRecord>(record => actualRecord = record),
                 Arg.Any<CancellationToken>());
 
-            _exportSmartScopeAuthorizer.AuthorizeCreate(Arg.Any<CreateExportRequest>()).Returns(new ExportCreateAuthorizationResult("Patient"));
+            _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>()).Returns("Patient");
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
 

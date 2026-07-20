@@ -37,14 +37,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         }
 
         /// <inheritdoc />
-        public ExportCreateAuthorizationResult AuthorizeCreate(CreateExportRequest request)
+        public string AuthorizeCreateAndResolveResourceType(CreateExportRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
             AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
             if (accessControlContext?.ApplyFineGrainedAccessControl != true)
             {
-                return new ExportCreateAuthorizationResult(request.ResourceType);
+                return request.ResourceType;
             }
 
             ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
@@ -60,14 +60,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 
                 EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
 
-                return new ExportCreateAuthorizationResult(string.Join(",", explicitResourceTypes));
+                return string.Join(",", explicitResourceTypes);
             }
 
             // No explicit (or effectively empty) _type. A complete system wildcard leaves the export unconstrained.
             if (HasCompleteExportReadAccess(systemScopes, KnownResourceTypes.All))
             {
                 EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
-                return new ExportCreateAuthorizationResult(request.ResourceType);
+                return request.ResourceType;
             }
 
             // Otherwise, infer the narrowed effective _type from every unconstrained, resource-specific system
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 
             EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
 
-            return new ExportCreateAuthorizationResult(string.Join(",", inferredResourceTypes));
+            return string.Join(",", inferredResourceTypes);
         }
 
         /// <inheritdoc />

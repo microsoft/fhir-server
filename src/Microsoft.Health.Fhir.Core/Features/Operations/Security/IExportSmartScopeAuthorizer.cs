@@ -17,8 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// Authorizes a request to create an export job and determines the resource types to persist on it.
         /// </summary>
         /// <param name="request">The export request.</param>
-        /// <returns>The authorization result containing the canonical resource types to persist on the export job.</returns>
-        ExportCreateAuthorizationResult AuthorizeCreate(CreateExportRequest request);
+        /// <returns>
+        /// The canonical comma-separated resource types to persist on the export job, or <c>null</c> when the
+        /// export is unconstrained.
+        /// </returns>
+        string AuthorizeCreateAndResolveResourceType(CreateExportRequest request);
 
         /// <summary>
         /// Authorizes access to an existing export job.
