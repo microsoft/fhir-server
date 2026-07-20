@@ -216,9 +216,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 // the provided html must be contained within a <div> element.
                 // Here we check the Body element has exactly 1 child that is a Div
 
-                // Keep the length check first so the Children[0] access is only evaluated when exactly one child exists.
-                if (htmlBodyElement?.Children?.Length != 1
-                    || !(htmlBodyElement.Children?[0] is IHtmlDivElement containerDiv))
+                var bodyChildren = htmlBodyElement?.Children;
+                if (bodyChildren == null || bodyChildren.Length != 1)
+                {
+                    yield return Core.Resources.IllegalHtmlOuterDiv;
+                    yield break;
+                }
+
+                var containerDiv = bodyChildren[0] as IHtmlDivElement;
+                if (containerDiv == null)
                 {
                     yield return Core.Resources.IllegalHtmlOuterDiv;
                     yield break;
