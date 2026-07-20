@@ -35,18 +35,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 builder.AppendLine("UNION ALL");
                 builder.IncreaseIndent();
-                var extras = string.Empty;
-                if (includeRow)
-                {
-                    extras += ", Row = 0";
-                }
 
                 if (includeSort)
                 {
-                    extras += ", SortValue = NULL";
+                    // When sort CTE exists, the count CTE column order is:
+                    // ResourceTypeId, ResourceSurrogateId, SortValue, IsMatch, IsPartial, Row
+                    // Include CTEs have: ResourceTypeId, ResourceSurrogateId, IsMatch, IsPartial
+                    // We must use explicit columns to match the count CTE's column order
+                    var rowExpr = includeRow ? "0 AS Row" : string.Empty;
+                    var columns = $"ResourceTypeId, ResourceSurrogateId, NULL AS SortValue, IsMatch, IsPartial";
+                    if (includeRow)
+                    {
+                        columns += ", 0 AS Row";
+                    }
+
+                    builder.AppendLine($"SELECT {columns} FROM {includeCteName}");
+                }
+                else
+                {
+                    var extras = string.Empty;
+                    if (includeRow)
+                    {
+                        extras += ", Row = 0";
+                    }
+
+                    builder.AppendLine($"SELECT *{extras} FROM {includeCteName}");
                 }
 
-                builder.AppendLine($"SELECT *{extras} FROM {includeCteName}");
                 builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
                 builder.DecreaseIndent();
             }

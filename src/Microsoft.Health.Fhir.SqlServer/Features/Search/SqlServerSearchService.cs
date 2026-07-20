@@ -243,6 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (!sqlSearchOptions.IsSortWithFilter &&
                 !sqlSearchOptions.SortHasMissingModifier &&
                 !sqlSearchOptions.SortQuerySecondPhase &&
+                string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= sqlSearchOptions.MaxItemCount &&
                 sqlSearchOptions.Sort != null &&
@@ -435,6 +436,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (continuationToken.SortValue != null && continuationToken.SortValue.Equals(SqlSearchConstants.SortSentinelValueForCt, StringComparison.OrdinalIgnoreCase))
                 {
                     continuationToken = null;
+                    sqlSearchOptions.SortQuerySecondPhase = true;
+                }
+                else if (continuationToken.SortValue != null
+                    && sqlSearchOptions.Sort?.Count > 0
+                    && sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending
+                    && sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                {
+                    // For ascending sort, having a SortValue in the continuation token means we're
+                    // paginating within phase 2 (resources WITH the sort parameter). Set SortQuerySecondPhase
+                    // so the parser generates a sort CTE rather than a missing query.
                     sqlSearchOptions.SortQuerySecondPhase = true;
                 }
             }
