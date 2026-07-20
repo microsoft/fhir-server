@@ -288,6 +288,9 @@
   <data name="MultipleProfilesProvided" xml:space="preserve">
     <value>Only one profile can be provided between a Parameters resource and the URL</value>
   </data>
+  <data name="ValidateResourceRequired" xml:space="preserve">
+    <value>A resource to validate must be provided.</value>
+  </data>
   <data name="ReindexParameterNotValid" xml:space="preserve">
     <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
     <comment>{0} = the parameter name which was invalid, {1} is the operation type, POST or PATCH</comment>

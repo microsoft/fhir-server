@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async Task GivenParametersWithNullResourceParameter_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        public async Task GivenParametersWithNullResourceParameter_WhenValidating_ThenBadRequestExceptionShouldBeThrown()
         {
             var parameters = new Parameters();
             parameters.Parameter.Add(
@@ -242,8 +242,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Resource = null,
                 });
 
-            // Should not throw NullReferenceException; ProcessResource should handle gracefully
-            await _controller.Validate(parameters, null);
+            // The inner resource is null, so there is nothing to validate.
+            await Assert.ThrowsAsync<BadRequestException>(() => _controller.Validate(parameters, null));
+
+            await _mediator.DidNotReceive().Send<ValidateOperationResponse>(
+                Arg.Any<ValidateOperationRequest>(),
+                Arg.Any<CancellationToken>());
         }
 
         private ICollection<OperationOutcomeIssue> CreateIssues(int count)

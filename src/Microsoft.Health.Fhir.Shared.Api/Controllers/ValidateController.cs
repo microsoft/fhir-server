@@ -45,15 +45,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Validate)]
         public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = "profile")] string profile)
         {
-            Resource originalResource = resource;
-
             ProcessResource(ref resource, ref profile);
+
+            // This endpoint has no id to fall back to, so if the Parameters payload did not
+            // carry an actual resource, there is nothing to validate.
+            if (resource == null)
+            {
+                throw new BadRequestException(Resources.ValidateResourceRequired);
+            }
 
             Uri profileUri = GetProfile(profile);
 
-            // This endpoint has no id to fall back to, so if the Parameters payload did not
-            // carry an actual resource, validate the original payload instead of throwing.
-            return await RunValidationAsync((resource ?? originalResource).ToResourceElement(), profileUri);
+            return await RunValidationAsync(resource.ToResourceElement(), profileUri);
         }
 
         private static void ProcessResource(ref Resource resource, ref string profile)
