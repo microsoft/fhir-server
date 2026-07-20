@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
 
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.NotNull(actualRecord);
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
 
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.NotNull(actualRecord);
