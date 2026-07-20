@@ -19,36 +19,36 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 {
     /// <summary>
-    /// Default <see cref="IExportSmartScopeValidator"/> implementation.
+    /// Default <see cref="IExportSmartScopeAuthorizer"/> implementation.
     /// </summary>
-    public class ExportSmartScopeValidator : IExportSmartScopeValidator
+    public class ExportSmartScopeAuthorizer : IExportSmartScopeAuthorizer
     {
         private const string SystemScope = "system";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ExportSmartScopeValidator"/> class.
+        /// Initializes a new instance of the <see cref="ExportSmartScopeAuthorizer"/> class.
         /// </summary>
         /// <param name="requestContextAccessor">The FHIR request context accessor.</param>
-        public ExportSmartScopeValidator(RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+        public ExportSmartScopeAuthorizer(RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
         }
 
         /// <inheritdoc />
-        public string ValidateCreateAccess(CreateExportRequest request)
+        public ExportCreateAuthorizationResult AuthorizeCreate(CreateExportRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
             AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
             if (accessControlContext?.ApplyFineGrainedAccessControl != true)
             {
-                return null;
+                return new ExportCreateAuthorizationResult(request.ResourceType);
             }
 
-            ScopeRestriction[] systemScopes = GetSystemScopes(accessControlContext);
-            HashSet<string> routeResourceTypes = GetRouteResourceTypes(request.RequestType);
+            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
+            HashSet<string> routeResourceTypes = GetRouteRequiredResourceTypes(request.RequestType);
             List<string> explicitResourceTypes = ParseExplicitResourceTypes(request.ResourceType);
 
             if (explicitResourceTypes.Count > 0)
@@ -58,33 +58,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 var requiredResourceTypes = new HashSet<string>(routeResourceTypes, StringComparer.OrdinalIgnoreCase);
                 requiredResourceTypes.UnionWith(explicitResourceTypes);
 
-                ValidateResourceTypeAccess(systemScopes, requiredResourceTypes);
+                EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
 
-                return string.Join(",", explicitResourceTypes);
+                return new ExportCreateAuthorizationResult(string.Join(",", explicitResourceTypes));
             }
 
             // No explicit (or effectively empty) _type. A complete system wildcard leaves the export unconstrained.
             if (HasCompleteExportReadAccess(systemScopes, KnownResourceTypes.All))
             {
-                ValidateResourceTypeAccess(systemScopes, routeResourceTypes);
-                return null;
+                EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
+                return new ExportCreateAuthorizationResult(request.ResourceType);
             }
 
             // Otherwise, infer the narrowed effective _type from every unconstrained, resource-specific system
             // scope that independently provides complete export-read access. Fail closed if nothing is eligible.
-            List<string> inferredResourceTypes = InferEligibleResourceTypes(systemScopes);
+            List<string> inferredResourceTypes = InferEligibleOutputResourceTypes(systemScopes);
             if (inferredResourceTypes.Count == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            ValidateResourceTypeAccess(systemScopes, routeResourceTypes);
+            EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
 
-            return string.Join(",", inferredResourceTypes);
+            return new ExportCreateAuthorizationResult(string.Join(",", inferredResourceTypes));
         }
 
         /// <inheritdoc />
-        public void ValidateJobAccess(ExportJobRecord exportJobRecord)
+        public void AuthorizeJobAccess(ExportJobRecord exportJobRecord)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
@@ -94,9 +94,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 return;
             }
 
-            ScopeRestriction[] systemScopes = GetSystemScopes(accessControlContext);
+            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
 
-            HashSet<string> requiredResourceTypes = GetRequiredResourceTypes(exportJobRecord.ResourceType);
+            HashSet<string> requiredResourceTypes = GetPersistedOutputResourceTypes(exportJobRecord.ResourceType);
 
             if (exportJobRecord.Output != null)
             {
@@ -105,12 +105,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 
             // Route selection requirements are derived from the persisted ExportType, independently of the
             // persisted _type / completed output resource types.
-            requiredResourceTypes.UnionWith(GetRouteResourceTypes(exportJobRecord.ExportType));
+            requiredResourceTypes.UnionWith(GetRouteRequiredResourceTypes(exportJobRecord.ExportType));
 
-            ValidateResourceTypeAccess(systemScopes, requiredResourceTypes);
+            EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
         }
 
-        private static ScopeRestriction[] GetSystemScopes(AccessControlContext accessControlContext)
+        private static ScopeRestriction[] GetUnconstrainedSystemScopes(AccessControlContext accessControlContext)
         {
             return accessControlContext.AllowedResourceActions?
                 .Where(scope => string.Equals(scope.User, SystemScope, StringComparison.OrdinalIgnoreCase)
@@ -120,10 +120,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         }
 
         /// <summary>
-        /// Returns the resource types that must be authorized for the export route itself (independent of any
-        /// explicit or inferred output _type), per <see cref="ExportJobType"/>.
+        /// Returns the resource types that must be authorized for the export route itself, independent of any
+        /// explicit or inferred output _type, per <see cref="ExportJobType"/>.
         /// </summary>
-        private static HashSet<string> GetRouteResourceTypes(ExportJobType exportType)
+        private static HashSet<string> GetRouteRequiredResourceTypes(ExportJobType exportType)
         {
             switch (exportType)
             {
@@ -160,11 +160,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         }
 
         /// <summary>
-        /// Infers the eligible, deterministic, comma-separated effective _type from every resource-specific
+        /// Infers the eligible, deterministic output resource types from every resource-specific
         /// (non-wildcard) unconstrained system scope whose aggregated matching actions provide complete
         /// export-read access.
         /// </summary>
-        private static List<string> InferEligibleResourceTypes(ScopeRestriction[] systemScopes)
+        private static List<string> InferEligibleOutputResourceTypes(ScopeRestriction[] systemScopes)
         {
             return systemScopes
                 .Select(scope => scope.Resource)
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 .ToList();
         }
 
-        private static HashSet<string> GetRequiredResourceTypes(string resourceType)
+        private static HashSet<string> GetPersistedOutputResourceTypes(string resourceType)
         {
             var resourceTypes = new HashSet<string>(
                 string.IsNullOrWhiteSpace(resourceType)
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             return resourceTypes;
         }
 
-        private static void ValidateResourceTypeAccess(ScopeRestriction[] systemScopes, IReadOnlyCollection<string> requiredResourceTypes)
+        private static void EnsureCompleteExportReadAccess(ScopeRestriction[] systemScopes, IReadOnlyCollection<string> requiredResourceTypes)
         {
             foreach (string requiredResourceType in requiredResourceTypes)
             {

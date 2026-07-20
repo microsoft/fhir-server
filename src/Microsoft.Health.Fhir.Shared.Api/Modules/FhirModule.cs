@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<ExportSmartScopeValidator>().Transient().AsSelf().AsImplementedInterfaces();
+            services.Add<ExportSmartScopeAuthorizer>().Transient().AsSelf().AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

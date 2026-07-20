@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
-        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
         private readonly ILogger<CreateExportRequestHandler> _logger;
         private readonly bool _includeValidateTypeFiltersValidationDetails;
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ISearchOptionsFactory searchOptionsFactory,
-            IExportSmartScopeValidator exportSmartScopeValidator,
+            IExportSmartScopeAuthorizer exportSmartScopeAuthorizer,
             ILogger<CreateExportRequestHandler> logger,
             bool includeValidateTypeFiltersValidationDetails = false)
         {
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
-            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
+            EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _claimsExtractor = claimsExtractor;
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobConfiguration = exportJobConfiguration.Value;
             _contextAccessor = fhirRequestContextAccessor;
             _searchOptionsFactory = searchOptionsFactory;
-            _exportSmartScopeValidator = exportSmartScopeValidator;
+            _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
             _logger = logger;
             _includeValidateTypeFiltersValidationDetails = includeValidateTypeFiltersValidationDetails;
         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(request, nameof(request));
 
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
-            string effectiveResourceType = _exportSmartScopeValidator.ValidateCreateAccess(request);
+            ExportCreateAuthorizationResult authorizationResult = _exportSmartScopeAuthorizer.AuthorizeCreate(request);
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 requestUri: request.RequestUri,
                 exportType: request.RequestType,
                 exportFormat: formatConfiguration.Format,
-                resourceType: effectiveResourceType ?? request.ResourceType,
+                resourceType: authorizationResult.ResourceTypeToPersist,
                 filters: filters,
                 hash: "N/A",
                 rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,

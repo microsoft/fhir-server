@@ -32,27 +32,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
         private readonly ILogger<CancelExportRequestHandler> _logger;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator, ILogger<CancelExportRequestHandler> logger)
-            : this(fhirOperationDataStore, authorizationService, exportSmartScopeValidator, DefaultRetryCount, DefaultSleepDurationProvider, logger)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeAuthorizer exportSmartScopeAuthorizer, ILogger<CancelExportRequestHandler> logger)
+            : this(fhirOperationDataStore, authorizationService, exportSmartScopeAuthorizer, DefaultRetryCount, DefaultSleepDurationProvider, logger)
         {
         }
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelExportRequestHandler> logger)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeAuthorizer exportSmartScopeAuthorizer, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelExportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
+            EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _exportSmartScopeValidator = exportSmartScopeValidator;
+            _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
             _logger = logger;
 
             _retryPolicy = Policy.Handle<JobConflictException>()
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
                     try
                     {
-                        _exportSmartScopeValidator.ValidateJobAccess(outcome.JobRecord);
+                        _exportSmartScopeAuthorizer.AuthorizeJobAccess(outcome.JobRecord);
                     }
                     catch (UnauthorizedFhirActionException)
                     {

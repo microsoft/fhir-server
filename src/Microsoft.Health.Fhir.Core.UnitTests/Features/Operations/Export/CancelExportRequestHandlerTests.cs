@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private const string JobId = "jobId";
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly IExportSmartScopeValidator _exportSmartScopeValidator = Substitute.For<IExportSmartScopeValidator>();
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer = Substitute.For<IExportSmartScopeAuthorizer>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Add(sp => new CancelExportRequestHandler(
                     _fhirOperationDataStore,
                     DisabledFhirAuthorizationService.Instance,
-                    _exportSmartScopeValidator,
+                    _exportSmartScopeAuthorizer,
                     _retryCount,
                     _sleepDurationProvider,
                     NullLogger<CancelExportRequestHandler>.Instance))
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var handler = new CancelExportRequestHandler(
                 _fhirOperationDataStore,
                 authorizationService,
-                _exportSmartScopeValidator,
+                _exportSmartScopeAuthorizer,
                 _retryCount,
                 _sleepDurationProvider,
                 NullLogger<CancelExportRequestHandler>.Instance);
@@ -319,15 +319,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _mediator.CancelExportAsync(JobId, _cancellationToken);
 
-            _exportSmartScopeValidator.Received(1).ValidateJobAccess(Arg.Any<ExportJobRecord>());
+            _exportSmartScopeAuthorizer.Received(1).AuthorizeJobAccess(Arg.Any<ExportJobRecord>());
         }
 
         [Fact]
         public async Task GivenAFhirMediator_WhenSmartScopeValidatorDeniesCancelAccess_ThenJobNotFoundExceptionShouldBeThrownAndJobNotUpdated()
         {
             SetupExportJob(OperationStatus.Running);
-            _exportSmartScopeValidator
-                .When(x => x.ValidateJobAccess(Arg.Any<ExportJobRecord>()))
+            _exportSmartScopeAuthorizer
+                .When(x => x.AuthorizeJobAccess(Arg.Any<ExportJobRecord>()))
                 .Do(_ => throw new UnauthorizedFhirActionException());
 
             await Assert.ThrowsAsync<JobNotFoundException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));

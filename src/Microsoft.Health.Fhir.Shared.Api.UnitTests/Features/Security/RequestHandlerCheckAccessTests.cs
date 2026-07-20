@@ -76,9 +76,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             FieldInfo authServiceField = Assert.Single(authServiceFields);
             authServiceField.SetValue(handler, Substitute.For<IAuthorizationService<DataActions>>());
 
-            foreach (FieldInfo smartScopeValidatorField in GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IExportSmartScopeValidator)))
+            foreach (FieldInfo smartScopeAuthorizerField in GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IExportSmartScopeAuthorizer)))
             {
-                smartScopeValidatorField.SetValue(handler, Substitute.For<IExportSmartScopeValidator>());
+                smartScopeAuthorizerField.SetValue(handler, Substitute.For<IExportSmartScopeAuthorizer>());
             }
 
             IEnumerable<Type[]> typeArgumentSets = handlerType.GetInterfaces()

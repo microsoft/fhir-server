@@ -9,24 +9,21 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 {
     /// <summary>
-    /// Validates SMART scope and compartment restrictions for export operations.
+    /// Authorizes SMART scope and compartment restrictions for export operations.
     /// </summary>
-    public interface IExportSmartScopeValidator
+    public interface IExportSmartScopeAuthorizer
     {
         /// <summary>
-        /// Validates a request to create an export job.
+        /// Authorizes a request to create an export job and determines the resource types to persist on it.
         /// </summary>
         /// <param name="request">The export request.</param>
-        /// <returns>
-        /// The effective, comma-separated resource type(s) to persist on the export job, or <c>null</c> when
-        /// the request is unconstrained (either non-SMART, or authorized via a complete system wildcard scope).
-        /// </returns>
-        string ValidateCreateAccess(CreateExportRequest request);
+        /// <returns>The authorization result containing the canonical resource types to persist on the export job.</returns>
+        ExportCreateAuthorizationResult AuthorizeCreate(CreateExportRequest request);
 
         /// <summary>
-        /// Validates access to an existing export job.
+        /// Authorizes access to an existing export job.
         /// </summary>
         /// <param name="exportJobRecord">The export job.</param>
-        void ValidateJobAccess(ExportJobRecord exportJobRecord);
+        void AuthorizeJobAccess(ExportJobRecord exportJobRecord);
     }
 }

@@ -25,17 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly IExportSmartScopeValidator _exportSmartScopeValidator;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
 
-        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeValidator exportSmartScopeValidator)
+        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, IExportSmartScopeAuthorizer exportSmartScopeAuthorizer)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(exportSmartScopeValidator, nameof(exportSmartScopeValidator));
+            EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _exportSmartScopeValidator = exportSmartScopeValidator;
+            _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
         }
 
         public async Task<GetExportResponse> HandleAsync(GetExportRequest request, CancellationToken cancellationToken)
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Apply SMART fine-grained scope authorization for the specific export job's resource types.
             try
             {
-                _exportSmartScopeValidator.ValidateJobAccess(outcome.JobRecord);
+                _exportSmartScopeAuthorizer.AuthorizeJobAccess(outcome.JobRecord);
             }
             catch (UnauthorizedFhirActionException)
             {
