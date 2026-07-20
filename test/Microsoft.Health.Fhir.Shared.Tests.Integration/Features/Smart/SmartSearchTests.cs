@@ -1598,7 +1598,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 "This test is only valid for R4 and R4B");
 
             var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_count", "100"));
+            query.Add(new Tuple<string, string>("_count", "1000"));
 
             var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "system");
 
