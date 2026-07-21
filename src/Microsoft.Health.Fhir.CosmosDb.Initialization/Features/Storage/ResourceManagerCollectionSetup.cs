@@ -186,9 +186,11 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         CosmosDBSqlContainerResource containerResponse = await Database.GetCosmosDBSqlContainers().GetAsync(CollectionId, cancellationToken);
         CosmosDBSqlStoredProcedureCollection cosmosDbSqlStoredProcedures = containerResponse.GetCosmosDBSqlStoredProcedures();
 
-        var existing = cosmosDbSqlStoredProcedures
-            .Select(x => x.Data.Resource.StoredProcedureName)
-            .ToList();
+        var existing = new List<string>();
+        await foreach (var item in cosmosDbSqlStoredProcedures.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            existing.Add(item.Data.Resource.StoredProcedureName);
+        }
 
         var storedProcsNeedingInstall = _storeProceduresMetadata
             .Where(storedProc => !existing.Contains(storedProc.FullName))

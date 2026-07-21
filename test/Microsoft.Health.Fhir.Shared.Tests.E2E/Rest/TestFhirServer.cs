@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (user == null)
             {
                 var credentialConfiguration = new OAuth2ClientCredentialOptions(
-                    TokenUri,
+                    GetClientCredentialTokenEndpoint(),
                     resource,
                     scope,
                     clientApplication.ClientId,
@@ -198,6 +198,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         internal abstract HttpMessageHandler CreateMessageHandler();
+
+        /// <summary>
+        /// Gets the token endpoint used for standard client-credential authentication.
+        /// </summary>
+        protected virtual Uri GetClientCredentialTokenEndpoint() => TokenUri;
 
         /// <summary>
         /// Set the security options on the class.

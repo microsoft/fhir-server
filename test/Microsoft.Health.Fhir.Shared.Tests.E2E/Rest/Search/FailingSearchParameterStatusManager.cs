@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     /// </summary>
     public class FailingSearchParameterStatusManager : ISearchParameterStatusManager
     {
-        public Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
+        public Task HandleAsync(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
             => throw new InvalidOperationException("Simulated status-stage search parameter initialization failure.");
 
         public Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken) => Task.CompletedTask;

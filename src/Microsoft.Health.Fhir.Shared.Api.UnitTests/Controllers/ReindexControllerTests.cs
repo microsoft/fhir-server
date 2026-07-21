@@ -9,7 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -87,11 +87,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAGetReindexRequest_WhenJobExists_ThenParammetersResourceReturned()
         {
-            _mediator.Send(Arg.Any<GetReindexRequest>()).Returns(Task.FromResult(GetReindexJobResponse()));
+            _mediator.SendAsync(Arg.Any<GetReindexRequest>()).Returns(Task.FromResult(GetReindexJobResponse()));
 
             var result = await _reindexEnabledController.GetReindexJob("id");
 
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenJobIsCreatedSuccessfully(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+            _mediator.SendAsync(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
 
             // Should NOT throw an exception - invalid parameters are now logged but don't cause failures
             var result = await _reindexEnabledController.CreateReindexJob(body);
@@ -119,9 +119,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACreateReindexRequest_WithValidBody_ThenCreateReindexJobCalledWithCorrectParams(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+            _mediator.SendAsync(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
             var result = await _reindexEnabledController.CreateReindexJob(body);
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<CreateReindexRequest>(
                     r => true),
                 Arg.Any<CancellationToken>());
@@ -142,12 +142,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var method = HttpMethods.Post;
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = method;
             _mediator
-                .Send(Arg.Any<ReindexSingleResourceRequest>())
+                .SendAsync(Arg.Any<ReindexSingleResourceRequest>())
                 .Returns(new ReindexSingleResourceResponse(new Parameters().ToResourceElement()));
 
             var request = default(ReindexSingleResourceRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<ReindexSingleResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<ReindexSingleResourceRequest>(0));
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(typeParameter, request.ResourceType);
             Assert.Equal(idParameter, request.ResourceId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<ReindexSingleResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var etag = WeakETag.FromVersionId("ver0");
             _mediator
-                .Send(Arg.Any<GetReindexRequest>())
+                .SendAsync(Arg.Any<GetReindexRequest>())
                 .Returns(
                     x =>
                     {
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetReindexRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<GetReindexRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<GetReindexRequest>(0));
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.Null(request.JobId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<GetReindexRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var etag = WeakETag.FromVersionId("ver0");
             _mediator
-                .Send(Arg.Any<CancelReindexRequest>())
+                .SendAsync(Arg.Any<CancelReindexRequest>())
                 .Returns(
                     x =>
                     {
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(CancelReindexRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CancelReindexRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<CancelReindexRequest>(0));
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.Equal(id, request.JobId);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<CancelReindexRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();

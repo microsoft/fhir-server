@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, includeSoftDeleted, excludedResourceTypes, removeReferences);
 
-            CreateBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
+            CreateBulkDeleteResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new GetBulkDeleteRequest(jobId);
 
-            GetBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
+            GetBulkDeleteResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             var request = new CancelBulkDeleteRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }
