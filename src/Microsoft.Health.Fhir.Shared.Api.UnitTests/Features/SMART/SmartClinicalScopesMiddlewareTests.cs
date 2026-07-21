@@ -450,6 +450,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
+
             // ErrorOnMissingFhirUserClaim is true by default — no explicit assignment needed.
             await LoadRoles(authorizationConfiguration);
 
