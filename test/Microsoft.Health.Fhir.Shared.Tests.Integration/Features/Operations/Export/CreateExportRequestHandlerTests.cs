@@ -402,6 +402,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>());
         }
 
+        [Fact]
+        public async Task GivenNonSmartRequestWithoutType_WhenCreatingAnExportJob_ThenResourceTypeRemainsNullWithoutSmartAuthorization()
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: null);
+
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.NotNull(actualRecord);
+            Assert.Null(actualRecord.ResourceType);
+            _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>());
+        }
+
         [Theory]
         [InlineData("test1", ExportFormatTags.ResourceName)]
         [InlineData(null, ExportFormatTags.Id)]

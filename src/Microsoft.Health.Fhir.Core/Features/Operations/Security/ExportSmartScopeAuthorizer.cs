@@ -41,19 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
-            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
-            HashSet<string> routeResourceTypes = GetRouteRequiredResourceTypes(request.RequestType);
+            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(_requestContextAccessor.RequestContext?.AccessControlContext);
+            EnsureCompleteExportReadAccess(systemScopes, GetRouteRequiredResourceTypes(request.RequestType));
+
             List<string> explicitResourceTypes = ParseExplicitResourceTypes(request.ResourceType);
 
             if (explicitResourceTypes.Count > 0)
             {
-                // Route selection requirements (e.g. Group needing Group+Patient access) apply in addition to,
-                // and independently of, the explicit output types requested via _type.
-                var requiredResourceTypes = new HashSet<string>(routeResourceTypes, StringComparer.OrdinalIgnoreCase);
-                requiredResourceTypes.UnionWith(explicitResourceTypes);
-
-                EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
+                EnsureCompleteExportReadAccess(systemScopes, explicitResourceTypes);
 
                 return string.Join(",", explicitResourceTypes);
             }
@@ -61,7 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             // No explicit (or effectively empty) _type. A complete system wildcard leaves the export unconstrained.
             if (HasCompleteExportReadAccess(systemScopes, KnownResourceTypes.All))
             {
-                EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
                 return request.ResourceType;
             }
 
@@ -73,8 +67,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 throw new UnauthorizedFhirActionException();
             }
 
-            EnsureCompleteExportReadAccess(systemScopes, routeResourceTypes);
-
             return string.Join(",", inferredResourceTypes);
         }
 
@@ -83,8 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
-            AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
-            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
+            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(_requestContextAccessor.RequestContext?.AccessControlContext);
 
             HashSet<string> requiredResourceTypes = GetPersistedOutputResourceTypes(exportJobRecord.ResourceType);
 
@@ -116,17 +107,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// Returns the resource types that must be authorized for the export route itself, independent of any
         /// explicit or inferred output _type, per <see cref="ExportJobType"/>.
         /// </summary>
-        private static HashSet<string> GetRouteRequiredResourceTypes(ExportJobType exportType)
+        private static string[] GetRouteRequiredResourceTypes(ExportJobType exportType)
         {
-            switch (exportType)
+            return exportType switch
             {
-                case ExportJobType.Patient:
-                    return new HashSet<string>(StringComparer.OrdinalIgnoreCase) { KnownResourceTypes.Patient };
-                case ExportJobType.Group:
-                    return new HashSet<string>(StringComparer.OrdinalIgnoreCase) { KnownResourceTypes.Group, KnownResourceTypes.Patient };
-                default:
-                    return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            }
+                ExportJobType.Patient => new[] { KnownResourceTypes.Patient },
+                ExportJobType.Group => new[] { KnownResourceTypes.Group, KnownResourceTypes.Patient },
+                _ => Array.Empty<string>(),
+            };
         }
 
         /// <summary>
