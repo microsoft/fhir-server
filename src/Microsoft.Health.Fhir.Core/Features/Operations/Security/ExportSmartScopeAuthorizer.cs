@@ -141,12 +141,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             }
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string type in resourceType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (string type in resourceType
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(type => seen.Add(type)))
             {
-                if (seen.Add(type))
-                {
-                    explicitResourceTypes.Add(type);
-                }
+                explicitResourceTypes.Add(type);
             }
 
             return explicitResourceTypes;
@@ -192,12 +191,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// </summary>
         private static void EnsureCompleteExportReadAccess(ScopeRestriction[] systemScopes, IReadOnlyCollection<string> requiredResourceTypes)
         {
-            foreach (string requiredResourceType in requiredResourceTypes)
+            if (requiredResourceTypes.Any(requiredResourceType => !HasCompleteExportReadAccess(systemScopes, requiredResourceType)))
             {
-                if (!HasCompleteExportReadAccess(systemScopes, requiredResourceType))
-                {
-                    throw new UnauthorizedFhirActionException();
-                }
+                throw new UnauthorizedFhirActionException();
             }
         }
 
