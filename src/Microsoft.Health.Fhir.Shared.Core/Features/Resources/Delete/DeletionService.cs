@@ -374,6 +374,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private async Task<Dictionary<string, long>> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Soft deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -456,11 +459,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 true,
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
-            return resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Soft deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
         }
 
         private async Task<Dictionary<string, long>> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Hard deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -524,7 +533,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
 
-            return parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Hard deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
         }
 
         private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)

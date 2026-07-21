@@ -318,17 +318,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>(),
                 Arg.Any<ResourceVersionType>(),
                 Arg.Any<bool>(),
-                Arg.Any<bool>()).Returns(callInfo =>
+                Arg.Any<bool>()).Returns(async callInfo =>
                 {
                     callCount++;
                     if (callCount == 1)
                     {
                         // First call returns results with continuation token
-                        return Task.FromResult(new SearchResult(firstPageEntries, "continuation-token-1", null, Array.Empty<Tuple<string, string>>()));
+                        return new SearchResult(firstPageEntries, "continuation-token-1", null, Array.Empty<Tuple<string, string>>());
                     }
                     else
                     {
                         // Second call throws a connection exception (simulating network failure)
+                        await Task.Delay(100); // Simulate some delay so that the first call can complete
                         throw new InvalidOperationException("A transport-level error has occurred when receiving results from the server.");
                     }
                 });
