@@ -31,6 +31,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
 
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = new FhirRequestContextAccessor();
 
+        [Fact]
+        public void GivenMissingRequestContext_WhenValidatingExportAccess_ThenForbiddenIsThrown()
+        {
+            var authorizer = new ExportSmartScopeAuthorizer(_contextAccessor);
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                authorizer.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                authorizer.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
+        }
+
         [Theory]
         [InlineData("patient")]
         [InlineData("user")]

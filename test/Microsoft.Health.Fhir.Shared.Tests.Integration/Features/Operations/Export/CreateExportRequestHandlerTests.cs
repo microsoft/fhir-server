@@ -384,39 +384,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _exportSmartScopeAuthorizer.Received(1).AuthorizeCreateAndResolveResourceType(request);
         }
 
-        [Fact]
-        public async Task GivenNonSmartRequest_WhenCreatingAnExportJob_ThenRequestedResourceTypeIsPersistedWithoutSmartAuthorization()
+        [Theory]
+        [InlineData("Patient")]
+        [InlineData(null)]
+        public async Task GivenNonSmartRequest_WhenCreatingAnExportJob_ThenRequestedResourceTypeIsPersistedWithoutSmartAuthorization(string resourceType)
         {
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
                 Arg.Do<ExportJobRecord>(record => actualRecord = record),
                 Arg.Any<CancellationToken>());
 
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
+            // When _type and _typeFilter are omitted, a non-SMART export remains unconstrained rather than
+            // receiving the inferred resource-type subset used for SMART requests.
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: resourceType, filters: null);
 
             CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.NotNull(actualRecord);
-            Assert.Equal("Patient", actualRecord.ResourceType);
-            _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>());
-        }
-
-        [Fact]
-        public async Task GivenNonSmartRequestWithoutType_WhenCreatingAnExportJob_ThenResourceTypeRemainsNullWithoutSmartAuthorization()
-        {
-            ExportJobRecord actualRecord = null;
-            await _fhirOperationDataStore.CreateExportJobAsync(
-                Arg.Do<ExportJobRecord>(record => actualRecord = record),
-                Arg.Any<CancellationToken>());
-
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: null);
-
-            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.NotNull(actualRecord);
-            Assert.Null(actualRecord.ResourceType);
+            Assert.Equal(resourceType, actualRecord.ResourceType);
+            Assert.Empty(actualRecord.Filters);
             _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>());
         }
 
