@@ -354,8 +354,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             // Verify that partial results contain the first page of deleted resources
             Assert.NotNull(exception.PartialResults);
-            Assert.True(exception.PartialResults.ContainsKey("Patient"));
-            Assert.Equal(5, exception.PartialResults["Patient"]);
+            Assert.True(exception.PartialResults.TryGetValue("Patient", out long deletedPatientCount));
+            Assert.Equal(5, deletedPatientCount);
 
             // Verify search service was called twice (first page succeeded, second page failed)
             await searchService.Received(2).SearchAsync(
