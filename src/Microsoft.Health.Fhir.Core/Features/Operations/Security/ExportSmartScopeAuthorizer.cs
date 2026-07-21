@@ -100,6 +100,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
         }
 
+        /// <summary>
+        /// Returns system scopes without search-parameter constraints, since constrained scopes cannot authorize export.
+        /// </summary>
         private static ScopeRestriction[] GetUnconstrainedSystemScopes(AccessControlContext accessControlContext)
         {
             return accessControlContext.AllowedResourceActions?
@@ -165,6 +168,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 .ToList();
         }
 
+        /// <summary>
+        /// Parses the persisted output types, treating a missing value as an unconstrained all-resource export.
+        /// </summary>
         private static HashSet<string> GetPersistedOutputResourceTypes(string resourceType)
         {
             var resourceTypes = new HashSet<string>(
@@ -181,6 +187,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             return resourceTypes;
         }
 
+        /// <summary>
+        /// Throws when any required resource type lacks complete export-read access.
+        /// </summary>
         private static void EnsureCompleteExportReadAccess(ScopeRestriction[] systemScopes, IReadOnlyCollection<string> requiredResourceTypes)
         {
             foreach (string requiredResourceType in requiredResourceTypes)
@@ -192,6 +201,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             }
         }
 
+        /// <summary>
+        /// Determines whether matching system scopes collectively grant SMART v1 or v2 read access plus export.
+        /// </summary>
         private static bool HasCompleteExportReadAccess(ScopeRestriction[] systemScopes, string requiredResourceType)
         {
             bool requiresAllResources = string.Equals(
