@@ -144,20 +144,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var refCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
             string resultCteName;
 
+            // When _type was the terminal (chainCteName == refCteName), the ref CTE already
+            // contains the filtered results — just select source resources directly from it.
+            bool typeWasTerminal = chainCteName == refCteName;
+
             if (options.ChainLevel == 0)
             {
-                // Join the search result (matching targets) back to the ref CTE to get source resources
                 resultCteName = baseCteName;
                 builder.BeginCte(resultCteName);
-                builder.SelectWithModifier(
-                    "DISTINCT",
-                    "ref_cte.ResourceTypeId",
-                    "ref_cte.ResourceSurrogateId");
-                builder.From(chainCteName, "search");
-                builder.InnerJoin(
-                    refCteName,
-                    "ref_cte",
-                    "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
+                if (typeWasTerminal)
+                {
+                    // Source resources are directly in the ref CTE
+                    builder.SelectWithModifier(
+                        "DISTINCT",
+                        "ResourceTypeId",
+                        "ResourceSurrogateId");
+                    builder.From(refCteName);
+                }
+                else
+                {
+                    // Join the search result (matching targets) back to the ref CTE to get source resources
+                    builder.SelectWithModifier(
+                        "DISTINCT",
+                        "ref_cte.ResourceTypeId",
+                        "ref_cte.ResourceSurrogateId");
+                    builder.From(chainCteName, "search");
+                    builder.InnerJoin(
+                        refCteName,
+                        "ref_cte",
+                        "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
+                }
+
                 builder.EndCte();
             }
             else
@@ -165,7 +182,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var parentCteName = $"{baseCteName}chain{options.ChainLevel - 1}";
                 resultCteName = $"{parentCteName}_search";
 
-                if (options.ParentIsForwardChain)
+                if (typeWasTerminal)
+                {
+                    // Source resources are directly in the ref CTE
+                    builder.BeginCte(resultCteName);
+                    builder.SelectWithModifier(
+                        "DISTINCT",
+                        "ResourceTypeId",
+                        "ResourceSurrogateId");
+                    builder.From(refCteName);
+                    builder.EndCte();
+                }
+                else if (options.ParentIsForwardChain)
                 {
                     builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
