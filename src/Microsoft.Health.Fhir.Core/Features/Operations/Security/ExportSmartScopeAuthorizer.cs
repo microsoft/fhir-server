@@ -134,21 +134,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// </summary>
         private static List<string> ParseExplicitResourceTypes(string resourceType)
         {
-            var explicitResourceTypes = new List<string>();
             if (string.IsNullOrWhiteSpace(resourceType))
             {
-                return explicitResourceTypes;
+                return new List<string>();
             }
 
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string type in resourceType
+            return resourceType
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(type => seen.Add(type)))
-            {
-                explicitResourceTypes.Add(type);
-            }
-
-            return explicitResourceTypes;
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         /// <summary>
