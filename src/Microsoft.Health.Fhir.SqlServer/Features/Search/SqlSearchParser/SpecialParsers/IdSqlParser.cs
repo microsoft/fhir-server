@@ -35,13 +35,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             }
 
             var sqlBuilder = options.SqlQueryBuilder;
-            sqlBuilder.BeginCte($"cte{options.CteNumber}");
-            sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
+            var cteName = options.ChainLevel == 0 ? $"cte{options.CteNumber}" : $"cte{options.CteNumber}chain{options.ChainLevel}";
+            options.ResultCteName = cteName;
+
+            var surrogateIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceSurrogateId" : "RefResourceSurrogateId";
+            var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "RefResourceTypeId";
+
+            sqlBuilder.BeginCte(cteName);
+
+            if (options.ChainLevel > 0 && options.LastCteName != null)
+            {
+                sqlBuilder.SelectWithModifier("DISTINCT", $"lcte.{surrogateIdColumn} AS ResourceSurrogateId", $"lcte.{typeIdColumn} AS ResourceTypeId");
+            }
+            else
+            {
+                sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
+            }
+
             sqlBuilder.From("dbo.Resource", "r");
 
             if (options.LastCteName != null)
             {
-                sqlBuilder.JoinMultiLine("INNER", options.LastCteName, "lcte", "r.ResourceTypeId = lcte.ResourceTypeId", "r.ResourceSurrogateId = lcte.ResourceSurrogateId");
+                sqlBuilder.JoinMultiLine("INNER", options.LastCteName, "lcte", $"r.ResourceSurrogateId = lcte.{surrogateIdColumn}", $"r.ResourceTypeId = lcte.{typeIdColumn}");
             }
 
             // Build WHERE clause for ResourceId matching
