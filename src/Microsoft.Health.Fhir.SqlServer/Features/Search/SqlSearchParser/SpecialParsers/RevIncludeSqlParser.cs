@@ -86,7 +86,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             sqlBuilder.Select("refSource.ResourceTypeId", "refSource.ResourceSurrogateId", "0 AS IsMatch", "CASE WHEN count_big(*) over() > 1000 THEN 1 ELSE 0 END AS IsPartial");
             sqlBuilder.From("dbo.ReferenceSearchParam", "refSource");
             sqlBuilder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-            sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+
+            if (options.IsIterateInclude)
+            {
+                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId)");
+            }
+            else
+            {
+                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refTarget.ResourceTypeId = lcte.ResourceTypeId AND refTarget.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+            }
 
             // For revinclude, we want resources (refSource) that reference the matched resources (refTarget)
             // So we filter on refSource's ResourceTypeId (the referencing resource type)
