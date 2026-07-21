@@ -11,9 +11,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -37,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private const string JobId = "jobId";
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer = Substitute.For<IExportSmartScopeAuthorizer>();
         private readonly IMediator _mediator;
 
@@ -51,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Add(sp => new GetExportRequestHandler(
                     _fhirOperationDataStore,
                     DisabledFhirAuthorizationService.Instance,
+                    _contextAccessor,
                     _exportSmartScopeAuthorizer))
                 .Singleton()
                 .AsSelf()
@@ -74,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var handler = new GetExportRequestHandler(
                 _fhirOperationDataStore,
                 authorizationService,
+                _contextAccessor,
                 _exportSmartScopeAuthorizer);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
@@ -360,6 +365,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingCompletedExportJob_ThenSmartScopeAuthorizerIsInvoked()
         {
+            EnableFineGrainedAccessControl();
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             var outcome = CreateExportJobOutcome(jobRecord);
 
@@ -373,6 +379,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAFhirMediator_WhenSmartScopeAuthorizerDeniesExportAccess_ThenJobNotFoundExceptionShouldBeThrown()
         {
+            EnableFineGrainedAccessControl();
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             var outcome = CreateExportJobOutcome(jobRecord);
 
@@ -383,6 +390,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await Assert.ThrowsAsync<JobNotFoundException>(() =>
                 _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+        }
+
+        [Fact]
+        public async Task GivenNonSmartRequest_WhenGettingCompletedExportJob_ThenSmartScopeAuthorizerIsNotInvoked()
+        {
+            var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(CreateExportJobOutcome(jobRecord));
+
+            await _mediator.SendAsync(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+
+            _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeJobAccess(Arg.Any<ExportJobRecord>());
+        }
+
+        private void EnableFineGrainedAccessControl()
+        {
+            var requestContext = Substitute.For<IFhirRequestContext>();
+            requestContext.AccessControlContext.Returns(new AccessControlContext
+            {
+                ApplyFineGrainedAccessControl = true,
+            });
+            _contextAccessor.RequestContext.Returns(requestContext);
         }
 
         private ExportJobRecord CreateExportJobRecord(OperationStatus operationStatus)

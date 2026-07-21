@@ -415,24 +415,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             Assert.Throws<UnauthorizedFhirActionException>(() => validator.AuthorizeJobAccess(record));
         }
 
-        [Fact]
-        public void GivenNonSmartRequest_WhenAuthorizingJobAccess_ThenValidationIsNotApplied()
-        {
-            ExportSmartScopeAuthorizer validator = CreateAuthorizer(
-                applyFineGrainedAccessControl: false,
-                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "patient"));
-
-            validator.AuthorizeJobAccess(CreateExportJobRecord(resourceType: null));
-        }
-
         private ExportSmartScopeAuthorizer CreateAuthorizer(params ScopeRestriction[] scopeRestrictions)
-        {
-            return CreateAuthorizer(applyFineGrainedAccessControl: true, scopeRestrictions);
-        }
-
-        private ExportSmartScopeAuthorizer CreateAuthorizer(
-            bool applyFineGrainedAccessControl,
-            params ScopeRestriction[] scopeRestrictions)
         {
             var requestContext = new FhirRequestContext(
                 method: "GET",
@@ -442,7 +425,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 requestHeaders: new Dictionary<string, StringValues>(),
                 responseHeaders: new Dictionary<string, StringValues>());
 
-            requestContext.AccessControlContext.ApplyFineGrainedAccessControl = applyFineGrainedAccessControl;
+            requestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
             foreach (ScopeRestriction scopeRestriction in scopeRestrictions)
             {
                 requestContext.AccessControlContext.AllowedResourceActions.Add(scopeRestriction);

@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         string AuthorizeCreateAndResolveResourceType(CreateExportRequest request);
 
         /// <summary>
-        /// Authorizes access to an existing export job.
+        /// Authorizes a SMART request to access an existing export job.
         /// </summary>
         /// <param name="exportJobRecord">The export job.</param>
         void AuthorizeJobAccess(ExportJobRecord exportJobRecord);

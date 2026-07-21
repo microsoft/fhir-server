@@ -84,11 +84,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
             AccessControlContext accessControlContext = _requestContextAccessor.RequestContext?.AccessControlContext;
-            if (accessControlContext?.ApplyFineGrainedAccessControl != true)
-            {
-                return;
-            }
-
             ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(accessControlContext);
 
             HashSet<string> requiredResourceTypes = GetPersistedOutputResourceTypes(exportJobRecord.ResourceType);
