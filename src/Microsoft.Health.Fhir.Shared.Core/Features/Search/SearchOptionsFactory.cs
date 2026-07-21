@@ -417,6 +417,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
             var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
 
+            var invalidRevIncludeParameters = searchParams.RevInclude.Where(x => x.Item2 != IncludeModifier.None && x.Item1.Contains('*', StringComparison.OrdinalIgnoreCase));
+            foreach (var invalidRevInclude in invalidRevIncludeParameters)
+            {
+                var paramName = KnownQueryParameterNames.ReverseInclude + (invalidRevInclude.Item2 != IncludeModifier.None ? ":" + invalidRevInclude.Item2.ToString().ToLowerInvariant() : string.Empty);
+                searchOptions.QueryParams[paramName].Remove(invalidRevInclude.Item1);
+            }
+
             // Add the parsed resource types to the required resource types for access control check
             // Now it contains all the resource types that are requested by the search,
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions

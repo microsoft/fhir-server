@@ -92,7 +92,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 ContinuationToken = continuationToken,
                 Count = sqlSearchOptions.MaxItemCount,
-                IncludeTotalCount = sqlSearchOptions.CountOnly,
+                IncludeCount = sqlSearchOptions.IncludeCount,
+                GetTotalCount = sqlSearchOptions.CountOnly,
             };
             var sqlBuilder = parserOptions.SqlQueryBuilder;
 
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             bool sortDescending = false;
             bool sortIsSpecialParameter = false;
 
-            if (parametersCopy.TryGetValue("_sort", out var sortValues) && sortValues.Count > 0 && !parserOptions.IncludeTotalCount)
+            if (parametersCopy.TryGetValue("_sort", out var sortValues) && sortValues.Count > 0 && !parserOptions.GetTotalCount)
             {
                 var sortValue = sortValues[0]; // Use first sort parameter
                 sortDescending = sortValue.StartsWith('-');
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 if (summaryValues.Any(v => v.Equals("count", StringComparison.OrdinalIgnoreCase)))
                 {
-                    parserOptions.IncludeTotalCount = true;
+                    parserOptions.GetTotalCount = true;
                 }
 
                 parametersCopy.Remove("_summary");
@@ -326,7 +327,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // *********************************************************************** Apply Sort (if needed) ***********************************************************************
             // Apply sorting AFTER getting initial results but BEFORE includes
             bool hasSortCte = false;
-            if (!string.IsNullOrEmpty(parserOptions.SortParameterName) && !parserOptions.SortIsSpecialParameter && !parserOptions.IncludeTotalCount)
+            if (!string.IsNullOrEmpty(parserOptions.SortParameterName) && !parserOptions.SortIsSpecialParameter && !parserOptions.GetTotalCount)
             {
                 var sortCteName = $"cte{cteIndex}";
                 cteIndex++;
@@ -350,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             // *********************************************************************** Apply Count ***********************************************************************
-            if (!parserOptions.IncludeTotalCount)
+            if (!parserOptions.GetTotalCount)
             {
                 var cteName = $"cte{cteIndex}";
                 parserOptions.CteNumber = cteIndex;
@@ -382,7 +383,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             // *********************************************************************** Include Parameters ***********************************************************************
-            if (includeParameters.Count > 0 && !parserOptions.IncludeTotalCount)
+            if (includeParameters.Count > 0 && !parserOptions.GetTotalCount)
             {
                 var baseCteName = lastCteName;
 
@@ -460,7 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var unionCte = $"cte{cteIndex}";
                 cteIndex++;
 
-                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte);
+                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte, includeCount: parserOptions.IncludeCount);
 
                 lastCteName = unionCte;
                 cteIndex++;
@@ -470,7 +471,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             // *********************************************************************** Get Resources ***********************************************************************
             // If this is a count query, return count instead of full results
-            if (parserOptions.IncludeTotalCount)
+            if (parserOptions.GetTotalCount)
             {
                 sqlBuilder.Select($"COUNT_BIG(*) AS Total")
                     .From(lastCteName);
@@ -670,8 +671,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (includeCteNames.Count == 1)
             {
                 sqlBuilder.BeginCte(unionCte2)
-                    .Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
+                    .SelectWithModifier($"TOP {parserOptions.IncludeCount}", "ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
                     .From(includeCteNames[0])
+                    .OrderBy("ResourceTypeId ASC, ResourceSurrogateId ASC")
                     .EndCte();
             }
             else
@@ -684,8 +686,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         sqlBuilder.AppendLine("UNION ALL");
                     }
 
-                    sqlBuilder.Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
-                        .From(includeCteNames[i]);
+                    sqlBuilder.SelectWithModifier($"TOP {parserOptions.IncludeCount}", "ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
+                        .From(includeCteNames[i])
+                        .OrderBy("ResourceTypeId ASC, ResourceSurrogateId ASC");
                 }
 
                 sqlBuilder.EndCte();

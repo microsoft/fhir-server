@@ -25,11 +25,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public int Count { get; set; } = 10;
 
+        public int IncludeCount { get; set; } = 10;
+
         public IList<short> ResourceTypes { get; init; } = new List<short>();
 
         public IList<short> ExcludedResourceTypes { get; init; } = new List<short>();
 
-        public bool IncludeTotalCount { get; set; }
+        public bool GetTotalCount { get; set; }
 
         public string? SortParameterName { get; set; }
 

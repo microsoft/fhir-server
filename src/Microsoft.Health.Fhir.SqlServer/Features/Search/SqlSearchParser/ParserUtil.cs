@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
         }
 
-        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true)
+        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true, int includeCount = 0)
         {
             builder.BeginCte(cteName);
             builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
@@ -43,13 +43,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     // Include CTEs have: ResourceTypeId, ResourceSurrogateId, IsMatch, IsPartial
                     // We must use explicit columns to match the count CTE's column order
                     var rowExpr = includeRow ? "0 AS Row" : string.Empty;
-                    var columns = $"ResourceTypeId, ResourceSurrogateId, NULL AS SortValue, IsMatch, IsPartial";
+                    var columns = $"ResourceTypeId, ResourceSurrogateId, SortValue = NULL, IsMatch, IsPartial";
                     if (includeRow)
                     {
-                        columns += ", 0 AS Row";
+                        columns += ", Row = 0";
                     }
 
-                    builder.AppendLine($"SELECT {columns} FROM {includeCteName}");
+                    builder.AppendLine($"SELECT {(includeCount > 0 ? $"TOP {includeCount} " : string.Empty)}{columns} FROM {includeCteName}");
                 }
                 else
                 {
@@ -59,10 +59,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         extras += ", Row = 0";
                     }
 
-                    builder.AppendLine($"SELECT *{extras} FROM {includeCteName}");
+                    builder.AppendLine($"SELECT {(includeCount > 0 ? $"TOP {includeCount} " : string.Empty)}*{extras} FROM {includeCteName}");
                 }
 
                 builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
+                builder.OrderBy($"{includeCteName}.ResourceTypeId, {includeCteName}.ResourceSurrogateId");
                 builder.DecreaseIndent();
             }
 
