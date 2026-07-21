@@ -19,6 +19,8 @@ The [FHIR Bulk Data Access IG](https://hl7.org/fhir/uv/bulkdata/export.html) def
 
 Requests subject to SMART fine-grained access control may create, read, or cancel export jobs only through system scopes. Patient and user contexts are rejected. RBAC `Export` permission remains an independent prerequisite.
 
+The behavior is enabled by default with `FhirServer:CoreFeatures:EnableSmartExportScopeAuthorization`. Setting it to `false` is a temporary compatibility override: create requests preserve the requested `_type` unchanged, and status or cancellation skips SMART scope validation. RBAC `Export` authorization continues to be required before either path.
+
 Authorization distinguishes two independent concerns, both of which must be satisfied:
 
 - **Population-selection authorization** — the resource type(s) implied by the export *route* (e.g. `Group` requires access to `Group` and `Patient`, regardless of the resources actually output).
@@ -68,4 +70,5 @@ Status and cancellation re-derive both concerns from the persisted job: the rout
 - Unauthorized job access is indistinguishable from an unknown job identifier.
 - Completed output types can tighten later authorization but cannot weaken the no-`_type` wildcard rule.
 - RBAC and non-SMART export behavior are unchanged.
+- A default-on compatibility switch can temporarily disable SMART export scope authorization while preserving RBAC export permission checks.
 - Other asynchronous operation types are outside this decision and retain their existing behavior.

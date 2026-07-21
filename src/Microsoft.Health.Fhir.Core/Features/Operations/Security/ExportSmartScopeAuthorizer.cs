@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -26,20 +28,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         private const string SystemScope = "system";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExportSmartScopeAuthorizer"/> class.
         /// </summary>
         /// <param name="requestContextAccessor">The FHIR request context accessor.</param>
-        public ExportSmartScopeAuthorizer(RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+        /// <param name="coreFeatureConfiguration">The core feature configuration.</param>
+        public ExportSmartScopeAuthorizer(
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
         }
 
         /// <inheritdoc />
         public string AuthorizeCreateAndResolveResourceType(CreateExportRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
+
+            if (!_coreFeatureConfiguration.EnableSmartExportScopeAuthorization)
+            {
+                return request.ResourceType;
+            }
 
             ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(_requestContextAccessor.RequestContext?.AccessControlContext);
             EnsureCompleteExportReadAccess(systemScopes, GetRouteRequiredResourceTypes(request.RequestType));
@@ -74,6 +86,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         public void AuthorizeJobAccess(ExportJobRecord exportJobRecord)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
+
+            if (!_coreFeatureConfiguration.EnableSmartExportScopeAuthorization)
+            {
+                return;
+            }
 
             ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(_requestContextAccessor.RequestContext?.AccessControlContext);
 

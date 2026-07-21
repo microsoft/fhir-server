@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -32,9 +34,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = new FhirRequestContextAccessor();
 
         [Fact]
+        public void GivenDefaultCoreFeatureConfiguration_WhenCheckingSmartExportScopeAuthorization_ThenItIsEnabled()
+        {
+            Assert.True(new CoreFeatureConfiguration().EnableSmartExportScopeAuthorization);
+        }
+
+        [Fact]
         public void GivenMissingRequestContext_WhenValidatingExportAccess_ThenForbiddenIsThrown()
         {
-            var authorizer = new ExportSmartScopeAuthorizer(_contextAccessor);
+            var authorizer = new ExportSmartScopeAuthorizer(
+                _contextAccessor,
+                Options.Create(new CoreFeatureConfiguration()));
 
             Assert.Throws<UnauthorizedFhirActionException>(() =>
                 authorizer.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
@@ -426,7 +436,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             Assert.Throws<UnauthorizedFhirActionException>(() => validator.AuthorizeJobAccess(record));
         }
 
+        [Fact]
+        public void GivenSmartExportScopeAuthorizationIsDisabled_WhenCreatingExportWithExplicitType_ThenRequestedTypeIsUnchanged()
+        {
+            ExportSmartScopeAuthorizer validator = CreateAuthorizer(enableSmartExportScopeAuthorization: false);
+            const string requestedResourceType = "Patient, patient";
+
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(requestedResourceType));
+
+            Assert.Equal(requestedResourceType, effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenSmartExportScopeAuthorizationIsDisabled_WhenCreatingExportWithoutType_ThenResourceTypeRemainsNull()
+        {
+            ExportSmartScopeAuthorizer validator = CreateAuthorizer(enableSmartExportScopeAuthorization: false);
+
+            string effectiveResourceType = validator.AuthorizeCreateAndResolveResourceType(
+                CreateExportRequest(resourceType: null));
+
+            Assert.Null(effectiveResourceType);
+        }
+
+        [Fact]
+        public void GivenSmartExportScopeAuthorizationIsDisabled_WhenAccessingJob_ThenAccessIsAllowedWithoutScopes()
+        {
+            ExportSmartScopeAuthorizer validator = CreateAuthorizer(enableSmartExportScopeAuthorization: false);
+
+            validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient));
+        }
+
         private ExportSmartScopeAuthorizer CreateAuthorizer(params ScopeRestriction[] scopeRestrictions)
+        {
+            return CreateAuthorizer(true, scopeRestrictions);
+        }
+
+        private ExportSmartScopeAuthorizer CreateAuthorizer(
+            bool enableSmartExportScopeAuthorization,
+            params ScopeRestriction[] scopeRestrictions)
         {
             var requestContext = new FhirRequestContext(
                 method: "GET",
@@ -444,7 +492,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
 
             _contextAccessor.RequestContext = requestContext;
 
-            return new ExportSmartScopeAuthorizer(_contextAccessor);
+            return new ExportSmartScopeAuthorizer(
+                _contextAccessor,
+                Options.Create(new CoreFeatureConfiguration
+                {
+                    EnableSmartExportScopeAuthorization = enableSmartExportScopeAuthorization,
+                }));
         }
 
         private static CreateExportRequest CreateExportRequest(string resourceType, ExportJobType requestType = ExportJobType.All)

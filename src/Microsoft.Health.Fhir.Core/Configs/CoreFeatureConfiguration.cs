@@ -160,5 +160,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
         /// </summary>
         public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.
+        /// </summary>
+        public bool EnableSmartExportScopeAuthorization { get; set; } = true;
     }
 }
