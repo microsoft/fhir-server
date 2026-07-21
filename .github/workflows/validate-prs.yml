@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v5 # Uploads repository content to the runner
         with:
           repository: "microsoft/fhir-server"
-      - uses: actions/labeler@v6
+      - uses: actions/labeler@v7
       - uses: actions/github-script@v8
         env:
           TITLE: ${{ env.TITLE }}
