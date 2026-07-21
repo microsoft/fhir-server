@@ -23,7 +23,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Core\Microsoft.Health.Fhir.R5.Core.csproj" PrivateAssets="build;analyzers" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.FirelySdk\Microsoft.Health.Fhir.R5.FirelySdk.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.Ignixa\Microsoft.Health.Fhir.Ignixa.csproj" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Ignixa\Microsoft.Health.Fhir.Ignixa.csproj" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems" Label="Shared" />

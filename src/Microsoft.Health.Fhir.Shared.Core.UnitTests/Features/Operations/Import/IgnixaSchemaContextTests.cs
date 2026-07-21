@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-#if NET10_0_OR_GREATER
-
 using Ignixa.Specification.Generated;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Ignixa;
@@ -37,5 +35,3 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         }
     }
 }
-
-#endif

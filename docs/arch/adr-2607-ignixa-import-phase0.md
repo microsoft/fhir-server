@@ -26,7 +26,7 @@ public enum FhirSdkProvider
 **Phase 0 migrates only `$import` parsing.**
 
 - Four version-specific Firely provider projects (`Microsoft.Health.Fhir.{Stu3,R4,R4B,R5}.FirelySdk`) share one `FirelyImportResourceParser` source file so behavior can't drift by version.
-- One `Microsoft.Health.Fhir.Ignixa` project carries all Ignixa code and is functionally net10-only. It declares `net10.0;net8.0`, but net8.0 is a deliberate no-op target: its sources are wrapped in `#if NET10_0_OR_GREATER` and no Ignixa package reference applies on net8.0. That target exists solely so solution-wide builds pinning a single framework (`dotnet build Microsoft.Health.Fhir.sln -f net8.0`, used by this repo's CI) don't fail with NETSDK1005 resolving net8.0 assets for a project that would otherwise declare only net10.0. The repo builds `net10.0;net8.0` (`Directory.Build.props`); configuring `Ignixa` on net8 fails at startup with a clear error rather than silently degrading. This is a version-pin fact, not an inherent Ignixa limitation: the pinned package version (`IgnixaPackageVersion` = `0.0.163` in `Directory.Packages.props`) ships only `net9.0` binaries, which a `net10.0` project consumes fine through ordinary NuGet TFM compatibility; newer Ignixa releases (`0.6.4`, seen in the local package cache) already ship a `net10.0` target directly.
+- One `Microsoft.Health.Fhir.Ignixa` project carries all Ignixa code and targets `net10.0`, matching the repo's single target framework (`Directory.Build.props`, `net10.0` since .NET 8 build targets were retired in #5686). The pinned package version (`IgnixaPackageVersion` = `0.0.163` in `Directory.Packages.props`) ships only `net9.0` binaries, which a `net10.0` project consumes fine through ordinary NuGet TFM compatibility; newer Ignixa releases (`0.6.4`, seen in the local package cache) already ship a `net10.0` target directly.
 - `OperationsModule` registers exactly one `IImportResourceParser` from the configured provider at startup; it never resolves both parsers per resource or catches an Ignixa failure to retry with Firely.
 
 The Ignixa parser intentionally converts its parsed node to the existing Firely-shaped `ResourceElement` before calling the existing `IResourceWrapperFactory`, rather than preserving the native Ignixa node end-to-end. This keeps Phase 0 at the ~10-file guardrail (see below) and leaves the entire downstream pipeline (search indexing, raw-resource creation, storage) unchanged for either provider. The deliberate cost: `RawResourceFactory` still rebuilds a full Firely POCO and serializes through Firely's `FhirJsonSerializer` regardless of which parser produced the resource, so Ignixa mode is performance-neutral-to-slightly-slower and higher-allocating than Firely mode on `$import` today. Recovering that win is Phase 2a below (the write-side persistence codec), which is scheduled immediately after Phase 0 for exactly that reason — see Adverse Effects and Execution order.
@@ -76,7 +76,7 @@ Accepted
 ### Benefits
 
 - Each seam lands as an independently reviewable, independently revertible PR instead of one large cutover.
-- Firely stays the default and fully functional on both net10 and net8 throughout the migration; rollback at any point is a configuration change, not a data migration.
+- Firely stays the default and fully functional throughout the migration; rollback at any point is a configuration change, not a data migration.
 - Reusing existing narrow contracts (`IImportResourceParser`, `IResourceWrapperFactory`) means downstream consumers (indexing, storage, job processing) require zero changes for Phase 0, and the parity test suite can assert byte-level equivalence between providers.
 - The migration ladder gives reviewers a shared map of what's left, preventing "is this seam actually migrated?" ambiguity.
 - The parser is a worked example of idiomatic native Ignixa usage (`IElement.Predicate`, `MetaJsonNode`/`ReferenceJsonNode`, `InvalidateCaches()`) for later migration-ladder PRs to build on.
@@ -89,5 +89,4 @@ Accepted
 
 ### Neutral Effects
 
-- The Ignixa project's `net10.0`-only targeting doesn't remove net8 support anywhere else; any seam needing net8 Ignixa support later requires either an upstream package change or a decision to drop net8 entirely, out of scope here.
 - Conditional-reference checking in Ignixa mode does not recurse into `contained` resources or Bundle entries. This matches the search indexer's existing behavior (which also never indexes into `contained`) and import's NDJSON-of-individual-resources model — an intentional scope boundary, not a parity gap to close later.

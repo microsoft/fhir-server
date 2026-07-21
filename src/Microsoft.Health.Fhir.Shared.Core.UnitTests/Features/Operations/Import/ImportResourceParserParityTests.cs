@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-#if NET10_0_OR_GREATER
-
 using System;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.Serialization;
@@ -703,5 +701,3 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         }
     }
 }
-
-#endif

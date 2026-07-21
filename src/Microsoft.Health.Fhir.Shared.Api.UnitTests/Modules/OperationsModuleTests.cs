@@ -37,7 +37,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                     x.ImplementationType == typeof(FhirSdkProviderStartupLogger));
         }
 
-#if NET10_0_OR_GREATER
         [Fact]
         public void GivenIgnixaConfiguration_WhenModuleLoads_ThenIgnixaParserIsRegistered()
         {
@@ -51,19 +50,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                 services, x => x.ServiceType == typeof(IImportResourceParser));
             Assert.Equal("IgnixaImportResourceParser", descriptor.ImplementationType.Name);
         }
-#else
-        [Fact]
-        public void GivenIgnixaConfigurationOnNet8_WhenModuleLoads_ThenStartupFails()
-        {
-            var configuration = new FhirServerConfiguration();
-            configuration.CoreFeatures.FhirSdkProvider = FhirSdkProvider.Ignixa;
-
-            NotSupportedException exception = Assert.Throws<NotSupportedException>(
-                () => new OperationsModule(configuration).Load(new ServiceCollection()));
-
-            Assert.Contains("net10.0", exception.Message, StringComparison.Ordinal);
-        }
-#endif
 
         [Fact]
         public void GivenUnknownProvider_WhenModuleLoads_ThenStartupFails()

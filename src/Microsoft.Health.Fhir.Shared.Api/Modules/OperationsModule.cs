@@ -19,11 +19,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
-using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
-#if NET10_0_OR_GREATER
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Ignixa.Features.Operations.Import;
-#endif
+using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -82,7 +80,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         .AsImplementedInterfaces();
                     break;
 
-#if NET10_0_OR_GREATER
                 case FhirSdkProvider.Ignixa:
                     services.Add<IgnixaSchemaContext>()
                         .Singleton()
@@ -93,11 +90,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         .AsSelf()
                         .AsImplementedInterfaces();
                     break;
-#else
-                case FhirSdkProvider.Ignixa:
-                    throw new NotSupportedException(
-                        "FhirSdkProvider.Ignixa requires net10.0. Configure Firely when running net8.0.");
-#endif
 
                 default:
                     throw new InvalidOperationException($"Unsupported FHIR SDK provider: {_fhirSdkProvider}.");
