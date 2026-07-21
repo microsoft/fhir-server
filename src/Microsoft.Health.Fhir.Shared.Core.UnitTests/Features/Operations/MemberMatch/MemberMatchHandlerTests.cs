@@ -5,9 +5,11 @@
 
 using System.Collections.Generic;
 using System.Threading;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch;
@@ -39,11 +41,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
         {
             MemberMatchHandler handler = CreateHandler(
                 applyFineGrainedAccessControl: true,
+                enableSmartMemberMatchRestriction: true,
                 new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, scopeContext));
             MemberMatchRequest request = CreateRequest();
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(
-                () => handler.Handle(request, CancellationToken.None));
+                () => handler.HandleAsync(request, CancellationToken.None));
 
             await _authorizationService.Received(1).CheckAccess(DataActions.Read, CancellationToken.None);
             await _memberMatchService.DidNotReceiveWithAnyArgs().FindMatch(default, default, default);
@@ -52,11 +55,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
         [Fact]
         public async Task GivenNonSmartContext_WhenHandlingMemberMatch_ThenRequestIsAllowed()
         {
-            MemberMatchHandler handler = CreateHandler(applyFineGrainedAccessControl: false);
+            MemberMatchHandler handler = CreateHandler(applyFineGrainedAccessControl: false, enableSmartMemberMatchRestriction: true);
             MemberMatchRequest request = CreateRequest();
             _memberMatchService.FindMatch(request.Coverage, request.Patient, CancellationToken.None).Returns(request.Patient);
 
-            MemberMatchResponse response = await handler.Handle(request, CancellationToken.None);
+            MemberMatchResponse response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Same(request.Patient, response.Patient);
+            await _authorizationService.Received(1).CheckAccess(DataActions.Read, CancellationToken.None);
+            await _memberMatchService.Received(1).FindMatch(request.Coverage, request.Patient, CancellationToken.None);
+        }
+
+        [Theory]
+        [InlineData("patient")]
+        [InlineData("user")]
+        [InlineData("system")]
+        public async Task GivenSmartFineGrainedContextAndRestrictionDisabled_WhenHandlingMemberMatch_ThenPreviousBehaviorIsRestoredAndRequestIsAllowed(string scopeContext)
+        {
+            MemberMatchHandler handler = CreateHandler(
+                applyFineGrainedAccessControl: true,
+                enableSmartMemberMatchRestriction: false,
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, scopeContext));
+            MemberMatchRequest request = CreateRequest();
+            _memberMatchService.FindMatch(request.Coverage, request.Patient, CancellationToken.None).Returns(request.Patient);
+
+            MemberMatchResponse response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Same(request.Patient, response.Patient);
+            await _authorizationService.Received(1).CheckAccess(DataActions.Read, CancellationToken.None);
+            await _memberMatchService.Received(1).FindMatch(request.Coverage, request.Patient, CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenNonSmartContextAndRestrictionDisabled_WhenHandlingMemberMatch_ThenNonSmartBehaviorIsUnchanged()
+        {
+            MemberMatchHandler handler = CreateHandler(applyFineGrainedAccessControl: false, enableSmartMemberMatchRestriction: false);
+            MemberMatchRequest request = CreateRequest();
+            _memberMatchService.FindMatch(request.Coverage, request.Patient, CancellationToken.None).Returns(request.Patient);
+
+            MemberMatchResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Same(request.Patient, response.Patient);
             await _authorizationService.Received(1).CheckAccess(DataActions.Read, CancellationToken.None);
@@ -65,6 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
 
         private MemberMatchHandler CreateHandler(
             bool applyFineGrainedAccessControl,
+            bool enableSmartMemberMatchRestriction = true,
             params ScopeRestriction[] scopeRestrictions)
         {
             var requestContext = new FhirRequestContext(
@@ -84,10 +122,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
             _requestContextAccessor.RequestContext = requestContext;
             _authorizationService.CheckAccess(DataActions.Read, CancellationToken.None).Returns(DataActions.Read);
 
+            var coreFeatures = new CoreFeatureConfiguration
+            {
+                EnableSmartMemberMatchRestriction = enableSmartMemberMatchRestriction,
+            };
+
             return new MemberMatchHandler(
                 _authorizationService,
                 _memberMatchService,
-                _requestContextAccessor);
+                _requestContextAccessor,
+                Options.Create(coreFeatures));
         }
 
         private static MemberMatchRequest CreateRequest()
