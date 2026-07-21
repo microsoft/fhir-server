@@ -4,16 +4,11 @@
     <HealthcareSharedPackageVersion>11.0.123</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>10.0.9</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>10.0.10</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>8.0.26</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
     <When Condition="'$(TargetFramework)' == 'net9.0'">
       <PropertyGroup>
         <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
