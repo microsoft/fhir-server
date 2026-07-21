@@ -283,8 +283,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (lastCteName == null)
             {
-                // No search CTEs generated (e.g., only _include/_revinclude/_not-referenced params) - generate base system CTE
-                if (includeParameters.Count > 0 || reversedChainedParameters.Count > 0 || notReferencedParameters.Count > 0)
+                // No search CTEs generated (e.g., only _include/_revinclude/_not-referenced/chained params) - generate base system CTE
+                if (includeParameters.Count > 0 || reversedChainedParameters.Count > 0 || notReferencedParameters.Count > 0 || chainedParameters.Count > 0)
                 {
                     parserOptions.CteNumber = cteIndex;
                     _systemSqlParser.Parse(string.Empty, string.Empty, parserOptions);

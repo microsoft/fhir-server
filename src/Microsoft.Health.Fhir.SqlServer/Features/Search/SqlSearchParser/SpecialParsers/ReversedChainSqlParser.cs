@@ -97,10 +97,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             // If we have a previous CTE, join to it (for nested _has or combined with other params)
             if (options.LastCteName != null)
             {
+                // When nested in a chain (ChainLevel > 0), the previous CTE is a _ref CTE
+                // whose RefResource columns represent the SOURCE resources we want to constrain against
+                var prevSurrogateCol = options.ChainLevel > 0 ? "RefResourceSurrogateId" : "ResourceSurrogateId";
+                var prevTypeCol = options.ChainLevel > 0 ? "RefResourceTypeId" : "ResourceTypeId";
                 builder.InnerJoin(
                     options.LastCteName,
                     "prev",
-                    "prev.ResourceSurrogateId = refTarget.ResourceSurrogateId AND prev.ResourceTypeId = refTarget.ResourceTypeId");
+                    $"prev.{prevSurrogateCol} = refTarget.ResourceSurrogateId AND prev.{prevTypeCol} = refTarget.ResourceTypeId");
             }
 
             builder.Where($"refSource.SearchParamId = {referenceParameter.Id}");

@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         "parent.ResourceSurrogateId");
                     builder.From(chainCteName, "child");
                     builder.InnerJoin(
-                        $"{parentCteName}_ref",
+                        refCteName,
                         "parent",
                         "parent.RefResourceTypeId = child.ResourceTypeId AND parent.RefResourceSurrogateId = child.ResourceSurrogateId");
                     builder.EndCte();
