@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -75,11 +74,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             var authServiceFields = GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IAuthorizationService<DataActions>));
             FieldInfo authServiceField = Assert.Single(authServiceFields);
             authServiceField.SetValue(handler, Substitute.For<IAuthorizationService<DataActions>>());
-
-            foreach (FieldInfo smartScopeAuthorizerField in GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IExportSmartScopeAuthorizer)))
-            {
-                smartScopeAuthorizerField.SetValue(handler, Substitute.For<IExportSmartScopeAuthorizer>());
-            }
 
             IEnumerable<Type[]> typeArgumentSets = handlerType.GetInterfaces()
                 .Where(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IRequestHandler<,>))

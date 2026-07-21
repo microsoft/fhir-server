@@ -164,6 +164,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             ConfigureControllerForSuccessfulExport(_exportEnabledController);
 
+            // Exporting a single patient by ID (Patient/{id}/$export) is not supported.
             await Assert.ThrowsAsync<RequestNotValidException>(() =>
                 _exportEnabledController.ExportResourceTypeById(
                    typeFilter: null,
