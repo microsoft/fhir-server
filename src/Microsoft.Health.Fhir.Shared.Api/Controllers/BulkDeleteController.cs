@@ -140,6 +140,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             searchParameters = searchParameters.Where(param => !_excludedParameters.Contains(param.Item1)).ToList();
 
+            if (searchParameters.Count == 0)
+            {
+                throw new RequestNotValidException(Resources.ConditionalOperationNotSelectiveEnough);
+            }
+
             if (softDeleteCleanup && searchParameters.Any(param => param.Item1 != KnownQueryParameterNames.LastUpdated))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, searchParameters.Where(param => param.Item1 != KnownQueryParameterNames.LastUpdated).Select(param => param.Item1).Aggregate((param, next) => param += ", " + next)));

@@ -100,6 +100,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [Trait(Traits.Category, Categories.IndexAndReindex)]
+        public async Task GivenBulkDeleteRequestWithNoSearchParameters_WhenRequested_ThenBadRequestIsReturned()
+        {
+            CheckBulkDeleteEnabled();
+
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+                RequestUri = new Uri(_httpClient.BaseAddress, "$bulk-delete"),
+            };
+            request.Headers.Add(KnownHeaders.Prefer, "respond-async");
+
+            var response = await _httpClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [SkippableFact]
         [Trait(Traits.Category, Categories.IndexAndReindex)] // temporarily moved till reindex conflict is moved to the storage layer
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {

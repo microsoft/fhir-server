@@ -225,6 +225,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenBulkDeleteWithNoSearchParameters_WhenRequested_ThenBadRequestIsReturned()
+        {
+            _httpRequest.QueryString.Returns(new QueryString(null));
+            var hardDeleteModel = new HardDeleteModel() { HardDelete = false };
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _controller.BulkDelete(hardDeleteModel, false, false));
+            await _mediator.DidNotReceiveWithAnyArgs().SendAsync<CreateBulkDeleteResponse>(default, default);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteByResourceTypeWithNoSearchParameters_WhenRequested_ThenBadRequestIsReturned()
+        {
+            _httpRequest.QueryString.Returns(new QueryString(null));
+            var hardDeleteModel = new HardDeleteModel() { HardDelete = false };
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _controller.BulkDeleteByResourceType(KnownResourceTypes.Patient, hardDeleteModel, false, false));
+            await _mediator.DidNotReceiveWithAnyArgs().SendAsync<CreateBulkDeleteResponse>(default, default);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteWithOnlyExcludedParameters_WhenRequested_ThenBadRequestIsReturned()
+        {
+            _httpRequest.QueryString.Returns(new QueryString("?hardDelete=true&purgeHistory=true"));
+            var hardDeleteModel = new HardDeleteModel() { HardDelete = true };
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _controller.BulkDelete(hardDeleteModel, false, false));
+            await _mediator.DidNotReceiveWithAnyArgs().SendAsync<CreateBulkDeleteResponse>(default, default);
+        }
+
         [Theory]
         [InlineData(0, HttpStatusCode.Accepted)]
         [InlineData(1, HttpStatusCode.OK)]
