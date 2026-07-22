@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var unionCte = $"cte{cteIndex}";
                 cteIndex++;
 
-                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte, includeCount: parserOptions.IncludeCount);
+                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte);
 
                 lastCteName = unionCte;
                 cteIndex++;
@@ -671,9 +671,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             if (includeCteNames.Count == 1)
             {
                 sqlBuilder.BeginCte(unionCte2)
-                    .SelectWithModifier($"TOP {parserOptions.IncludeCount}", "ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
+                    .Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
                     .From(includeCteNames[0])
-                    .OrderBy("ResourceTypeId ASC, ResourceSurrogateId ASC")
                     .EndCte();
             }
             else
@@ -686,9 +685,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         sqlBuilder.AppendLine("UNION ALL");
                     }
 
-                    sqlBuilder.SelectWithModifier($"TOP {parserOptions.IncludeCount}", "ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
-                        .From(includeCteNames[i])
-                        .OrderBy("ResourceTypeId ASC, ResourceSurrogateId ASC");
+                    sqlBuilder.Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
+                        .From(includeCteNames[i]);
                 }
 
                 sqlBuilder.EndCte();
