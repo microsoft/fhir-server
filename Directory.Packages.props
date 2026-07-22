@@ -9,11 +9,6 @@
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>8.0.26</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
     <When Condition="'$(TargetFramework)' == 'net9.0'">
       <PropertyGroup>
         <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
