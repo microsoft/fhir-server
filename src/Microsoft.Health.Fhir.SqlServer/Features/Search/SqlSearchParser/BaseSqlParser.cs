@@ -139,8 +139,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     firstClause = false;
                 }
 
-                builder.DecreaseIndent();
+                builder.IncreaseIndent();
                 builder.AppendLine(")");
+                builder.DecreaseIndent(2);
 
                 if (modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
                 {

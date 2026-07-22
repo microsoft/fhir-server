@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
         }
 
-        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true, int includeCount = 0)
+        public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true, int includeCount = -1)
         {
             builder.BeginCte(cteName);
             builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         columns += ", Row = 0";
                     }
 
-                    builder.AppendLine($"SELECT {(includeCount > 0 ? $"TOP {includeCount} " : string.Empty)}{columns} FROM {includeCteName}");
+                    builder.AppendLine($"SELECT {(includeCount > -1 ? $"TOP {includeCount} " : string.Empty)}{columns} FROM {includeCteName}");
                 }
                 else
                 {
@@ -59,11 +59,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         extras += ", Row = 0";
                     }
 
-                    builder.AppendLine($"SELECT {(includeCount > 0 ? $"TOP {includeCount} " : string.Empty)}*{extras} FROM {includeCteName}");
+                    builder.AppendLine($"SELECT {(includeCount > -1 ? $"TOP {includeCount} " : string.Empty)}*{extras} FROM {includeCteName}");
                 }
 
                 builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
-                builder.OrderBy($"{includeCteName}.ResourceTypeId, {includeCteName}.ResourceSurrogateId");
+
+                if (includeCount > -1)
+                {
+                    builder.OrderBy($"{includeCteName}.ResourceTypeId, {includeCteName}.ResourceSurrogateId");
+                }
+
                 builder.DecreaseIndent();
             }
 

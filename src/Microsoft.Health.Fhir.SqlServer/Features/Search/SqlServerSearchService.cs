@@ -304,16 +304,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         var includesContinuationToken = searchResult.IncludesContinuationToken;
 
-                        if (secondSearchResult.IncludesContinuationToken != null)
+                        // If phase 2 didn't produce an includes continuation token but we know
+                        // there are includes to fetch (IncludeContinuationTokenSearch was set because
+                        // phase 1 exhausted the include budget), create one from phase 2's matched results.
+                        var secondPhaseIncludesCt = secondSearchResult.IncludesContinuationToken;
+                        if (secondPhaseIncludesCt == null
+                            && sqlSearchOptions.IncludeContinuationTokenSearch
+                            && sqlSearchOptions.IncludesOperationSupported
+                            && secondSearchResult.Results.Any(r => r.SearchEntryMode == SearchEntryMode.Match))
+                        {
+                            var phase2Matches = secondSearchResult.Results
+                                .Where(r => r.SearchEntryMode == SearchEntryMode.Match)
+                                .ToList();
+                            var firstMatch = phase2Matches.First().Resource;
+                            var lastMatch = phase2Matches.Last().Resource;
+                            var resourceTypeId = _model.GetResourceTypeId(firstMatch.ResourceTypeName);
+
+                            secondPhaseIncludesCt = new IncludesContinuationToken(new object[]
+                            {
+                                resourceTypeId,
+                                firstMatch.ResourceSurrogateId,
+                                lastMatch.ResourceSurrogateId,
+                                null,
+                                null,
+                                true, // SortQuerySecondPhase
+                            }).ToJson();
+                        }
+
+                        if (secondPhaseIncludesCt != null)
                         {
                             if (includesContinuationToken == null)
                             {
-                                includesContinuationToken = secondSearchResult.IncludesContinuationToken;
+                                includesContinuationToken = secondPhaseIncludesCt;
                             }
                             else
                             {
                                 var firstToken = IncludesContinuationToken.FromString(includesContinuationToken);
-                                var secondToken = IncludesContinuationToken.FromString(secondSearchResult.IncludesContinuationToken);
+                                var secondToken = IncludesContinuationToken.FromString(secondPhaseIncludesCt);
                                 includesContinuationToken = new IncludesContinuationToken(new object[]
                                 {
                                     firstToken.MatchResourceTypeId,
@@ -718,7 +745,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     && newContinuationType.HasValue
                                     && newContinuationId.HasValue
                                     && matchedResourceSurrogateIdStart.HasValue
-                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount || clonedSearchOptions.IncludeContinuationTokenSearch))
+                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount))
                                 {
                                     clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
                                         new object[]
