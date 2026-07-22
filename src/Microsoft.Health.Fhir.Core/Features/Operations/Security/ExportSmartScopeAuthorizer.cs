@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 
             return resourceType
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
         }
 
@@ -168,8 +168,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         {
             return systemScopes
                 .Select(scope => scope.Resource)
-                .Where(resource => !string.Equals(resource, KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(resource => !string.Equals(resource, KnownResourceTypes.All, StringComparison.Ordinal))
+                .Distinct(StringComparer.Ordinal)
                 .Where(resourceType => HasCompleteExportReadAccess(systemScopes, resourceType))
                 .OrderBy(resourceType => resourceType, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
                 string.IsNullOrWhiteSpace(resourceType)
                     ? Array.Empty<string>()
                     : resourceType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.Ordinal);
 
             if (resourceTypes.Count == 0)
             {
@@ -213,11 +213,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             bool requiresAllResources = string.Equals(
                 requiredResourceType,
                 KnownResourceTypes.All,
-                StringComparison.OrdinalIgnoreCase);
+                StringComparison.Ordinal);
             DataActions allowedActions = systemScopes
-                .Where(scope => string.Equals(scope.Resource, KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase)
+                .Where(scope => string.Equals(scope.Resource, KnownResourceTypes.All, StringComparison.Ordinal)
                     || (!requiresAllResources
-                        && string.Equals(scope.Resource, requiredResourceType, StringComparison.OrdinalIgnoreCase)))
+                        && string.Equals(scope.Resource, requiredResourceType, StringComparison.Ordinal)))
                 .Aggregate(DataActions.None, (actions, scope) => actions | scope.AllowedDataAction);
 
             // SMART v1 uses read; SMART v2 requires the read-by-id and search pair.

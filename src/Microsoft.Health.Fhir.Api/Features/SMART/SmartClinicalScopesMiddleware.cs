@@ -335,8 +335,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             // silently stored as a ScopeRestriction that matches nothing, masking client
                             // misconfiguration. The "all" wildcard is not a concrete resource type, so it is
                             // excluded from the check.
-                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase)
-                                && !ModelInfoProvider.IsKnownResource(resource))
+                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.Ordinal)
+                                && !ModelInfoProvider.IsKnownResource(resource, ignoreCase: false))
                             {
                                 throw new BadHttpRequestException(string.Format(
                                     Api.Resources.SmartScopeUnknownResourceType,

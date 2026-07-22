@@ -192,12 +192,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
-        public void GivenResourceTypeCaseDiffersFromSystemScope_WhenCreatingExport_ThenAccessIsAllowed()
+        public void GivenResourceTypeCaseDiffersFromSystemScope_WhenCreatingExport_ThenForbiddenIsThrown()
         {
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction("patient", V1ExportRead, "system"));
 
-            validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest("PATIENT"));
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
         }
 
         [Fact]
@@ -343,12 +344,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
-        public void GivenPersistedResourceTypeCaseDiffersFromSystemScope_WhenValidatingJobAccess_ThenAccessIsAllowed()
+        public void GivenPersistedResourceTypeCaseDiffersFromSystemScope_WhenValidatingJobAccess_ThenForbiddenIsThrown()
         {
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction("patient", V1ExportRead, "system"));
 
-            validator.AuthorizeJobAccess(CreateExportJobRecord("PATIENT"));
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
         }
 
         [Fact]
@@ -374,15 +376,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
-        public void GivenOutputResourceTypeCaseDiffersFromSystemScope_WhenValidatingJobAccess_ThenAccessIsAllowed()
+        public void GivenOutputResourceTypeCaseDiffersFromSystemScope_WhenValidatingJobAccess_ThenForbiddenIsThrown()
         {
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(
                 new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "system"),
                 new ScopeRestriction("observation", V2ExportRead, "system"));
             ExportJobRecord record = CreateExportJobRecord(KnownResourceTypes.Patient);
-            record.Output.Add("OBSERVATION", new List<ExportFileInfo>());
+            record.Output.Add(KnownResourceTypes.Observation, new List<ExportFileInfo>());
 
-            validator.AuthorizeJobAccess(record);
+            Assert.Throws<UnauthorizedFhirActionException>(() => validator.AuthorizeJobAccess(record));
         }
 
         [Fact]

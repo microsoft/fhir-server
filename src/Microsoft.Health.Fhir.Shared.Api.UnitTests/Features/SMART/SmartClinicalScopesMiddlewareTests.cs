@@ -357,6 +357,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
         [Theory]
         [InlineData("patient/Observaton.rs")] // typo'd resource type
+        [InlineData("patient/observation.rs")] // resource type casing must match the FHIR specification
         [InlineData("patient/Foobar.read")] // non-existent resource type
         [InlineData("user/NotAResource.cruds")] // non-existent resource type
         public async Task GivenSmartScopeWithUnknownResourceType_WhenInvoked_ThenBadRequestIsThrown(string scopes)
@@ -489,7 +490,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -525,7 +526,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -563,7 +564,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim, extensionFhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
