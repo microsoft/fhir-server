@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         private static ScopeRestriction[] GetUnconstrainedSystemScopes(AccessControlContext accessControlContext)
         {
             return accessControlContext?.AllowedResourceActions?
-                .Where(scope => string.Equals(scope.User, SystemScope, StringComparison.OrdinalIgnoreCase)
+                .Where(scope => string.Equals(scope.User, SystemScope, StringComparison.Ordinal)
                     && scope.SearchParameters?.Parameters?.Any() != true)
                 .ToArray()
                 ?? Array.Empty<ScopeRestriction>();

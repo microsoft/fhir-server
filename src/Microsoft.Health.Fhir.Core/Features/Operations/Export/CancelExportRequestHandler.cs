@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     catch (UnauthorizedFhirActionException)
                     {
+                        // Do not reveal whether the job exists to a caller lacking SMART access.
                         throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
                     }
 

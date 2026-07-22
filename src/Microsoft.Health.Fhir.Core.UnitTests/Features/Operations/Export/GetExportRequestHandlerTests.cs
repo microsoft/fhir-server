@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenNonSmartRequest_WhenGettingCompletedExportJob_ThenSmartScopeAuthorizerIsInvoked()
+        public async Task GivenNonSmartRequest_WhenGettingCompletedExportJob_ThenJobAccessIsDelegatedToAuthorizer()
         {
             var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(CreateExportJobOutcome(jobRecord));

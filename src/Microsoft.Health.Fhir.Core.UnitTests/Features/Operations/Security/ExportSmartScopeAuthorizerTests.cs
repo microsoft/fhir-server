@@ -84,6 +84,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
+        public void GivenUppercaseSystemScope_WhenValidatingCreateOrJobAccess_ThenForbiddenIsThrown()
+        {
+            ExportSmartScopeAuthorizer validator = CreateAuthorizer(
+                new ScopeRestriction(KnownResourceTypes.Patient, V1ExportRead, "SYSTEM"));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
+
+            Assert.Throws<UnauthorizedFhirActionException>(() =>
+                validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
+        }
+
+        [Fact]
         public void GivenFineGrainedContextWithoutScopeRestrictions_WhenValidatingExportAccess_ThenForbiddenIsThrown()
         {
             // Fine-grained access can be enabled before scopes are parsed, so an empty result must fail closed.

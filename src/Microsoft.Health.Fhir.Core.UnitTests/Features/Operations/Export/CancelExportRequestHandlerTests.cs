@@ -336,7 +336,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenNonSmartRequest_WhenCancelingExportJob_ThenSmartScopeAuthorizerIsInvoked()
+        public async Task GivenNonSmartRequest_WhenCancelingExportJob_ThenJobAccessIsDelegatedToAuthorizer()
         {
             SetupExportJob(OperationStatus.Running);
 
