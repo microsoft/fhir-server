@@ -718,7 +718,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     && newContinuationType.HasValue
                                     && newContinuationId.HasValue
                                     && matchedResourceSurrogateIdStart.HasValue
-                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount))
+                                    && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount || clonedSearchOptions.IncludeContinuationTokenSearch))
                                 {
                                     clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
                                         new object[]
