@@ -490,6 +490,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
                     }
+
+                    // Add compartment info to QueryParams so the SQL parser can generate compartment joins
+                    searchOptions.QueryParams["_compartmentType"] = new List<string> { compartmentType };
+                    searchOptions.QueryParams["_compartmentId"] = new List<string> { compartmentId };
                 }
                 else
                 {

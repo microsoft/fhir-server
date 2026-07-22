@@ -19,8 +19,9 @@ ModelInfoProvider.SetProvider(modelInfoProvider);
 var fhirModel = new FakeSqlServerFhirModel();
 var searchParamDefManager = ParserHelpers.InitializeSearchParameterDefinitionManager(modelInfoProvider);
 var sqlSearchParamDefManager = new SqlSearchParameterDefinitionManager(searchParamDefManager, fhirModel);
+var compartmentDefManager = new FakeCompartmentDefinitionManager();
 var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger<SearchParameterSqlParser>();
-var parser = new SearchParameterSqlParser(sqlSearchParamDefManager, fhirModel, logger);
+var parser = new SearchParameterSqlParser(sqlSearchParamDefManager, fhirModel, compartmentDefManager, logger);
 
 Console.WriteLine("SQL Search Debugger initialized with {0} resource types and {1} search parameters",
     fhirModel.ResourceTypeCount, fhirModel.SearchParamCount);

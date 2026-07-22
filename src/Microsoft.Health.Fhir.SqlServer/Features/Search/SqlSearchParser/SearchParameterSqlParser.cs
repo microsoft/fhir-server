@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
@@ -36,12 +37,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly LastUpdatedSqlParser _lastUpdatedSqlParser;
         private readonly SortSqlParser _sortSqlParser;
         private readonly NotReferencedSqlParser _notReferencedSqlParser;
+        private readonly CompartmentSqlParser _compartmentSqlParser;
         private readonly ILogger<SearchParameterSqlParser> _logger;
 
-        public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel, ILogger<SearchParameterSqlParser> logger)
+        public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel, ICompartmentDefinitionManager compartmentDefinitionManager, ILogger<SearchParameterSqlParser> logger)
         {
             ArgumentNullException.ThrowIfNull(parameterCollection);
             ArgumentNullException.ThrowIfNull(fhirModel);
+            ArgumentNullException.ThrowIfNull(compartmentDefinitionManager);
             ArgumentNullException.ThrowIfNull(logger);
 
             _parameterCollection = parameterCollection;
@@ -76,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _reversedChainSqlParser = new ReversedChainSqlParser(parameterCollection, this, fhirModel);
             _sortSqlParser = new SortSqlParser(parameterCollection);
             _notReferencedSqlParser = new NotReferencedSqlParser(parameterCollection, fhirModel);
+            _compartmentSqlParser = new CompartmentSqlParser(fhirModel, parameterCollection, compartmentDefinitionManager);
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
@@ -181,17 +185,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             parametersCopy.Remove(KnownQueryParameterNames.IncludesContinuationToken);
             parametersCopy.Remove(KnownQueryParameterNames.IncludesCount);
 
+            // Extract compartment parameters
+            string? compartmentType = null;
+            string? compartmentId = null;
+            if (parametersCopy.TryGetValue("_compartmentType", out var compartmentTypeValues))
+            {
+                compartmentType = compartmentTypeValues.FirstOrDefault();
+                parametersCopy.Remove("_compartmentType");
+            }
+
+            if (parametersCopy.TryGetValue("_compartmentId", out var compartmentIdValues))
+            {
+                compartmentId = compartmentIdValues.FirstOrDefault();
+                parametersCopy.Remove("_compartmentId");
+            }
+
             // *********************************************************************** Basic Search Parameters ***********************************************************************
 
-            // If no search parameters, use SystemSqlParser for basic resource retrieval
-            if (parametersCopy.Count == 0)
+            // If compartment search is specified, use it as the base CTE
+            if (!string.IsNullOrEmpty(compartmentType) && !string.IsNullOrEmpty(compartmentId))
+            {
+                parserOptions.CteNumber = cteIndex;
+                _compartmentSqlParser.Parse(compartmentType, compartmentId, parserOptions);
+                lastCteName = $"cte{cteIndex}";
+                parserOptions.LastCteName = lastCteName;
+                cteIndex++;
+            }
+
+            // If no search parameters, use SystemSqlParser for basic resource retrieval (only if no compartment was already set)
+            if (parametersCopy.Count == 0 && lastCteName == null)
             {
                 parserOptions.CteNumber = cteIndex;
                 _systemSqlParser.Parse(string.Empty, string.Empty, parserOptions);
                 lastCteName = $"cte{cteIndex}";
                 cteIndex++;
             }
-            else
+            else if (parametersCopy.Count > 0)
             {
                 foreach (var kvp in parametersCopy)
                 {
