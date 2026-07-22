@@ -40,16 +40,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
         }
 
         [Fact]
-        public void GivenMissingRequestContext_WhenValidatingExportAccess_ThenForbiddenIsThrown()
+        public void GivenMissingRequestContext_WhenAuthorizingExportAccess_ThenRequestedResourceTypeIsReturnedAndJobAccessIsAllowed()
         {
+            _contextAccessor.RequestContext = null;
             var authorizer = new ExportSmartScopeAuthorizer(
                 _contextAccessor,
                 Options.Create(new CoreFeatureConfiguration()));
+            CreateExportRequest request = CreateExportRequest(KnownResourceTypes.Patient);
 
-            Assert.Throws<UnauthorizedFhirActionException>(() =>
-                authorizer.AuthorizeCreateAndResolveResourceType(CreateExportRequest(KnownResourceTypes.Patient)));
-            Assert.Throws<UnauthorizedFhirActionException>(() =>
-                authorizer.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient)));
+            string resourceType = authorizer.AuthorizeCreateAndResolveResourceType(request);
+
+            Assert.Equal(request.ResourceType, resourceType);
+            authorizer.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient));
+        }
+
+        [Fact]
+        public void GivenNonSmartRequest_WhenAuthorizingExportAccess_ThenRequestedResourceTypeIsReturnedAndJobAccessIsAllowed()
+        {
+            ExportSmartScopeAuthorizer authorizer = CreateAuthorizer(
+                enableSmartExportScopeAuthorization: true,
+                isSmartRequest: false);
+            CreateExportRequest request = CreateExportRequest(KnownResourceTypes.Patient);
+
+            string resourceType = authorizer.AuthorizeCreateAndResolveResourceType(request);
+
+            Assert.Equal(request.ResourceType, resourceType);
+            authorizer.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient));
         }
 
         [Theory]
@@ -469,11 +485,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
 
         private ExportSmartScopeAuthorizer CreateAuthorizer(params ScopeRestriction[] scopeRestrictions)
         {
-            return CreateAuthorizer(true, scopeRestrictions);
+            return CreateAuthorizer(enableSmartExportScopeAuthorization: true, isSmartRequest: true, scopeRestrictions);
         }
 
         private ExportSmartScopeAuthorizer CreateAuthorizer(
             bool enableSmartExportScopeAuthorization,
+            params ScopeRestriction[] scopeRestrictions)
+        {
+            return CreateAuthorizer(enableSmartExportScopeAuthorization, isSmartRequest: true, scopeRestrictions);
+        }
+
+        private ExportSmartScopeAuthorizer CreateAuthorizer(
+            bool enableSmartExportScopeAuthorization,
+            bool isSmartRequest,
             params ScopeRestriction[] scopeRestrictions)
         {
             var requestContext = new FhirRequestContext(
@@ -484,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
                 requestHeaders: new Dictionary<string, StringValues>(),
                 responseHeaders: new Dictionary<string, StringValues>());
 
-            requestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            requestContext.AccessControlContext.ApplyFineGrainedAccessControl = isSmartRequest;
             foreach (ScopeRestriction scopeRestriction in scopeRestrictions)
             {
                 requestContext.AccessControlContext.AllowedResourceActions.Add(scopeRestriction);

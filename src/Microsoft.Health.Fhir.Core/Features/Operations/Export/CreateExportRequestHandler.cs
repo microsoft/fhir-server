@@ -86,11 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
 
+            // The authorizer applies SMART scope checks when applicable; otherwise it returns the requested resource type.
             AccessControlContext accessControlContext = _contextAccessor?.RequestContext?.AccessControlContext;
             bool smartRequest = accessControlContext?.ApplyFineGrainedAccessControl == true;
-            string resourceTypeToPersist = smartRequest
-                ? _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request)
-                : request.ResourceType;
+            string resourceTypeToPersist = _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request);
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 

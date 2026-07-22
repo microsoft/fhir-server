@@ -11,10 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -27,23 +25,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
 
         public GetExportRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IExportSmartScopeAuthorizer exportSmartScopeAuthorizer)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
-            _contextAccessor = contextAccessor;
             _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
         }
 
@@ -55,16 +49,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            // The authorizer applies SMART scope checks when applicable; otherwise this is a no-op.
+            try
             {
-                try
-                {
-                    _exportSmartScopeAuthorizer.AuthorizeJobAccess(outcome.JobRecord);
-                }
-                catch (UnauthorizedFhirActionException)
-                {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
-                }
+                _exportSmartScopeAuthorizer.AuthorizeJobAccess(outcome.JobRecord);
+            }
+            catch (UnauthorizedFhirActionException)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
             }
 
             // We have an existing job. We will determine the response based on the status of the export operation.

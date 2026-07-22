@@ -384,27 +384,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _exportSmartScopeAuthorizer.Received(1).AuthorizeCreateAndResolveResourceType(request);
         }
 
-        [Theory]
-        [InlineData("Patient")]
-        [InlineData(null)]
-        public async Task GivenNonSmartRequest_WhenCreatingAnExportJob_ThenRequestedResourceTypeIsPersistedWithoutSmartAuthorization(string resourceType)
+        [Fact]
+        public async Task GivenNonSmartRequest_WhenCreatingAnExportJob_ThenRequestedResourceTypeIsPersisted()
         {
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
                 Arg.Do<ExportJobRecord>(record => actualRecord = record),
                 Arg.Any<CancellationToken>());
 
-            // When _type and _typeFilter are omitted, a non-SMART export remains unconstrained rather than
-            // receiving the inferred resource-type subset used for SMART requests.
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: resourceType, filters: null);
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
+            _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request).Returns(request.ResourceType);
 
             CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.NotNull(actualRecord);
-            Assert.Equal(resourceType, actualRecord.ResourceType);
-            Assert.Empty(actualRecord.Filters);
-            _exportSmartScopeAuthorizer.DidNotReceive().AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>());
+            Assert.Equal("Patient", actualRecord.ResourceType);
+            _exportSmartScopeAuthorizer.Received(1).AuthorizeCreateAndResolveResourceType(request);
         }
 
         [Theory]

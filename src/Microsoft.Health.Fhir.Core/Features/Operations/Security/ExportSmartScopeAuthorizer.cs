@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (!_coreFeatureConfiguration.EnableSmartExportScopeAuthorization)
+            if (!ShouldRunAuthorizeSmartExportLogic())
             {
                 return request.ResourceType;
             }
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
-            if (!_coreFeatureConfiguration.EnableSmartExportScopeAuthorization)
+            if (!ShouldRunAuthorizeSmartExportLogic())
             {
                 return;
             }
@@ -106,6 +106,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             requiredResourceTypes.UnionWith(GetRouteRequiredResourceTypes(exportJobRecord.ExportType));
 
             EnsureCompleteExportReadAccess(systemScopes, requiredResourceTypes);
+        }
+
+        /// <summary>
+        /// Determines whether SMART export scope authorization applies to the current request.
+        /// </summary>
+        private bool ShouldRunAuthorizeSmartExportLogic()
+        {
+            return _coreFeatureConfiguration.EnableSmartExportScopeAuthorization
+                && _requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true;
         }
 
         /// <summary>

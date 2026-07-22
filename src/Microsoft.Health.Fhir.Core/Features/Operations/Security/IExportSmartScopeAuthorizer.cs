@@ -14,17 +14,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
     public interface IExportSmartScopeAuthorizer
     {
         /// <summary>
-        /// Authorizes a SMART request to create an export job and determines the resource types to persist on it.
+        /// Authorizes an export request to create a job and determines the resource types to persist on it.
         /// </summary>
         /// <param name="request">The export request.</param>
         /// <returns>
-        /// The canonical comma-separated resource types to persist on the export job, or <c>null</c> when the
-        /// export is unconstrained.
+        /// The canonical comma-separated resource types to persist on the export job, or the request's resource
+        /// types when SMART scope authorization does not apply.
         /// </returns>
         string AuthorizeCreateAndResolveResourceType(CreateExportRequest request);
 
         /// <summary>
-        /// Authorizes a SMART request to access an existing export job.
+        /// Authorizes access to an existing export job when SMART scope authorization applies.
         /// </summary>
         /// <param name="exportJobRecord">The export job.</param>
         void AuthorizeJobAccess(ExportJobRecord exportJobRecord);
