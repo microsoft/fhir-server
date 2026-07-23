@@ -36,11 +36,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(memberMatchService, nameof(memberMatchService));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _memberMatchService = memberMatchService;
             _authorizationService = authorizationService;
             _requestContextAccessor = requestContextAccessor;
-            _coreFeatures = coreFeatures.Value;
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public async Task<MemberMatchResponse> HandleAsync(MemberMatchRequest request, CancellationToken cancellationToken)
