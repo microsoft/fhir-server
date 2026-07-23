@@ -159,6 +159,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             sql.And($"({string.Join("\n          OR ", orConditions)})");
 
+            // Apply continuation token for pagination
+            if (options.ContinuationToken != null)
+            {
+                sql.And($"r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
+
+                if (options.ContinuationToken.ResourceTypeId != null)
+                {
+                    sql.And($"r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
+                }
+            }
+
             sql.EndCte();
         }
     }
