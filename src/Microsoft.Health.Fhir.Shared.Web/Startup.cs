@@ -258,6 +258,25 @@ namespace Microsoft.Health.Fhir.Web
                 options.RequireHttpsMetadata = true;
                 options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
             });
+
+            for (int i = 0; i < securityConfiguration.AdditionalAuthenticationAuthorities.Count; i++)
+            {
+                string authority = securityConfiguration.AdditionalAuthenticationAuthorities[i];
+                if (string.IsNullOrWhiteSpace(authority))
+                {
+                    continue;
+                }
+
+                services.AddAuthentication()
+                    .AddJwtBearer($"{SecurityConfiguration.AdditionalAuthenticationSchemePrefix}{i}", options =>
+                    {
+                        options.Authority = authority;
+                        options.Audience = securityConfiguration.Authentication.Audience;
+                        options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
+                        options.MapInboundClaims = false;
+                        options.RequireHttpsMetadata = true;
+                    });
+            }
         }
 
         /// <summary>

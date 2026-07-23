@@ -28,5 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string TestIntegrationStoreUri = "TestIntegrationStoreUri";
         public const string TestProxyForwardedHost = "TestProxyForwardedHost";
         public const string TestProxyForwardedPrefix = "TestProxyForwardedPrefix";
+        public const string TestSmartTokenIssuer = "TestSmartTokenIssuer";
+        public const string TestSmartTokenPrivateKey = "TestSmartTokenPrivateKey";
     }
 }

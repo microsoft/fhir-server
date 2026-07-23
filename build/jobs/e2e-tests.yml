@@ -52,6 +52,8 @@ steps:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
       'TestTokenEndpoint': $(TestTokenEndpoint)
+      'TestSmartTokenIssuer': $(TestSmartTokenIssuer)
+      'TestSmartTokenPrivateKey': $(TestSmartTokenPrivateKey)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
