@@ -17,7 +17,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-// #disable-next-line BCP081
+#disable-next-line BCP081
 resource staticWebsite 'Microsoft.Storage/storageAccounts/staticWebsite@2023-05-01' = {
   parent: storageAccount
   name: 'default'
