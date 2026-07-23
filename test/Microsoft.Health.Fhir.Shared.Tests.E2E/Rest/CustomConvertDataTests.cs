@@ -9,12 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -27,8 +24,11 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// Tests using customized template set will not run without extra container registry info
-    /// since there is no acr emulator.
+    /// Tests using a customized template set uploaded to Azure Container Registry.
+    /// Remote runs require federated ACR configuration via environment variables consumed by
+    /// <see cref="ContainerRegistryTemplateUploader.CreateFromEnvironment"/>; missing configuration
+    /// is a hard failure, not a skip.  Tests are skipped only when running against an in-process
+    /// test server because no ACR emulator is available in that environment.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.CustomConvertData)]
