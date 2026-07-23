@@ -90,9 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var mockClient = Substitute.For<ContainerRegistryContentClient>();
             var uploader = new ContainerRegistryTemplateUploader(mockClient, "test.azurecr.io");
+            using var stream = new MemoryStream();
 
             await Assert.ThrowsAsync<ArgumentException>(
-                () => uploader.UploadTemplateSetAsync(new MemoryStream(), tag));
+                () => uploader.UploadTemplateSetAsync(stream, tag));
         }
 
         [Fact]
@@ -100,9 +101,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var mockClient = Substitute.For<ContainerRegistryContentClient>();
             var uploader = new ContainerRegistryTemplateUploader(mockClient, "test.azurecr.io");
+            using var stream = new MemoryStream();
 
             await Assert.ThrowsAsync<ArgumentNullException>(
-                () => uploader.UploadTemplateSetAsync(new MemoryStream(), null));
+                () => uploader.UploadTemplateSetAsync(stream, null));
         }
 
         [Fact]
@@ -176,7 +178,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 });
 
             // Act
-            await uploader.UploadTemplateSetAsync(new MemoryStream([1, 2, 3]), "v1");
+            using var stream = new MemoryStream([1, 2, 3]);
+            await uploader.UploadTemplateSetAsync(stream, "v1");
 
             // Assert
             Assert.NotNull(capturedManifest);
