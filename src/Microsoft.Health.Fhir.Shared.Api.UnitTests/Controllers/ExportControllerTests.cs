@@ -141,22 +141,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Observation.ToString()));
         }
 
-        [Fact]
-        public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(KnownResourceTypes.Patient)]
+        [InlineData(KnownResourceTypes.Observation)]
+        public async Task GivenNonGroupInstanceExport_WhenRequested_ThenRequestNotValidExceptionShouldBeThrown(string resourceType)
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
-                typeFilter: null,
-                since: null,
-                till: null,
-                resourceType: null,
-                containerName: null,
-                formatName: null,
-                maxCount: 0,
-                anonymizationConfigCollectionReference: null,
-                anonymizationConfigLocation: null,
-                anonymizationConfigFileETag: null,
-                typeParameter: ResourceType.Patient.ToString(),
-                idParameter: "id"));
+            // Group/{id}/$export is the only supported instance-level export. This does not prevent a system-level
+            // $export from selecting one patient with _type=Patient and _typeFilter=Patient?_id={id}.
+            await Assert.ThrowsAsync<RequestNotValidException>(() =>
+                _exportEnabledController.ExportResourceTypeById(
+                   typeFilter: null,
+                   since: null,
+                   till: null,
+                   resourceType: null,
+                   containerName: null,
+                   formatName: null,
+                   maxCount: 0,
+                   anonymizationConfigCollectionReference: null,
+                   anonymizationConfigLocation: null,
+                   anonymizationConfigFileETag: null,
+                   typeParameter: resourceType,
+                   idParameter: "123"));
         }
 
         [Fact]

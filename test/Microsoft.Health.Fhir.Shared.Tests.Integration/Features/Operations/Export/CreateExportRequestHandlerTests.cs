@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _exportSmartScopeAuthorizer = Substitute.For<IExportSmartScopeAuthorizer>();
 
             _createExportRequestHandler = new CreateExportRequestHandler(
                 _claimsExtractor,
@@ -93,6 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 optionsExportConfig,
                 _requestContextAccessor,
                 _searchOptionsFactory,
+                _exportSmartScopeAuthorizer,
                 Substitute.For<ILogger<CreateExportRequestHandler>>(),
                 true);
         }
@@ -356,6 +360,49 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
+        [Fact]
+        public async Task GivenSmartScopeValidatorReturnsInferredResourceType_WhenCreatingAnExportJob_ThenInferredResourceTypeIsPersisted()
+        {
+            // A SMART request without an explicit _type can be authorized against a narrowed, inferred subset of
+            // resource types. That effective subset must be the one persisted on the job record, so that status
+            // and cancel checks are enforced against the same narrowed set going forward.
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+
+            EnableFineGrainedAccessControl();
+            _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(Arg.Any<CreateExportRequest>()).Returns("Observation,Patient");
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.NotNull(actualRecord);
+            Assert.Equal("Observation,Patient", actualRecord.ResourceType);
+            _exportSmartScopeAuthorizer.Received(1).AuthorizeCreateAndResolveResourceType(request);
+        }
+
+        [Fact]
+        public async Task GivenNonSmartRequest_WhenCreatingAnExportJob_ThenRequestedResourceTypeIsPersisted()
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record => actualRecord = record),
+                Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, resourceType: "Patient");
+            _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request).Returns(request.ResourceType);
+
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.NotNull(actualRecord);
+            Assert.Equal("Patient", actualRecord.ResourceType);
+            _exportSmartScopeAuthorizer.Received(1).AuthorizeCreateAndResolveResourceType(request);
+        }
+
         [Theory]
         [InlineData("test1", ExportFormatTags.ResourceName)]
         [InlineData(null, ExportFormatTags.Id)]
@@ -616,6 +663,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
             _ = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
             _searchOptionsFactory.DidNotReceiveWithAnyArgs();
+        }
+
+        private void EnableFineGrainedAccessControl()
+        {
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.AccessControlContext.Returns(new AccessControlContext
+            {
+                ApplyFineGrainedAccessControl = true,
+            });
+            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
         /// <summary>

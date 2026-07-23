@@ -169,5 +169,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// $member-match is allowed for SMART requests, matching non-SMART behavior.
         /// </summary>
         public bool EnableSmartMemberMatchRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.
+        /// </summary>
+        public bool EnableSmartExportScopeAuthorization { get; set; } = true;
     }
 }
