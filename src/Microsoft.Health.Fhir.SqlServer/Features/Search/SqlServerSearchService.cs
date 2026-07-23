@@ -2521,7 +2521,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var sqlCompartmentSearchRewriter = (SqlCompartmentSearchRewriter)_compartmentSearchRewriter;
             SmartCompartmentMembershipContext membership =
-                SmartCompartmentMembershipContextFactory.Create(coreExpression, sqlCompartmentSearchRewriter);
+                SmartCompartmentMembershipContextFactory.Create(coreExpression, sqlCompartmentSearchRewriter, _smartCompartmentSearchRewriter);
 
             if (membership == null)
             {

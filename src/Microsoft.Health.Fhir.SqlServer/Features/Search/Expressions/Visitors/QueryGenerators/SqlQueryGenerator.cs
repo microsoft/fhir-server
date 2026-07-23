@@ -1385,6 +1385,71 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 scope.Append("))");
             }
 
+            if (!membership.ConditionalRules.IsDefaultOrEmpty)
+            {
+                // Conditional-visibility legs (for example the SMART Device limits). Each rule authorizes a candidate
+                // of a given resource type that either references the compartment root (own device) or has no
+                // reference at all (unassigned device). Candidates that satisfy neither (for example a device
+                // assigned to a different patient) are excluded, closing the _include/_revinclude leak. This loop is
+                // generic: the rules are data supplied by SmartCompartmentSearchRewriter.GetConditionalCompartmentRules,
+                // so no resource-type-specific logic lives here.
+                for (int conditionalIndex = 0; conditionalIndex < membership.ConditionalRules.Length; conditionalIndex++)
+                {
+                    SmartCompartmentConditionalMembershipRule rule = membership.ConditionalRules[conditionalIndex];
+                    string conditionalAlias = "smartCompartmentConditional" + conditionalIndex.ToString(CultureInfo.InvariantCulture);
+
+                    object ruleResourceTypeId = Parameters.AddParameter(
+                        VLatest.Resource.ResourceTypeId,
+                        Model.GetResourceTypeId(rule.ResourceType),
+                        true);
+                    object ruleSearchParamId = Parameters.AddParameter(
+                        VLatest.ReferenceSearchParam.SearchParamId,
+                        Model.GetSearchParamId(new Uri(rule.ReferenceSearchParameterUrl)),
+                        true);
+
+                    scope.Append(" OR (")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" = ")
+                        .Append(ruleResourceTypeId)
+                        .Append(" AND ");
+
+                    scope.Append(rule.Visibility == SmartCompartmentConditionalVisibility.HasNoReference ? "NOT EXISTS" : "EXISTS")
+                        .Append(" (SELECT 1 FROM ")
+                        .Append(VLatest.ReferenceSearchParam)
+                        .Append(' ')
+                        .Append(conditionalAlias)
+                        .Append(" WHERE ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceSurrogateId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(ruleSearchParamId);
+
+                    if (rule.Visibility == SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot)
+                    {
+                        scope.Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceTypeId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.BaseUri, conditionalAlias)
+                            .Append(" IS NULL");
+                    }
+
+                    scope.Append("))");
+                }
+            }
+
             scope.Append(")");
         }
 

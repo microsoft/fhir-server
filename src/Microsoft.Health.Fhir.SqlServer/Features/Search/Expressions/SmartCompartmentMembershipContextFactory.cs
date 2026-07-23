@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public static SmartCompartmentMembershipContext Create(
             Expression expression,
-            SqlCompartmentSearchRewriter compartmentSearchRewriter)
+            SqlCompartmentSearchRewriter compartmentSearchRewriter,
+            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter = null)
         {
             SmartCompartmentSearchExpression smartCompartment = FindSmartCompartment(expression);
             if (smartCompartment == null)
@@ -48,11 +49,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                 .Where(rule => !rule.SearchParameterUrls.IsDefaultOrEmpty)
                 .ToImmutableArray();
 
+            // Conditional-visibility rules (for example the SMART Device limits) come from the same single source
+            // of truth the compartment union uses (SmartCompartmentSearchRewriter.GetConditionalCompartmentRules),
+            // so the union path and this candidate predicate cannot drift. A type governed by a conditional rule is
+            // NOT universally shared: it is authorized only by its conditional leg in the SQL generator (own device
+            // referencing the compartment root, or unassigned device with no patient reference).
+            IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules =
+                smartCompartmentSearchRewriter?.GetConditionalCompartmentRules(smartCompartment.CompartmentType)
+                ?? Array.Empty<SmartCompartmentConditionalRule>();
+
+            ImmutableArray<SmartCompartmentConditionalMembershipRule> conditionalMembershipRules = conditionalRules
+                .Select(rule => new SmartCompartmentConditionalMembershipRule(
+                    rule.ResourceType,
+                    rule.ReferenceSearchParameter.Url.AbsoluteUri,
+                    rule.Visibility))
+                .ToImmutableArray();
+
+            var conditionallyVisibleTypes = conditionalRules
+                .Select(rule => rule.ResourceType)
+                .ToHashSet(StringComparer.Ordinal);
+
+            ImmutableArray<string> sharedResourceTypes = conditionallyVisibleTypes.Count == 0
+                ? SharedResourceTypes
+                : SharedResourceTypes
+                    .Where(resourceType => !conditionallyVisibleTypes.Contains(resourceType))
+                    .ToImmutableArray();
+
             return new SmartCompartmentMembershipContext(
                 smartCompartment.CompartmentType,
                 smartCompartment.CompartmentId,
-                SharedResourceTypes,
-                rules);
+                sharedResourceTypes,
+                rules,
+                conditionalMembershipRules);
         }
 
         private static SmartCompartmentSearchExpression FindSmartCompartment(Expression expression)

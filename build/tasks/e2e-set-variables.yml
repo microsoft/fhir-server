@@ -125,6 +125,7 @@ steps:
         }
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
+        Write-Host "##vso[task.setvariable variable=TestTokenEndpoint]https://login.microsoftonline.com/$(tenant-id-guid)/oauth2/token"
 
         Set-SecretsAsPipelineVariables -VaultName resolute-oss-tenant-info
 

@@ -78,7 +78,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet9
+  - job: Windows_dotnet10
     pool:
       name: '$(InternalPool)'
       demands:
@@ -91,17 +91,6 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet8
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalLinuxImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: 'net8.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'

@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -17,13 +19,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SmartCompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
     {
+        private const string DevicePatientSearchParameterCode = "patient";
+
         private readonly Lazy<ISearchParameterDefinitionManager> _searchParameterDefinitionManager;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
-        public SmartCompartmentSearchRewriter(CompartmentSearchRewriter compartmentSearchRewriter, Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
+        public SmartCompartmentSearchRewriter(
+            CompartmentSearchRewriter compartmentSearchRewriter,
+            Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _compartmentSearchRewriter = EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         /// <summary>
@@ -65,11 +74,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             expressionForResourceItself.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentType, false)));
             expressionList.Add(Expression.And(expressionForResourceItself.ToArray()));
 
-            // Finally we add in the "universal" resources, which are resources that are not compartment specific
-            var universalResourceTypes = UniversalResourceTypes.ToList();
+            // Some resource types have conditional visibility within the compartment (neither plainly universal nor
+            // a plain formal member). GetConditionalCompartmentRules is the single source of truth for those rules;
+            // it is consumed here to build the union legs and by SmartCompartmentMembershipContextFactory to build
+            // the SQL include/revinclude candidate predicate, so the two paths cannot drift.
+            IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules = GetConditionalCompartmentRules(compartmentType);
+            var conditionallyVisibleTypes = conditionalRules
+                .Select(rule => rule.ResourceType)
+                .ToHashSet(StringComparer.Ordinal);
+
+            // Finally we add in the "universal" resources, which are resources that are not compartment specific.
+            // Any type governed by a conditional rule is excluded here and contributed by the conditional legs below
+            // instead. UniversalResourceTypes remains the single source of truth for the base universal set (it still
+            // includes Device for consumers such as SmartCompartmentMembershipContextFactory).
+            var universalResourceTypes = UniversalResourceTypes
+                .Where(resourceType => !conditionallyVisibleTypes.Contains(resourceType))
+                .ToList();
 
             // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
-            if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
+            bool hasResourceTypeFilter = expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal));
+            if (hasResourceTypeFilter)
             {
                 universalResourceTypes = universalResourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToList();
             }
@@ -87,8 +111,83 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
 
+            foreach (SmartCompartmentConditionalRule rule in conditionalRules)
+            {
+                if (hasResourceTypeFilter && !expression.FilteredResourceTypes.Contains(rule.ResourceType, StringComparer.Ordinal))
+                {
+                    continue;
+                }
+
+                switch (rule.Visibility)
+                {
+                    case SmartCompartmentConditionalVisibility.HasNoReference:
+                        // Resources with no value for the reference parameter are visible in every smart compartment.
+                        // NotReferencingExpression is only supported by the SQL query generator (Cosmos DB support is retired).
+                        expressionList.Add(Expression.NotReferencing(rule.ResourceType, rule.ReferenceSearchParameter));
+                        break;
+
+                    case SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot:
+                        // Resources referencing the compartment root. Same shape as the compartment leg built by
+                        // SqlCompartmentSearchRewriter: an indexed seek on ReferenceSearchParam.
+                        var typeRestriction = Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, rule.ResourceType, false));
+                        expressionList.Add(Expression.And(
+                            Expression.SearchParameter(rule.ReferenceSearchParameter, typeRestriction),
+                            Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
+                            Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
+                        break;
+                }
+            }
+
             // union all those results together
             return Expression.Union(UnionOperator.All, expressionList);
+        }
+
+        /// <summary>
+        /// Determines whether the SMART Device compartment restriction applies for the current configuration.
+        /// When it applies, Device is not treated as a universally shared resource; instead only devices that
+        /// reference the compartment root (via Device.patient) or that have no patient reference at all are
+        /// visible. The restriction relies on SQL-only expression support, so it is gated on the SQL compartment
+        /// rewriter (Cosmos DB support is retired).
+        /// </summary>
+        /// <param name="devicePatientSearchParameter">The resolved Device.patient reference search parameter when the restriction applies; otherwise null.</param>
+        /// <returns><c>true</c> when the Device restriction applies; otherwise <c>false</c>.</returns>
+        public bool ShouldRestrictDevices(out SearchParameterInfo devicePatientSearchParameter)
+        {
+            devicePatientSearchParameter = null;
+            return _coreFeatures.EnableSmartCompartmentDeviceRestriction &&
+                _compartmentSearchRewriter is SqlCompartmentSearchRewriter &&
+                _searchParameterDefinitionManager.Value.TryGetSearchParameter(KnownResourceTypes.Device, DevicePatientSearchParameterCode, out devicePatientSearchParameter);
+        }
+
+        /// <summary>
+        /// Builds the declarative conditional-visibility rules for the given compartment. This is the single source
+        /// of truth for resource types whose compartment visibility is conditional; it is consumed both by the
+        /// compartment union (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude candidate
+        /// authorization predicate (via SmartCompartmentMembershipContextFactory), so the two paths cannot drift.
+        /// </summary>
+        /// <param name="compartmentType">The compartment root resource type (for example, Patient or Practitioner).</param>
+        /// <returns>The conditional rules that apply for the compartment; empty when none apply.</returns>
+        public IReadOnlyList<SmartCompartmentConditionalRule> GetConditionalCompartmentRules(string compartmentType)
+        {
+            if (!ShouldRestrictDevices(out SearchParameterInfo devicePatientSearchParameter))
+            {
+                return Array.Empty<SmartCompartmentConditionalRule>();
+            }
+
+            var rules = new List<SmartCompartmentConditionalRule>
+            {
+                // Devices with no Device.patient reference are visible in every smart compartment.
+                new SmartCompartmentConditionalRule(KnownResourceTypes.Device, devicePatientSearchParameter, SmartCompartmentConditionalVisibility.HasNoReference),
+            };
+
+            // Devices assigned to the patient (Device.patient references the compartment root) are visible only in
+            // the Patient compartment; Device.patient can never reference a non-Patient root.
+            if (string.Equals(compartmentType, KnownResourceTypes.Patient, StringComparison.Ordinal))
+            {
+                rules.Add(new SmartCompartmentConditionalRule(KnownResourceTypes.Device, devicePatientSearchParameter, SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot));
+            }
+
+            return rules;
         }
     }
 }

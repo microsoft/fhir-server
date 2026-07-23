@@ -5,7 +5,7 @@
 
 using System;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
