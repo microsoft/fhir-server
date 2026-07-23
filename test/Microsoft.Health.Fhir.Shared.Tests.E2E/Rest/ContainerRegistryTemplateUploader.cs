@@ -56,7 +56,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string configDigest = configResult.Value.Digest;
             long configSize = configResult.Value.SizeInBytes;
 
-            // Upload template layer blob
+            // Upload template layer blob — reset seekable streams to avoid silently truncated artifacts
+            if (templateLayer.CanSeek)
+            {
+                templateLayer.Position = 0;
+            }
+
             var layerResult = await _client.UploadBlobAsync(templateLayer, cancellationToken);
             string layerDigest = layerResult.Value.Digest;
             long layerSize = layerResult.Value.SizeInBytes;

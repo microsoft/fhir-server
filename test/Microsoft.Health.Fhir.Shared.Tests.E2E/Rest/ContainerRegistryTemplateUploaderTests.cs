@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using Azure.Containers.ContainerRegistry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -110,6 +112,80 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var uploader = new ContainerRegistryTemplateUploader(mockClient, "myregistry.azurecr.io");
 
             Assert.Equal("myregistry.azurecr.io", uploader.RegistryServer);
+        }
+
+        [Fact]
+        public async Task UploadTemplateSetAsync_WhenSeekableStreamPositionedAtEnd_ResetsPositionToZeroBeforeUpload()
+        {
+            // Arrange
+            var mockClient = Substitute.For<ContainerRegistryContentClient>();
+            var uploader = new ContainerRegistryTemplateUploader(mockClient, "test.azurecr.io");
+
+            byte[] data = [1, 2, 3, 4, 5];
+            using var stream = new MemoryStream(data);
+            stream.Position = data.Length; // deliberately positioned at end
+
+            long capturedLayerPosition = -1;
+            int uploadCallCount = 0;
+
+            mockClient.UploadBlobAsync(Arg.Any<Stream>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    uploadCallCount++;
+                    if (uploadCallCount == 2) // second call is the template layer
+                    {
+                        capturedLayerPosition = callInfo.Arg<Stream>().Position;
+                    }
+
+                    var result = ContainerRegistryModelFactory.UploadRegistryBlobResult("sha256:test", data.Length);
+                    return Task.FromResult(Response.FromValue(result, Substitute.For<Response>()));
+                });
+
+            // Act
+            await uploader.UploadTemplateSetAsync(stream, "v1");
+
+            // Assert
+            Assert.Equal(0L, capturedLayerPosition);
+        }
+
+        [Fact]
+        public async Task UploadTemplateSetAsync_PassesUploadResultDigestsAndSizesToSetManifest()
+        {
+            // Arrange
+            var mockClient = Substitute.For<ContainerRegistryContentClient>();
+            var uploader = new ContainerRegistryTemplateUploader(mockClient, "test.azurecr.io");
+
+            int uploadCallCount = 0;
+            mockClient.UploadBlobAsync(Arg.Any<Stream>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    uploadCallCount++;
+                    string digest = uploadCallCount == 1 ? "sha256:configdigest" : "sha256:layerdigest";
+                    long size = uploadCallCount == 1 ? 2L : 500L;
+                    var result = ContainerRegistryModelFactory.UploadRegistryBlobResult(digest, size);
+                    return Task.FromResult(Response.FromValue(result, Substitute.For<Response>()));
+                });
+
+            BinaryData capturedManifest = null;
+            mockClient.SetManifestAsync(Arg.Any<BinaryData>(), Arg.Any<string>(), Arg.Any<ManifestMediaType?>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    capturedManifest = callInfo.Arg<BinaryData>();
+                    var setResult = ContainerRegistryModelFactory.SetManifestResult("sha256:manifest");
+                    return Task.FromResult(Response.FromValue(setResult, Substitute.For<Response>()));
+                });
+
+            // Act
+            await uploader.UploadTemplateSetAsync(new MemoryStream([1, 2, 3]), "v1");
+
+            // Assert
+            Assert.NotNull(capturedManifest);
+            using JsonDocument doc = JsonDocument.Parse(capturedManifest.ToString());
+            JsonElement root = doc.RootElement;
+            Assert.Equal("sha256:configdigest", root.GetProperty("config").GetProperty("digest").GetString());
+            Assert.Equal(2L, root.GetProperty("config").GetProperty("size").GetInt64());
+            Assert.Equal("sha256:layerdigest", root.GetProperty("layers")[0].GetProperty("digest").GetString());
+            Assert.Equal(500L, root.GetProperty("layers")[0].GetProperty("size").GetInt64());
         }
     }
 }
