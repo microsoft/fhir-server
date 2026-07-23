@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var notExistsClause = string.Join(" AND ", notExistsConditions);
             sqlBuilder.Where($"NOT EXISTS (SELECT 1 FROM dbo.ReferenceSearchParam ref WHERE {notExistsClause})");
 
-            ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "res");
+            ParserUtil.AddFirstCteFilters(sqlBuilder, options, "r");
             sqlBuilder.EndCte();
         }
     }

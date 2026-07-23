@@ -153,35 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             // Add base filters only on the first CTE
-            if (options.LastCteName == null)
-            {
-                builder.And("r.IsHistory = 0");
-                builder.And("r.IsDeleted = 0");
-
-                if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
-                {
-                    var resourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    builder.And($"r.ResourceTypeId IN ({resourceTypeIds})");
-                }
-
-                if (options.ExcludedResourceTypes != null && options.ExcludedResourceTypes.Count > 0)
-                {
-                    var excludedResourceTypeIds = string.Join(", ", options.ExcludedResourceTypes);
-                    builder.And($"r.ResourceTypeId NOT IN ({excludedResourceTypeIds})");
-                }
-
-                if (options.ContinuationToken != null)
-                {
-                    var surrogateOperator = options.SortDescending ? "<" : ">";
-                    builder.And($"r.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
-
-                    if (options.ContinuationToken.ResourceTypeId != null)
-                    {
-                        var typeOperator = options.SortDescending ? "<" : ">";
-                        builder.And($"r.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
-                    }
-                }
-            }
+            ParserUtil.AddFirstCteFilters(builder, options, "r");
 
             builder.DecreaseIndent();
             builder.EndCte();

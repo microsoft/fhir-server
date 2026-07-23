@@ -42,15 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             }
 
             // Add continuation token support
-            if (options.ContinuationToken != null)
-            {
-                sqlBuilder.And($"r.ResourceSurrogateId {(options.SortDescending ? "<" : ">")} {options.ContinuationToken.ResourceSurrogateId}");
-
-                if (options.ContinuationToken.ResourceTypeId != null)
-                {
-                    sqlBuilder.And($"r.ResourceTypeId {(options.SortDescending ? "<" : ">")}= {options.ContinuationToken.ResourceTypeId}");
-                }
-            }
+            ParserUtil.AddFirstCteFilters(sqlBuilder, options, "r");
 
             sqlBuilder.EndCte();
         }

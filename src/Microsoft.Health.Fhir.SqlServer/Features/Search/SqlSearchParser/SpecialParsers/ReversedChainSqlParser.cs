@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             builder.Where($"refSource.SearchParamId = {referenceParameter.Id}");
             builder.And($"refSource.ResourceTypeId = {sourceResourceTypeId}");
-            ParserUtil.AddHistoryAndDeletedCheck(builder, "refTarget");
+            ParserUtil.AddFirstCteFilters(builder, options, "refTarget");
 
             // Add base filters on the first level
             if (options.LastCteName == null)

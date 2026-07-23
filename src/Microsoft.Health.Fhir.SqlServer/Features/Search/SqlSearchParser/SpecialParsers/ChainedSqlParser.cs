@@ -87,28 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             // Add base filters only on the first CTE
-            if (options.LastCteName == null)
-            {
-                ParserUtil.AddHistoryAndDeletedCheck(builder, "source");
-
-                if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
-                {
-                    var sourceResourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    builder.And($"source.ResourceTypeId IN ({sourceResourceTypeIds})");
-                }
-
-                if (options.ContinuationToken != null)
-                {
-                    var surrogateOperator = options.SortDescending ? "<" : ">";
-                    builder.And($"source.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
-
-                    if (options.ContinuationToken.ResourceTypeId != null)
-                    {
-                        var typeOperator = options.SortDescending ? "<" : ">";
-                        builder.And($"source.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
-                    }
-                }
-            }
+            ParserUtil.AddFirstCteFilters(builder, options, "source");
 
             if (!remainingChain.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
             {
