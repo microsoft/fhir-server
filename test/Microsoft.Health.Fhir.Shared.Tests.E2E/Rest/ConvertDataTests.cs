@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             _testFhirClient = fixture.TestFhirClient;
             var convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
-            _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
+            _convertDataEnabled = ConvertDataTestMode.IsEnabled(fixture.IsUsingInProcTestServer, convertDataConfiguration?.Enabled ?? false);
         }
 
         [SkippableTheory]
