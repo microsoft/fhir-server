@@ -5,20 +5,12 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)] [string] $ResourceGroup,
     [Parameter(Mandatory = $true)] [string] $KeyVaultName,
-    [Parameter(Mandatory = $true)] [string] $Location
+    [Parameter(Mandatory = $true)] [string] $Issuer,
+    [Parameter(Mandatory = $true)] [string] $StorageAccountName
 )
 
 $ErrorActionPreference = 'Stop'
-
-function Get-StorageAccountName {
-    param([string] $ResourceGroupName)
-
-    $hash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($ResourceGroupName.ToLowerInvariant()))
-    $suffix = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 15).ToLowerInvariant()
-    return "fhirsmart$suffix"
-}
 
 function ConvertTo-Base64Url {
     param([byte[]] $Bytes)
@@ -49,29 +41,7 @@ function Get-Jwks {
     }
 }
 
-$storageAccountName = Get-StorageAccountName -ResourceGroupName $ResourceGroup
-$storageAccount = Get-AzStorageAccount -ResourceGroupName $ResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
-if ($null -eq $storageAccount) {
-    Write-Host "Creating SMART test OIDC storage account '$storageAccountName'."
-    try {
-        $storageAccount = New-AzStorageAccount `
-            -ResourceGroupName $ResourceGroup `
-            -Name $storageAccountName `
-            -Location $Location `
-            -SkuName Standard_LRS `
-            -Kind StorageV2 `
-            -AllowBlobPublicAccess $true `
-            -ErrorAction Stop
-    }
-    catch {
-        $storageAccount = Get-AzStorageAccount -ResourceGroupName $ResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
-        if ($null -eq $storageAccount) {
-            throw
-        }
-    }
-}
-
-$issuer = ([string]$storageAccount.PrimaryEndpoints.Web).TrimEnd('/')
+$issuer = $Issuer.TrimEnd('/')
 $privateKeySecret = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -ErrorAction SilentlyContinue
 
 if ($null -eq $privateKeySecret) {
@@ -108,11 +78,9 @@ $oidcConfiguration = @{
     id_token_signing_alg_values_supported = @('RS256')
 } | ConvertTo-Json -Depth 4 -Compress
 
-$storageKey = (Get-AzStorageAccountKey -ResourceGroupName $ResourceGroup -Name $storageAccountName -ErrorAction Stop | Select-Object -First 1).Value
-$storageContext = New-AzStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageKey
-Enable-AzStorageStaticWebsite -Context $storageContext -IndexDocument 'index.html' | Out-Null
+$storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount
 
-$temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fhir-smart-idp-$storageAccountName"
+$temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fhir-smart-idp-$StorageAccountName"
 New-Item -ItemType Directory -Path (Join-Path $temporaryDirectory '.well-known') -Force | Out-Null
 Set-Content -Path (Join-Path $temporaryDirectory 'jwks.json') -Value $jwks -NoNewline
 Set-Content -Path (Join-Path $temporaryDirectory '.well-known/openid-configuration') -Value $oidcConfiguration -NoNewline

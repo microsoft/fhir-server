@@ -61,11 +61,16 @@ $deployPath = "$WorkingDirectory/test/Configuration"
 $testConfig = ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json")
 $flattenedTestConfig = & "$WorkingDirectory/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1" -InputObject $testConfig
 
-$resourceGroupLocation = (Get-AzResourceGroup -Name $ResourceGroup -ErrorAction Stop).Location
+$smartIdpDeployment = New-AzResourceGroupDeployment `
+    -Name 'test-smart-idp' `
+    -ResourceGroupName $ResourceGroup `
+    -TemplateFile "$WorkingDirectory/samples/templates/aca/test-smart-idp.bicep" `
+    -ErrorAction Stop
+
 $smartIdpIssuer = & "$WorkingDirectory/build/jobs/scripts/Provision-TestSmartIdp.ps1" `
-    -ResourceGroup $ResourceGroup `
     -KeyVaultName $TestKeyVaultName `
-    -Location $resourceGroupLocation
+    -Issuer $smartIdpDeployment.Outputs.issuer.Value `
+    -StorageAccountName $smartIdpDeployment.Outputs.storageAccountName.Value
 
 if ([string]::IsNullOrWhiteSpace($smartIdpIssuer)) {
     throw 'SMART test identity provider did not return an issuer URL.'
