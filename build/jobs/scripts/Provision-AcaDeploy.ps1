@@ -62,7 +62,7 @@ $testConfig = ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.
 $flattenedTestConfig = & "$WorkingDirectory/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1" -InputObject $testConfig
 
 $smartIdpDeployment = New-AzResourceGroupDeployment `
-    -Name 'test-smart-idp' `
+    -Name "test-smart-idp-$WebAppName" `
     -ResourceGroupName $ResourceGroup `
     -TemplateFile "$WorkingDirectory/samples/templates/aca/test-smart-idp.bicep" `
     -ErrorAction Stop
