@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var sqlBuilder = options.SqlQueryBuilder;
             sqlBuilder.BeginCte("cte" + options.CteNumber);
-            sqlBuilder.SelectWithModifier($"TOP {options.IncludeCount + 1}", "refTarget.ResourceTypeId", "refTarget.ResourceSurrogateId", "0 AS IsMatch", $"CASE WHEN count_big(*) over() > {options.IncludeCount} THEN 1 ELSE 0 END AS IsPartial");
+            sqlBuilder.SelectWithModifier($"DISTINCT TOP {options.IncludeCount + 1}", "refTarget.ResourceTypeId", "refTarget.ResourceSurrogateId", "0 AS IsMatch", $"CASE WHEN count_big(*) over() > {options.IncludeCount} THEN 1 ELSE 0 END AS IsPartial");
             sqlBuilder.From("dbo.ReferenceSearchParam", "refSource");
             sqlBuilder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
 
@@ -105,6 +105,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "refTarget");
+
+            if (options.IncludesContinuationToken != null && options.IncludesContinuationToken.IncludeResourceTypeId.HasValue && options.IncludesContinuationToken.IncludeResourceSurrogateId.HasValue)
+            {
+                sqlBuilder.And($"(refTarget.ResourceTypeId > {options.IncludesContinuationToken.IncludeResourceTypeId} OR (refTarget.ResourceTypeId = {options.IncludesContinuationToken.IncludeResourceTypeId} AND refTarget.ResourceSurrogateId > {options.IncludesContinuationToken.IncludeResourceSurrogateId}))");
+            }
+
             sqlBuilder.EndCte();
         }
     }

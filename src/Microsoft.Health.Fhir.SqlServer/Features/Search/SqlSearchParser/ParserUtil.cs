@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.And($"{tableAlias}.ResourceTypeId NOT IN ({excludedResourceTypeIds})");
                 }
 
-                if (options.ContinuationToken != null)
+                if (options.ContinuationToken != null && options.IncludesContinuationToken == null)
                 {
                     var surrogateOperator = options.SortDescending ? "<" : ">";
                     builder.And("(");
@@ -61,6 +61,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                     builder.DecreaseIndent(2);
                     builder.AppendLine(")");
+                }
+                else if (options.IncludesContinuationToken != null)
+                {
+                    builder.And($"{tableAlias}.ResourceSurrogateId >= {options.IncludesContinuationToken.MatchResourceSurrogateIdMin}")
+                        .And($"{tableAlias}.ResourceSurrogateId <= {options.IncludesContinuationToken.MatchResourceSurrogateIdMax}")
+                        .And($"{tableAlias}.ResourceTypeId = {options.IncludesContinuationToken.MatchResourceTypeId}");
                 }
             }
         }

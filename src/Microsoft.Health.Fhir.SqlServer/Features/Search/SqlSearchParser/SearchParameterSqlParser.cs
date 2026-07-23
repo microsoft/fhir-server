@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _compartmentSqlParser = new CompartmentSqlParser(fhirModel, parameterCollection, compartmentDefinitionManager);
         }
 
-        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null)
+        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null, IncludesContinuationToken? includesContinuationToken = null)
         {
             var parametersCopy = DeepCopyParameters(parameters);
 
@@ -95,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             var parserOptions = new ParserOptions()
             {
                 ContinuationToken = continuationToken,
+                IncludesContinuationToken = includesContinuationToken,
                 Count = sqlSearchOptions.MaxItemCount,
                 IncludeCount = sqlSearchOptions.IncludeCount,
                 GetTotalCount = sqlSearchOptions.CountOnly,
@@ -490,7 +491,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var unionCte = $"cte{cteIndex}";
                 cteIndex++;
 
-                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte);
+                // If there is an includes continuation token, we don't include the matched resources in the final result set. So we don't need to union the include CTEs with the base CTE
+                bool includeRow = true;
+                if (parserOptions.IncludesContinuationToken != null)
+                {
+                    includeCteNames.RemoveAt(0);
+                    includeRow = false;
+                }
+
+                ParserUtil.AddUnionCte(sqlBuilder, unionCte, includeCteNames, includeSort: hasSortCte, includeRow: includeRow);
 
                 lastCteName = unionCte;
                 cteIndex++;
@@ -568,184 +577,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     .AppendLine(") AS t")
                     .OrderBy(orderByClause);
             }
-
-            return sqlBuilder.ToString();
-        }
-
-        /// <summary>
-        /// Generates SQL for the $include operation — fetches only included resources
-        /// for matched resources within a surrogate ID range.
-        /// </summary>
-        public string? ParseMultipleForIncludes(
-            IDictionary<string, IList<string>> parameters,
-            SqlSearchOptions sqlSearchOptions,
-            IncludesContinuationToken includesContinuationToken)
-        {
-            var parametersCopy = DeepCopyParameters(parameters);
-
-            // Remove non-include parameters that start with "_include" prefix
-            parametersCopy.Remove(KnownQueryParameterNames.IncludesCount);
-            parametersCopy.Remove(KnownQueryParameterNames.IncludesContinuationToken);
-
-            // Extract only include parameters
-            Dictionary<string, IList<string>> includeParameters = new();
-
-            foreach (var kvp in parametersCopy)
-            {
-                if (kvp.Key.StartsWith("_include", StringComparison.OrdinalIgnoreCase) || kvp.Key.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase))
-                {
-                    includeParameters.Add(kvp.Key, kvp.Value);
-                }
-            }
-
-            if (includeParameters.Count == 0)
-            {
-                return null;
-            }
-
-            var parserOptions = new ParserOptions()
-            {
-                Count = int.MaxValue, // Don't limit matched resources — surrogate ID range is the filter
-            };
-            var sqlBuilder = parserOptions.SqlQueryBuilder;
-
-            var cteIndex = 0;
-
-            // *** Base CTE: matched resources within the surrogate ID range ***
-            var baseCte = $"cte{cteIndex}";
-            sqlBuilder.BeginCte(baseCte)
-                .SelectWithModifier("DISTINCT", "r.ResourceTypeId", "r.ResourceSurrogateId")
-                .From("dbo.Resource", "r")
-                .Where("r.IsHistory = 0")
-                .And("r.IsDeleted = 0")
-                .And($"r.ResourceSurrogateId >= {includesContinuationToken.MatchResourceSurrogateIdMin}")
-                .And($"r.ResourceSurrogateId <= {includesContinuationToken.MatchResourceSurrogateIdMax}")
-                .EndCte();
-            cteIndex++;
-
-            // *** Count CTE with Row numbers (needed by include parsers) ***
-            var countCte = $"cte{cteIndex}";
-            sqlBuilder.BeginCte(countCte)
-                .Select("*", "IsMatch = 1", "IsPartial = 0", "Row = ROW_NUMBER() OVER (ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC)")
-                .From(baseCte, "r")
-                .EndCte();
-            cteIndex++;
-
-            // *** Include CTEs ***
-            var baseCteName = countCte;
-            parserOptions.LastCteName = baseCteName;
-
-            var includeCteNames = new List<string>();
-
-            var orderedIncludes = OrderIncludeParameters(includeParameters);
-
-            for (int i = 0; i < orderedIncludes.Count; i++)
-            {
-                var orderedInclude = orderedIncludes[i];
-
-                string includeLastCteName;
-
-                if (orderedInclude.IsIterate && orderedInclude.DependsOnIndices.Count > 0)
-                {
-                    var unionCteName = $"cte{cteIndex}";
-                    cteIndex++;
-
-                    var dependencyCteNames = new List<string>();
-                    foreach (var depIndex in orderedInclude.DependsOnIndices)
-                    {
-                        var dependency = orderedIncludes.FirstOrDefault(inc => inc.OriginalIndex == depIndex);
-                        if (dependency != null && dependency.CteNames.Count > 0)
-                        {
-                            dependencyCteNames.AddRange(dependency.CteNames);
-                        }
-                    }
-
-                    if (dependencyCteNames.Count > 0)
-                    {
-                        ParserUtil.AddUnionCte(sqlBuilder, unionCteName, dependencyCteNames, includeRow: false);
-                        includeLastCteName = unionCteName;
-                    }
-                    else
-                    {
-                        includeLastCteName = baseCteName;
-                    }
-                }
-                else
-                {
-                    includeLastCteName = baseCteName;
-                }
-
-                var includeCteName = $"cte{cteIndex}";
-                parserOptions.CteNumber = cteIndex;
-                parserOptions.LastCteName = includeLastCteName;
-                parserOptions.IsIterateInclude = orderedInclude.IsIterate;
-                cteIndex++;
-
-                ISqlParser parser = orderedInclude.ParameterName.StartsWith("_revinclude", StringComparison.OrdinalIgnoreCase)
-                    ? _revIncludeSqlParser
-                    : _includeSqlParser;
-
-                parser.Parse(orderedInclude.ParameterName, orderedInclude.Value, parserOptions);
-
-                includeCteNames.Add(includeCteName);
-                orderedInclude.CteNames.Add(includeCteName);
-            }
-
-            // *** Union of ONLY include CTEs ***
-            sqlBuilder.AppendLine();
-
-            var unionCte2 = $"cte{cteIndex}";
-            cteIndex++;
-
-            if (includeCteNames.Count == 1)
-            {
-                sqlBuilder.BeginCte(unionCte2)
-                    .Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
-                    .From(includeCteNames[0])
-                    .EndCte();
-            }
-            else
-            {
-                sqlBuilder.BeginCte(unionCte2);
-                for (int i = 0; i < includeCteNames.Count; i++)
-                {
-                    if (i > 0)
-                    {
-                        sqlBuilder.AppendLine("UNION ALL");
-                    }
-
-                    sqlBuilder.Select("ResourceTypeId", "ResourceSurrogateId", "IsMatch", "IsPartial")
-                        .From(includeCteNames[i]);
-                }
-
-                sqlBuilder.EndCte();
-            }
-
-            sqlBuilder.AppendLine();
-
-            // *** Final SELECT: return included resources ***
-            var selectColumns = "r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(f.IsMatch AS bit) AS IsMatch, CAST(f.IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource";
-
-            sqlBuilder.Select("*")
-                .From("(")
-                .IncreaseIndent()
-                .SelectWithModifier("DISTINCT", selectColumns)
-                .From("dbo.Resource", "r")
-                .JoinMultiLine("INNER", unionCte2, "f", "r.ResourceSurrogateId = f.ResourceSurrogateId", "r.ResourceTypeId = f.ResourceTypeId")
-                .Where("r.IsHistory = 0")
-                .And("r.IsDeleted = 0");
-
-            // Apply include continuation token filtering
-            if (includesContinuationToken.IncludeResourceTypeId.HasValue
-                && includesContinuationToken.IncludeResourceSurrogateId.HasValue)
-            {
-                var typeId = includesContinuationToken.IncludeResourceTypeId.Value;
-                var surrogateId = includesContinuationToken.IncludeResourceSurrogateId.Value;
-                sqlBuilder.And($"(r.ResourceTypeId > {typeId} OR (r.ResourceTypeId = {typeId} AND r.ResourceSurrogateId > {surrogateId}))");
-            }
-
-            sqlBuilder.AppendLine(") AS t")
-                .OrderBy("t.ResourceTypeId ASC, t.ResourceSurrogateId ASC");
 
             return sqlBuilder.ToString();
         }

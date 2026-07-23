@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     {
         public ContinuationToken? ContinuationToken { get; set; }
 
+        public IncludesContinuationToken? IncludesContinuationToken { get; set; }
+
         public int CteNumber { get; set; } = 0;
 
         public string? LastCteName { get; set; }

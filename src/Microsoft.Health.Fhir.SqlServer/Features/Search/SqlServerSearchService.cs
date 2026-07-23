@@ -1882,6 +1882,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 throw new BadRequestException(Resources.InvalidIncludesContinuationToken);
             }
 
+            var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
 
             SearchResult searchResult = null;
@@ -1893,10 +1895,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                        var queryText = _searchParameterSqlParser.ParseMultipleForIncludes(
+                        var queryText = _searchParameterSqlParser.ParseMultiple(
                             sqlSearchOptions.QueryParams,
                             sqlSearchOptions,
-                            includesContinuationToken);
+                            continuationToken: continuationToken,
+                            includesContinuationToken: includesContinuationToken);
 
                         if (string.IsNullOrEmpty(queryText))
                         {
