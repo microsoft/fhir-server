@@ -270,7 +270,7 @@ resource convertDataContainerRegistry 'Microsoft.ContainerRegistry/registries@20
 }
 
 resource convertDataAcrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableConvertData) {
-  name: guid(uniqueString('${convertDataAcrName}/AcrPull/${normalizedAppName}', resourceGroup().id))
+  name: guid(uniqueString('${convertDataAcrName}/AcrPull/${normalizedAppName}/${fhirVersion}', resourceGroup().id))
   scope: convertDataContainerRegistry
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
