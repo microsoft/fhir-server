@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             var claims = new[]
             {
                 new System.Security.Claims.Claim("appid", clientId),
+                new System.Security.Claims.Claim("raw_scope", scope),
                 new System.Security.Claims.Claim("scp", scope),
                 new System.Security.Claims.Claim("scope", scope),
                 new System.Security.Claims.Claim(JwtRegisteredClaimNames.Sub, clientId),

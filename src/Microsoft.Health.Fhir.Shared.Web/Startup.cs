@@ -275,6 +275,14 @@ namespace Microsoft.Health.Fhir.Web
                         options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
                         options.MapInboundClaims = false;
                         options.RequireHttpsMetadata = true;
+                        options.Events = new JwtBearerEvents
+                        {
+                            OnChallenge = context =>
+                            {
+                                context.HandleResponse();
+                                return System.Threading.Tasks.Task.CompletedTask;
+                            },
+                        };
                     });
             }
         }
