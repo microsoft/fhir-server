@@ -45,22 +45,23 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
     {
         // Arrange
         var defaultSearchParameterStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
-        List<ResourceSearchParameterStatus> updatedSearchparameterStatuses = [];
-
-        // Disable every 5th search parameter
-        for (int i = 0; i < defaultSearchParameterStatuses.Count; i++)
+        var unsupportedSearchParameterUris = (await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+            .Where(s => s.Status == SearchParameterStatus.Unsupported)
+            .Select(s => s.Uri)
+            .ToHashSet();
+        var searchParameterToDisable = defaultSearchParameterStatuses.First(s => !unsupportedSearchParameterUris.Contains(s.Uri));
+        searchParameterToDisable.Status = SearchParameterStatus.Disabled;
+        var latestSearchParameter = defaultSearchParameterStatuses.MaxBy(s => s.LastUpdated);
+        List<ResourceSearchParameterStatus> updatedSearchparameterStatuses = [searchParameterToDisable];
+        if (latestSearchParameter.Uri != searchParameterToDisable.Uri)
         {
-            if ((i + 1) % 5 == 0)
-            {
-                defaultSearchParameterStatuses[i].Status = SearchParameterStatus.Disabled;
-                updatedSearchparameterStatuses.Add(defaultSearchParameterStatuses[i]);
-            }
+            updatedSearchparameterStatuses.Add(latestSearchParameter);
         }
 
         await _fixture.SqlServerSearchParameterStatusDataStore.UpsertStatuses(updatedSearchparameterStatuses, CancellationToken.None);
 
         // Act - exception will be thrown when getting status if any are null.
-        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+        await ReinitializeSearchParameterStatuses();
         var reInitializedSearchParameterStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
 
         // Assert
@@ -90,7 +91,7 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
 
         // Act - re-run the initializer. This exercises the code path that previously overwrote
         // Unsupported with Enabled/Supported on every startup.
-        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+        await ReinitializeSearchParameterStatuses();
 
         // Assert - every URI that came from the file as Unsupported is still Unsupported in SQL.
         var dbStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
@@ -101,6 +102,32 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
             Assert.True(dbStatuses.TryGetValue(uri, out var dbStatus), $"Expected search parameter '{uri}' to exist in the SQL SearchParam table.");
             Assert.Equal(SearchParameterStatus.Unsupported, dbStatus.Status);
         }
+    }
+
+    [Fact]
+    public async Task GivenASearchParameterMarkedUnsupportedInTheFileButSupportedInTheDatabase_WhenInitializing_ThenItIsMarkedUnsupportedInTheDatabase()
+    {
+        // Arrange
+        var unsupportedSearchParameterUri = (await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+            .First(s => s.Status == SearchParameterStatus.Unsupported);
+        var databaseSearchParameter = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+            .Single(s => s.Uri == unsupportedSearchParameterUri.Uri);
+        databaseSearchParameter.Status = SearchParameterStatus.Supported;
+        await _fixture.SqlServerSearchParameterStatusDataStore.UpsertStatuses([databaseSearchParameter], CancellationToken.None);
+
+        // Act
+        await ReinitializeSearchParameterStatuses();
+
+        // Assert
+        var reinitializedSearchParameter = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+            .Single(s => s.Uri == unsupportedSearchParameterUri.Uri);
+        Assert.Equal(SearchParameterStatus.Unsupported, reinitializedSearchParameter.Status);
+    }
+
+    private async Task ReinitializeSearchParameterStatuses()
+    {
+        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Min, CancellationToken.None);
+        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, CancellationToken.None);
     }
 
     private async Task CheckSearchParametersForInvalid()

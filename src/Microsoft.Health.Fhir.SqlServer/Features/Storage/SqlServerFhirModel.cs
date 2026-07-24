@@ -419,7 +419,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger,
                 cancellationToken);
 
-            fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
+            fileStatuses.RemoveAll((fs) => fs.Status != SearchParameterStatus.Unsupported && existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
+            DateTimeOffset? latestLastUpdated = existingParams.Count == 0 ? null : existingParams.Max(p => p.LastUpdated);
 
             if (fileStatuses.Count == 0)
             {
@@ -442,7 +443,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
                 }
 
-                fs.LastUpdated = existingParams.FirstOrDefault(p => p.Uri == fs.Uri)?.LastUpdated ?? fs.LastUpdated;
+                fs.LastUpdated = latestLastUpdated ?? fs.LastUpdated;
             });
 
             using var cmd = new SqlCommand();
