@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -31,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // Add base filters only on the first CTE
             if (options.LastCteName == null)
             {
-                AddHistoryAndDeletedCheck(builder, tableAlias);
+                AddHistoryAndDeletedCheck(builder, tableAlias, options.ResourceVersionType.HasFlag(ResourceVersionType.History), options.ResourceVersionType.HasFlag(ResourceVersionType.SoftDeleted));
                 if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
                 {
                     var resourceTypeIds = string.Join(", ", options.ResourceTypes);
@@ -46,21 +48,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 if (options.ContinuationToken != null && options.IncludesContinuationToken == null)
                 {
-                    var surrogateOperator = options.SortDescending ? "<" : ">";
-                    builder.And("(");
-                    builder.IncreaseIndent(3);
-                    builder.AppendLine($"({tableAlias}.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId} AND {tableAlias}.ResourceTypeId = {options.ContinuationToken.ResourceTypeId})");
+                    var sortOperator = options.SortDescending ? "<" : ">";
 
-                    builder.DecreaseIndent();
-
-                    if (options.ContinuationToken.ResourceTypeId != null)
+                    if (options.SortParameterName != null && options.SortParameterName.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
                     {
-                        var typeOperator = options.SortDescending ? "<" : ">";
-                        builder.Or($"{tableAlias}.ResourceTypeId {typeOperator} {options.ContinuationToken.ResourceTypeId}");
+                        builder.And($"{tableAlias}.ResourceSurrogateId {sortOperator} {options.ContinuationToken.ResourceSurrogateId}");
                     }
-
-                    builder.DecreaseIndent(2);
-                    builder.AppendLine(")");
+                    else
+                    {
+                        builder.And("(");
+                        builder.IncreaseIndent(3);
+                        builder.AppendLine($"({tableAlias}.ResourceSurrogateId {sortOperator} {options.ContinuationToken.ResourceSurrogateId} AND {tableAlias}.ResourceTypeId = {options.ContinuationToken.ResourceTypeId})");
+                        builder.DecreaseIndent();
+                        builder.Or($"{tableAlias}.ResourceTypeId {sortOperator} {options.ContinuationToken.ResourceTypeId}");
+                        builder.DecreaseIndent(2);
+                        builder.AppendLine(")");
+                    }
                 }
                 else if (options.IncludesContinuationToken != null)
                 {

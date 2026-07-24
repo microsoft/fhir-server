@@ -99,6 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 Count = sqlSearchOptions.MaxItemCount,
                 IncludeCount = sqlSearchOptions.IncludeCount,
                 GetTotalCount = sqlSearchOptions.CountOnly,
+                ResourceVersionType = sqlSearchOptions.ResourceVersionTypes,
             };
             var sqlBuilder = parserOptions.SqlQueryBuilder;
 
@@ -572,9 +573,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     .SelectWithModifier("DISTINCT", selectColumns)
                     .From("dbo.Resource", "r")
                     .JoinMultiLine("INNER", lastCteName, "f", "r.ResourceSurrogateId = f.ResourceSurrogateId", "r.ResourceTypeId = f.ResourceTypeId")
-                    .Where("r.IsHistory = 0")
-                    .And("r.IsDeleted = 0")
-                    .AppendLine(") AS t")
+                    .Where("1 = 1");
+
+                ParserUtil.AddHistoryAndDeletedCheck(sqlBuilder, "r", parserOptions.ResourceVersionType.HasFlag(ResourceVersionType.History), parserOptions.ResourceVersionType.HasFlag(ResourceVersionType.SoftDeleted));
+
+                sqlBuilder.AppendLine(") AS t")
                     .OrderBy(orderByClause);
             }
 

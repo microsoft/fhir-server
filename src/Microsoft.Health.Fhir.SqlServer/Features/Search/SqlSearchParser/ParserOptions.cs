@@ -6,6 +6,7 @@
 #nullable enable
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -54,6 +55,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// Set by chain/reverse-chain parsers so callers know which CTE to reference.
         /// </summary>
         public string? ResultCteName { get; set; }
+
+        public ResourceVersionType ResourceVersionType { get; set; } = ResourceVersionType.Latest;
 
         public SqlQueryBuilder SqlQueryBuilder { get; set; } = new SqlQueryBuilder();
     }
