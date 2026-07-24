@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             var signingKey = new RsaSecurityKey(rsa)
             {
+                CryptoProviderFactory = new CryptoProviderFactory { CacheSignatureProviders = false },
                 KeyId = GetKeyId(rsa),
             };
             var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.RsaSha256);
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 new System.Security.Claims.Claim("appid", clientId),
                 new System.Security.Claims.Claim("scp", scope),
                 new System.Security.Claims.Claim("scope", scope),
+                new System.Security.Claims.Claim(JwtRegisteredClaimNames.Sub, clientId),
                 new System.Security.Claims.Claim("roles", "smartUser"),
             };
 
