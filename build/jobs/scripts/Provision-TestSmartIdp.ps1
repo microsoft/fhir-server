@@ -58,12 +58,20 @@ if ($null -eq $privateKeySecret) {
     $newRsa = [System.Security.Cryptography.RSA]::Create(2048)
     $privateKey = $newRsa.ExportRSAPrivateKeyPem()
     $newRsa.Dispose()
-    $securePrivateKey = ConvertTo-SecureString -String $privateKey -AsPlainText -Force
-    Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -SecretValue $securePrivateKey | Out-Null
 }
 else {
-    $privateKey = [System.Net.NetworkCredential]::new('', $privateKeySecret.SecretValue).Password
+    $storedPrivateKey = [System.Net.NetworkCredential]::new('', $privateKeySecret.SecretValue).Password
+    $privateKey = if ($storedPrivateKey.StartsWith('-----BEGIN', [System.StringComparison]::Ordinal)) {
+        $storedPrivateKey
+    }
+    else {
+        [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($storedPrivateKey))
+    }
 }
+
+$encodedPrivateKey = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($privateKey))
+$securePrivateKey = ConvertTo-SecureString -String $encodedPrivateKey -AsPlainText -Force
+Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -SecretValue $securePrivateKey | Out-Null
 
 $secureIssuer = ConvertTo-SecureString -String $issuer -AsPlainText -Force
 Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenIssuer' -SecretValue $secureIssuer | Out-Null

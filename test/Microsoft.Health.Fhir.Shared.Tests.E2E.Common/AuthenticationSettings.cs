@@ -39,7 +39,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             using RSA rsa = RSA.Create();
-            rsa.ImportFromPem(GetEnvironmentVariable(KnownEnvironmentVariableNames.TestSmartTokenPrivateKey, null));
+            string encodedPrivateKey = GetEnvironmentVariable(KnownEnvironmentVariableNames.TestSmartTokenPrivateKey, null);
+            string privateKey = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedPrivateKey));
+            rsa.ImportFromPem(privateKey);
 
             var signingKey = new RsaSecurityKey(rsa)
             {
