@@ -54,10 +54,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static void ProcessResource(ref Resource resource, ref string profile)
         {
-            if (resource.TypeName == KnownResourceTypes.Parameters)
+            if (resource?.TypeName == KnownResourceTypes.Parameters)
             {
                 var parameterResource = (Parameters)resource;
-                var profileFromParameters = parameterResource.Parameter.Find(param => param.Name.Equals("profile", StringComparison.OrdinalIgnoreCase));
+                var profileFromParameters = parameterResource.Parameter?.Find(param => param.Name.Equals("profile", StringComparison.OrdinalIgnoreCase));
                 if (profileFromParameters != null)
                 {
                     if (profile != null)
@@ -71,7 +71,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
 
-                resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
+                var resourceParam = parameterResource.Parameter?.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase));
+                if (resourceParam?.Resource != null)
+                {
+                    resource = resourceParam.Resource;
+                }
             }
         }
 
