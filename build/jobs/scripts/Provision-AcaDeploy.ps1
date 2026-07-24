@@ -69,7 +69,7 @@ $smartIdpDeployment = New-AzResourceGroupDeployment `
 
 $smartIdpIssuer = & "$WorkingDirectory/build/jobs/scripts/Provision-TestSmartIdp.ps1" `
     -KeyVaultName $TestKeyVaultName `
-    -Issuer $smartIdpDeployment.Outputs.issuer.Value `
+    -ResourceGroupName $ResourceGroup `
     -StorageAccountName $smartIdpDeployment.Outputs.storageAccountName.Value
 
 if ([string]::IsNullOrWhiteSpace($smartIdpIssuer)) {

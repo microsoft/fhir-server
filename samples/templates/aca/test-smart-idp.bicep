@@ -17,15 +17,4 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-#disable-next-line BCP081
-resource staticWebsite 'Microsoft.Storage/storageAccounts/staticWebsite@2023-05-01' = {
-  parent: storageAccount
-  name: 'default'
-  properties: {
-    enabled: true
-    indexDocument: 'index.html'
-  }
-}
-
-output issuer string = storageAccount.properties.primaryEndpoints.web
 output storageAccountName string = storageAccount.name

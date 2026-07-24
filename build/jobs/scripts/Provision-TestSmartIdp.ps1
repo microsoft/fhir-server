@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string] $KeyVaultName,
-    [Parameter(Mandatory = $true)] [string] $Issuer,
+    [Parameter(Mandatory = $true)] [string] $ResourceGroupName,
     [Parameter(Mandatory = $true)] [string] $StorageAccountName
 )
 
@@ -41,7 +41,16 @@ function Get-Jwks {
     }
 }
 
-$issuer = $Issuer.TrimEnd('/')
+$storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount
+Enable-AzStorageStaticWebsite -Context $storageContext -IndexDocument 'index.html' | Out-Null
+
+$storageAccount = Get-AzStorageAccount -ResourceGroupName $ResourceGroupName -Name $StorageAccountName
+$issuer = $storageAccount.PrimaryEndpoints.Web.TrimEnd('/')
+
+if ([string]::IsNullOrWhiteSpace($issuer)) {
+    throw 'The static website endpoint was not enabled for the SMART test identity provider.'
+}
+
 $privateKeySecret = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -ErrorAction SilentlyContinue
 
 if ($null -eq $privateKeySecret) {
@@ -53,11 +62,6 @@ if ($null -eq $privateKeySecret) {
     Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -SecretValue $securePrivateKey | Out-Null
 }
 else {
-    $privateKey = [System.Net.NetworkCredential]::new('', $privateKeySecret.SecretValue).Password
-}
-
-if ([string]::IsNullOrWhiteSpace($privateKey)) {
-    $privateKeySecret = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name 'TestSmartTokenPrivateKey' -ErrorAction Stop
     $privateKey = [System.Net.NetworkCredential]::new('', $privateKeySecret.SecretValue).Password
 }
 
@@ -77,8 +81,6 @@ $oidcConfiguration = @{
     jwks_uri = "$issuer/jwks.json"
     id_token_signing_alg_values_supported = @('RS256')
 } | ConvertTo-Json -Depth 4 -Compress
-
-$storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount
 
 $temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fhir-smart-idp-$StorageAccountName"
 New-Item -ItemType Directory -Path (Join-Path $temporaryDirectory '.well-known') -Force | Out-Null
