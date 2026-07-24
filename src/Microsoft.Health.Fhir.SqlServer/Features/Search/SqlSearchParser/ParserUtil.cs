@@ -74,39 +74,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public static void AddUnionCte(SqlQueryBuilder builder, string cteName, IList<string> targetCtes, bool includeSort = false, bool includeRow = true)
         {
             builder.BeginCte(cteName);
-            builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
+
+            // When sort CTE exists, the count CTE column order is:
+            // ResourceTypeId, ResourceSurrogateId, SortValue, IsMatch, IsPartial, Row
+            // Include CTEs have: ResourceTypeId, ResourceSurrogateId, IsMatch, IsPartial
+            // We must use explicit columns to match the count CTE's column order
+            var rowExpr = includeRow ? ", Row = 0" : string.Empty;
+            var sortExpr = includeSort ? ", SortValue = NULL" : string.Empty;
+            var columns = $"ResourceTypeId, ResourceSurrogateId{sortExpr}, IsMatch, IsPartial{rowExpr}";
+
+            if (includeRow)
+            {
+                builder.AppendLine($"SELECT * FROM {targetCtes[0]}");
+            }
+            else
+            {
+                builder.AppendLine($"SELECT {columns} FROM {targetCtes[0]}");
+            }
 
             foreach (var includeCteName in targetCtes.Skip(1))
             {
                 builder.AppendLine("UNION ALL");
                 builder.IncreaseIndent();
-
-                if (includeSort)
-                {
-                    // When sort CTE exists, the count CTE column order is:
-                    // ResourceTypeId, ResourceSurrogateId, SortValue, IsMatch, IsPartial, Row
-                    // Include CTEs have: ResourceTypeId, ResourceSurrogateId, IsMatch, IsPartial
-                    // We must use explicit columns to match the count CTE's column order
-                    var rowExpr = includeRow ? "0 AS Row" : string.Empty;
-                    var columns = $"ResourceTypeId, ResourceSurrogateId, SortValue = NULL, IsMatch, IsPartial";
-                    if (includeRow)
-                    {
-                        columns += ", Row = 0";
-                    }
-
-                    builder.AppendLine($"SELECT {columns} FROM {includeCteName}");
-                }
-                else
-                {
-                    var extras = string.Empty;
-                    if (includeRow)
-                    {
-                        extras += ", Row = 0";
-                    }
-
-                    builder.AppendLine($"SELECT *{extras} FROM {includeCteName}");
-                }
-
+                builder.AppendLine($"SELECT {columns} FROM {includeCteName}");
                 builder.Where($"NOT EXISTS (SELECT * FROM {targetCtes[0]} base WHERE base.ResourceSurrogateId = {includeCteName}.ResourceSurrogateId)");
                 builder.DecreaseIndent();
             }

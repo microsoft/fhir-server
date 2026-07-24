@@ -243,7 +243,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (!sqlSearchOptions.IsSortWithFilter &&
                 !sqlSearchOptions.SortHasMissingModifier &&
                 !sqlSearchOptions.SortQuerySecondPhase &&
-                string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= sqlSearchOptions.MaxItemCount &&
                 sqlSearchOptions.Sort != null &&

@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 string orderByClause;
                 bool hasSortValue = false;
 
-                if (!string.IsNullOrEmpty(parserOptions.SortParameterName))
+                if (!string.IsNullOrEmpty(parserOptions.SortParameterName) && parserOptions.IncludesContinuationToken == null)
                 {
                     if (parserOptions.SortIsSpecialParameter)
                     {

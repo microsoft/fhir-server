@@ -16,6 +16,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
         }
 
+        public SqlSearchOptions(SqlSearchOptions sqlSearchOptions)
+            : base(sqlSearchOptions)
+        {
+            SortQuerySecondPhase = sqlSearchOptions.SortQuerySecondPhase;
+            DidWeSearchForSortValue = sqlSearchOptions.DidWeSearchForSortValue;
+        }
+
         /// <summary>
         /// Marks whether we need to execute the second set of queries for (certain types of) sort.
         /// </summary>
