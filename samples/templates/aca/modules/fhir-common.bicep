@@ -92,6 +92,11 @@ var keyVaultEndpoint = isMAG
 
 var enableIntegrationStore = enableExport || enableImport
 
+// Convert-data ACR naming: normalized app name (hyphens removed, max 11 chars) + uniqueString
+var convertDataAcrPrefix = substring(replace(normalizedAppName, '-', ''), 0, min(11, length(replace(normalizedAppName, '-', ''))))
+var convertDataAcrName = '${convertDataAcrPrefix}${uniqueString(resourceGroup().id, normalizedAppName)}'
+var acrUri = isMAG ? '.azurecr.us' : '.azurecr.io'
+
 var sharedEnvVars = [
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
   { name: 'KeyVault__Endpoint', value: keyVaultEndpoint }
@@ -106,7 +111,7 @@ var sharedEnvVars = [
   { name: 'FhirServer__Operations__Import__Enabled', value: enableImport ? 'true' : 'false' }
   { name: 'FhirServer__Operations__IntegrationDataStore__StorageAccountUri', value: enableImport ? storageAccountUri : 'null' }
   { name: 'FhirServer__Operations__ConvertData__Enabled', value: enableConvertData ? 'true' : 'false' }
-  { name: 'FhirServer__Operations__ConvertData__ContainerRegistryServers__0', value: enableConvertData ? registryName : 'null' }
+  { name: 'FhirServer__Operations__ConvertData__ContainerRegistryServers__0', value: enableConvertData ? '${convertDataAcrName}${acrUri}' : 'null' }
   { name: 'FhirServer__Operations__Reindex__Enabled', value: enableReindex ? 'true' : 'false' }
 ]
 
@@ -248,6 +253,27 @@ resource storageBlobDataContributorRole 'Microsoft.Authorization/roleAssignments
   scope: storageAccount
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    principalId: containerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource convertDataContainerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (enableConvertData) {
+  name: convertDataAcrName
+  location: resourceGroup().location
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: false
+  }
+}
+
+resource convertDataAcrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableConvertData) {
+  name: guid(uniqueString('${convertDataAcrName}/AcrPull/${normalizedAppName}/${fhirVersion}', resourceGroup().id))
+  scope: convertDataContainerRegistry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: containerApp.identity.principalId
     principalType: 'ServicePrincipal'
   }

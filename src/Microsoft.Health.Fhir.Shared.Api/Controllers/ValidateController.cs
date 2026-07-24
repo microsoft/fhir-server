@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
-            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
+            var response = await _mediator.SendAsync<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
             return FhirResult.Create(new OperationOutcome { Issue = response.Issues.Select(x => x.ToPoco()).ToList() }.ToResourceElement());
         }
 

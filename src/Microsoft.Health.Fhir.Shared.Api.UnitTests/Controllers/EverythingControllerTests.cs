@@ -6,7 +6,7 @@
 using System;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Core.Features.Context;
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAnEverythingOperationRequest_WhenValid_ThenProperResponseShouldBeReturned()
         {
-            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+            _mediator.SendAsync(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
             var result = await _everythingController.PatientEverythingById(
                 idParameter: "123",
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 type: ResourceType.Observation.ToString(),
                 ct: null) as FhirResult;
 
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<EverythingOperationRequest>(
                     r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
                          && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)
@@ -84,11 +84,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _everythingController.ControllerContext.HttpContext.Request.QueryString = new QueryString(query);
 
-            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+            _mediator.SendAsync(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
             var request = default(EverythingOperationRequest);
             _mediator.When(
-                x => x.Send<EverythingOperationResponse>(
+                x => x.SendAsync<EverythingOperationResponse>(
                     Arg.Any<EverythingOperationRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<EverythingOperationRequest>());
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 type: ResourceType.Observation.ToString(),
                 ct: null) as FhirResult;
 
-            await _mediator.Received().Send(
+            await _mediator.Received().SendAsync(
                 Arg.Is<EverythingOperationRequest>(
                     r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
                          && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)

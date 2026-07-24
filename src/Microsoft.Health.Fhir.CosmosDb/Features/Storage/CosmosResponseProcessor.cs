@@ -10,7 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Azure.Cosmos;
 using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                await _mediator.Publish(cosmosMetrics, cancellationToken);
+                await _mediator.PublishAsync(cosmosMetrics, cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                 exceptionNotification.BaseException = exception;
 
-                await _mediator.Publish(exceptionNotification, cancellationToken);
+                await _mediator.PublishAsync(exceptionNotification, cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = new ManagedIdentityCredential();
+            _azureServiceTokenProvider = new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned);
             _logger = logger;
         }
 
