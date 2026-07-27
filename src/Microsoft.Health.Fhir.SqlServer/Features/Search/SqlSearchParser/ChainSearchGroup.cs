@@ -19,6 +19,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
     /// </summary>
     public class ChainSearchGroup
     {
+        public ChainSearchGroup(string groupKey, bool isReverseChain)
+        {
+            GroupKey = groupKey;
+            IsReverseChain = isReverseChain;
+        }
+
         /// <summary>
         /// Gets the grouping key that identifies the shared reference lookup.
         /// For forward chains: the reference parameter code (e.g., "subject" or "subject:Patient").
@@ -35,19 +41,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// Gets the individual search entries in this group. Each entry represents a leaf
         /// search parameter and its value that filters the referenced resources.
         /// </summary>
-        public List<ChainSearchEntry> Entries { get; } = new();
-
-        public ChainSearchGroup(string groupKey, bool isReverseChain)
-        {
-            GroupKey = groupKey;
-            IsReverseChain = isReverseChain;
-        }
+        public IList<ChainSearchEntry> Entries { get; } = new List<ChainSearchEntry>();
 
         /// <summary>
         /// Groups chained search parameters by their first-level reference parameter.
         /// Parameters that share the same reference lookup will be in the same group.
         /// </summary>
-        public static List<ChainSearchGroup> GroupChainedParameters(
+        public static IList<ChainSearchGroup> GroupChainedParameters(
             IDictionary<string, IList<string>> chainedParameters)
         {
             var groups = new Dictionary<string, ChainSearchGroup>();
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// Groups reverse-chained (_has) search parameters by their resource type and reference parameter.
         /// Parameters that share the same reference lookup will be in the same group.
         /// </summary>
-        public static List<ChainSearchGroup> GroupReversedChainedParameters(
+        public static IList<ChainSearchGroup> GroupReversedChainedParameters(
             IDictionary<string, IList<string>> reversedChainedParameters)
         {
             var groups = new Dictionary<string, ChainSearchGroup>();
@@ -129,47 +129,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             return groups.Values.ToList();
-        }
-    }
-
-    /// <summary>
-    /// A single search entry within a chain group. Represents one leaf search parameter
-    /// and its value to be applied to the referenced resources.
-    /// </summary>
-    public class ChainSearchEntry
-    {
-        /// <summary>
-        /// Gets the full original parameter name (e.g., "subject:Patient.name" or "_has:Coverage:beneficiary:identifier").
-        /// </summary>
-        public string FullParameterName { get; }
-
-        /// <summary>
-        /// Gets the remaining chain after the first reference lookup (e.g., "name" or "organization:Organization.name").
-        /// </summary>
-        public string RemainingChain { get; }
-
-        /// <summary>
-        /// Gets the search value.
-        /// </summary>
-        public string Value { get; }
-
-        /// <summary>
-        /// Gets the first-level reference parameter code (e.g., "subject" or "beneficiary").
-        /// </summary>
-        public string ReferenceParamCode { get; }
-
-        /// <summary>
-        /// Gets the source resource type for reverse chains (e.g., "Coverage"). Null for forward chains.
-        /// </summary>
-        public string? SourceResourceType { get; }
-
-        public ChainSearchEntry(string fullParameterName, string remainingChain, string value, string referenceParamCode, string? sourceResourceType = null)
-        {
-            FullParameterName = fullParameterName;
-            RemainingChain = remainingChain;
-            Value = value;
-            ReferenceParamCode = referenceParamCode;
-            SourceResourceType = sourceResourceType;
         }
     }
 }

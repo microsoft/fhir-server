@@ -283,12 +283,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         // Multiple entries share the same reference lookup — generate the ref CTE once
                         var sharedRefCteName = $"cte{cteIndex}chain0_ref";
                         var firstEntry = group.Entries[0];
+                        var walkBackCteNames = new List<string>();
 
                         // Generate the shared ref CTE by parsing the first entry without a shared ref
                         parserOptions.CteNumber = cteIndex;
                         _chainedSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null);
-                        lastCteName = $"cte{cteIndex}";
-                        parserOptions.LastCteName = lastCteName;
+                        walkBackCteNames.Add($"cte{cteIndex}");
                         cteIndex++;
 
                         // For remaining entries, reuse the shared ref CTE
@@ -297,10 +297,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                             var entry = group.Entries[i];
                             parserOptions.CteNumber = cteIndex;
                             _chainedSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: sharedRefCteName);
-                            lastCteName = $"cte{cteIndex}";
-                            parserOptions.LastCteName = lastCteName;
+                            walkBackCteNames.Add($"cte{cteIndex}");
                             cteIndex++;
                         }
+
+                        // Intersect all walk-back results so ALL chain conditions must be satisfied
+                        var intersectCteName = $"cte{cteIndex}";
+                        parserOptions.SqlQueryBuilder.BeginCte(intersectCteName);
+                        parserOptions.SqlQueryBuilder.SelectWithModifier("DISTINCT", "t0.ResourceTypeId", "t0.ResourceSurrogateId");
+                        parserOptions.SqlQueryBuilder.From(walkBackCteNames[0], "t0");
+                        for (int i = 1; i < walkBackCteNames.Count; i++)
+                        {
+                            parserOptions.SqlQueryBuilder.InnerJoin(
+                                walkBackCteNames[i],
+                                $"t{i}",
+                                $"t{i}.ResourceSurrogateId = t0.ResourceSurrogateId AND t{i}.ResourceTypeId = t0.ResourceTypeId");
+                        }
+
+                        parserOptions.SqlQueryBuilder.EndCte();
+                        lastCteName = intersectCteName;
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
                     }
                     else
                     {
@@ -327,12 +344,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                         // Multiple entries share the same reference lookup — generate the ref CTE once
                         var sharedRefCteName = $"cte{cteIndex}chain0_ref";
                         var firstEntry = group.Entries[0];
+                        var walkBackCteNames = new List<string>();
 
                         // Generate the shared ref CTE by parsing the first entry without a shared ref
                         parserOptions.CteNumber = cteIndex;
                         _reversedChainSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null);
-                        lastCteName = $"cte{cteIndex}";
-                        parserOptions.LastCteName = lastCteName;
+                        walkBackCteNames.Add($"cte{cteIndex}");
                         cteIndex++;
 
                         // For remaining entries, reuse the shared ref CTE
@@ -341,10 +358,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                             var entry = group.Entries[i];
                             parserOptions.CteNumber = cteIndex;
                             _reversedChainSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: sharedRefCteName);
-                            lastCteName = $"cte{cteIndex}";
-                            parserOptions.LastCteName = lastCteName;
+                            walkBackCteNames.Add($"cte{cteIndex}");
                             cteIndex++;
                         }
+
+                        // Intersect all walk-back results so ALL chain conditions must be satisfied
+                        var intersectCteName = $"cte{cteIndex}";
+                        parserOptions.SqlQueryBuilder.BeginCte(intersectCteName);
+                        parserOptions.SqlQueryBuilder.SelectWithModifier("DISTINCT", "t0.ResourceTypeId", "t0.ResourceSurrogateId");
+                        parserOptions.SqlQueryBuilder.From(walkBackCteNames[0], "t0");
+                        for (int i = 1; i < walkBackCteNames.Count; i++)
+                        {
+                            parserOptions.SqlQueryBuilder.InnerJoin(
+                                walkBackCteNames[i],
+                                $"t{i}",
+                                $"t{i}.ResourceSurrogateId = t0.ResourceSurrogateId AND t{i}.ResourceTypeId = t0.ResourceTypeId");
+                        }
+
+                        parserOptions.SqlQueryBuilder.EndCte();
+                        lastCteName = intersectCteName;
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
                     }
                     else
                     {

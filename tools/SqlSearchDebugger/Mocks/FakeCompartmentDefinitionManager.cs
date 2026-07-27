@@ -56,11 +56,11 @@ public class FakeCompartmentDefinitionManager : ICompartmentDefinitionManager
 
     public bool TryGetResourceTypes(CompartmentType compartmentType, out HashSet<string> resourceTypes)
     {
-        return _compartmentResourceTypes.TryGetValue(compartmentType, out resourceTypes);
+        return _compartmentResourceTypes.TryGetValue(compartmentType, out resourceTypes!);
     }
 
     public bool TryGetSearchParams(string resourceType, CompartmentType compartmentType, out HashSet<string> searchParams)
     {
-        return _compartmentSearchParams.TryGetValue((resourceType, compartmentType), out searchParams);
+        return _compartmentSearchParams.TryGetValue((resourceType, compartmentType), out searchParams!);
     }
 }
