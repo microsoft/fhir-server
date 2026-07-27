@@ -332,7 +332,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!AllowedSrcSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    string normalizedSrc = NormalizeUrlSchemeValue(attr.Value);
+                    if (!AllowedSrcSchemes.Any(x => normalizedSrc.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onInvalidAttr(element, attr);
                     }
@@ -340,12 +341,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 if (string.Equals("href", attr.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (DangerousHrefSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    string normalizedHref = NormalizeUrlSchemeValue(attr.Value);
+                    if (DangerousHrefSchemes.Any(x => normalizedHref.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onDangerousHref(element, attr);
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Removes leading ASCII whitespace and C0 control characters (U+0000 through U+0020, inclusive)
+        /// from a URL-like attribute value before performing scheme comparisons.
+        /// Browsers strip these characters when resolving a URL's scheme (see the WHATWG URL specification's
+        /// "leading and trailing C0 control or space" trimming step), so values such as " javascript:alert(1)"
+        /// or "\tjavascript:alert(1)" would otherwise bypass a naive <see cref="string.StartsWith(string, StringComparison)"/> check.
+        /// This only affects the value used for scheme detection; the original attribute value is left untouched.
+        /// </summary>
+        /// <param name="value">The raw attribute value.</param>
+        /// <returns>The value with any leading C0 control/space characters removed.</returns>
+        private static string NormalizeUrlSchemeValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            int start = 0;
+            while (start < value.Length && value[start] <= '\u0020')
+            {
+                start++;
+            }
+
+            return start == 0 ? value : value.Substring(start);
         }
     }
 }
