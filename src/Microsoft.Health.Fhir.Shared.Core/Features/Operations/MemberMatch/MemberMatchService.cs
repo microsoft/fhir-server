@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             searchOptions.MaxItemCount = 2;
             searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
             searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-            searchOptions.Expression = CreateSearchExpression(coverage, patient);
+            searchOptions.QueryParams = BuildQueryParams(coverage, patient);
 
             SearchResult results = null;
             try
@@ -92,6 +92,69 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             }
 
             return CreatePatientWithIdentity(patient, results);
+        }
+
+        private IDictionary<string, IList<string>> BuildQueryParams(ResourceElement coverage, ResourceElement patient)
+        {
+            var queryParams = new Dictionary<string, IList<string>>();
+
+            // Resource type filter - search for Patient resources
+            queryParams["_type"] = new List<string> { KnownResourceTypes.Patient };
+
+            // Add patient search parameters
+            IReadOnlyCollection<SearchIndexEntry> patientValues = _searchIndexer.Extract(patient);
+            foreach (SearchIndexEntry patientValue in patientValues)
+            {
+                if (IgnoreInSearch(patientValue))
+                {
+                    continue;
+                }
+
+                var paramName = patientValue.SearchParameter.Code;
+                if (patientValue.SearchParameter.Type == ValueSets.SearchParamType.String)
+                {
+                    paramName += ":exact";
+                }
+
+                var value = patientValue.Value.ToString();
+                if (queryParams.TryGetValue(paramName, out var existingValues))
+                {
+                    existingValues.Add(value);
+                }
+                else
+                {
+                    queryParams[paramName] = new List<string> { value };
+                }
+            }
+
+            // Add coverage search parameters as reverse chain (_has:Coverage:beneficiary:<param>=<value>)
+            IReadOnlyCollection<SearchIndexEntry> coverageValues = _searchIndexer.Extract(coverage);
+            foreach (var coverageValue in coverageValues)
+            {
+                if (IgnoreInSearch(coverageValue))
+                {
+                    continue;
+                }
+
+                var modifier = string.Empty;
+                if (coverageValue.SearchParameter.Type == ValueSets.SearchParamType.String)
+                {
+                    modifier = ":exact";
+                }
+
+                var hasKey = $"_has:Coverage:beneficiary:{coverageValue.SearchParameter.Code}{modifier}";
+                var value = coverageValue.Value.ToString();
+                if (queryParams.TryGetValue(hasKey, out var existingValues))
+                {
+                    existingValues.Add(value);
+                }
+                else
+                {
+                    queryParams[hasKey] = new List<string> { value };
+                }
+            }
+
+            return queryParams;
         }
 
         private ResourceElement CreatePatientWithIdentity(ResourceElement patient, SearchResult results)
@@ -122,64 +185,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             resultPatient.Identifier.Add(resultId);
             var result = resultPatient.ToResourceElement();
             return result;
-        }
-
-        private MultiaryExpression CreateSearchExpression(ResourceElement coverage, ResourceElement patient)
-        {
-            IReadOnlyCollection<SearchIndexEntry> coverageValues = _searchIndexer.Extract(coverage);
-            IReadOnlyCollection<SearchIndexEntry> patientValues = _searchIndexer.Extract(patient);
-            var expressions = new List<Expression>();
-            var reverseChainExpressions = new List<Expression>();
-            expressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.Patient, false)));
-            foreach (SearchIndexEntry patientValue in patientValues)
-            {
-                if (IgnoreInSearch(patientValue))
-                {
-                    continue;
-                }
-
-                var modifier = string.Empty;
-                if (patientValue.SearchParameter.Type == ValueSets.SearchParamType.String)
-                {
-                    modifier = ":exact";
-                }
-
-                expressions.Add(_expressionParser.Parse(new[] { KnownResourceTypes.Patient }, patientValue.SearchParameter.Code + modifier, patientValue.Value.ToString()));
-            }
-
-            foreach (var coverageValue in coverageValues)
-            {
-                if (IgnoreInSearch(coverageValue))
-                {
-                    continue;
-                }
-
-                var modifier = string.Empty;
-                if (coverageValue.SearchParameter.Type == ValueSets.SearchParamType.String)
-                {
-                    modifier = ":exact";
-                }
-
-                reverseChainExpressions.Add(_expressionParser.Parse(new[] { KnownResourceTypes.Coverage }, coverageValue.SearchParameter.Code + modifier, coverageValue.Value.ToString()));
-            }
-
-            if (reverseChainExpressions.Count != 0)
-            {
-                Expression reverseChainedExpression;
-                if (reverseChainExpressions.Count == 1)
-                {
-                    reverseChainedExpression = reverseChainExpressions[0];
-                }
-                else
-                {
-                    reverseChainedExpression = Expression.And(reverseChainExpressions);
-                }
-
-                ChainedExpression expression = Expression.Chained(new[] { KnownResourceTypes.Coverage }, _coverageBeneficiaryParameter, new[] { KnownResourceTypes.Patient }, true, reverseChainedExpression);
-                expressions.Add(expression);
-            }
-
-            return Expression.And(expressions);
         }
 
         private static bool IgnoreInSearch(SearchIndexEntry searchEntry) =>
