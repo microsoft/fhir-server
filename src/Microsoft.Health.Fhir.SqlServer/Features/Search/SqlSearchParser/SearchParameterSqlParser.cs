@@ -274,18 +274,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // *********************************************************************** Chained Search Parameters ***********************************************************************
             if (chainedParameters.Count > 0)
             {
-                var cteName = string.Empty;
+                var chainGroups = ChainSearchGroup.GroupChainedParameters(chainedParameters);
 
-                foreach (var kvp in chainedParameters)
+                foreach (var group in chainGroups)
                 {
-                    foreach (var value in kvp.Value)
+                    if (group.Entries.Count > 1)
                     {
-                        cteName = $"cte{cteIndex}";
+                        // Multiple entries share the same reference lookup — generate the ref CTE once
+                        var sharedRefCteName = $"cte{cteIndex}chain0_ref";
+                        var firstEntry = group.Entries[0];
+
+                        // Generate the shared ref CTE by parsing the first entry without a shared ref
                         parserOptions.CteNumber = cteIndex;
+                        _chainedSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null);
+                        lastCteName = $"cte{cteIndex}";
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
 
-                        _chainedSqlParser.Parse(kvp.Key, value, parserOptions);
-
-                        lastCteName = cteName;
+                        // For remaining entries, reuse the shared ref CTE
+                        for (int i = 1; i < group.Entries.Count; i++)
+                        {
+                            var entry = group.Entries[i];
+                            parserOptions.CteNumber = cteIndex;
+                            _chainedSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: sharedRefCteName);
+                            lastCteName = $"cte{cteIndex}";
+                            parserOptions.LastCteName = lastCteName;
+                            cteIndex++;
+                        }
+                    }
+                    else
+                    {
+                        // Single entry — use existing behavior
+                        var entry = group.Entries[0];
+                        parserOptions.CteNumber = cteIndex;
+                        _chainedSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions);
+                        lastCteName = $"cte{cteIndex}";
                         parserOptions.LastCteName = lastCteName;
                         cteIndex++;
                     }
@@ -295,18 +318,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // *********************************************************************** Reversed Chained Search Parameters ***********************************************************************
             if (reversedChainedParameters.Count > 0)
             {
-                var cteName = string.Empty;
+                var reverseChainGroups = ChainSearchGroup.GroupReversedChainedParameters(reversedChainedParameters);
 
-                foreach (var kvp in reversedChainedParameters)
+                foreach (var group in reverseChainGroups)
                 {
-                    foreach (var value in kvp.Value)
+                    if (group.Entries.Count > 1)
                     {
-                        cteName = $"cte{cteIndex}";
+                        // Multiple entries share the same reference lookup — generate the ref CTE once
+                        var sharedRefCteName = $"cte{cteIndex}chain0_ref";
+                        var firstEntry = group.Entries[0];
+
+                        // Generate the shared ref CTE by parsing the first entry without a shared ref
                         parserOptions.CteNumber = cteIndex;
+                        _reversedChainSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null);
+                        lastCteName = $"cte{cteIndex}";
+                        parserOptions.LastCteName = lastCteName;
+                        cteIndex++;
 
-                        _reversedChainSqlParser.Parse(kvp.Key, value, parserOptions);
-
-                        lastCteName = cteName;
+                        // For remaining entries, reuse the shared ref CTE
+                        for (int i = 1; i < group.Entries.Count; i++)
+                        {
+                            var entry = group.Entries[i];
+                            parserOptions.CteNumber = cteIndex;
+                            _reversedChainSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: sharedRefCteName);
+                            lastCteName = $"cte{cteIndex}";
+                            parserOptions.LastCteName = lastCteName;
+                            cteIndex++;
+                        }
+                    }
+                    else
+                    {
+                        // Single entry — use existing behavior
+                        var entry = group.Entries[0];
+                        parserOptions.CteNumber = cteIndex;
+                        _reversedChainSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions);
+                        lastCteName = $"cte{cteIndex}";
                         parserOptions.LastCteName = lastCteName;
                         cteIndex++;
                     }

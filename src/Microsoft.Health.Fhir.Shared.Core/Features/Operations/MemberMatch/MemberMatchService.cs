@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             return CreatePatientWithIdentity(patient, results);
         }
 
-        private IDictionary<string, IList<string>> BuildQueryParams(ResourceElement coverage, ResourceElement patient)
+        private Dictionary<string, IList<string>> BuildQueryParams(ResourceElement coverage, ResourceElement patient)
         {
             var queryParams = new Dictionary<string, IList<string>>();
 

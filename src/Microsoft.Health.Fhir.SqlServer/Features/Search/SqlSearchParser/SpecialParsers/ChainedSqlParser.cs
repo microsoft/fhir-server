@@ -34,6 +34,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public void Parse(string name, string value, ParserOptions options)
         {
+            Parse(name, value, options, sharedRefCteName: null);
+        }
+
+        /// <summary>
+        /// Parses a forward-chained search parameter. If <paramref name="sharedRefCteName"/> is provided,
+        /// the ref CTE is assumed to already exist and will be reused instead of being generated again.
+        /// </summary>
+        public void Parse(string name, string value, ParserOptions options, string? sharedRefCteName)
+        {
             if (string.IsNullOrWhiteSpace(name))
             {
                 throw new ArgumentNullException(nameof(name));
@@ -60,41 +69,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var builder = options.SqlQueryBuilder;
 
-            var chainCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
+            string chainCteName;
 
-            builder.BeginCte(chainCteName);
-            builder.Select(
-                "refSource.ReferenceResourceTypeId AS RefResourceTypeId",
-                "refTarget.ResourceSurrogateId AS RefResourceSurrogateId",
-                "refSource.ResourceTypeId AS ResourceTypeId",
-                "refSource.ResourceSurrogateId AS ResourceSurrogateId");
-
-            builder.From("dbo.ReferenceSearchParam", "refSource");
-            builder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-            builder.InnerJoin(
-                options.LastCteName ?? "dbo.Resource",
-                "source",
-                $"source.{(options.ChainLevel > 0 ? "RefResource" : "Resource")}SurrogateId = refSource.ResourceSurrogateId AND source.{(options.ChainLevel > 0 ? "RefResource" : "Resource")}TypeId = refSource.ResourceTypeId");
-
-            builder.Where($"refSource.SearchParamId = {parameter.Id}");
-            ParserUtil.AddHistoryAndDeletedCheck(builder, "refTarget");
-
-            if (firstCode.Contains(':', StringComparison.OrdinalIgnoreCase))
+            if (sharedRefCteName != null)
             {
-                var resourceType = firstCode.Split(':')[1];
-                resourceTypeIds = new List<short> { _model.GetResourceTypeId(resourceType) };
-                builder.And($"refSource.ReferenceResourceTypeId = {resourceTypeIds[0]}");
-            }
+                // Reuse the already-generated ref CTE
+                chainCteName = sharedRefCteName;
 
-            // Add base filters only on the first CTE
-            ParserUtil.AddFirstCteFilters(builder, options, "source");
+                if (firstCode.Contains(':', StringComparison.OrdinalIgnoreCase))
+                {
+                    var resourceType = firstCode.Split(':')[1];
+                    resourceTypeIds = new List<short> { _model.GetResourceTypeId(resourceType) };
+                }
+            }
+            else
+            {
+                // Generate the ref CTE
+                chainCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
+
+                builder.BeginCte(chainCteName);
+                builder.Select(
+                    "refSource.ReferenceResourceTypeId AS RefResourceTypeId",
+                    "refTarget.ResourceSurrogateId AS RefResourceSurrogateId",
+                    "refSource.ResourceTypeId AS ResourceTypeId",
+                    "refSource.ResourceSurrogateId AS ResourceSurrogateId");
+
+                builder.From("dbo.ReferenceSearchParam", "refSource");
+                builder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+                builder.InnerJoin(
+                    options.LastCteName ?? "dbo.Resource",
+                    "source",
+                    $"source.{(options.ChainLevel > 0 ? "RefResource" : "Resource")}SurrogateId = refSource.ResourceSurrogateId AND source.{(options.ChainLevel > 0 ? "RefResource" : "Resource")}TypeId = refSource.ResourceTypeId");
+
+                builder.Where($"refSource.SearchParamId = {parameter.Id}");
+                ParserUtil.AddHistoryAndDeletedCheck(builder, "refTarget");
+
+                if (firstCode.Contains(':', StringComparison.OrdinalIgnoreCase))
+                {
+                    var resourceType = firstCode.Split(':')[1];
+                    resourceTypeIds = new List<short> { _model.GetResourceTypeId(resourceType) };
+                    builder.And($"refSource.ReferenceResourceTypeId = {resourceTypeIds[0]}");
+                }
+
+                // Add base filters only on the first CTE
+                ParserUtil.AddFirstCteFilters(builder, options, "source");
+
+                if (remainingChain.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                {
+                    // _type is the terminal — add type filter inside ref CTE and close it
+                    var valueTypeIds = value.Split(',').Select(v => _model.GetResourceTypeId(v)).ToList();
+                    builder.And($"refTarget.ResourceTypeId IN ({string.Join(",", valueTypeIds)})");
+                }
+
+                builder.EndCte();
+            }
 
             if (!remainingChain.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
             {
-                builder.EndCte();
-
                 // Recursively parse the remaining chain
-                // Get the parameter for the remaining chain to find the right parser
                 var remainingParameterParser = _parserSource.GetParser(remainingChain, resourceTypeIds[0]);
 
                 var searchChainLevel = options.ChainLevel + 1;
@@ -109,18 +141,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 };
                 remainingParameterParser.Parse(remainingChain, value, innerOptions);
 
-                // Use the result CTE name from the inner parser (handles nested chains)
                 chainCteName = innerOptions.ResultCteName ?? $"cte{options.CteNumber}chain{searchChainLevel}";
             }
-            else
+            else if (sharedRefCteName != null)
             {
+                // _type terminal with a shared ref CTE — create a filter CTE
+                var typeFilterCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_typefilter";
                 var valueTypeIds = value.Split(',').Select(v => _model.GetResourceTypeId(v)).ToList();
-                builder.And($"refTarget.ResourceTypeId IN ({string.Join(",", valueTypeIds)})");
+                builder.BeginCte(typeFilterCteName);
+                builder.SelectWithModifier("DISTINCT", "RefResourceTypeId", "RefResourceSurrogateId", "ResourceTypeId", "ResourceSurrogateId");
+                builder.From(chainCteName);
+                builder.Where($"RefResourceTypeId IN ({string.Join(",", valueTypeIds)})");
                 builder.EndCte();
+                chainCteName = typeFilterCteName;
             }
 
             var baseCteName = $"cte{options.CteNumber}";
-            var refCteName = $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
+            var refCteName = sharedRefCteName ?? $"cte{options.CteNumber}chain{options.ChainLevel}_ref";
             string resultCteName;
 
             // When _type was the terminal (chainCteName == refCteName), the ref CTE already

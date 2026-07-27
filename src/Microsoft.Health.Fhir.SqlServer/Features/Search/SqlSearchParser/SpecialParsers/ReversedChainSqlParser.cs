@@ -37,6 +37,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
         public void Parse(string name, string value, ParserOptions options)
         {
+            Parse(name, value, options, sharedRefCteName: null);
+        }
+
+        /// <summary>
+        /// Parses a reverse-chained (_has) search parameter. If <paramref name="sharedRefCteName"/> is provided,
+        /// the ref CTE is assumed to already exist and will be reused instead of being generated again.
+        /// </summary>
+        public void Parse(string name, string value, ParserOptions options, string? sharedRefCteName)
+        {
             if (string.IsNullOrWhiteSpace(name))
             {
                 throw new ArgumentNullException(nameof(name));
@@ -78,62 +87,72 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             var cteName = $"cte{options.CteNumber}";
             var builder = options.SqlQueryBuilder;
-            var refChainCteName = $"{cteName}chain{options.ChainLevel}_ref";
+            string refChainCteName;
 
-            // Step 1: Create the _ref CTE that finds reference links from source to target.
-            // For reverse chain, we flip the column naming:
-            // - RefResourceTypeId/RefResourceSurrogateId = SOURCE (Observation) - what we'll search
-            // - ResourceTypeId/ResourceSurrogateId = TARGET (Patient) - what we'll output
-            builder.BeginCte(refChainCteName);
-            builder.Select(
-                "refSource.ResourceTypeId AS RefResourceTypeId",
-                "refSource.ResourceSurrogateId AS RefResourceSurrogateId",
-                "refTarget.ResourceTypeId AS ResourceTypeId",
-                "refTarget.ResourceSurrogateId AS ResourceSurrogateId");
-
-            builder.From("dbo.ReferenceSearchParam", "refSource");
-            builder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
-
-            // If we have a previous CTE, join to it (for nested _has or combined with other params)
-            if (options.LastCteName != null)
+            if (sharedRefCteName != null)
             {
-                // When nested in a chain (ChainLevel > 0), the previous CTE is a _ref CTE
-                // whose RefResource columns represent the SOURCE resources we want to constrain against
-                var prevSurrogateCol = options.ChainLevel > 0 ? "RefResourceSurrogateId" : "ResourceSurrogateId";
-                var prevTypeCol = options.ChainLevel > 0 ? "RefResourceTypeId" : "ResourceTypeId";
-                builder.InnerJoin(
-                    options.LastCteName,
-                    "prev",
-                    $"prev.{prevSurrogateCol} = refTarget.ResourceSurrogateId AND prev.{prevTypeCol} = refTarget.ResourceTypeId");
+                // Reuse the already-generated ref CTE
+                refChainCteName = sharedRefCteName;
             }
-
-            builder.Where($"refSource.SearchParamId = {referenceParameter.Id}");
-            builder.And($"refSource.ResourceTypeId = {sourceResourceTypeId}");
-            ParserUtil.AddFirstCteFilters(builder, options, "refTarget");
-
-            // Add base filters on the first level
-            if (options.LastCteName == null)
+            else
             {
-                if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
+                refChainCteName = $"{cteName}chain{options.ChainLevel}_ref";
+
+                // Step 1: Create the _ref CTE that finds reference links from source to target.
+                // For reverse chain, we flip the column naming:
+                // - RefResourceTypeId/RefResourceSurrogateId = SOURCE (Observation) - what we'll search
+                // - ResourceTypeId/ResourceSurrogateId = TARGET (Patient) - what we'll output
+                builder.BeginCte(refChainCteName);
+                builder.Select(
+                    "refSource.ResourceTypeId AS RefResourceTypeId",
+                    "refSource.ResourceSurrogateId AS RefResourceSurrogateId",
+                    "refTarget.ResourceTypeId AS ResourceTypeId",
+                    "refTarget.ResourceSurrogateId AS ResourceSurrogateId");
+
+                builder.From("dbo.ReferenceSearchParam", "refSource");
+                builder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+
+                // If we have a previous CTE, join to it (for nested _has or combined with other params)
+                if (options.LastCteName != null)
                 {
-                    var targetResourceTypeIds = string.Join(", ", options.ResourceTypes);
-                    builder.And($"refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
+                    // When nested in a chain (ChainLevel > 0), the previous CTE is a _ref CTE
+                    // whose RefResource columns represent the SOURCE resources we want to constrain against
+                    var prevSurrogateCol = options.ChainLevel > 0 ? "RefResourceSurrogateId" : "ResourceSurrogateId";
+                    var prevTypeCol = options.ChainLevel > 0 ? "RefResourceTypeId" : "ResourceTypeId";
+                    builder.InnerJoin(
+                        options.LastCteName,
+                        "prev",
+                        $"prev.{prevSurrogateCol} = refTarget.ResourceSurrogateId AND prev.{prevTypeCol} = refTarget.ResourceTypeId");
                 }
 
-                if (options.ContinuationToken != null)
-                {
-                    var surrogateOperator = options.SortDescending ? "<" : ">";
-                    builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
+                builder.Where($"refSource.SearchParamId = {referenceParameter.Id}");
+                builder.And($"refSource.ResourceTypeId = {sourceResourceTypeId}");
+                ParserUtil.AddFirstCteFilters(builder, options, "refTarget");
 
-                    if (options.ContinuationToken.ResourceTypeId != null)
+                // Add base filters on the first level
+                if (options.LastCteName == null)
+                {
+                    if (options.ResourceTypes != null && options.ResourceTypes.Count > 0)
                     {
-                        var typeOperator = options.SortDescending ? "<" : ">";
-                        builder.And($"refTarget.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
+                        var targetResourceTypeIds = string.Join(", ", options.ResourceTypes);
+                        builder.And($"refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
+                    }
+
+                    if (options.ContinuationToken != null)
+                    {
+                        var surrogateOperator = options.SortDescending ? "<" : ">";
+                        builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
+
+                        if (options.ContinuationToken.ResourceTypeId != null)
+                        {
+                            var typeOperator = options.SortDescending ? "<" : ">";
+                            builder.And($"refTarget.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
+                        }
                     }
                 }
-            }
 
-            builder.EndCte();
+                builder.EndCte();
+            }
 
             // Step 2: Create the search filter on source resources
             string searchChainCteName;
