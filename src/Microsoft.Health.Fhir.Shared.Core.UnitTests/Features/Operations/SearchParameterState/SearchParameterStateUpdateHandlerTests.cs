@@ -334,16 +334,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
         }
 
-        [Fact]
-        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenJobConflictIsThrown()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
-        }
-
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
         {
             IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();

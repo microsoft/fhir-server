@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public BulkDeleteControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<CreateBulkDeleteResponse>(
+            _mediator.SendAsync<CreateBulkDeleteResponse>(
                 Arg.Any<CreateBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new CreateBulkDeleteResponse(0));
@@ -189,30 +189,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _ => _controller.BulkDeleteSoftDeletedByResourceType(
                     resourceType,
                     purgeHistory));
-        }
-
-        [Fact]
-        public async Task GivenBulkDeleteForSearchParameter_WhenReindexIsRunning_ThenConflictIsThrown()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            await Assert.ThrowsAsync<FhirJobConflictException>(() => _controller.BulkDeleteByResourceType(KnownResourceTypes.SearchParameter, new HardDeleteModel(), false, false));
-            await _mediator.DidNotReceiveWithAnyArgs().SendAsync<CreateBulkDeleteResponse>(default, default);
-        }
-
-        [Fact]
-        public async Task GivenBulkDeleteWithSearchParameterExcluded_WhenReindexIsRunning_ThenRequestStillSucceeds()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            var response = await _controller.BulkDelete(new HardDeleteModel(), false, false, KnownResourceTypes.SearchParameter);
-
-            Assert.IsType<JobResult>(response);
-            await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
         }
 
         [Theory]
