@@ -169,7 +169,12 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to create ACA environment" }
 $sqlServerName = $null
 if ($DataStore -eq 'SqlServer') {
     $sqlServerName = "fhir-abtest-sql-$runId".ToLowerInvariant()
-    $sqlAdminPassword = [System.Web.Security.Membership]::GeneratePassword(24, 4)
+    $sqlAdminPassword = -join ((
+        [char[]]'abcdefghijklmnopqrstuvwxyz' +
+        [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+        [char[]]'0123456789' +
+        [char[]]'!@#$%^&*'
+    ) | Get-Random -Count 24)
 
     Write-Host "`n► Creating SQL Server: $sqlServerName"
     az sql server create `
