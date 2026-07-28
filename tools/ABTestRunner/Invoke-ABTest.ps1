@@ -311,7 +311,7 @@ function Deploy-FhirContainerApp {
         '--image', $Image,
         '--registry-server', $ContainerRegistry,
         '--registry-identity', $uamiResourceId,
-        '--mi-user-assigned', $uamiResourceId,
+        '--user-assigned', $uamiResourceId,
         '--target-port', '8080',
         '--ingress', 'external',
         '--min-replicas', '1',
