@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Azure.AI.OpenAI;
 using Azure.Core;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using OpenAI.Embeddings;
 
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Azure.SemanticSearch
         /// </summary>
         /// <param name="configuration">The embedding endpoint configuration.</param>
         /// <param name="tokenCredential">The credential used to authenticate to the endpoint.</param>
-        public AzureFoundryEmbeddingClient(EmbeddingConfiguration configuration, TokenCredential tokenCredential)
+        public AzureFoundryEmbeddingClient(VectorSearchEmbeddingConfiguration configuration, TokenCredential tokenCredential)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(configuration.Endpoint, nameof(configuration.Endpoint));

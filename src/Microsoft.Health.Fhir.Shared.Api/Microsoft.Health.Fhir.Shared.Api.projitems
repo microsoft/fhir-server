@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\SemanticSearchController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />

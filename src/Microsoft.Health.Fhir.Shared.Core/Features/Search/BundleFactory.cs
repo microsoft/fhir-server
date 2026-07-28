@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
@@ -50,10 +51,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resource.Search = new Bundle.SearchComponent
                 {
                     Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                    Score = r.Score,
                 };
+
+                if (r.Evidence != null)
+                {
+                    resource.Search.Extension.Add(CreateSemanticEvidenceExtension(r.Evidence));
+                }
 
                 return resource;
             });
+        }
+
+        internal static Extension CreateSemanticEvidenceExtension(SemanticSearchEvidence evidence)
+        {
+            var extension = new Extension
+            {
+                Url = SemanticSearchEvidence.ExtensionUrl,
+            };
+
+            extension.Extension.Add(new Extension(SemanticSearchEvidence.TextExtensionUrl, new FhirString(evidence.Text)));
+            extension.Extension.Add(new Extension(SemanticSearchEvidence.ChunkOrdinalExtensionUrl, new Integer(evidence.ChunkOrdinal)));
+            extension.Extension.Add(new Extension(SemanticSearchEvidence.SearchParameterExtensionUrl, new FhirUri(evidence.SearchParameterCanonical)));
+            extension.Extension.Add(new Extension(SemanticSearchEvidence.SourceExtensionUrl, new ResourceReference(evidence.SourceReference)));
+            extension.Extension.Add(new Extension(SemanticSearchEvidence.SourcePathExtensionUrl, new FhirString(evidence.SourcePath)));
+
+            return extension;
         }
 
         public ResourceElement CreateHistoryBundle(SearchResult result)

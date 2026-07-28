@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -23,6 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
         private const short TestResourceTypeId = 100;
         private const short TestSearchParamId = 1;
         private const short TestEmbeddingModelId = 1;
+        private const short ReplacementEmbeddingModelId = 2;
 
         // Opt-in integration test: it only runs when the database is configured through an environment variable,
         // so CI (which has neither credentials nor network access to the database) stays offline.
@@ -43,8 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
             float[] embedding = await CreateEmbeddingAsync();
             var chunks = new List<VectorSearchChunk>
             {
-                new VectorSearchChunk(0, new byte[32], embedding),
-                new VectorSearchChunk(1, new byte[32], embedding),
+                new VectorSearchChunk(0, "first passage", new byte[32], embedding),
+                new VectorSearchChunk(1, "second passage", new byte[32], embedding),
             };
 
             var store = new SqlVectorStore(connectionString);
@@ -55,6 +58,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
 
                 int count = await CountAsync(connectionString, resourceSurrogateId);
                 Assert.Equal(2, count);
+
+                await store.StoreAsync(
+                    TestResourceTypeId,
+                    resourceSurrogateId,
+                    TestSearchParamId,
+                    ReplacementEmbeddingModelId,
+                    new[] { chunks[0] },
+                    CancellationToken.None);
+
+                count = await CountAsync(connectionString, resourceSurrogateId);
+                Assert.Equal(1, count);
+
+                await store.StoreAsync(
+                    TestResourceTypeId,
+                    resourceSurrogateId,
+                    TestSearchParamId,
+                    ReplacementEmbeddingModelId,
+                    Array.Empty<VectorSearchChunk>(),
+                    CancellationToken.None);
+
+                count = await CountAsync(connectionString, resourceSurrogateId);
+                Assert.Equal(0, count);
             }
             finally
             {
@@ -84,12 +109,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
 
             try
             {
-                await store.StoreAsync(TestResourceTypeId, surrogateChestPain, TestSearchParamId, TestEmbeddingModelId, new[] { new VectorSearchChunk(0, new byte[32], chestPain) }, CancellationToken.None);
-                await store.StoreAsync(TestResourceTypeId, surrogateFracture, TestSearchParamId, TestEmbeddingModelId, new[] { new VectorSearchChunk(0, new byte[32], fracture) }, CancellationToken.None);
-
-                IReadOnlyList<VectorSearchResult> results = await store.SearchAsync(
+                await store.StoreAsync(
                     TestResourceTypeId,
+                    surrogateChestPain,
+                    TestSearchParamId,
                     TestEmbeddingModelId,
+                    new[]
+                    {
+                        new VectorSearchChunk(0, "chest pain", new byte[32], chestPain),
+                        new VectorSearchChunk(1, "fractured femur", new byte[32], fracture),
+                    },
+                    CancellationToken.None);
+                await store.StoreAsync(TestResourceTypeId, surrogateFracture, TestSearchParamId, TestEmbeddingModelId, new[] { new VectorSearchChunk(0, "fractured femur", new byte[32], fracture) }, CancellationToken.None);
+                await SetSourceProvenanceAsync(connectionString, surrogateChestPain, chunkOrdinal: 0);
+
+                IReadOnlyList<VectorSearchHit> results = await store.SearchAsync(
+                    TestResourceTypeId,
+                    TestSearchParamId,
+                    TestEmbeddingModelId,
+                    VectorSearchConfiguration.SupportedDistanceMetric,
                     chestPain,
                     new[] { surrogateChestPain, surrogateFracture },
                     maxResults: 2,
@@ -97,6 +135,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
 
                 Assert.Equal(2, results.Count);
                 Assert.Equal(surrogateChestPain, results[0].ResourceSurrogateId);
+                Assert.Equal("chest pain", results[0].ChunkText);
+                Assert.Equal(0, results[0].ChunkOrdinal);
+                Assert.Equal(TestResourceTypeId, results[0].SourceResourceTypeId);
+                Assert.Equal("binary-1", results[0].SourceResourceId);
+                Assert.Equal("2", results[0].SourceResourceVersion);
+                Assert.Equal("Binary.data", results[0].SourcePath);
+                Assert.Equal(2, results.Select(result => result.ResourceSurrogateId).Distinct().Count());
                 Assert.True(results[0].Score >= results[1].Score);
             }
             finally
@@ -124,6 +169,29 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
             command.Parameters.AddWithValue("@rid", resourceSurrogateId);
 
             return (int)await command.ExecuteScalarAsync();
+        }
+
+        private static async Task SetSourceProvenanceAsync(string connectionString, long resourceSurrogateId, short chunkOrdinal)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            await using SqlCommand command = connection.CreateCommand();
+            command.CommandText = @"
+UPDATE dbo.VectorSearchParam
+SET SourceResourceTypeId = @sourceResourceTypeId,
+    SourceResourceId = 'binary-1',
+    SourceResourceVersion = '2',
+    SourcePath = 'Binary.data'
+WHERE ResourceTypeId = @resourceTypeId
+  AND ResourceSurrogateId = @resourceSurrogateId
+  AND ChunkOrdinal = @chunkOrdinal;";
+            command.Parameters.AddWithValue("@sourceResourceTypeId", TestResourceTypeId);
+            command.Parameters.AddWithValue("@resourceTypeId", TestResourceTypeId);
+            command.Parameters.AddWithValue("@resourceSurrogateId", resourceSurrogateId);
+            command.Parameters.AddWithValue("@chunkOrdinal", chunkOrdinal);
+
+            await command.ExecuteNonQueryAsync();
         }
 
         private static async Task DeleteAsync(string connectionString, long resourceSurrogateId)

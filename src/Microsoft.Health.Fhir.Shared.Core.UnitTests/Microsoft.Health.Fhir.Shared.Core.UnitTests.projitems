@@ -126,10 +126,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\ExpressionToStringTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\VectorSearchExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SemanticSearch\SemanticSearchHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchValues\ReferenceSearchValueParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchValues\ReferenceSearchValueTests.cs" />

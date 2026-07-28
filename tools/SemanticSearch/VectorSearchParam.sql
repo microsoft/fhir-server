@@ -21,6 +21,7 @@ BEGIN
         SearchParamId           smallint        NOT NULL,
         ChunkOrdinal            int             NOT NULL,
         EmbeddingModelId        smallint        NOT NULL,
+        ChunkText               nvarchar(max)   NOT NULL,
         SourceTextHash          binary(32)      NOT NULL,
         Embedding               vector(1536)    NOT NULL
     )

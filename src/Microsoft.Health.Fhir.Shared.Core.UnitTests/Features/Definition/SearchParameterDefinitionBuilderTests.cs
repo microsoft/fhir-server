@@ -100,6 +100,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Fact]
+        public void GivenVectorSearchParameterExtension_WhenWrapped_ThenVectorConfigurationIsParsed()
+        {
+            // Arrange
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"sourceStrategy\",\"valueCode\":\"localBinaryReference\"},{\"url\":\"extractionPolicy\",\"valueCode\":\"perValueRow\"},{\"url\":\"maxInputTokens\",\"valueInteger\":1200}]}]}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+
+            // Act
+            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            // Assert
+            Assert.Equal("active", searchParameterInfo.DefinitionStatus);
+            Assert.NotNull(searchParameterInfo.VectorConfig);
+            Assert.Equal(VectorTextSourceStrategy.LocalBinaryReference, searchParameterInfo.VectorConfig.SourceStrategy);
+            Assert.Equal(VectorTextExtractionPolicy.PerValueRow, searchParameterInfo.VectorConfig.ExtractionPolicy);
+            Assert.Equal(1200, searchParameterInfo.VectorConfig.MaxInputTokens);
+        }
+
+        [Fact]
+        public void GivenUnsupportedVectorExtractionPolicy_WhenWrapped_ThenDefinitionIsRejected()
+        {
+            // Arrange
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"extractionPolicy\",\"valueCode\":\"unsupported\"}]}]}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenAllResourceTypesShouldBeIncluded()
         {
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(

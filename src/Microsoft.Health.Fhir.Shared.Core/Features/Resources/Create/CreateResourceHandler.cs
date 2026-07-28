@@ -14,6 +14,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -39,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
-
             _referenceResolver = referenceResolver;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }

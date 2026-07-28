@@ -8,24 +8,32 @@ using EnsureThat;
 namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
     /// <summary>
-    /// One ranked passage returned by a semantic search: which resource and passage matched, and how relevant it is.
+    /// One ranked FHIR semantic-search result and the evidence passage that supports it.
     /// </summary>
     public sealed class VectorSearchResult
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorSearchResult"/> class.
         /// </summary>
+        /// <param name="resourceTypeName">The FHIR resource type that matched.</param>
         /// <param name="resourceSurrogateId">The surrogate id of the resource that matched.</param>
-        /// <param name="chunkOrdinal">The zero-based ordinal of the passage that matched within its source document.</param>
         /// <param name="score">The relevance score from 0 (unrelated) to 1 (identical), where higher is more relevant.</param>
-        public VectorSearchResult(long resourceSurrogateId, int chunkOrdinal, float score)
+        /// <param name="evidence">The exact passage and FHIR source provenance supporting the result.</param>
+        public VectorSearchResult(string resourceTypeName, long resourceSurrogateId, float score, SemanticSearchEvidence evidence)
         {
-            EnsureArg.IsGte(chunkOrdinal, 0, nameof(chunkOrdinal));
+            EnsureArg.IsNotNullOrWhiteSpace(resourceTypeName, nameof(resourceTypeName));
+            EnsureArg.IsNotNull(evidence, nameof(evidence));
 
+            ResourceTypeName = resourceTypeName;
             ResourceSurrogateId = resourceSurrogateId;
-            ChunkOrdinal = chunkOrdinal;
             Score = score;
+            Evidence = evidence;
         }
+
+        /// <summary>
+        /// Gets the FHIR resource type that matched.
+        /// </summary>
+        public string ResourceTypeName { get; }
 
         /// <summary>
         /// Gets the surrogate id of the resource that matched.
@@ -33,9 +41,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         public long ResourceSurrogateId { get; }
 
         /// <summary>
-        /// Gets the zero-based ordinal of the passage that matched within its source document.
+        /// Gets the exact passage and FHIR source provenance supporting the result.
         /// </summary>
-        public int ChunkOrdinal { get; }
+        public SemanticSearchEvidence Evidence { get; }
 
         /// <summary>
         /// Gets the relevance score from 0 (unrelated) to 1 (identical), where higher is more relevant.

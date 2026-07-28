@@ -13,6 +13,7 @@
     ,@NumberSearchParams dbo.NumberSearchParamList READONLY
     ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
     ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+    ,@VectorSearchParams dbo.VectorSearchParamList READONLY
     ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
     ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
     ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
@@ -50,6 +51,7 @@ BEGIN TRY
             ,@NumberSearchParams = @NumberSearchParams
             ,@QuantitySearchParams = @QuantitySearchParams
             ,@DateTimeSearchParms = @DateTimeSearchParms
+            ,@VectorSearchParams = @VectorSearchParams
             ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
             ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
             ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams

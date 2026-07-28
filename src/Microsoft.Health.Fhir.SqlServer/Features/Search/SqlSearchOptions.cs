@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -34,6 +35,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Keeps track of whether missing modifier is specified for search parameter used in sort.
         /// </summary>
         public bool SortHasMissingModifier { get; internal set; }
+
+        /// <summary>
+        /// Gets or sets the prepared vector query used to rank structured matches before pagination.
+        /// </summary>
+        public PreparedVectorSearchQuery PreparedVectorQuery { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

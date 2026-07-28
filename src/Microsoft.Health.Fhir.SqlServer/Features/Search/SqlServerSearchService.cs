@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -59,6 +60,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
         internal const int LongRunningThresholdMillisecondsDefault = 5000;
         private const string SortValueColumnName = "SortValue";
+        private const string SemanticDistanceColumnName = "SemanticDistance";
+        private const string SemanticChunkOrdinalColumnName = "SemanticChunkOrdinal";
+        private const string SemanticChunkTextColumnName = "SemanticChunkText";
+        private const string SemanticSourceResourceTypeIdColumnName = "SemanticSourceResourceTypeId";
+        private const string SemanticSourceResourceIdColumnName = "SemanticSourceResourceId";
+        private const string SemanticSourceResourceVersionColumnName = "SemanticSourceResourceVersion";
+        private const string SemanticSourcePathColumnName = "SemanticSourcePath";
 
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
@@ -81,6 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -116,7 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
-            ILogger<SqlServerSearchService> logger)
+            ILogger<SqlServerSearchService> logger,
+            IVectorSearchQueryProcessor vectorSearchQueryProcessor = null)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -145,6 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
+            _vectorSearchQueryProcessor = vectorSearchQueryProcessor;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -177,6 +188,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            if (_vectorSearchQueryProcessor != null)
+            {
+                sqlSearchOptions.PreparedVectorQuery = await _vectorSearchQueryProcessor.PrepareAsync(sqlSearchOptions.Expression, cancellationToken);
+            }
 
             if (sqlSearchOptions.IsIncludesOperation)
             {
@@ -436,7 +451,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            Expression searchExpression = sqlSearchOptions.Expression;
+            Expression searchExpression = sqlSearchOptions.PreparedVectorQuery == null
+                ? sqlSearchOptions.Expression
+                : sqlSearchOptions.Expression?.AcceptVisitor(RemoveVectorSearchRewriter.Instance);
 
             // AND in the continuation token
             if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
@@ -510,7 +527,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Reads by resource ids is handled directly via GetAsync().
             // Search result is set only on success, otherwise it is null.
             // SqlServerFhirDataStore uses the same retry class, so it is not needed to call this inside _sqlRetryService.ExecuteSql down below.
-            if (await GetResourcesByIdsAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult result)
+            if (clonedSearchOptions.PreparedVectorQuery == null &&
+                await GetResourcesByIdsAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult result)
             {
                 _logger.LogInformation("Get resources by ids was handled via GetAsync()");
                 return result;
@@ -531,7 +549,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
-                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        else if (clonedSearchOptions.PreparedVectorQuery == null &&
+                            TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
                             PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
                         }
@@ -625,6 +644,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     ReadWrapper(
                                         reader,
                                         exportTimeTravel,
+                                        sqlSearchOptions.PreparedVectorQuery != null,
                                         out short resourceTypeId,
                                         out string resourceId,
                                         out int version,
@@ -637,7 +657,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         out string searchParameterHash,
                                         out byte[] rawResourceBytes,
                                         out bool isInvisible,
-                                        out bool isHistory);
+                                        out bool isHistory,
+                                        out double? semanticDistance,
+                                        out int? semanticChunkOrdinal,
+                                        out string semanticChunkText,
+                                        out short? semanticSourceResourceTypeId,
+                                        out string semanticSourceResourceId,
+                                        out string semanticSourceResourceVersion,
+                                        out string semanticSourcePath);
 
                                     if (isInvisible)
                                     {
@@ -693,8 +720,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         }
 
                                         matchCount++;
-                                        matchedResources.Add(new SearchResultEntry(
-                                            new ResourceWrapper(
+                                        var resourceWrapper = new ResourceWrapper(
                                                 resourceId,
                                                 version.ToString(CultureInfo.InvariantCulture),
                                                 _model.GetResourceTypeName(resourceTypeId),
@@ -709,8 +735,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 resourceSurrogateId)
                                             {
                                                 IsHistory = isHistory,
-                                            },
-                                            SearchEntryMode.Match));
+                                            };
+
+                                        SemanticSearchEvidence semanticEvidence = null;
+                                        decimal? semanticScore = null;
+                                        if (semanticDistance.HasValue)
+                                        {
+                                            semanticScore = NormalizeCosineDistance(semanticDistance.Value);
+                                            semanticEvidence = new SemanticSearchEvidence(
+                                                semanticChunkText,
+                                                semanticChunkOrdinal.Value,
+                                                sqlSearchOptions.PreparedVectorQuery.SearchParameter.Url,
+                                                new ResourceKey(
+                                                    semanticSourceResourceTypeId.HasValue ? _model.GetResourceTypeName(semanticSourceResourceTypeId.Value) : resourceWrapper.ResourceTypeName,
+                                                    semanticSourceResourceId ?? resourceWrapper.ResourceId,
+                                                    semanticSourceResourceVersion ?? resourceWrapper.Version).ToString(),
+                                                semanticSourcePath ?? sqlSearchOptions.PreparedVectorQuery.SearchParameter.Expression);
+                                        }
+
+                                        matchedResources.Add(new SearchResultEntry(
+                                            resourceWrapper,
+                                            SearchEntryMode.Match,
+                                            semanticScore,
+                                            semanticEvidence));
                                     }
                                     else
                                     {
@@ -915,6 +962,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         ReadWrapper(
                             reader,
                             true,
+                            false,
                             out short _,
                             out string resourceId,
                             out int version,
@@ -927,7 +975,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out string searchParameterHash,
                             out byte[] rawResourceBytes,
                             out bool isInvisible,
-                            out bool isHistory);
+                            out bool isHistory,
+                            out double? _,
+                            out int? _,
+                            out string _,
+                            out short? _,
+                            out string _,
+                            out string _,
+                            out string _);
 
                         if (isInvisible)
                         {
@@ -1638,6 +1693,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private void ReadWrapper(
             SqlDataReader reader,
             bool readIsHistory,
+            bool readSemanticEvidence,
             out short resourceTypeId,
             out string resourceId,
             out int version,
@@ -1650,7 +1706,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out string searchParameterHash,
             out byte[] rawResourceBytes,
             out bool isInvisible,
-            out bool isHistory)
+            out bool isHistory,
+            out double? semanticDistance,
+            out int? semanticChunkOrdinal,
+            out string semanticChunkText,
+            out short? semanticSourceResourceTypeId,
+            out string semanticSourceResourceId,
+            out string semanticSourceResourceVersion,
+            out string semanticSourcePath)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
@@ -1665,6 +1728,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             rawResourceBytes = reader.GetSqlBytes(10).Value;
             isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
             isHistory = readIsHistory && reader.FieldCount > 11 ? reader.Read(VLatest.Resource.IsHistory, 11) : false;
+            semanticDistance = readSemanticEvidence ? Convert.ToDouble(reader.GetValue(SemanticDistanceColumnName), CultureInfo.InvariantCulture) : null;
+            semanticChunkOrdinal = readSemanticEvidence ? Convert.ToInt32(reader.GetValue(SemanticChunkOrdinalColumnName), CultureInfo.InvariantCulture) : null;
+            semanticChunkText = readSemanticEvidence ? Convert.ToString(reader.GetValue(SemanticChunkTextColumnName), CultureInfo.InvariantCulture) : null;
+            semanticSourceResourceTypeId = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticSourceResourceTypeIdColumnName))
+                ? Convert.ToInt16(reader.GetValue(SemanticSourceResourceTypeIdColumnName), CultureInfo.InvariantCulture)
+                : null;
+            semanticSourceResourceId = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticSourceResourceIdColumnName))
+                ? Convert.ToString(reader.GetValue(SemanticSourceResourceIdColumnName), CultureInfo.InvariantCulture)
+                : null;
+            semanticSourceResourceVersion = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticSourceResourceVersionColumnName))
+                ? Convert.ToString(reader.GetValue(SemanticSourceResourceVersionColumnName), CultureInfo.InvariantCulture)
+                : null;
+            semanticSourcePath = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticSourcePathColumnName))
+                ? Convert.ToString(reader.GetValue(SemanticSourcePathColumnName), CultureInfo.InvariantCulture)
+                : null;
+        }
+
+        private static decimal NormalizeCosineDistance(double distance)
+        {
+            return (decimal)Math.Clamp(1.0 - (distance / 2.0), 0.0, 1.0);
         }
 
         [Conditional("DEBUG")]
@@ -2172,6 +2255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     ReadWrapper(
                                         reader,
                                         exportTimeTravel,
+                                        false,
                                         out short resourceTypeId,
                                         out string resourceId,
                                         out int version,
@@ -2184,7 +2268,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         out string searchParameterHash,
                                         out byte[] rawResourceBytes,
                                         out bool isInvisible,
-                                        out bool isHistory);
+                                        out bool isHistory,
+                                        out double? _,
+                                        out int? _,
+                                        out string _,
+                                        out short? _,
+                                        out string _,
+                                        out string _,
+                                        out string _);
 
                                     if (isInvisible)
                                     {

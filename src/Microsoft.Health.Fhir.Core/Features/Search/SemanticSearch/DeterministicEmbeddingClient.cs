@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
@@ -24,8 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// <summary>
         /// Initializes a new instance of the <see cref="DeterministicEmbeddingClient"/> class.
         /// </summary>
-        /// <param name="dimensions">The number of dimensions each embedding should have. Defaults to 1536 to match the schema's vector column.</param>
-        public DeterministicEmbeddingClient(int dimensions = 1536)
+        /// <param name="dimensions">The number of dimensions each embedding should have.</param>
+        public DeterministicEmbeddingClient(int dimensions = VectorSearchConfiguration.SupportedDimensions)
         {
             EnsureArg.IsGt(dimensions, 0, nameof(dimensions));
 

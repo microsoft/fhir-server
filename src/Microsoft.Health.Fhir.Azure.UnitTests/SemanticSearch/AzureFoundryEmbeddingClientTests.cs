@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Microsoft.Health.Fhir.Azure.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
                 return;
             }
 
-            var configuration = new EmbeddingConfiguration
+            var configuration = new VectorSearchEmbeddingConfiguration
             {
                 Endpoint = new Uri(endpoint),
                 DeploymentName = deployment,

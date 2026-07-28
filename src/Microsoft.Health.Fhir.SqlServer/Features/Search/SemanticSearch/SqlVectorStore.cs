@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -25,21 +24,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch
     {
         private const string InsertChunk = @"
 INSERT INTO dbo.VectorSearchParam
-    (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, Embedding)
+    (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, Embedding)
 VALUES
-    (@ResourceTypeId, @ResourceSurrogateId, @SearchParamId, @ChunkOrdinal, @EmbeddingModelId, @SourceTextHash, CAST(@Embedding AS VECTOR(1536)));";
+    (@ResourceTypeId, @ResourceSurrogateId, @SearchParamId, @ChunkOrdinal, @EmbeddingModelId, @ChunkText, @SourceTextHash, CAST(@Embedding AS VECTOR(1536)));";
+
+        private const string DeleteResourceChunks = @"
+DELETE FROM dbo.VectorSearchParam
+WHERE ResourceTypeId = @ResourceTypeId
+  AND ResourceSurrogateId = @ResourceSurrogateId
+    AND SearchParamId = @SearchParamId;";
 
         // The candidate ids arrive as one comma-delimited bound parameter and are split server-side, so the query text
         // stays a compile-time constant (no user input is ever concatenated into it) while every value is parameterized.
         private const string SearchChunks = @"
+WITH RankedChunks AS
+(
+    SELECT v.ResourceSurrogateId,
+           v.ChunkOrdinal,
+           v.ChunkText,
+           v.SourceResourceTypeId,
+           v.SourceResourceId,
+           v.SourceResourceVersion,
+           v.SourcePath,
+           VECTOR_DISTANCE(@DistanceMetric, v.Embedding, CAST(@QueryEmbedding AS VECTOR(1536))) AS Distance,
+           ROW_NUMBER() OVER
+           (
+               PARTITION BY v.ResourceSurrogateId
+               ORDER BY VECTOR_DISTANCE(@DistanceMetric, v.Embedding, CAST(@QueryEmbedding AS VECTOR(1536)))
+           ) AS ChunkRank
+    FROM dbo.VectorSearchParam AS v
+    WHERE v.ResourceTypeId = @ResourceTypeId
+      AND v.SearchParamId = @SearchParamId
+      AND v.EmbeddingModelId = @EmbeddingModelId
+      AND v.ResourceSurrogateId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@CandidateIds, ','))
+)
 SELECT TOP (@MaxResults)
-       v.ResourceSurrogateId,
-       v.ChunkOrdinal,
-       VECTOR_DISTANCE('cosine', v.Embedding, CAST(@QueryEmbedding AS VECTOR(1536))) AS Distance
-FROM   dbo.VectorSearchParam AS v
-WHERE  v.ResourceTypeId   = @ResourceTypeId
-  AND  v.EmbeddingModelId = @EmbeddingModelId
-  AND  v.ResourceSurrogateId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@CandidateIds, ','))
+       ResourceSurrogateId,
+       ChunkOrdinal,
+             ChunkText,
+             SourceResourceTypeId,
+             SourceResourceId,
+             SourceResourceVersion,
+             SourcePath,
+       Distance
+FROM RankedChunks
+WHERE ChunkRank = 1
 ORDER BY Distance;";
 
         private readonly string _connectionString;
@@ -66,37 +95,44 @@ ORDER BY Distance;";
         {
             EnsureArg.IsNotNull(chunks, nameof(chunks));
 
-            if (chunks.Count == 0)
-            {
-                return;
-            }
-
             await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
+
+            await using SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
+            await using (SqlCommand deleteCommand = connection.CreateCommand())
+            {
+                deleteCommand.Transaction = transaction;
+                deleteCommand.CommandText = DeleteResourceChunks;
+                AddResourceParameters(deleteCommand, resourceTypeId, resourceSurrogateId, searchParamId, embeddingModelId);
+                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
 
             foreach (VectorSearchChunk chunk in chunks)
             {
                 await using SqlCommand command = connection.CreateCommand();
+                command.Transaction = transaction;
                 command.CommandText = InsertChunk;
 
-                command.Parameters.Add("@ResourceTypeId", SqlDbType.SmallInt).Value = resourceTypeId;
-                command.Parameters.Add("@ResourceSurrogateId", SqlDbType.BigInt).Value = resourceSurrogateId;
-                command.Parameters.Add("@SearchParamId", SqlDbType.SmallInt).Value = searchParamId;
-                command.Parameters.Add("@ChunkOrdinal", SqlDbType.Int).Value = chunk.ChunkOrdinal;
-                command.Parameters.Add("@EmbeddingModelId", SqlDbType.SmallInt).Value = embeddingModelId;
+                AddResourceParameters(command, resourceTypeId, resourceSurrogateId, searchParamId, embeddingModelId);
+                command.Parameters.Add("@ChunkOrdinal", SqlDbType.SmallInt).Value = chunk.ChunkOrdinal;
+                command.Parameters.Add("@ChunkText", SqlDbType.NVarChar, -1).Value = chunk.ChunkText;
 
                 byte[] hash = ToArray(chunk.SourceTextHash);
                 command.Parameters.Add("@SourceTextHash", SqlDbType.Binary, hash.Length).Value = hash;
-                command.Parameters.Add("@Embedding", SqlDbType.NVarChar, -1).Value = FormatVector(chunk.Embedding);
+                command.Parameters.Add("@Embedding", SqlDbType.NVarChar, -1).Value = SqlVectorFormatter.Format(chunk.Embedding);
 
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+
+            await transaction.CommitAsync(cancellationToken);
         }
 
         /// <inheritdoc />
-        public async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+        public async Task<IReadOnlyList<VectorSearchHit>> SearchAsync(
             short resourceTypeId,
+            short searchParamId,
             short embeddingModelId,
+            string distanceMetric,
             IReadOnlyList<float> queryEmbedding,
             IReadOnlyList<long> candidateResourceSurrogateIds,
             int maxResults,
@@ -104,12 +140,13 @@ ORDER BY Distance;";
         {
             EnsureArg.IsNotNull(queryEmbedding, nameof(queryEmbedding));
             EnsureArg.IsNotNull(candidateResourceSurrogateIds, nameof(candidateResourceSurrogateIds));
+            EnsureArg.IsNotNullOrWhiteSpace(distanceMetric, nameof(distanceMetric));
             EnsureArg.IsGt(maxResults, 0, nameof(maxResults));
 
             // Nothing passed the structured filter, so there is nothing to rank.
             if (candidateResourceSurrogateIds.Count == 0)
             {
-                return Array.Empty<VectorSearchResult>();
+                return Array.Empty<VectorSearchHit>();
             }
 
             await using var connection = new SqlConnection(_connectionString);
@@ -120,26 +157,54 @@ ORDER BY Distance;";
 
             command.Parameters.Add("@MaxResults", SqlDbType.Int).Value = maxResults;
             command.Parameters.Add("@ResourceTypeId", SqlDbType.SmallInt).Value = resourceTypeId;
+            command.Parameters.Add("@SearchParamId", SqlDbType.SmallInt).Value = searchParamId;
             command.Parameters.Add("@EmbeddingModelId", SqlDbType.SmallInt).Value = embeddingModelId;
-            command.Parameters.Add("@QueryEmbedding", SqlDbType.NVarChar, -1).Value = FormatVector(queryEmbedding);
+            command.Parameters.Add("@DistanceMetric", SqlDbType.VarChar, 16).Value = distanceMetric;
+            command.Parameters.Add("@QueryEmbedding", SqlDbType.NVarChar, -1).Value = SqlVectorFormatter.Format(queryEmbedding);
             command.Parameters.Add("@CandidateIds", SqlDbType.NVarChar, -1).Value = string.Join(",", candidateResourceSurrogateIds);
 
-            var results = new List<VectorSearchResult>();
+            var results = new List<VectorSearchHit>();
 
             await using SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
                 long resourceSurrogateId = reader.GetInt64(0);
-                int chunkOrdinal = reader.GetInt32(1);
-                double distance = Convert.ToDouble(reader.GetValue(2), CultureInfo.InvariantCulture);
+                int chunkOrdinal = reader.GetInt16(1);
+                string chunkText = reader.GetString(2);
+                short? sourceResourceTypeId = await reader.IsDBNullAsync(3, cancellationToken) ? null : reader.GetInt16(3);
+                string sourceResourceId = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetString(4);
+                string sourceResourceVersion = await reader.IsDBNullAsync(5, cancellationToken) ? null : reader.GetString(5);
+                string sourcePath = await reader.IsDBNullAsync(6, cancellationToken) ? null : reader.GetString(6);
+                double distance = Convert.ToDouble(reader.GetValue(7), CultureInfo.InvariantCulture);
 
-                // VECTOR_DISTANCE('cosine', ...) is 0 (identical) to 2 (opposite); map it to a 0..1 relevance score where higher is better.
+                // The supported cosine distance is 0 (identical) to 2 (opposite); map it to a 0..1 relevance score where higher is better.
                 float score = (float)(1.0 - (distance / 2.0));
 
-                results.Add(new VectorSearchResult(resourceSurrogateId, chunkOrdinal, score));
+                results.Add(new VectorSearchHit(
+                    resourceSurrogateId,
+                    chunkOrdinal,
+                    chunkText,
+                    score,
+                    sourceResourceTypeId,
+                    sourceResourceId,
+                    sourceResourceVersion,
+                    sourcePath));
             }
 
             return results;
+        }
+
+        private static void AddResourceParameters(
+            SqlCommand command,
+            short resourceTypeId,
+            long resourceSurrogateId,
+            short searchParamId,
+            short embeddingModelId)
+        {
+            command.Parameters.Add("@ResourceTypeId", SqlDbType.SmallInt).Value = resourceTypeId;
+            command.Parameters.Add("@ResourceSurrogateId", SqlDbType.BigInt).Value = resourceSurrogateId;
+            command.Parameters.Add("@SearchParamId", SqlDbType.SmallInt).Value = searchParamId;
+            command.Parameters.Add("@EmbeddingModelId", SqlDbType.SmallInt).Value = embeddingModelId;
         }
 
         private static byte[] ToArray(IReadOnlyList<byte> source)
@@ -152,25 +217,6 @@ ORDER BY Distance;";
             }
 
             return result;
-        }
-
-        private static string FormatVector(IReadOnlyList<float> embedding)
-        {
-            var builder = new StringBuilder((embedding.Count * 8) + 2);
-            builder.Append('[');
-
-            for (int i = 0; i < embedding.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                builder.Append(embedding[i].ToString("R", CultureInfo.InvariantCulture));
-            }
-
-            builder.Append(']');
-            return builder.ToString();
         }
     }
 }

@@ -38,15 +38,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// so ranking always runs over records the caller is already allowed to see.
         /// </summary>
         /// <param name="resourceTypeId">The id of the FHIR resource type to rank.</param>
+        /// <param name="searchParamId">The id of the semantic search parameter that produced the vectors.</param>
         /// <param name="embeddingModelId">The id of the embedding model whose vectors to rank, so the query and stored vectors share one space.</param>
+        /// <param name="distanceMetric">The vector distance metric.</param>
         /// <param name="queryEmbedding">The embedding of the search string.</param>
         /// <param name="candidateResourceSurrogateIds">The surrogate ids that passed the structured filter.</param>
         /// <param name="maxResults">The maximum number of passages to return, ordered by relevance.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The closest passages, ordered from most to least relevant.</returns>
-        Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+        Task<IReadOnlyList<VectorSearchHit>> SearchAsync(
             short resourceTypeId,
+            short searchParamId,
             short embeddingModelId,
+            string distanceMetric,
             IReadOnlyList<float> queryEmbedding,
             IReadOnlyList<long> candidateResourceSurrogateIds,
             int maxResults,

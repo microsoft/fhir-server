@@ -9,8 +9,10 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -145,6 +147,66 @@ public class SqlQueryGeneratorTests
 
         Assert.Contains("IsHistory = 1", _strBuilder.ToString());
         Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
+    }
+
+    [Fact]
+    public void GivenPreparedVectorQueryAndStructuredCandidates_WhenSqlGenerated_ThenRanksBeforePagination()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "SemanticText",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+        };
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        int candidateJoinIndex = generatedSql.IndexOf("JOIN cte0", StringComparison.Ordinal);
+        int vectorApplyIndex = generatedSql.IndexOf("CROSS APPLY", StringComparison.Ordinal);
+
+        Assert.True(candidateJoinIndex >= 0, generatedSql);
+        Assert.True(vectorApplyIndex > candidateJoinIndex, generatedSql);
+        Assert.Contains("SELECT TOP (", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("dbo.VectorSearchParam", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("VECTOR_DISTANCE(", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS VECTOR(1536)", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticChunkOrdinal", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticChunkText", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticChunkOrdinal", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticChunkText", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticSourceResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticSourceResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticSourceResourceVersion", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticSourcePath", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("[0.25,0.25", generatedSql, StringComparison.Ordinal);
     }
 
     [Fact]
