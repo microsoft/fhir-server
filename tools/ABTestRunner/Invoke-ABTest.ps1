@@ -452,9 +452,38 @@ function Invoke-E2ETests {
     )
 
     $startTime = Get-Date
-    & dotnet @testArgs 2>&1 | Tee-Object -Variable testOutput
+    $passed = 0
+    $failed = 0
+    $skipped = 0
+    $testOutput = [System.Collections.Generic.List[string]]::new()
+    $lastProgressTime = [datetime]::MinValue
+
+    & dotnet @testArgs 2>&1 | ForEach-Object {
+        $line = $_
+        $testOutput.Add($line)
+
+        if ($line -match '^\s*passed\b') { $passed++ }
+        elseif ($line -match '^\s*failed\b') {
+            $failed++
+            # Show failed test names immediately
+            Write-Host "  ✗ $line" -ForegroundColor Red
+        }
+        elseif ($line -match '^\s*skipped\b') { $skipped++ }
+
+        # Print a compact progress line every 30 seconds
+        $now = Get-Date
+        if (($now - $lastProgressTime).TotalSeconds -ge 30) {
+            $elapsed = $now - $startTime
+            $total = $passed + $failed + $skipped
+            Write-Host ("  [{0:hh\:mm\:ss}] {1} tests complete ({2} passed, {3} failed, {4} skipped)" -f $elapsed, $total, $passed, $failed, $skipped) -ForegroundColor DarkGray
+            $lastProgressTime = $now
+        }
+    }
     $duration = (Get-Date) - $startTime
     $exitCode = $LASTEXITCODE
+
+    $total = $passed + $failed + $skipped
+    Write-Host ("  Finished: {0} tests in {1:hh\:mm\:ss} ({2} passed, {3} failed, {4} skipped)" -f $total, $duration, $passed, $failed, $skipped) -ForegroundColor $(if ($failed -gt 0) { 'Yellow' } else { 'Green' })
 
     # Find the .trx file
     $trxFile = Get-ChildItem -Path $trxDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
