@@ -58,6 +58,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
         internal const int LongRunningThresholdMillisecondsDefault = 5000;
+
+        /// <summary>
+        /// Feature flag that gates creation of the 3-column reference-type filtered statistic on the
+        /// ReferenceSearchParam table (the stat that additionally filters on ReferenceResourceTypeId,
+        /// i.e. <c>WHERE ResourceTypeId = .. AND SearchParamId = .. AND ReferenceResourceTypeId = ..</c>).
+        /// Off by default: unless a row exists in the Parameters table with this Id set to an enabled
+        /// value, these stats are not created and reference searches fall back to the broader 2-column
+        /// filtered statistic (ResourceTypeId + SearchParamId).
+        /// </summary>
+        internal const string ReferenceResourceTypeFilteredStatsParameterId = "Search.ReferenceResourceTypeFilteredStats.IsEnabled";
         private const string SortValueColumnName = "SortValue";
 
         private readonly ISqlServerFhirModel _model;
@@ -94,8 +104,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// affect search query connections.
         /// </summary>
         internal const int QueryStoreLookupTimeoutSeconds = 5;
+
+        /// <summary>
+        /// Maximum number of diagnostic Query Store lookups allowed to run concurrently across the
+        /// process. Each lookup opens its own SQL connection, so this caps the diagnostic feature's
+        /// connection and CPU footprint. Slots are acquired with a zero-wait try-or-skip, so a burst
+        /// of long-running queries can never storm the server with diagnostic lookups. Kept small
+        /// because the backing database can be a shared elastic pool, where a large aggregate of
+        /// concurrent diagnostic lookups (per pod) would compete with customer traffic.
+        /// </summary>
+        internal const int MaxConcurrentQueryStoreLookups = 5;
+        private static readonly SemaphoreSlim _queryStoreLookupGate = new SemaphoreSlim(MaxConcurrentQueryStoreLookups, MaxConcurrentQueryStoreLookups);
+
+        /// <summary>
+        /// Number of consecutive Query Store lookup failures (errors or timeouts) that trips the
+        /// diagnostic circuit breaker. Once tripped, Query Store enrichment is suspended for
+        /// <see cref="QueryStoreCircuitBreakerCooldown"/> so a truly overloaded database is not
+        /// compounded by diagnostic load. Any single successful lookup resets the counter to zero.
+        /// </summary>
+        internal const int QueryStoreCircuitBreakerFailureThreshold = 5;
+
+        /// <summary>
+        /// How long Query Store enrichment stays suspended after the circuit breaker trips. When the
+        /// cooldown elapses, exactly one probe lookup is allowed through: if it succeeds the breaker
+        /// resets, otherwise the cooldown restarts. Slow-query warnings are always logged regardless
+        /// of breaker state — only the Query Store stats lookup is skipped.
+        /// </summary>
+        internal static readonly TimeSpan QueryStoreCircuitBreakerCooldown = TimeSpan.FromSeconds(10);
+
+        // Circuit breaker state for the diagnostic Query Store lookups. Static (per-process/per-pod)
+        // and mutated only through Interlocked/Volatile so no lock is needed on the hot search path.
+        // _queryStoreConsecutiveFailures counts consecutive failures; when it reaches the threshold
+        // the breaker is "open" until _queryStoreCircuitOpenUntilTicks (a DateTime.UtcNow.Ticks
+        // deadline). A value of 0 means the breaker is closed.
+        private static int _queryStoreConsecutiveFailures;
+        private static long _queryStoreCircuitOpenUntilTicks;
+
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
+        private static CachedParameter<SqlServerSearchService> _referenceResourceTypeFilteredStats;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -170,6 +217,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (_longRunningThreshold == null)
                 {
                     _longRunningThreshold = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
+                }
+
+                if (_referenceResourceTypeFilteredStats == null)
+                {
+                    // Default 0 (disabled): the 3-column reference-type filtered stat is only created
+                    // when an operator adds a row to the Parameters table with this Id enabled.
+                    _referenceResourceTypeFilteredStats = new CachedParameter<SqlServerSearchService>(ReferenceResourceTypeFilteredStatsParameterId, 0, logger);
                 }
             }
         }
@@ -840,6 +894,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
+                                // Always records the long-running warning. Query Store enrichment is
+                                // best-effort and appended asynchronously only when a diagnostic slot is free.
                                 FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
@@ -1210,6 +1266,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         private void FireAndForgetQueryStoreLookup(string queryText, bool isStoredProcedure, long executionTime)
         {
+            // Circuit breaker: if too many consecutive lookups have failed/timed out, the database is
+            // likely overloaded. Suspend Query Store enrichment for a cooldown window so diagnostics
+            // don't compound the problem. The slow query is still logged below — only the enrichment
+            // is skipped. When the cooldown elapses, the breaker closes and lookups resume (bounded by
+            // the concurrency gate below); the failure counter stays elevated, so the next failure
+            // re-opens the breaker while any success fully resets it.
+            if (!TryEnterQueryStoreCircuit())
+            {
+                _logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    queryText,
+                    "Skipped: diagnostic circuit breaker open (database appears overloaded).");
+                return;
+            }
+
+            // Try-or-skip: grab a diagnostic slot without waiting. If all slots are already taken,
+            // skip the expensive Query Store enrichment (which opens a new DB connection) rather than
+            // queueing it. This prevents a burst of long-running queries from each opening a diagnostic
+            // connection and storming the server. We still emit the long-running warning so the slow
+            // query is never lost — only the enrichment is dropped.
+            if (!_queryStoreLookupGate.Wait(0))
+            {
+                _logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    queryText,
+                    "Skipped: diagnostic concurrency limit reached.");
+                return;
+            }
+
             _ = Task.Run(async () =>
             {
                 try
@@ -1223,12 +1310,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         QueryStoreLookupTimeoutSeconds,
                         executionTime,
                         loggingCts.Token);
+
+                    // A single success closes the breaker and clears the consecutive-failure count.
+                    RecordQueryStoreSuccess();
                 }
                 catch (Exception ex)
                 {
                     // The Query Store lookup is best-effort diagnostics. Swallow any failure so the
                     // fire-and-forget task never surfaces an unobserved exception. The exception is
                     // passed to the logger (queryable via env_ex_* columns), so it isn't repeated in the message.
+                    // Count the failure toward the circuit breaker so a truly overloaded DB trips it.
+                    RecordQueryStoreFailure();
+
                     _logger.LogWarning(
                         ex,
                         "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
@@ -1236,7 +1329,94 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         queryText,
                         "Query Store lookup failed.");
                 }
+                finally
+                {
+                    // Always release the slot, even if the lookup threw, so the diagnostic gate
+                    // can't leak slots and permanently disable long-running query logging.
+                    _queryStoreLookupGate.Release();
+                }
             });
+        }
+
+        /// <summary>
+        /// Diagnostic circuit breaker gate. Returns <c>true</c> when a Query Store lookup is allowed
+        /// to proceed. The breaker is "open" (returns <c>false</c>) once
+        /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/> consecutive failures have occurred,
+        /// and stays open until the <see cref="QueryStoreCircuitBreakerCooldown"/> deadline. When the
+        /// cooldown elapses, the first caller to observe it atomically clears the deadline and the
+        /// breaker closes, so subsequent callers proceed as well (bounded by the concurrency gate).
+        /// The consecutive-failure counter is not reset by this transition, so the next
+        /// <see cref="RecordQueryStoreFailure"/> immediately re-opens the breaker, while any
+        /// <see cref="RecordQueryStoreSuccess"/> fully resets it.
+        /// </summary>
+        internal static bool TryEnterQueryStoreCircuit()
+        {
+            long openUntil = Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
+            if (openUntil == 0)
+            {
+                // Breaker closed — normal operation.
+                return true;
+            }
+
+            if (DateTime.UtcNow.Ticks < openUntil)
+            {
+                // Still within the cooldown window — stay open.
+                return false;
+            }
+
+            // Cooldown elapsed. Close the breaker by atomically clearing the deadline. The caller that
+            // wins the CAS performs the transition and proceeds; a concurrent caller that reads the
+            // stale deadline loses the CAS and is skipped for this pass, but any later caller reads 0
+            // (closed) and proceeds normally. The failure counter is left intact, so a subsequent
+            // failure re-opens the breaker while a success resets it.
+            return Interlocked.CompareExchange(ref _queryStoreCircuitOpenUntilTicks, 0, openUntil) == openUntil;
+        }
+
+        /// <summary>
+        /// Records a successful Query Store lookup: resets the consecutive-failure counter and closes
+        /// the circuit breaker. Any single success from any thread fully recovers the breaker.
+        /// </summary>
+        internal static void RecordQueryStoreSuccess()
+        {
+            Interlocked.Exchange(ref _queryStoreConsecutiveFailures, 0);
+            Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, 0);
+        }
+
+        /// <summary>
+        /// Records a failed/timed-out Query Store lookup. Once the consecutive-failure count reaches
+        /// <see cref="QueryStoreCircuitBreakerFailureThreshold"/>, the breaker opens for
+        /// <see cref="QueryStoreCircuitBreakerCooldown"/>. Because the count is not reset on the
+        /// open-to-closed transition, the first failure after a cooldown re-opens the breaker for
+        /// another window.
+        /// </summary>
+        internal static void RecordQueryStoreFailure()
+        {
+            int failures = Interlocked.Increment(ref _queryStoreConsecutiveFailures);
+            if (failures >= QueryStoreCircuitBreakerFailureThreshold)
+            {
+                Interlocked.Exchange(
+                    ref _queryStoreCircuitOpenUntilTicks,
+                    DateTime.UtcNow.Add(QueryStoreCircuitBreakerCooldown).Ticks);
+            }
+        }
+
+        /// <summary>
+        /// Test-only seam: deterministically seeds the diagnostic circuit breaker's static state so
+        /// unit tests can exercise the open/cooldown/probe transitions without waiting real time.
+        /// </summary>
+        internal static void SetQueryStoreCircuitStateForTests(int consecutiveFailures, long openUntilTicks)
+        {
+            Interlocked.Exchange(ref _queryStoreConsecutiveFailures, consecutiveFailures);
+            Interlocked.Exchange(ref _queryStoreCircuitOpenUntilTicks, openUntilTicks);
+        }
+
+        /// <summary>
+        /// Test-only seam: reads the diagnostic circuit breaker's open deadline (0 when closed) so
+        /// unit tests can assert that a probe cleared it.
+        /// </summary>
+        internal static long GetQueryStoreCircuitOpenUntilTicksForTests()
+        {
+            return Interlocked.Read(ref _queryStoreCircuitOpenUntilTicks);
         }
 
         private async Task LogQueryStoreByTextAsync(
@@ -2013,6 +2193,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 ?? Array.Empty<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
         }
 
+        /// <summary>
+        /// Forces the next read of the reference-resource-type filtered statistics feature flag to bypass the
+        /// in-memory cache and re-query the Parameters table. Intended for integration tests that toggle the flag.
+        /// </summary>
+        internal static void ResetReferenceResourceTypeFilteredStatsCache()
+        {
+            _referenceResourceTypeFilteredStats?.Reset();
+        }
+
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(CancellationToken cancel)
         {
             return await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
@@ -2275,6 +2464,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
 
+                                // Always records the long-running warning. Query Store enrichment is
+                                // best-effort and appended asynchronously only when a diagnostic slot is free.
                                 FireAndForgetQueryStoreLookup(queryTextSnapshot, isStoredProcSnapshot, executionTimeSnapshot);
                             }
                         }
@@ -2990,6 +3181,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, short? referenceResourceTypeId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
+                // The 3-column reference-type filtered stat (which additionally filters on ReferenceResourceTypeId)
+                // is gated behind a feature flag that is OFF by default. When disabled, fall back to the broader
+                // 2-column filtered stat (ResourceTypeId + SearchParamId) so reference searches still get a stat.
+                if (referenceResourceTypeId.HasValue && !_referenceResourceTypeFilteredStats.IsEnabled(sqlRetryService))
+                {
+                    referenceResourceTypeId = null;
+                }
+
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId)))
                 {
                     logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam} RefType={ReferenceResourceType}", tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId);

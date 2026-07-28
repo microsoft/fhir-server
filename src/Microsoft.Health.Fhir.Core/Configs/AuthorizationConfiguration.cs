@@ -23,7 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public string ExtensionFhirUserClaim { get; set; } = "extension_fhirUser";
 
-        public bool ErrorOnMissingFhirUserClaim { get; set; } = false;
+        // Default is true: a missing or invalid fhirUser claim for patient/user-context SMART scopes
+        // results in a 400 Bad Request rather than silently omitting the patient compartment filter.
+        // This prevents a token with patient/* scope but no fhirUser from behaving as a broader user/* scope.
+        // Set to false only when a deployment explicitly needs the legacy permissive behaviour.
+        public bool ErrorOnMissingFhirUserClaim { get; set; } = true;
 
         public bool EnableSmartWithoutAuth { get; set; } = false;
     }

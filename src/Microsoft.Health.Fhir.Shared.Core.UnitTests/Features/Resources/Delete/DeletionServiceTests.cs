@@ -271,5 +271,102 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             Assert.Contains(" Deletion.3", exception.InnerException.Message);
         }
+
+        [Fact]
+        public async Task GivenBulkHardDelete_WhenSearchServiceThrowsConnectionExceptionOnSecondPage_ThenReturnsIncompleteOperationException()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z"),
+            };
+
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                parameters,
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            // First page of results - returns 5 entries with a continuation token
+            var firstPageEntries = new List<SearchResultEntry>();
+            for (int i = 0; i < 5; i++)
+            {
+                var resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                resource.Id = $"id-{i}";
+                resource.VersionId = "1";
+
+                var resourceElement = resource.ToResourceElement();
+                var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+                var resourceRequest = Substitute.For<ResourceRequest>();
+                var compartmentIndices = Substitute.For<CompartmentIndices>();
+                var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+                firstPageEntries.Add(new SearchResultEntry(wrapper, SearchEntryMode.Match));
+            }
+
+            var callCount = 0;
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(async callInfo =>
+                {
+                    callCount++;
+                    if (callCount == 1)
+                    {
+                        // First call returns results with continuation token
+                        return new SearchResult(firstPageEntries, "continuation-token-1", null, Array.Empty<Tuple<string, string>>());
+                    }
+                    else
+                    {
+                        // Second call throws a connection exception (simulating network failure)
+                        await Task.Delay(100); // Simulate some delay so that the first call can complete
+                        throw new InvalidOperationException("A transport-level error has occurred when receiving results from the server.");
+                    }
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
+                await _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.NotNull(exception);
+            Assert.NotNull(exception.InnerException);
+            Assert.IsType<AggregateException>(exception.InnerException);
+
+            var aggregateException = (AggregateException)exception.InnerException;
+            Assert.Contains(aggregateException.InnerExceptions, ex => ex is InvalidOperationException);
+
+            // Verify that partial results contain the first page of deleted resources
+            Assert.NotNull(exception.PartialResults);
+            Assert.True(exception.PartialResults.TryGetValue("Patient", out long deletedPatientCount));
+            Assert.Equal(5, deletedPatientCount);
+
+            // Verify search service was called twice (first page succeeded, second page failed)
+            await searchService.Received(2).SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
     }
 }

@@ -63,17 +63,22 @@ stages:
             "Microsoft.Graph.DirectoryObjects",
             "Microsoft.Graph.Identity.DirectoryManagement"
           )
-          
+
+          # Pin all Graph submodules to a single version so the installed and imported set always
+          # match (floating to "latest" independently, or importing a stale copy pre-baked on the
+          # agent, can produce a mismatched set that fails Connect-MgGraph with EntryPointNotFoundException).
+          $graphVersion = '2.38.0'
+
           foreach ($module in $modules) {
-            Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
+            Install-Module -Name $module -RequiredVersion $graphVersion -Force -Scope CurrentUser -ErrorAction Stop
           }
           
           # Import all modules upfront to prevent auto-loading conflicts
           foreach ($module in $modules) {
-            Import-Module $module -ErrorAction Stop
+            Import-Module $module -RequiredVersion $graphVersion -ErrorAction Stop
           }
 
-          $installedAuth = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+          $installedAuth = Get-Module -Name Microsoft.Graph.Authentication | Select-Object -First 1
           Write-Host "Microsoft.Graph.Authentication version: $($installedAuth.Version)"
           Write-Host "Microsoft Graph modules installed and imported."
 

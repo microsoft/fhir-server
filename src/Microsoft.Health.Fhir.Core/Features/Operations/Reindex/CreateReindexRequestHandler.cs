@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexJobConfiguration = reindexJobConfiguration.Value;
         }
 
-        public async Task<CreateReindexResponse> Handle(CreateReindexRequest request, CancellationToken cancellationToken)
+        public async Task<CreateReindexResponse> HandleAsync(CreateReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

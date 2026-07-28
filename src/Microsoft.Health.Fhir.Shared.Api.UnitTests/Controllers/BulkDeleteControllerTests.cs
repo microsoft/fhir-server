@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -55,14 +55,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CreateBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new CreateBulkDeleteResponse(0));
-            _mediator.Send<GetBulkDeleteResponse>(
+            _mediator.SendAsync<GetBulkDeleteResponse>(
                 Arg.Any<GetBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetBulkDeleteResponse(
                     new List<Parameters.ParameterComponent>(),
                     new List<OperationOutcomeIssue>(),
                     HttpStatusCode.Accepted));
-            _mediator.Send<CancelBulkDeleteResponse>(
+            _mediator.SendAsync<CancelBulkDeleteResponse>(
                 Arg.Any<CancelBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new CancelBulkDeleteResponse(HttpStatusCode.OK));
@@ -191,6 +191,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     purgeHistory));
         }
 
+        [Fact]
+        public async Task GivenBulkDeleteForSearchParameter_WhenReindexIsRunning_ThenConflictIsThrown()
+        {
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            await Assert.ThrowsAsync<FhirJobConflictException>(() => _controller.BulkDeleteByResourceType(KnownResourceTypes.SearchParameter, new HardDeleteModel(), false, false));
+            await _mediator.DidNotReceiveWithAnyArgs().SendAsync<CreateBulkDeleteResponse>(default, default);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteWithSearchParameterExcluded_WhenReindexIsRunning_ThenRequestStillSucceeds()
+        {
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            var response = await _controller.BulkDelete(new HardDeleteModel(), false, false, KnownResourceTypes.SearchParameter);
+
+            Assert.IsType<JobResult>(response);
+            await _searchParameterOperations.DidNotReceive().EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>());
+        }
+
         [Theory]
         [InlineData(0, HttpStatusCode.Accepted)]
         [InlineData(1, HttpStatusCode.OK)]
@@ -202,14 +226,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null,
                 null,
                 statusCode);
-            _mediator.Send<GetBulkDeleteResponse>(
+            _mediator.SendAsync<GetBulkDeleteResponse>(
                 Arg.Any<GetBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(result);
 
             var request = default(GetBulkDeleteRequest);
             _mediator
-                .When(x => x.Send<GetBulkDeleteResponse>(Arg.Any<GetBulkDeleteRequest>(), Arg.Any<CancellationToken>()))
+                .When(x => x.SendAsync<GetBulkDeleteResponse>(Arg.Any<GetBulkDeleteRequest>(), Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetBulkDeleteRequest>());
 
             var response = await _controller.GetBulkDeleteStatusById(id);
@@ -240,7 +264,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     });
             }
 
-            await _mediator.Received(1).Send<GetBulkDeleteResponse>(
+            await _mediator.Received(1).SendAsync<GetBulkDeleteResponse>(
                 Arg.Any<GetBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -264,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(CreateBulkDeleteRequest);
             _mediator
-                .When(x => x.Send(Arg.Any<CreateBulkDeleteRequest>(), Arg.Any<CancellationToken>()))
+                .When(x => x.SendAsync(Arg.Any<CreateBulkDeleteRequest>(), Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateBulkDeleteRequest>());
 
             try
@@ -288,7 +312,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<CreateBulkDeleteResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<CreateBulkDeleteResponse>(
                 Arg.Any<CreateBulkDeleteRequest>(),
                 Arg.Any<CancellationToken>());
         }

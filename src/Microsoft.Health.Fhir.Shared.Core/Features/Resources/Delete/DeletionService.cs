@@ -218,6 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Delete the matched results...
+            List<Exception> exceptionsOutsideTasks = new List<Exception>();
             try
             {
                 while (results.Any() || !string.IsNullOrEmpty(ct))
@@ -311,6 +312,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting");
+                exceptionsOutsideTasks.Add(ex);
                 await cancellationTokenSource.CancelAsync();
             }
 
@@ -334,9 +336,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, deleteTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
-            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults)
+            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults || exceptionsOutsideTasks.Any())
             {
-                var exceptions = new List<Exception>();
+                var exceptions = new List<Exception>(exceptionsOutsideTasks);
 
                 if (tooManyIncludeResults)
                 {
@@ -372,6 +374,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private async Task<Dictionary<string, long>> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Soft deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -395,7 +400,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }));
 
-            var partialResults = new List<(string, string, bool)>();
+            var partialResults = new List<(string ResourceType, string ResourceId, bool IsInclude)>();
             try
             {
                 using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
@@ -439,6 +444,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     ex.InnerException,
                     ids.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error soft deleting");
+                await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, partialResults);
+                throw new IncompleteOperationException<Dictionary<string, long>>(
+                    ex,
+                    partialResults.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
+            }
 
             await CreateAuditLog(
                 request.ResourceType,
@@ -446,11 +459,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 true,
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
-            return resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Soft deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
         }
 
         private async Task<Dictionary<string, long>> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Hard deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -514,7 +533,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
 
-            return parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Hard deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
         }
 
         private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)
