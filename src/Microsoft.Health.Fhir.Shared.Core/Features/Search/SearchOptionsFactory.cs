@@ -434,6 +434,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
+            // Add fine-grained access control resource type restrictions to QueryParams for the SQL parser
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                var allowedActions = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions;
+                if (allowedActions != null && !allowedActions.Any(a => a.Resource == KnownResourceTypes.All))
+                {
+                    var allowedTypes = allowedActions.Select(a => a.Resource).Distinct().ToList();
+                    if (allowedTypes.Any())
+                    {
+                        searchOptions.QueryParams["_fhirScopeAllowedTypes"] = allowedTypes;
+                    }
+                    else
+                    {
+                        // No resource types allowed — block all queries
+                        searchOptions.QueryParams["_fhirScopeAllowedTypes"] = new List<string> { "none" };
+                    }
+                }
+            }
+
             var validSearchParameters = new List<SearchParameterInfo>();
 
             // Deduplicate exact (name, value) query parameter pairs before parsing. Repeated identical parameters produce
@@ -522,6 +541,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, resourceTypesString));
                     }
+
+                    // Add SMART compartment info to QueryParams so the SQL parser can generate SMART compartment joins
+                    searchOptions.QueryParams["_smartCompartmentType"] = new List<string> { smartCompartmentType };
+                    searchOptions.QueryParams["_smartCompartmentId"] = new List<string> { smartCompartmentId };
                 }
                 else
                 {

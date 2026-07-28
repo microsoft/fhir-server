@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         private readonly SortSqlParser _sortSqlParser;
         private readonly NotReferencedSqlParser _notReferencedSqlParser;
         private readonly CompartmentSqlParser _compartmentSqlParser;
+        private readonly SmartCompartmentSqlParser _smartCompartmentSqlParser;
         private readonly ILogger<SearchParameterSqlParser> _logger;
 
         public SearchParameterSqlParser(SqlSearchParameterDefinitionManager parameterCollection, ISqlServerFhirModel fhirModel, ICompartmentDefinitionManager compartmentDefinitionManager, ILogger<SearchParameterSqlParser> logger)
@@ -81,6 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _sortSqlParser = new SortSqlParser(parameterCollection);
             _notReferencedSqlParser = new NotReferencedSqlParser(parameterCollection, fhirModel);
             _compartmentSqlParser = new CompartmentSqlParser(fhirModel, parameterCollection, compartmentDefinitionManager);
+            _smartCompartmentSqlParser = new SmartCompartmentSqlParser(fhirModel, parameterCollection, compartmentDefinitionManager);
         }
 
         public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null, IncludesContinuationToken? includesContinuationToken = null)
@@ -203,6 +205,71 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 parametersCopy.Remove("_compartmentId");
             }
 
+            // Extract SMART compartment parameters (patient-level scope restriction)
+            string? smartCompartmentType = null;
+            string? smartCompartmentId = null;
+            if (parametersCopy.TryGetValue("_smartCompartmentType", out var smartCompartmentTypeValues))
+            {
+                smartCompartmentType = smartCompartmentTypeValues.FirstOrDefault();
+                parametersCopy.Remove("_smartCompartmentType");
+            }
+
+            if (parametersCopy.TryGetValue("_smartCompartmentId", out var smartCompartmentIdValues))
+            {
+                smartCompartmentId = smartCompartmentIdValues.FirstOrDefault();
+                parametersCopy.Remove("_smartCompartmentId");
+            }
+
+            // Extract fine-grained access control allowed resource types
+            List<string>? allowedResourceTypes = null;
+            if (parametersCopy.TryGetValue("_fhirScopeAllowedTypes", out var allowedTypeValues))
+            {
+                allowedResourceTypes = allowedTypeValues.ToList();
+                parametersCopy.Remove("_fhirScopeAllowedTypes");
+
+                // Apply allowed types as resource type filter (intersect with existing _type if any)
+                if (allowedResourceTypes.Count == 1 && allowedResourceTypes[0] == "none")
+                {
+                    // No types allowed — add a resource type that doesn't exist to block results
+                    parserOptions.ResourceTypes.Clear();
+                    parserOptions.ResourceTypes.Add(-1);
+                }
+                else if (parserOptions.ResourceTypes.Count > 0)
+                {
+                    // Intersect with already-specified _type
+                    var allowedTypeIds = allowedResourceTypes
+                        .Select(t => { try { return _sqlServerFhirModel.GetResourceTypeId(t); } catch { return (short)-1; } })
+                        .Where(id => id >= 0)
+                        .ToHashSet();
+                    var intersection = parserOptions.ResourceTypes.Where(rt => allowedTypeIds.Contains(rt)).ToList();
+                    parserOptions.ResourceTypes.Clear();
+                    foreach (var rt in intersection)
+                    {
+                        parserOptions.ResourceTypes.Add(rt);
+                    }
+
+                    if (parserOptions.ResourceTypes.Count == 0)
+                    {
+                        parserOptions.ResourceTypes.Add(-1); // No valid types — block results
+                    }
+                }
+                else
+                {
+                    // No _type specified, use allowed types as the filter
+                    foreach (var t in allowedResourceTypes)
+                    {
+                        try
+                        {
+                            parserOptions.ResourceTypes.Add(_sqlServerFhirModel.GetResourceTypeId(t));
+                        }
+                        catch
+                        {
+                            // Skip unknown types
+                        }
+                    }
+                }
+            }
+
             // *********************************************************************** Basic Search Parameters ***********************************************************************
 
             // If compartment search is specified, use it as the base CTE
@@ -210,6 +277,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             {
                 parserOptions.CteNumber = cteIndex;
                 _compartmentSqlParser.Parse(compartmentType, compartmentId, parserOptions);
+                lastCteName = $"cte{cteIndex}";
+                parserOptions.LastCteName = lastCteName;
+                cteIndex++;
+            }
+
+            // If SMART compartment is specified, use it as the base CTE (restricts to user's compartment + own resource + universal resources)
+            if (!string.IsNullOrEmpty(smartCompartmentType) && !string.IsNullOrEmpty(smartCompartmentId))
+            {
+                parserOptions.CteNumber = cteIndex;
+                _smartCompartmentSqlParser.Parse(smartCompartmentType, smartCompartmentId, parserOptions);
                 lastCteName = $"cte{cteIndex}";
                 parserOptions.LastCteName = lastCteName;
                 cteIndex++;
