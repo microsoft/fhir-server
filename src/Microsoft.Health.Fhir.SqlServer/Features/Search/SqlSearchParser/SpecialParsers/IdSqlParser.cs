@@ -42,16 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "RefResourceTypeId";
 
             sqlBuilder.BeginCte(cteName);
-
-            if (options.ChainLevel > 0 && options.LastCteName != null)
-            {
-                sqlBuilder.SelectWithModifier("DISTINCT", $"lcte.{surrogateIdColumn} AS ResourceSurrogateId", $"lcte.{typeIdColumn} AS ResourceTypeId");
-            }
-            else
-            {
-                sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
-            }
-
+            sqlBuilder.SelectWithModifier("DISTINCT", $"lcte.{surrogateIdColumn}", $"lcte.{typeIdColumn}");
             sqlBuilder.From("dbo.Resource", "r");
 
             if (options.LastCteName != null)

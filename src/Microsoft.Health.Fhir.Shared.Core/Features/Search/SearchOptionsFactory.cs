@@ -136,13 +136,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
             foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
-                if (searchOptions.QueryParams.TryGetValue(query.Item1, out var values))
+                if (!string.IsNullOrEmpty(query.Item1))
                 {
-                    values.Add(query.Item2);
-                }
-                else
-                {
-                    searchOptions.QueryParams[query.Item1] = new List<string>() { query.Item2 };
+                    if (searchOptions.QueryParams.TryGetValue(query.Item1, out var values))
+                    {
+                        values.Add(query.Item2);
+                    }
+                    else
+                    {
+                        searchOptions.QueryParams[query.Item1] = new List<string>() { query.Item2 };
+                    }
                 }
 
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
@@ -621,7 +624,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
                 {
-                    searchOptions.QueryParams.Remove(unsupported.Item1);
+                    if (!string.IsNullOrEmpty(unsupported.Item1))
+                    {
+                        searchOptions.QueryParams.Remove(unsupported.Item1);
+                    }
+
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 

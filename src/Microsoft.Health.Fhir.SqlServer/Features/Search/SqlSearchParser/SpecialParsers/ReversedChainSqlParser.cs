@@ -37,14 +37,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
         public void Parse(string name, string value, ParserOptions options)
         {
-            Parse(name, value, options, sharedRefCteName: null);
+            Parse(name, value, options, sharedRefCteName: null, firstRefCteName: null);
         }
 
         /// <summary>
         /// Parses a reverse-chained (_has) search parameter. If <paramref name="sharedRefCteName"/> is provided,
         /// the ref CTE is assumed to already exist and will be reused instead of being generated again.
         /// </summary>
-        public void Parse(string name, string value, ParserOptions options, string? sharedRefCteName)
+        public void Parse(string name, string value, ParserOptions options, string? sharedRefCteName, string? firstRefCteName)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 searchChainCteName = $"{cteName}chain{options.ChainLevel + 1}";
                 var sourceTypeIds = value.Split(',').Select(v => _model.GetResourceTypeId(v.Trim())).ToList();
                 builder.BeginCte(searchChainCteName);
-                builder.SelectWithModifier("DISTINCT", "r.RefResourceSurrogateId AS ResourceSurrogateId", "r.RefResourceTypeId AS ResourceTypeId");
+                builder.SelectWithModifier("DISTINCT", "r.RefResourceSurrogateId", "r.RefResourceTypeId");
                 builder.From(refChainCteName, "r");
                 builder.Where($"r.RefResourceTypeId IN ({string.Join(",", sourceTypeIds)})");
                 builder.EndCte();
@@ -188,7 +188,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             // Step 3: Create the final CTE that maps matching sources back to targets
             string resultCteName;
-            if (options.ChainLevel == 0)
+            string firstChainRefCteName = firstRefCteName ?? refChainCteName;
+            if (options.ChainLevel == 0 && options.IsLastInChainGroup)
             {
                 // Final level - output the target resources (Patients)
                 resultCteName = cteName;
@@ -199,10 +200,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     "ref_cte.ResourceSurrogateId");
                 builder.From(searchChainCteName, "search");
                 builder.InnerJoin(
-                    refChainCteName,
+                    firstChainRefCteName,
                     "ref_cte",
-                    "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
+                    "ref_cte.RefResourceSurrogateId = search.RefResourceSurrogateId AND ref_cte.RefResourceTypeId = search.RefResourceTypeId");
                 builder.EndCte();
+            }
+            else if (options.ChainLevel == 0)
+            {
+                 resultCteName = searchChainCteName;
             }
             else
             {
@@ -212,13 +217,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 builder.BeginCte(resultCteName);
                 builder.SelectWithModifier(
                     "DISTINCT",
-                    "ref_cte.ResourceTypeId",
-                    "ref_cte.ResourceSurrogateId");
+                    "ref_cte.ResourceTypeId AS RefResourceTypeId",
+                    "ref_cte.ResourceSurrogateId AS RefResourceSurrogateId");
                 builder.From(searchChainCteName, "search");
                 builder.InnerJoin(
-                    refChainCteName,
+                    firstChainRefCteName,
                     "ref_cte",
-                    "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
+                    "ref_cte.RefResourceSurrogateId = search.RefResourceSurrogateId AND ref_cte.RefResourceTypeId = search.RefResourceTypeId");
                 builder.EndCte();
             }
 

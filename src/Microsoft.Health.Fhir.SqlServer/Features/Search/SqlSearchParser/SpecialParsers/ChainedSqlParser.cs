@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.InnerJoin(
                         refCteName,
                         "ref_cte",
-                        "ref_cte.RefResourceSurrogateId = search.ResourceSurrogateId AND ref_cte.RefResourceTypeId = search.ResourceTypeId");
+                        "ref_cte.RefResourceSurrogateId = search.RefResourceSurrogateId AND ref_cte.RefResourceTypeId = search.RefResourceTypeId");
                 }
 
                 builder.EndCte();
@@ -204,8 +204,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
                         "DISTINCT",
-                        "ResourceTypeId",
-                        "ResourceSurrogateId");
+                        "ResourceTypeId AS RefResourceTypeId",
+                        "ResourceSurrogateId AS RefResourceSurrogateId");
                     builder.From(refCteName);
                     builder.EndCte();
                 }
@@ -214,13 +214,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
                         "DISTINCT",
-                        "parent.ResourceTypeId",
-                        "parent.ResourceSurrogateId");
+                        "parent.ResourceTypeId AS RefResourceTypeId",
+                        "parent.ResourceSurrogateId AS RefResourceSurrogateId");
                     builder.From(chainCteName, "child");
                     builder.InnerJoin(
                         refCteName,
                         "parent",
-                        "parent.RefResourceTypeId = child.ResourceTypeId AND parent.RefResourceSurrogateId = child.ResourceSurrogateId");
+                        "parent.RefResourceTypeId = child.RefResourceTypeId AND parent.RefResourceSurrogateId = child.RefResourceSurrogateId");
                     builder.EndCte();
                 }
                 else
@@ -228,8 +228,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     builder.BeginCte(resultCteName);
                     builder.SelectWithModifier(
                         "DISTINCT",
-                        "ResourceTypeId",
-                        "ResourceSurrogateId");
+                        "ResourceTypeId AS RefResourceTypeId",
+                        "ResourceSurrogateId AS RefResourceSurrogateId");
                     builder.From(chainCteName);
                     builder.EndCte();
                 }

@@ -33,16 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             var typeIdColumn = (options.ChainLevel == 0 || options.LastCteName == null) ? "ResourceTypeId" : "RefResourceTypeId";
 
             sqlBuilder.BeginCte(cteName);
-
-            if (options.ChainLevel > 0 && options.LastCteName != null)
-            {
-                sqlBuilder.SelectWithModifier("DISTINCT", $"r.{surrogateIdColumn} AS ResourceSurrogateId", $"r.{typeIdColumn} AS ResourceTypeId");
-            }
-            else
-            {
-                sqlBuilder.Select("r.ResourceTypeId", "r.ResourceSurrogateId");
-            }
-
+            sqlBuilder.SelectWithModifier("DISTINCT", $"r.{surrogateIdColumn}", $"r.{typeIdColumn}");
             sqlBuilder.From(options.LastCteName ?? "dbo.Resource", "r");
 
             var dateTime = DateTimeSqlParser.ParseValue(value, out var modifier);
