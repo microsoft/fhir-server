@@ -229,6 +229,38 @@ if ($DataStore -eq 'SqlServer') {
     }
 }
 
+# Ensure we have a managed identity for ACR pull (reuse SQL UAMI or create a new one for Cosmos)
+if (-not $sqlManagedIdentityName) {
+    $sqlManagedIdentityName = "fhir-abtest-acr-$runId".ToLowerInvariant()
+    Write-Host "`n► Creating managed identity for ACR pull: $sqlManagedIdentityName"
+    $identityJson = az identity create `
+        --name $sqlManagedIdentityName `
+        --resource-group $ResourceGroupName `
+        --location $Location `
+        --output json
+    if ($LASTEXITCODE -ne 0) { throw "Failed to create managed identity for ACR" }
+    $identity = $identityJson | ConvertFrom-Json
+    $sqlManagedIdentityClientId = $identity.clientId
+    $identityPrincipalId = $identity.principalId
+}
+
+$subscriptionId = az account show --query id -o tsv
+$registryNameShort = $ContainerRegistry -replace '\.azurecr\.io$', ''
+$acrResourceId = az acr show --name $registryNameShort --query id -o tsv
+$uamiResourceId = "/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$sqlManagedIdentityName"
+
+Write-Host "`n► Assigning AcrPull role to managed identity on container registry..."
+az role assignment create `
+    --assignee-object-id $identityPrincipalId `
+    --assignee-principal-type ServicePrincipal `
+    --role AcrPull `
+    --scope $acrResourceId `
+    --output none 2>$null
+
+# Wait for role assignment propagation
+Write-Host "  Waiting 30s for role propagation..."
+Start-Sleep -Seconds 30
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 3: Deploy Container Apps (auth disabled)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -244,7 +276,6 @@ function Deploy-FhirContainerApp {
         [string] $DatabaseName
     )
 
-    $registryName = $ContainerRegistry -replace '\.azurecr\.io$', ''
 
     $envVars = @(
         "ASPNETCORE_FORWARDEDHEADERS_ENABLED=true",
@@ -271,7 +302,6 @@ function Deploy-FhirContainerApp {
     }
 
     Write-Host "`n► Deploying container app: $AppName (image: $Image)"
-    $envArgs = ($envVars | ForEach-Object { "--env-vars `"$_`"" }) -join ' '
 
     $createArgs = @(
         'containerapp', 'create',
@@ -280,7 +310,8 @@ function Deploy-FhirContainerApp {
         '--environment', $acaEnvironmentName,
         '--image', $Image,
         '--registry-server', $ContainerRegistry,
-        '--registry-username', $registryName,
+        '--registry-identity', $uamiResourceId,
+        '--mi-user-assigned', $uamiResourceId,
         '--target-port', '8080',
         '--ingress', 'external',
         '--min-replicas', '1',
@@ -291,12 +322,6 @@ function Deploy-FhirContainerApp {
     )
     $createArgs += $envVars
     $createArgs += @('--output', 'none')
-
-    # Assign the SQL managed identity to the container app so it can authenticate to SQL
-    if ($DataStore -eq 'SqlServer' -and $sqlManagedIdentityName) {
-        $uamiResourceId = "/subscriptions/$((az account show --query id -o tsv))/resourceGroups/$ResourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$sqlManagedIdentityName"
-        $createArgs += @('--mi-user-assigned', $uamiResourceId)
-    }
 
     & az @createArgs
     if ($LASTEXITCODE -ne 0) { throw "Failed to deploy container app: $AppName" }
