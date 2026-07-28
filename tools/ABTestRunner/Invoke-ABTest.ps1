@@ -167,26 +167,44 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to create ACA environment" }
 
 # Deploy SQL Server if needed
 $sqlServerName = $null
+$sqlManagedIdentityName = $null
+$sqlManagedIdentityClientId = $null
 if ($DataStore -eq 'SqlServer') {
     $sqlServerName = "fhir-abtest-sql-$runId".ToLowerInvariant()
-    $sqlAdminPassword = -join ((
-        [char[]]'abcdefghijklmnopqrstuvwxyz' +
-        [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
-        [char[]]'0123456789' +
-        [char[]]'!@#$%^&*'
-    ) | Get-Random -Count 24)
+    $sqlManagedIdentityName = "$sqlServerName-uami"
 
-    Write-Host "`n► Creating SQL Server: $sqlServerName"
-    az sql server create `
-        --name $sqlServerName `
+    # Create user-assigned managed identity (used as AAD-only admin for SQL)
+    Write-Host "`n► Creating managed identity: $sqlManagedIdentityName"
+    $identityJson = az identity create `
+        --name $sqlManagedIdentityName `
         --resource-group $ResourceGroupName `
         --location $Location `
-        --admin-user fhiradmin `
-        --admin-password $sqlAdminPassword `
+        --output json
+    if ($LASTEXITCODE -ne 0) { throw "Failed to create managed identity" }
+
+    $identity = $identityJson | ConvertFrom-Json
+    $sqlManagedIdentityClientId = $identity.clientId
+    $identityPrincipalId = $identity.principalId
+    $identityTenantId = $identity.tenantId
+
+    # Deploy SQL Server using the ARM template (AAD-only auth, no local passwords)
+    Write-Host "`n► Creating SQL Server (Entra ID-only auth): $sqlServerName"
+    $sqlTemplateFile = Join-Path $repoRoot "samples/templates/default-sqlServer.json"
+    az deployment group create `
+        --resource-group $ResourceGroupName `
+        --name "$sqlServerName-deploy" `
+        --template-file $sqlTemplateFile `
+        --parameters `
+            sqlServerName=$sqlServerName `
+            sqlAdministratorLogin=$identityPrincipalId `
+            sqlAdministratorSid=$identityPrincipalId `
+            sqlAdministratorTenantId=$identityTenantId `
+            sqlServerPrincipalType=User `
         --output none
     if ($LASTEXITCODE -ne 0) { throw "Failed to create SQL Server" }
 
-    # Allow Azure services
+    # Allow Azure services through firewall
+    Write-Host "  Adding firewall rule: AllowAzureServices"
     az sql server firewall-rule create `
         --resource-group $ResourceGroupName `
         --server $sqlServerName `
@@ -235,7 +253,7 @@ function Deploy-FhirContainerApp {
     )
 
     if ($DataStore -eq 'SqlServer') {
-        $connStr = "Server=tcp:${sqlServerName}.database.windows.net,1433;Initial Catalog=$DatabaseName;Persist Security Info=False;User ID=fhiradmin;Password=$sqlAdminPassword;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+        $connStr = "Server=tcp:${sqlServerName}.database.windows.net,1433;Initial Catalog=$DatabaseName;Persist Security Info=False;Authentication=Active Directory Managed Identity;User Id=$sqlManagedIdentityClientId;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
         $envVars += @(
             "DataStore=SqlServer",
             "SqlServer__ConnectionString=$connStr",
@@ -255,21 +273,32 @@ function Deploy-FhirContainerApp {
     Write-Host "`n► Deploying container app: $AppName (image: $Image)"
     $envArgs = ($envVars | ForEach-Object { "--env-vars `"$_`"" }) -join ' '
 
-    az containerapp create `
-        --name $AppName `
-        --resource-group $ResourceGroupName `
-        --environment $acaEnvironmentName `
-        --image $Image `
-        --registry-server $ContainerRegistry `
-        --registry-username $registryName `
-        --target-port 8080 `
-        --ingress external `
-        --min-replicas 1 `
-        --max-replicas 3 `
-        --cpu 1.0 `
-        --memory 2.0Gi `
-        --env-vars @envVars `
-        --output none
+    $createArgs = @(
+        'containerapp', 'create',
+        '--name', $AppName,
+        '--resource-group', $ResourceGroupName,
+        '--environment', $acaEnvironmentName,
+        '--image', $Image,
+        '--registry-server', $ContainerRegistry,
+        '--registry-username', $registryName,
+        '--target-port', '8080',
+        '--ingress', 'external',
+        '--min-replicas', '1',
+        '--max-replicas', '3',
+        '--cpu', '1.0',
+        '--memory', '2.0Gi',
+        '--env-vars'
+    )
+    $createArgs += $envVars
+    $createArgs += @('--output', 'none')
+
+    # Assign the SQL managed identity to the container app so it can authenticate to SQL
+    if ($DataStore -eq 'SqlServer' -and $sqlManagedIdentityName) {
+        $uamiResourceId = "/subscriptions/$((az account show --query id -o tsv))/resourceGroups/$ResourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$sqlManagedIdentityName"
+        $createArgs += @('--mi-user-assigned', $uamiResourceId)
+    }
+
+    & az @createArgs
     if ($LASTEXITCODE -ne 0) { throw "Failed to deploy container app: $AppName" }
 
     # Get the FQDN
