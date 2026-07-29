@@ -64,11 +64,7 @@ function Parse-TrxFile {
 
         $errorMessage = $null
         $errorStackTrace = $null
-        $outputNode = $el.SelectSingleNode('t:Output', (New-Object System.Xml.XmlNamespaceManager($trx.NameTable)))
-        if ($null -eq $outputNode) {
-            # Try without namespace
-            $outputNode = $el.Output
-        }
+        $outputNode = $el.Output
         if ($null -ne $outputNode) {
             $errorInfoNode = $outputNode.ErrorInfo
             if ($null -ne $errorInfoNode) {
