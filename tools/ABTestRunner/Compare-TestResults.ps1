@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Compares two .trx test result files and generates a markdown report
+    Compares .trx test result files and generates a markdown report
     highlighting differences between baseline and branch test runs.
 
 .DESCRIPTION
@@ -9,15 +9,24 @@
     1. Failures unique to one run (most important)
     2. Latency regressions and improvements
     3. Overall summary statistics
+
+    When multiple TRX files are provided per side (from multiple iterations),
+    durations are averaged to reduce noise from timing variability.
 #>
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string] $BaselineTrxPath,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
+    [string[]] $BaselineTrxPaths,
+
+    [Parameter(Mandatory = $false)]
     [string] $BranchTrxPath,
+
+    [Parameter(Mandatory = $false)]
+    [string[]] $BranchTrxPaths,
 
     [Parameter(Mandatory = $true)]
     [string] $OutputPath,
@@ -33,6 +42,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Normalize paths: support both single-path and multi-path parameters
+if (-not $BaselineTrxPaths -and $BaselineTrxPath) { $BaselineTrxPaths = @($BaselineTrxPath) }
+if (-not $BranchTrxPaths -and $BranchTrxPath) { $BranchTrxPaths = @($BranchTrxPath) }
+
+if (-not $BaselineTrxPaths -or -not $BranchTrxPaths) {
+    throw "At least one baseline and one branch TRX path must be provided."
+}
+
+$iterationCount = [Math]::Max($BaselineTrxPaths.Count, $BranchTrxPaths.Count)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRX Parsing
@@ -87,14 +106,68 @@ function Parse-TrxFile {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Parse both files
+# Parse all TRX files and aggregate (average durations, majority-vote outcomes)
 # ─────────────────────────────────────────────────────────────────────────────
 
-Write-Host "Parsing baseline results: $BaselineTrxPath"
-$baselineResults = Parse-TrxFile -Path $BaselineTrxPath
+function Merge-TrxResults {
+    param([string[]] $Paths)
 
-Write-Host "Parsing branch results: $BranchTrxPath"
-$branchResults = Parse-TrxFile -Path $BranchTrxPath
+    $allRuns = @()
+    foreach ($p in $Paths) {
+        Write-Host "  Parsing: $p"
+        $allRuns += @(Parse-TrxFile -Path $p)
+    }
+
+    if ($allRuns.Count -eq 0) { return @{} }
+    if ($allRuns.Count -eq 1) { return $allRuns[0] }
+
+    # Gather all test names across iterations
+    $allNames = $allRuns | ForEach-Object { $_.Keys } | Sort-Object -Unique
+    $merged = @{}
+
+    foreach ($testName in $allNames) {
+        $durations = @()
+        $outcomes = @()
+        $lastError = $null
+        $lastStack = $null
+
+        foreach ($run in $allRuns) {
+            if ($run.ContainsKey($testName)) {
+                $r = $run[$testName]
+                $durations += $r.DurationMs
+                $outcomes += $r.Outcome
+                if ($r.Error) { $lastError = $r.Error }
+                if ($r.StackTrace) { $lastStack = $r.StackTrace }
+            }
+        }
+
+        # Average duration
+        $avgMs = if ($durations.Count -gt 0) { ($durations | Measure-Object -Average).Average } else { 0 }
+
+        # Outcome: if it failed in ANY iteration, mark as failed (conservative)
+        $failCount = ($outcomes | Where-Object { $_ -ne 'Passed' }).Count
+        $finalOutcome = if ($failCount -gt 0) { 'Failed' } else { 'Passed' }
+
+        $merged[$testName] = @{
+            TestName       = $testName
+            Outcome        = $finalOutcome
+            Duration       = [TimeSpan]::FromMilliseconds($avgMs)
+            DurationMs     = $avgMs
+            Error          = $lastError
+            StackTrace     = $lastStack
+            IterationCount = $durations.Count
+            FailCount      = $failCount
+        }
+    }
+
+    return $merged
+}
+
+Write-Host "Parsing baseline results ($($BaselineTrxPaths.Count) file(s)):"
+$baselineResults = Merge-TrxResults -Paths $BaselineTrxPaths
+
+Write-Host "Parsing branch results ($($BranchTrxPaths.Count) file(s)):"
+$branchResults = Merge-TrxResults -Paths $BranchTrxPaths
 
 if ($baselineResults.Count -eq 0 -and $branchResults.Count -eq 0) {
     Write-Warning "Both TRX files are empty or missing. Cannot generate comparison."
@@ -193,6 +266,10 @@ $sb = [System.Text.StringBuilder]::new()
 
 [void]$sb.AppendLine("# A/B E2E Test Comparison Report")
 [void]$sb.AppendLine("")
+if ($iterationCount -gt 1) {
+    [void]$sb.AppendLine("> **$iterationCount iterations** per side — durations are averaged to reduce timing noise.")
+    [void]$sb.AppendLine("")
+}
 [void]$sb.AppendLine("| | $BaselineLabel | $BranchLabel |")
 [void]$sb.AppendLine("|---|---|---|")
 [void]$sb.AppendLine("| **Total Tests** | $($baselineResults.Count) | $($branchResults.Count) |")
@@ -355,7 +432,9 @@ if ($removedTests.Count -gt 0) {
 [void]$sb.AppendLine("---")
 [void]$sb.AppendLine("")
 [void]$sb.AppendLine("*Generated by FHIR Server A/B Test Runner on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC' -AsUTC)*")
-[void]$sb.AppendLine("*Latency threshold: ±$($LatencyThresholdPercent)%*")
+$footerParts = @("Latency threshold: ±$($LatencyThresholdPercent)%")
+if ($iterationCount -gt 1) { $footerParts += "Iterations: $iterationCount (durations averaged)" }
+[void]$sb.AppendLine("*$($footerParts -join ' | ')*")
 
 $report = $sb.ToString()
 $report | Set-Content -Path $OutputPath -Encoding utf8

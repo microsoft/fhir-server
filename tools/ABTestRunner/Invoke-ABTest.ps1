@@ -55,6 +55,10 @@ param(
     [switch] $SkipCleanup,
 
     [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 20)]
+    [int] $Iterations = 1,
+
+    [Parameter(Mandatory = $false)]
     [string] $TestDllPath
 )
 
@@ -457,12 +461,16 @@ if ($CategoryFilter) {
 }
 $testFilter = if ($filterParts.Count -gt 0) { $filterParts -join '&' } else { $null }
 
-Write-Host "`n► Running E2E tests in parallel against both services..."
+if ($Iterations -gt 1) {
+    Write-Host "`n► Running E2E tests ($Iterations iterations each, in parallel)..."
+} else {
+    Write-Host "`n► Running E2E tests in parallel against both services..."
+}
 if ($testFilter) { Write-Host "  Filter: $testFilter" }
 
 # Script block that runs inside each parallel job
 $testJob = {
-    param($DllPath, $Url, $Label, $TrxDir, $ResultsFile, $Filter, $FhirVer)
+    param($DllPath, $Url, $Label, $TrxDir, $ResultsFile, $Filter, $FhirVer, $Iterations)
 
     $env:TestEnvironmentUrl = $Url
     $env:TestEnvironmentUrl_Sql = $Url
@@ -473,32 +481,46 @@ $testJob = {
         New-Item -ItemType Directory -Path $TrxDir -Force | Out-Null
     }
 
-    $testArgs = @($DllPath, '--report-trx', '--results-directory', $TrxDir)
-    if ($Filter) {
-        $testArgs += @('--filter', $Filter)
+    $allTrxFiles = @()
+
+    for ($i = 1; $i -le $Iterations; $i++) {
+        $iterDir = Join-Path $TrxDir "iter-$i"
+        New-Item -ItemType Directory -Path $iterDir -Force | Out-Null
+
+        $testArgs = @($DllPath, '--report-trx', '--results-directory', $iterDir)
+        if ($Filter) {
+            $testArgs += @('--filter', $Filter)
+        }
+
+        & dotnet @testArgs 2>&1 | Out-Null
+        $exitCode = $LASTEXITCODE
+
+        $trxFile = Get-ChildItem -Path $iterDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($trxFile) {
+            $destName = "${Label}-iter${i}.trx"
+            $destPath = Join-Path $TrxDir $destName
+            Copy-Item $trxFile.FullName -Destination $destPath -Force
+            $allTrxFiles += $destPath
+        }
     }
 
-    $output = & dotnet @testArgs 2>&1
-    $exitCode = $LASTEXITCODE
-
-    # Copy .trx to expected location
-    $trxFile = Get-ChildItem -Path $TrxDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($trxFile) {
-        Copy-Item $trxFile.FullName -Destination $ResultsFile -Force
+    # Copy the last iteration as the "primary" TRX (for backward compat)
+    if ($allTrxFiles.Count -gt 0) {
+        Copy-Item $allTrxFiles[-1] -Destination $ResultsFile -Force
     }
 
     return @{
-        ExitCode = $exitCode
-        Output   = ($output -join "`n")
-        Label    = $Label
+        ExitCode  = $exitCode
+        Label     = $Label
+        TrxFiles  = $allTrxFiles
     }
 }
 
 $baselineTrxDir = Join-Path $outputDir "baseline-results"
 $branchTrxDir = Join-Path $outputDir "branch-results"
 
-$baselineJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $baselineUrl, "baseline", $baselineTrxDir, $baselineTrx, $testFilter, $FhirVersion
-$branchJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $branchUrl, "branch", $branchTrxDir, $branchTrx, $testFilter, $FhirVersion
+$baselineJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $baselineUrl, "baseline", $baselineTrxDir, $baselineTrx, $testFilter, $FhirVersion, $Iterations
+$branchJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $branchUrl, "branch", $branchTrxDir, $branchTrx, $testFilter, $FhirVersion, $Iterations
 
 # Monitor both jobs with progress updates
 $startTime = Get-Date
@@ -529,6 +551,9 @@ Remove-Job -Job $baselineJob, $branchJob -Force
 
 $totalDuration = (Get-Date) - $startTime
 Write-Host ("`n  Both test runs completed in {0:hh\:mm\:ss}" -f $totalDuration) -ForegroundColor Cyan
+if ($Iterations -gt 1) {
+    Write-Host "  ($Iterations iterations per side)" -ForegroundColor Cyan
+}
 
 # Show exit codes
 if ($baselineResult.ExitCode -ne 0) {
@@ -546,9 +571,17 @@ Write-Host "`n┌─────────────────────
 Write-Host "│ Step 6: Generate comparison report                          │" -ForegroundColor Yellow
 Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
 
+# Collect all TRX files for multi-iteration averaging
+$baselineTrxPaths = Get-ChildItem -Path $baselineTrxDir -Filter "*.trx" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+$branchTrxPaths = Get-ChildItem -Path $branchTrxDir -Filter "*.trx" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+
+# Fall back to single file if directory listing fails
+if (-not $baselineTrxPaths) { $baselineTrxPaths = @($baselineTrx) }
+if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
+
 & "$scriptsDir/Compare-TestResults.ps1" `
-    -BaselineTrxPath $baselineTrx `
-    -BranchTrxPath $branchTrx `
+    -BaselineTrxPaths $baselineTrxPaths `
+    -BranchTrxPaths $branchTrxPaths `
     -OutputPath (Join-Path $outputDir "comparison-report.md") `
     -BaselineLabel "main ($BaselineTag)" `
     -BranchLabel "$branchName ($shortSha)"
