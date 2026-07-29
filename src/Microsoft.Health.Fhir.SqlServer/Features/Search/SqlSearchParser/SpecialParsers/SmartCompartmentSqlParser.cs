@@ -86,6 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 try
                 {
                     var typeId = _model.GetResourceTypeId(universalType);
+
                     // If resource types are filtered, only include universal types that are in the filter
                     if (options.ResourceTypes == null || options.ResourceTypes.Count == 0 || options.ResourceTypes.Contains(typeId))
                     {

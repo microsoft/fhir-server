@@ -238,7 +238,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 {
                     // Intersect with already-specified _type
                     var allowedTypeIds = allowedResourceTypes
-                        .Select(t => { try { return _sqlServerFhirModel.GetResourceTypeId(t); } catch { return (short)-1; } })
+                        .Select(t =>
+                        {
+                            try
+                            {
+                                return _sqlServerFhirModel.GetResourceTypeId(t);
+                            }
+                            catch
+                            {
+                                return (short)-1;
+                            }
+                        })
                         .Where(id => id >= 0)
                         .ToHashSet();
                     var intersection = parserOptions.ResourceTypes.Where(rt => allowedTypeIds.Contains(rt)).ToList();
