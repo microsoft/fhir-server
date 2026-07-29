@@ -421,99 +421,105 @@ if (-not (Test-Path $TestDllPath)) {
     throw "E2E test DLL not found at: $TestDllPath"
 }
 
-function Invoke-E2ETests {
-    param(
-        [string] $Url,
-        [string] $Label,
-        [string] $ResultsFile
-    )
+$baselineTrx = Join-Path $outputDir "baseline.trx"
+$branchTrx = Join-Path $outputDir "branch.trx"
 
-    Write-Host "`n► Running E2E tests against $Label ($Url)..."
+# Build shared filter once
+$filterParts = @()
+$filterParts += 'Category!=Export'
+$filterParts += 'Category!=ExportDataValidation'
+$filterParts += 'Category!=ExportLongRunning'
+$filterParts += 'Category!=Import'
+if ($DataStore -eq 'SqlServer') {
+    $filterParts += 'FullyQualifiedName~SqlServer'
+} elseif ($DataStore -eq 'CosmosDb') {
+    $filterParts += 'FullyQualifiedName~CosmosDb'
+}
+if ($CategoryFilter) {
+    $filterParts += $CategoryFilter
+}
+$testFilter = if ($filterParts.Count -gt 0) { $filterParts -join '&' } else { $null }
+
+Write-Host "`n► Running E2E tests in parallel against both services..."
+if ($testFilter) { Write-Host "  Filter: $testFilter" }
+
+# Script block that runs inside each parallel job
+$testJob = {
+    param($DllPath, $Url, $Label, $TrxDir, $ResultsFile, $Filter, $FhirVer)
 
     $env:TestEnvironmentUrl = $Url
     $env:TestEnvironmentUrl_Sql = $Url
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_$FhirVersion", $Url)
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_${FhirVersion}_Sql", $Url)
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_$FhirVer", $Url)
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_${FhirVer}_Sql", $Url)
 
-    $trxDir = Join-Path $outputDir "${Label}-results"
-    if (-not (Test-Path $trxDir)) {
-        New-Item -ItemType Directory -Path $trxDir -Force | Out-Null
+    if (-not (Test-Path $TrxDir)) {
+        New-Item -ItemType Directory -Path $TrxDir -Force | Out-Null
     }
 
-    $testArgs = @($TestDllPath, '--report-trx', '--results-directory', $trxDir)
-
-    # Build the filter: include datastore in FQN if specified, plus any category filter
-    $filterParts = @()
-
-    # No storage account is currently setup, so tests that require it will be skipped.
-    $filterParts += 'Category!=Export'
-    $filterParts += 'Category!=ExportDataValidation'
-    $filterParts += 'Category!=ExportLongRunning'
-    $filterParts += 'Category!=Import'
-
-    if ($DataStore -eq 'SqlServer') {
-        $filterParts += 'FullyQualifiedName~SqlServer'
-    } elseif ($DataStore -eq 'CosmosDb') {
-        $filterParts += 'FullyQualifiedName~CosmosDb'
-    }
-    if ($CategoryFilter) {
-        $filterParts += $CategoryFilter
-    }
-    if ($filterParts.Count -gt 0) {
-        $filter = $filterParts -join '&'
-        $testArgs += @('--filter', $filter)
-        Write-Host "  Filter: $filter"
-    } else {
-        Write-Host "  Filter: (none — running all tests)"
+    $testArgs = @($DllPath, '--report-trx', '--results-directory', $TrxDir)
+    if ($Filter) {
+        $testArgs += @('--filter', $Filter)
     }
 
-    $startTime = Get-Date
-    $passed = 0
-    $failed = 0
-    $skipped = 0
-    $testOutput = [System.Collections.Generic.List[string]]::new()
-    $lastProgressTime = [datetime]::MinValue
-
-    Write-Host "  Starting test execution..."
-
-    & dotnet @testArgs 2>&1 | ForEach-Object {
-        $line = [string]$_
-        $testOutput.Add($line)
-        Write-Host $line
-    }
-    $duration = (Get-Date) - $startTime
+    $output = & dotnet @testArgs 2>&1
     $exitCode = $LASTEXITCODE
 
-    $total = $passed + $failed + $skipped
-    Write-Host ("  Finished: {0} tests in {1:hh\:mm\:ss} ({2} passed, {3} failed, {4} skipped)" -f $total, $duration, $passed, $failed, $skipped) -ForegroundColor $(if ($failed -gt 0) { 'Yellow' } else { 'Green' })
-
-    if ($total -eq 0) {
-        Write-Warning "  No tests were executed! Check the filter or test DLL path."
-        Write-Host "  Test args: dotnet $($testArgs -join ' ')" -ForegroundColor DarkGray
-        # Show last few output lines for diagnosis
-        $tail = $testOutput | Select-Object -Last 10
-        foreach ($l in $tail) { Write-Host "    $l" -ForegroundColor DarkGray }
-    }
-
-    # Find the .trx file
-    $trxFile = Get-ChildItem -Path $trxDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    # Copy .trx to expected location
+    $trxFile = Get-ChildItem -Path $TrxDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($trxFile) {
         Copy-Item $trxFile.FullName -Destination $ResultsFile -Force
     }
 
     return @{
         ExitCode = $exitCode
-        Duration = $duration
-        TrxFile  = $ResultsFile
-        Output   = ($testOutput -join "`n")
+        Output   = ($output -join "`n")
+        Label    = $Label
     }
 }
 
-$baselineTrx = Join-Path $outputDir "baseline.trx"
-$branchTrx = Join-Path $outputDir "branch.trx"
+$baselineTrxDir = Join-Path $outputDir "baseline-results"
+$branchTrxDir = Join-Path $outputDir "branch-results"
 
-$baselineResults = Invoke-E2ETests -Url $baselineUrl -Label "baseline" -ResultsFile $baselineTrx
-$branchResults = Invoke-E2ETests -Url $branchUrl -Label "branch" -ResultsFile $branchTrx
+$baselineJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $baselineUrl, "baseline", $baselineTrxDir, $baselineTrx, $testFilter, $FhirVersion
+$branchJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $branchUrl, "branch", $branchTrxDir, $branchTrx, $testFilter, $FhirVersion
+
+# Monitor both jobs with progress updates
+$startTime = Get-Date
+$completedJobs = @{}
+
+while ($completedJobs.Count -lt 2) {
+    Start-Sleep -Seconds 30
+    $elapsed = (Get-Date) - $startTime
+
+    foreach ($job in @(@{Name='baseline'; Job=$baselineJob}, @{Name='branch'; Job=$branchJob})) {
+        if ($completedJobs.ContainsKey($job.Name)) { continue }
+
+        if ($job.Job.State -eq 'Completed' -or $job.Job.State -eq 'Failed') {
+            $completedJobs[$job.Name] = $true
+            Write-Host ("  ✓ {0} tests finished [{1:hh\:mm\:ss}]" -f $job.Name, $elapsed) -ForegroundColor Green
+        }
+    }
+
+    if ($completedJobs.Count -lt 2) {
+        $running = @('baseline', 'branch') | Where-Object { -not $completedJobs.ContainsKey($_) }
+        Write-Host ("  [{0:hh\:mm\:ss}] Still running: {1}" -f $elapsed, ($running -join ', ')) -ForegroundColor DarkGray
+    }
+}
+
+$baselineResult = Receive-Job -Job $baselineJob -Wait
+$branchResult = Receive-Job -Job $branchJob -Wait
+Remove-Job -Job $baselineJob, $branchJob -Force
+
+$totalDuration = (Get-Date) - $startTime
+Write-Host ("`n  Both test runs completed in {0:hh\:mm\:ss}" -f $totalDuration) -ForegroundColor Cyan
+
+# Show exit codes
+if ($baselineResult.ExitCode -ne 0) {
+    Write-Host "  ⚠ Baseline tests exited with code $($baselineResult.ExitCode)" -ForegroundColor Yellow
+}
+if ($branchResult.ExitCode -ne 0) {
+    Write-Host "  ⚠ Branch tests exited with code $($branchResult.ExitCode)" -ForegroundColor Yellow
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 6: Compare results and generate report
