@@ -43,6 +43,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -481,6 +482,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (Exception ex)
             {
+                if (_bundleType == BundleType.Batch && ex is JobConflictException)
+                {
+                    _logger.LogInformation(ex, "Escaped reindex conflict while processing a batch bundle.");
+                    _metricHandler.EmitSuccess();
+                    return;
+                }
+
                 if (cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogWarning(ex, "Operation cancelled. Error while processing a bundle: {ErrorMessage}.", ex.Message);

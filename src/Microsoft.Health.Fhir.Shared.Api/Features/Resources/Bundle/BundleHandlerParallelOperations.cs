@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
@@ -131,6 +132,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
                         _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
+                    }
+                    catch (JobConflictException ex) when (bundleExecutionContext.BundleType == BundleType.Batch)
+                    {
+                        _logger.LogInformation(ex, "BundleHandler - Batch request #{RequestNumber} completed with conflict while reindex is in progress.", resourceExecutionContext.Index);
+
+                        var entry = new EntryComponent
+                        {
+                            Response = new ResponseComponent
+                            {
+                                Status = ((int)HttpStatusCode.Conflict).ToString(),
+                                Outcome = CreateOperationOutcome(OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Conflict, ex.Message),
+                            },
+                        };
+
+                        responseBundle.Entry[resourceExecutionContext.Index] = entry;
+                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, HttpStatusCode.Conflict, watch.Elapsed);
+
+                        await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
                     }
                     catch (BaseFhirTransactionException ex)
                     {
