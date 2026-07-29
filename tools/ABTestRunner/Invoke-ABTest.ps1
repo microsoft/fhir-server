@@ -33,6 +33,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string] $Location = 'westus2',
 
+    [Parameter(Mandatory = $true)]
+    [string] $ResourceGroupPrefix,
+
     [Parameter(Mandatory = $false)]
     [string] $ResourceGroupName,
 
@@ -44,6 +47,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string] $CategoryFilter = '',
+
+    [Parameter(Mandatory = $false)]
+    [switch] $OnlyShortTests,
 
     [Parameter(Mandatory = $false)]
     [switch] $SkipCleanup,
@@ -80,7 +86,7 @@ $branchName = (git rev-parse --abbrev-ref HEAD 2>$null) ?? 'local'
 $shortSha = (git rev-parse --short HEAD 2>$null) ?? 'unknown'
 
 if (-not $ResourceGroupName) {
-    $ResourceGroupName = "fhir-abtest-$runId"
+    $ResourceGroupName = "$ResourceGroupPrefix-abtest-$runId"
 }
 
 $baselineAppName = "fhir-baseline-$runId".ToLowerInvariant()
@@ -316,8 +322,8 @@ function Deploy-FhirContainerApp {
         '--user-assigned', $uamiResourceId,
         '--target-port', '8080',
         '--ingress', 'external',
-        '--min-replicas', '1',
-        '--max-replicas', '3',
+        '--min-replicas', '2',
+        '--max-replicas', '2',
         '--cpu', '1.0',
         '--memory', '2.0Gi',
         '--env-vars'
@@ -426,10 +432,21 @@ $branchTrx = Join-Path $outputDir "branch.trx"
 
 # Build shared filter once
 $filterParts = @()
+
+# No storage account is currently setup, so tests that require it will be skipped.
 $filterParts += 'Category!=Export'
 $filterParts += 'Category!=ExportDataValidation'
 $filterParts += 'Category!=ExportLongRunning'
 $filterParts += 'Category!=Import'
+
+if ($OnlyShortTests) {
+    # These take a long time to complete
+    $filterParts += 'Category!=ReindexOperation'
+    $filterParts += 'Category!=IndexAndReindex'
+    $filterParts += 'Category!=BulkDelete'
+    $filterParts += 'Category!=BulkUpdate'
+}
+
 if ($DataStore -eq 'SqlServer') {
     $filterParts += 'FullyQualifiedName~SqlServer'
 } elseif ($DataStore -eq 'CosmosDb') {
@@ -488,7 +505,7 @@ $startTime = Get-Date
 $completedJobs = @{}
 
 while ($completedJobs.Count -lt 2) {
-    Start-Sleep -Seconds 30
+    Start-Sleep -Seconds 60
     $elapsed = (Get-Date) - $startTime
 
     foreach ($job in @(@{Name='baseline'; Job=$baselineJob}, @{Name='branch'; Job=$branchJob})) {
