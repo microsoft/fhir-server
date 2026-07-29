@@ -428,12 +428,6 @@ function Invoke-E2ETests {
 
     Write-Host "`n► Running E2E tests against $Label ($Url)..."
 
-    $dataStoreFilter = if ($DataStore -eq 'SqlServer') { 'SqlServer' } else { 'CosmosDb' }
-    $filter = "FullyQualifiedName~$dataStoreFilter"
-    if ($CategoryFilter) {
-        $filter = "$filter&$CategoryFilter"
-    }
-
     $env:TestEnvironmentUrl = $Url
     $env:TestEnvironmentUrl_Sql = $Url
     [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_$FhirVersion", $Url)
@@ -444,12 +438,25 @@ function Invoke-E2ETests {
         New-Item -ItemType Directory -Path $trxDir -Force | Out-Null
     }
 
-    $testArgs = @(
-        $TestDllPath,
-        '--filter', $filter,
-        '--report-trx',
-        '--results-directory', $trxDir
-    )
+    $testArgs = @($TestDllPath, '--report-trx', '--results-directory', $trxDir)
+
+    # Build the filter: include datastore in FQN if specified, plus any category filter
+    $filterParts = @()
+    if ($DataStore -eq 'SqlServer') {
+        $filterParts += 'FullyQualifiedName~SqlServer'
+    } elseif ($DataStore -eq 'CosmosDb') {
+        $filterParts += 'FullyQualifiedName~CosmosDb'
+    }
+    if ($CategoryFilter) {
+        $filterParts += $CategoryFilter
+    }
+    if ($filterParts.Count -gt 0) {
+        $filter = $filterParts -join '&'
+        $testArgs += @('--filter', $filter)
+        Write-Host "  Filter: $filter"
+    } else {
+        Write-Host "  Filter: (none — running all tests)"
+    }
 
     $startTime = Get-Date
     $passed = 0
@@ -458,24 +465,39 @@ function Invoke-E2ETests {
     $testOutput = [System.Collections.Generic.List[string]]::new()
     $lastProgressTime = [datetime]::MinValue
 
+    Write-Host "  Starting test execution..."
+
     & dotnet @testArgs 2>&1 | ForEach-Object {
-        $line = $_
+        $line = [string]$_
         $testOutput.Add($line)
 
-        if ($line -match '^\s*passed\b') { $passed++ }
-        elseif ($line -match '^\s*failed\b') {
+        # Match multiple test runner output formats:
+        #   VSTest:    "  Passed SomeTest [1ms]" / "  Failed SomeTest [1ms]"
+        #   MS Test Platform: "passed SomeTest" / "failed SomeTest"
+        #   dotnet test: "✓ SomeTest" / "✗ SomeTest"
+        #   Summary lines: "Passed: 10" / "Failed: 2"
+        if ($line -match '^\s*(Passed|✓|√)\s+\S') { $passed++ }
+        elseif ($line -match '^\s*(Failed|✗|×)\s+\S') {
             $failed++
-            # Show failed test names immediately
-            Write-Host "  ✗ $line" -ForegroundColor Red
+            Write-Host "  ✗ $($line.Trim())" -ForegroundColor Red
         }
-        elseif ($line -match '^\s*skipped\b') { $skipped++ }
+        elseif ($line -match '^\s*(Skipped|⊘)\s+\S') { $skipped++ }
+        # Also catch summary lines from dotnet test (e.g. "Total: 100, Passed: 95, Failed: 5")
+        elseif ($line -match 'Passed:\s*(\d+)') {
+            $summaryPassed = [int]$Matches[1]
+            if ($summaryPassed -gt $passed) { $passed = $summaryPassed }
+        }
 
         # Print a compact progress line every 30 seconds
         $now = Get-Date
         if (($now - $lastProgressTime).TotalSeconds -ge 30) {
             $elapsed = $now - $startTime
             $total = $passed + $failed + $skipped
-            Write-Host ("  [{0:hh\:mm\:ss}] {1} tests complete ({2} passed, {3} failed, {4} skipped)" -f $elapsed, $total, $passed, $failed, $skipped) -ForegroundColor DarkGray
+            if ($total -gt 0) {
+                Write-Host ("  [{0:hh\:mm\:ss}] {1} tests complete ({2} passed, {3} failed, {4} skipped)" -f $elapsed, $total, $passed, $failed, $skipped) -ForegroundColor DarkGray
+            } else {
+                Write-Host ("  [{0:hh\:mm\:ss}] Waiting for test results..." -f $elapsed) -ForegroundColor DarkGray
+            }
             $lastProgressTime = $now
         }
     }
@@ -484,6 +506,14 @@ function Invoke-E2ETests {
 
     $total = $passed + $failed + $skipped
     Write-Host ("  Finished: {0} tests in {1:hh\:mm\:ss} ({2} passed, {3} failed, {4} skipped)" -f $total, $duration, $passed, $failed, $skipped) -ForegroundColor $(if ($failed -gt 0) { 'Yellow' } else { 'Green' })
+
+    if ($total -eq 0) {
+        Write-Warning "  No tests were executed! Check the filter or test DLL path."
+        Write-Host "  Test args: dotnet $($testArgs -join ' ')" -ForegroundColor DarkGray
+        # Show last few output lines for diagnosis
+        $tail = $testOutput | Select-Object -Last 10
+        foreach ($l in $tail) { Write-Host "    $l" -ForegroundColor DarkGray }
+    }
 
     # Find the .trx file
     $trxFile = Get-ChildItem -Path $trxDir -Filter "*.trx" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
