@@ -280,7 +280,9 @@ function Deploy-FhirContainerApp {
     $envVars = @(
         "ASPNETCORE_FORWARDEDHEADERS_ENABLED=true",
         "FhirServer__Security__Enabled=false",
-        "FhirServer__Security__EnableAadSmartOnFhirProxy=false"
+        "FhirServer__Security__EnableAadSmartOnFhirProxy=false",
+        "FhirServer__Security__Authentication__Authority=invalid",
+        "FhirServer__Security__Authentication__Audience=invalid"
     )
 
     if ($DataStore -eq 'SqlServer') {
@@ -442,6 +444,13 @@ function Invoke-E2ETests {
 
     # Build the filter: include datastore in FQN if specified, plus any category filter
     $filterParts = @()
+
+    # No storage account is currently setup, so tests that require it will be skipped.
+    $filterParts += 'Category!=Export'
+    $filterParts += 'Category!=ExportDataValidation'
+    $filterParts += 'Category!=ExportLongRunning'
+    $filterParts += 'Category!=Import'
+
     if ($DataStore -eq 'SqlServer') {
         $filterParts += 'FullyQualifiedName~SqlServer'
     } elseif ($DataStore -eq 'CosmosDb') {
@@ -470,36 +479,7 @@ function Invoke-E2ETests {
     & dotnet @testArgs 2>&1 | ForEach-Object {
         $line = [string]$_
         $testOutput.Add($line)
-
-        # Match multiple test runner output formats:
-        #   VSTest:    "  Passed SomeTest [1ms]" / "  Failed SomeTest [1ms]"
-        #   MS Test Platform: "passed SomeTest" / "failed SomeTest"
-        #   dotnet test: "✓ SomeTest" / "✗ SomeTest"
-        #   Summary lines: "Passed: 10" / "Failed: 2"
-        if ($line -match '^\s*(Passed|✓|√)\s+\S') { $passed++ }
-        elseif ($line -match '^\s*(Failed|✗|×)\s+\S') {
-            $failed++
-            Write-Host "  ✗ $($line.Trim())" -ForegroundColor Red
-        }
-        elseif ($line -match '^\s*(Skipped|⊘)\s+\S') { $skipped++ }
-        # Also catch summary lines from dotnet test (e.g. "Total: 100, Passed: 95, Failed: 5")
-        elseif ($line -match 'Passed:\s*(\d+)') {
-            $summaryPassed = [int]$Matches[1]
-            if ($summaryPassed -gt $passed) { $passed = $summaryPassed }
-        }
-
-        # Print a compact progress line every 30 seconds
-        $now = Get-Date
-        if (($now - $lastProgressTime).TotalSeconds -ge 30) {
-            $elapsed = $now - $startTime
-            $total = $passed + $failed + $skipped
-            if ($total -gt 0) {
-                Write-Host ("  [{0:hh\:mm\:ss}] {1} tests complete ({2} passed, {3} failed, {4} skipped)" -f $elapsed, $total, $passed, $failed, $skipped) -ForegroundColor DarkGray
-            } else {
-                Write-Host ("  [{0:hh\:mm\:ss}] Waiting for test results..." -f $elapsed) -ForegroundColor DarkGray
-            }
-            $lastProgressTime = $now
-        }
+        Write-Host $line
     }
     $duration = (Get-Date) - $startTime
     $exitCode = $LASTEXITCODE
