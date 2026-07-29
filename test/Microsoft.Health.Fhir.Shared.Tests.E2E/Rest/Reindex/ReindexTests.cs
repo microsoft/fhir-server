@@ -1178,10 +1178,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenSearchParamBundleDelete_ThenConflictWhenReindexAndSuccessOnNext()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenSearchParamBundleDelete_ThenConflictWhenReindexAndSuccessOnNext(bool isBatch)
         {
-            var code = "soft-delete-bundle-conflict-test";
+            if (!_isSql && !isBatch) // cosmos does not support transaction bundles
+            {
+                return;
+            }
+
+            var code = isBatch ? "soft-delete-batch-bundle-conflict-test" : "soft-delete-transaction-bundle-conflict-test";
             var searchParam = CreatePersonSearchParam(code, $"http://e2e.org/{code}");
             var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
             Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
@@ -1190,21 +1197,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
 
-            // Create a batch bundle with a DELETE entry for the SearchParameter
             var bundle = new Bundle
             {
-                Type = BundleType.Batch,
+                Type = isBatch ? BundleType.Batch : BundleType.Transaction,
                 Entry = [new() { Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } }],
             };
 
-            // conflict - bundle delete should fail while reindex is running
-            var bundleConflict = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-            Assert.Equal(HttpStatusCode.OK, bundleConflict.Response.StatusCode); // Batch returns 200
-            Assert.NotNull(bundleConflict.Resource?.Entry);
-            Assert.Single(bundleConflict.Resource.Entry);
-            var deleteResponse = bundleConflict.Resource.Entry[0].Response;
-            Assert.Equal(((int)HttpStatusCode.Conflict).ToString(), deleteResponse.Status);
-            Assert.Contains("reindex", deleteResponse.Outcome?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+            if (isBatch)
+            {
+                // conflict - batch bundle returns entry-level conflict while reindex is running
+                var bundleConflict = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                Assert.Equal(HttpStatusCode.OK, bundleConflict.Response.StatusCode);
+                Assert.NotNull(bundleConflict.Resource?.Entry);
+                Assert.Single(bundleConflict.Resource.Entry);
+                var deleteResponse = bundleConflict.Resource.Entry[0].Response;
+                Assert.Equal(((int)HttpStatusCode.Conflict).ToString(), deleteResponse.Status);
+                Assert.Contains("reindex", deleteResponse.Outcome?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                // conflict - transaction bundle fails the whole request while reindex is running
+                var transactionConflict = await Assert.ThrowsAsync<FhirClientException>(async () =>
+                    await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel }));
+                Assert.Equal(HttpStatusCode.Conflict, transactionConflict.StatusCode);
+                Assert.Contains("reindex", transactionConflict.Message, StringComparison.OrdinalIgnoreCase);
+            }
 
             var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
             Assert.Equal(OperationStatus.Completed, reindexStatus);
