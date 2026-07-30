@@ -74,11 +74,6 @@ if (-not $repoRoot) {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 }
 
-$outputDir = Join-Path $repoRoot 'ab-test-results'
-if (-not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-}
-
 $scriptsDir = $PSScriptRoot
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +83,11 @@ $scriptsDir = $PSScriptRoot
 $runId = (Get-Date -Format 'yyyyMMddHHmmss')
 $branchName = (git rev-parse --abbrev-ref HEAD 2>$null) ?? 'local'
 $shortSha = (git rev-parse --short HEAD 2>$null) ?? 'unknown'
+
+$outputDir = Join-Path $repoRoot "ab-test-results/$runId"
+if (-not (Test-Path $outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+}
 
 if (-not $ResourceGroupName) {
     $ResourceGroupName = "$ResourceGroupPrefix-abtest-$runId"
