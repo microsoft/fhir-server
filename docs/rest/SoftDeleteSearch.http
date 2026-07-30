@@ -1,0 +1,131 @@
+# Soft-deleted resources can be searched at the system or resource-type level.
+# The only supported filters are the resource type in the URL and the
+# last-updated bounds (_since and _before).
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Create a patient that will be soft deleted
+PUT https://{{hostname}}/Patient/soft-delete-search-patient
+Content-Type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "soft-delete-search-patient",
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Deleted",
+      "given": [
+        "Pat"
+      ]
+    }
+  ]
+}
+
+### Create an observation that will be soft deleted
+PUT https://{{hostname}}/Observation/soft-delete-search-observation
+Content-Type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Observation",
+  "id": "soft-delete-search-observation",
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "29463-7",
+        "display": "Body weight"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/soft-delete-search-patient"
+  },
+  "valueQuantity": {
+    "value": 72.5,
+    "unit": "kg",
+    "system": "http://unitsofmeasure.org",
+    "code": "kg"
+  }
+}
+
+### Create an active patient to show that normal resources are excluded
+PUT https://{{hostname}}/Patient/soft-delete-search-active-patient
+Content-Type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "soft-delete-search-active-patient",
+  "active": true,
+  "name": [
+    {
+      "family": "Active",
+      "given": [
+        "Alex"
+      ]
+    }
+  ]
+}
+
+### Soft delete the sample patient
+DELETE https://{{hostname}}/Patient/soft-delete-search-patient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Soft delete the sample observation
+DELETE https://{{hostname}}/Observation/soft-delete-search-observation
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Search all soft-deleted resource types
+# Returns the deleted Patient and Observation, but not the active Patient.
+GET https://{{hostname}}/_deleted
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Search soft-deleted patients
+# The resource type is specified in the URL. This returns only the deleted Patient.
+GET https://{{hostname}}/Patient/_deleted
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Search soft-deleted observations
+GET https://{{hostname}}/Observation/_deleted
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Search resources deleted since a last-updated time
+# _since is inclusive. Use a timestamp before the DELETE requests above.
+GET https://{{hostname}}/_deleted?_since=2000-01-01T00:00:00Z
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Search a last-updated time range
+# _before is exclusive and cannot be in the future. Replace the example values
+# with timestamps that bracket the DELETE requests before running this request.
+GET https://{{hostname}}/Patient/_deleted?_since=2026-07-30T20:00:00Z&_before=2026-07-30T22:00:00Z
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Sort and page through soft-deleted resources
+# Only _lastUpdated is supported for sorting. The default order is descending.
+# @name deletedPage
+GET https://{{hostname}}/_deleted?_count=1&_sort=-_lastUpdated
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Record the next-page URL
+@deletedNextPage = {{deletedPage.response.body.link[0].url}}
+
+### Get the next page
+# @name deletedPage
+GET {{deletedNextPage}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+

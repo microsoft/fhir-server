@@ -152,6 +152,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeletedResources", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeletedResourcesByType", _targetFhirControllerClass);
         }
 
         [Fact]
@@ -589,6 +591,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 (model, type, id) => _fhirController.History(type, id, model),
                 Guid.NewGuid().ToString(),
                 Guid.NewGuid().ToString());
+        }
+
+        [Fact]
+        public async Task GivenSystemDeletedResourceSearch_WhenProcessingRequest_ThenRequestShouldBeCreatedCorrectly()
+        {
+            await RunDeletedResourceSearchTest((model, _) => _fhirController.DeletedResources(model));
+        }
+
+        [Fact]
+        public async Task GivenTypeDeletedResourceSearch_WhenProcessingRequest_ThenRequestShouldBeCreatedCorrectly()
+        {
+            await RunDeletedResourceSearchTest(
+                (model, type) => _fhirController.DeletedResourcesByType(type, model),
+                KnownResourceTypes.Patient);
         }
 
         [Fact]
@@ -1442,6 +1458,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).SendAsync<SearchResourceResponse>(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>());
+        }
+
+        private async Task RunDeletedResourceSearchTest(
+            Func<DeletedResourceSearchModel, string, Task<IActionResult>> action,
+            string resourceType = null)
+        {
+            var resource = new Bundle
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.SendAsync<SearchResourceHistoryResponse>(
+                Arg.Any<SearchDeletedResourcesRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new SearchResourceHistoryResponse(resource.ToResourceElement()));
+            SearchDeletedResourcesRequest request = null;
+            _mediator.When(x => x.SendAsync<SearchResourceHistoryResponse>(
+                    Arg.Any<SearchDeletedResourcesRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<SearchDeletedResourcesRequest>());
+            var model = new DeletedResourceSearchModel
+            {
+                Since = PartialDateTime.Parse("2025-01-01"),
+                Before = PartialDateTime.Parse("2025-02-01"),
+                Count = 10,
+                ContinuationToken = "token",
+                Sort = $"-{KnownQueryParameterNames.LastUpdated}",
+            };
+
+            IActionResult response = await action(model, resourceType);
+
+            Assert.IsType<FhirResult>(response);
+            Assert.NotNull(request);
+            Assert.Equal(resourceType, request.ResourceType);
+            Assert.Equal(model.Since, request.Since);
+            Assert.Equal(model.Before, request.Before);
+            Assert.Equal(model.Count, request.Count);
+            Assert.Equal(model.ContinuationToken, request.ContinuationToken);
+            Assert.Equal(model.Sort, request.Sort);
         }
 
         private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, string methodName, Type targetClassType)

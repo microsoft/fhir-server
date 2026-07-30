@@ -371,6 +371,53 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
+        /// Returns current soft-deleted resources in the system.
+        /// </summary>
+        /// <param name="searchModel">Model for last-updated and paging parameters.</param>
+        [HttpGet]
+        [Route(KnownRoutes.Deleted, Name = RouteNames.Deleted)]
+        [AuditEventType(AuditEventSubType.HistorySystem)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
+        public async Task<IActionResult> DeletedResources(DeletedResourceSearchModel searchModel)
+        {
+            ResourceElement response = await _mediator.SearchDeletedResourcesAsync(
+                resourceType: null,
+                searchModel.Since,
+                searchModel.Before,
+                searchModel.Count,
+                searchModel.ContinuationToken,
+                searchModel.Sort,
+                HttpContext.RequestAborted);
+
+            return FhirResult.Create(response);
+        }
+
+        /// <summary>
+        /// Returns current soft-deleted resources of a specific type.
+        /// </summary>
+        /// <param name="typeParameter">The resource type.</param>
+        /// <param name="searchModel">Model for last-updated and paging parameters.</param>
+        [HttpGet]
+        [Route(KnownRoutes.ResourceTypeDeleted, Name = RouteNames.DeletedType)]
+        [AuditEventType(AuditEventSubType.HistoryType)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
+        public async Task<IActionResult> DeletedResourcesByType(
+            string typeParameter,
+            DeletedResourceSearchModel searchModel)
+        {
+            ResourceElement response = await _mediator.SearchDeletedResourcesAsync(
+                typeParameter,
+                searchModel.Since,
+                searchModel.Before,
+                searchModel.Count,
+                searchModel.ContinuationToken,
+                searchModel.Sort,
+                HttpContext.RequestAborted);
+
+            return FhirResult.Create(response);
+        }
+
+        /// <summary>
         /// Returns the history of a resource
         /// </summary>
         /// <param name="typeParameter">The resource type.</param>

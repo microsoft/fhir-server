@@ -25,6 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         internal const string HistoryTypeId = nameof(HistoryTypeId);
 
+        internal const string Deleted = nameof(Deleted);
+
+        internal const string DeletedType = nameof(DeletedType);
+
         internal const string SearchCompartmentByResourceType = nameof(SearchCompartmentByResourceType);
 
         internal const string AadSmartOnFhirProxyAuthorize = nameof(AadSmartOnFhirProxyAuthorize);

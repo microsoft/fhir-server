@@ -79,15 +79,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
-                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
+                if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) &&
+                    !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
                 {
                     AppendFilterCondition(
                         "AND",
                         true,
                         (KnownResourceWrapperProperties.IsHistory, true));
                 }
-
-                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
+                else if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest) &&
+                    !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
                 {
                     AppendFilterCondition(
                         "AND",
@@ -95,7 +96,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         (KnownResourceWrapperProperties.IsHistory, false));
                 }
 
-                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted))
+                if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted) &&
+                    !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsDeleted, true));
+                }
+                else if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest) &&
+                    !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted))
                 {
                     AppendFilterCondition(
                         "AND",
