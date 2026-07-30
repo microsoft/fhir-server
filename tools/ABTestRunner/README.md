@@ -27,6 +27,7 @@ Both services are deployed as Azure Container Apps with **authorization disabled
     -FhirVersion R4 `
     -DataStore SqlServer `
     -Subscription "your-subscription-name-or-id" `
+    -ResourceGroupPrefix "abtest" `
     -Location "westus2"
 ```
 
