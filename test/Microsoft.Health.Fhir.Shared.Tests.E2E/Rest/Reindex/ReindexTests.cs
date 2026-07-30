@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 var threw = false;
-                await Parallel.ForAsync(0, 20, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
+                await Parallel.ForAsync(0, 40, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
                 {
                     var code = $"c-id-{i}";
                     lock (codes)
