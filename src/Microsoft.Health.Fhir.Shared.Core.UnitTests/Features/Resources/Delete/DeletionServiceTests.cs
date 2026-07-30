@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
             // Act
-            var exception = await Assert.ThrowsAsync<IncompleteOperationException<Dictionary<string, long>>>(async () =>
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(async () =>
                 await _service.DeleteMultipleAsync(request, CancellationToken.None));
 
             // Assert
