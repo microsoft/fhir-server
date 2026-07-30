@@ -152,8 +152,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeletedResources", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeletedResourcesByType", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeleteSearch", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "DeleteSearchByType", _targetFhirControllerClass);
         }
 
         [Fact]
@@ -596,14 +596,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenSystemDeletedResourceSearch_WhenProcessingRequest_ThenRequestShouldBeCreatedCorrectly()
         {
-            await RunDeletedResourceSearchTest((model, _) => _fhirController.DeletedResources(model));
+            await RunDeletedResourceSearchTest((model, _) => _fhirController.DeleteSearch(model));
         }
 
         [Fact]
         public async Task GivenTypeDeletedResourceSearch_WhenProcessingRequest_ThenRequestShouldBeCreatedCorrectly()
         {
             await RunDeletedResourceSearchTest(
-                (model, type) => _fhirController.DeletedResourcesByType(type, model),
+                (model, type) => _fhirController.DeleteSearchByType(type, model),
                 KnownResourceTypes.Patient);
         }
 

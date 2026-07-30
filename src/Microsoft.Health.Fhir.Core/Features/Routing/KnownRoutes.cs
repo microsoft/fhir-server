@@ -21,11 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         private const string VidRouteSegment = "{" + KnownActionParameterNames.Vid + "}";
 
         public const string History = "_history";
-        public const string Deleted = "_deleted";
         public const string Search = "_search";
         public const string ResourceType = ResourceTypeRouteSegment;
         public const string ResourceTypeHistory = ResourceType + "/" + History;
-        public const string ResourceTypeDeleted = ResourceType + "/" + Deleted;
         public const string ResourceTypeSearch = ResourceType + "/" + Search;
         public const string ResourceTypeById = ResourceType + "/" + IdRouteSegment;
         public const string ResourceTypeByIdHistory = ResourceTypeById + "/" + History;
@@ -97,6 +95,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string BulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDelete;
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
         public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
+
+        public const string DeleteSearch = "$delete-search";
+        public const string DeleteSearchResourceType = ResourceType + "/" + DeleteSearch;
+        public const string DeleteSearchOperationDefinition = OperationDefinition + "/" + OperationsConstants.DeleteSearch;
 
         public const string BulkUpdate = "$bulk-update";
         public const string BulkUpdateResourceType = ResourceType + "/" + BulkUpdate;

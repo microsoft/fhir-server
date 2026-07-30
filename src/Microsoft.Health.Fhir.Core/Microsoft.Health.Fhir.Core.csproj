@@ -4,6 +4,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\OperationDefinition\convert-data.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\delete-search.json" />
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
     <EmbeddedResource Include="Data\OperationDefinition\search-parameter-status.json" />

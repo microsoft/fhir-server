@@ -375,10 +375,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="searchModel">Model for last-updated and paging parameters.</param>
         [HttpGet]
-        [Route(KnownRoutes.Deleted, Name = RouteNames.Deleted)]
+        [Route(KnownRoutes.DeleteSearch, Name = RouteNames.DeleteSearch)]
         [AuditEventType(AuditEventSubType.HistorySystem)]
         [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> DeletedResources(DeletedResourceSearchModel searchModel)
+        public async Task<IActionResult> DeleteSearch(DeletedResourceSearchModel searchModel)
         {
             ResourceElement response = await _mediator.SearchDeletedResourcesAsync(
                 resourceType: null,
@@ -398,10 +398,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The resource type.</param>
         /// <param name="searchModel">Model for last-updated and paging parameters.</param>
         [HttpGet]
-        [Route(KnownRoutes.ResourceTypeDeleted, Name = RouteNames.DeletedType)]
+        [Route(KnownRoutes.DeleteSearchResourceType, Name = RouteNames.DeleteSearchType)]
         [AuditEventType(AuditEventSubType.HistoryType)]
         [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> DeletedResourcesByType(
+        public async Task<IActionResult> DeleteSearchByType(
             string typeParameter,
             DeletedResourceSearchModel searchModel)
         {

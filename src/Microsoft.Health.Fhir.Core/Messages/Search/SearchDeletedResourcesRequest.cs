@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using Medino;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
@@ -13,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
     /// <summary>
     /// A request to search current soft-deleted resources.
     /// </summary>
-    public class SearchDeletedResourcesRequest : IRequest<SearchResourceHistoryResponse>, IRequireCapability
+    public class SearchDeletedResourcesRequest : IRequest<SearchResourceHistoryResponse>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchDeletedResourcesRequest"/> class.
@@ -63,15 +61,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
         /// Gets the last-updated sort order.
         /// </summary>
         public string Sort { get; }
-
-        /// <inheritdoc />
-        public IEnumerable<CapabilityQuery> RequiredCapabilities()
-        {
-            string capability = string.IsNullOrEmpty(ResourceType)
-                ? "CapabilityStatement.rest.interaction.where(code = 'history-system').exists()"
-                : $"CapabilityStatement.rest.resource.where(type = '{ResourceType}').interaction.where(code = 'history-type').exists()";
-
-            yield return new CapabilityQuery(capability);
-        }
     }
 }

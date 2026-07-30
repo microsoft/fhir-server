@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Search
             string query = new QueryBuilder().BuildSqlQuerySpec(searchOptions).QueryText;
 
             Assert.Contains("r.isDeleted =", query);
-            Assert.DoesNotContain("r.isHistory =", query);
+            Assert.Contains("r.isHistory =", query);
         }
     }
 }

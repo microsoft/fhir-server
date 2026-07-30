@@ -92,33 +92,33 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Search all soft-deleted resource types
 # Returns the deleted Patient and Observation, but not the active Patient.
-GET https://{{hostname}}/_deleted
+GET https://{{hostname}}/$delete-search
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Search soft-deleted patients
 # The resource type is specified in the URL. This returns only the deleted Patient.
-GET https://{{hostname}}/Patient/_deleted
+GET https://{{hostname}}/Patient/$delete-search
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Search soft-deleted observations
-GET https://{{hostname}}/Observation/_deleted
+GET https://{{hostname}}/Observation/$delete-search
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Search resources deleted since a last-updated time
 # _since is inclusive. Use a timestamp before the DELETE requests above.
-GET https://{{hostname}}/_deleted?_since=2000-01-01T00:00:00Z
+GET https://{{hostname}}/$delete-search?_since=2000-01-01T00:00:00Z
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Search a last-updated time range
 # _before is exclusive and cannot be in the future. Replace the example values
 # with timestamps that bracket the DELETE requests before running this request.
-GET https://{{hostname}}/Patient/_deleted?_since=2026-07-30T20:00:00Z&_before=2026-07-30T22:00:00Z
+GET https://{{hostname}}/Patient/$delete-search?_since=2026-07-30T20:00:00Z&_before=2026-07-30T22:00:00Z
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Sort and page through soft-deleted resources
 # Only _lastUpdated is supported for sorting. The default order is descending.
 # @name deletedPage
-GET https://{{hostname}}/_deleted?_count=1&_sort=-_lastUpdated
+GET https://{{hostname}}/$delete-search?_count=1&_sort=-_lastUpdated
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Record the next-page URL
@@ -128,4 +128,3 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 # @name deletedPage
 GET {{deletedNextPage}}
 Authorization: Bearer {{bearer.response.body.access_token}}
-
