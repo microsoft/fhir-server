@@ -882,30 +882,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.BundleResourceContext != null &&
                 resource.BundleResourceContext.IsTransactionalBundle;
 
-            // For non-transaction operations, extract pending statuses now so they are merged with the resource.
-            // Transaction bundles never reach this branch with pending statuses: any transaction bundle that
-            // contains a SearchParameter resource is forced to the parallel path (handled above), where the
-            // statuses ride along with the resource through dbo.MergeResourcesAndSearchParams.
-            if (!isBundleTransaction)
-            {
-                SetAndClearPendingSearchParameterStatus(resource);
-            }
+            // Extract pending statuses now so they are merged with the resource.
+            // This is applicable for any bundle types.
+            SetAndClearPendingSearchParameterStatus(resource);
 
             if (isBundleParallelOperation)
             {
                 // Parallel operations:
                 // - EnlistTransaction: should be always false, and rely on SQL transactions.
-
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
-                SetAndClearPendingSearchParameterStatus(resource);
-
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
             {
                 // Sequential operations:
                 // - EnlistTransaction: set to true only in sequential transaction bundles (as they rely on C# transactions). Standalone operations should not enlist transactions (as they rely on SQL transactions).
-
                 MergeOptions mergeOptions = new MergeOptions(
                     enlistTransaction: isBundleTransaction,
                     isBundleTransaction: isBundleTransaction);
