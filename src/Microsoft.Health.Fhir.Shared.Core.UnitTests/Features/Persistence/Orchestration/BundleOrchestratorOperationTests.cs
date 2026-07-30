@@ -355,6 +355,95 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Failed, operation.Status);
         }
 
+        [Fact]
+        public async Task GivenASingleResourceOperation_WhenAppended_ThenMergeCompletes()
+        {
+            // Characterization coverage: this passes on main before the implementation change in #5706.
+            // It does not force the scheduling window required to reproduce the reported race.
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", expectedNumberOfResources: 1);
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PUT, persistedId: null, operation.Id));
+
+            UpsertOutcome result = await operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+        }
+
+        [Theory]
+        [InlineData(10, BundleOrchestratorOperationType.Batch)]
+        [InlineData(50, BundleOrchestratorOperationType.Transaction)]
+        [InlineData(100, BundleOrchestratorOperationType.Batch)]
+        public async Task GivenAnOperation_WhenAllResourcesAppendedConcurrently_ThenMergeCompletes(int numberOfResources, BundleOrchestratorOperationType operationType)
+        {
+            // Characterization stress test: this passes on main before the implementation change in #5706.
+            // Parallel scheduling alone does not deterministically expose the reported race.
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(operationType, "POST", numberOfResources);
+            Task<UpsertOutcome>[] appendTasks = new Task<UpsertOutcome>[numberOfResources];
+
+            // Pre-create all resource wrappers so Parallel.For only exercises the append path.
+            ResourceWrapperOperation[] wrappers = new ResourceWrapperOperation[numberOfResources];
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+                wrappers[i] = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                    resource,
+                    new BundleResourceContext(
+                        operationType == BundleOrchestratorOperationType.Batch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction,
+                        BundleProcessingLogic.Parallel,
+                        GetHttpVerb(i),
+                        persistedId: null,
+                        operation.Id));
+            }
+
+            // Fire all appends concurrently.
+            Parallel.For(0, numberOfResources, i =>
+            {
+                appendTasks[i] = operation.AppendResourceAsync(wrappers[i], dataStore, cts.Token);
+            });
+            await Task.WhenAll(appendTasks);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+            Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
+        }
+
+        [Fact]
+        public async Task GivenAnOperation_WhenAllResourcesUseSameVerbConcurrently_ThenMergeCompletesWithoutVerbError()
+        {
+            // Characterization stress test: this passes on main before the implementation change in #5706.
+            const int numberOfResources = 50;
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
+
+            ResourceWrapperOperation[] wrappers = new ResourceWrapperOperation[numberOfResources];
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+                wrappers[i] = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                    resource,
+                    new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+            }
+
+            Task<UpsertOutcome>[] appendTasks = new Task<UpsertOutcome>[numberOfResources];
+            Parallel.For(0, numberOfResources, i =>
+            {
+                appendTasks[i] = operation.AppendResourceAsync(wrappers[i], dataStore, cts.Token);
+            });
+
+            await Task.WhenAll(appendTasks);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+        }
+
         private static Bundle.HTTPVerb GetHttpVerb(int index)
         {
             int nextHttpVerb = index % 6;
