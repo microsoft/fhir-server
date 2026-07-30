@@ -586,6 +586,13 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
     -BaselineLabel "main ($BaselineTag)" `
     -BranchLabel "$branchName ($shortSha)"
 
+& "$scriptsDir/Export-DetailedCsv.ps1" `
+    -BaselineTrxPaths $baselineTrxPaths `
+    -BranchTrxPaths $branchTrxPaths `
+    -OutputPath (Join-Path $outputDir "detailed-results.csv") `
+    -BaselineLabel "main ($BaselineTag)" `
+    -BranchLabel "$branchName ($shortSha)"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 7: Cleanup
 # ─────────────────────────────────────────────────────────────────────────────
