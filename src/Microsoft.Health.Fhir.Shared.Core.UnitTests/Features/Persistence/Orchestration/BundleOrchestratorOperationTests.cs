@@ -355,6 +355,100 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Failed, operation.Status);
         }
 
+        [Fact]
+        public async Task GivenASingleResourceOperation_WhenAppended_ThenHttpVerbIsRegisteredBeforeMerge()
+        {
+            // Validates that the HTTP verb is registered in _knownHttpVerbsInOperation before the resource
+            // is added to _resources. With a single-resource operation, the merge task starts immediately
+            // once _resources.Count == 1. If the verb were added after the resource, the merge task could
+            // see _knownHttpVerbsInOperation.Count == 0 and throw a BundleOrchestratorException.
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", expectedNumberOfResources: 1);
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PUT, persistedId: null, operation.Id));
+
+            UpsertOutcome result = await operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+        }
+
+        [Theory]
+        [InlineData(10, BundleOrchestratorOperationType.Batch)]
+        [InlineData(50, BundleOrchestratorOperationType.Transaction)]
+        [InlineData(100, BundleOrchestratorOperationType.Batch)]
+        public async Task GivenAnOperation_WhenAllResourcesAppendedConcurrently_ThenHttpVerbsAreAlwaysRegisteredBeforeMerge(int numberOfResources, BundleOrchestratorOperationType operationType)
+        {
+            // Stress test: all resources are appended concurrently from separate threads.
+            // Before the fix, the merge task could observe _knownHttpVerbsInOperation.Count == 0
+            // because the verb was added after the resource that triggered the merge.
+            // This test would intermittently throw BundleOrchestratorException prior to the fix.
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(operationType, "POST", numberOfResources);
+            Task<UpsertOutcome>[] appendTasks = new Task<UpsertOutcome>[numberOfResources];
+
+            // Pre-create all resource wrappers so Parallel.For only exercises the append path.
+            ResourceWrapperOperation[] wrappers = new ResourceWrapperOperation[numberOfResources];
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+                wrappers[i] = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                    resource,
+                    new BundleResourceContext(
+                        operationType == BundleOrchestratorOperationType.Batch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction,
+                        BundleProcessingLogic.Parallel,
+                        GetHttpVerb(i),
+                        persistedId: null,
+                        operation.Id));
+            }
+
+            // Fire all appends concurrently.
+            Parallel.For(0, numberOfResources, i =>
+            {
+                appendTasks[i] = operation.AppendResourceAsync(wrappers[i], dataStore, cts.Token);
+            });
+            await Task.WhenAll(appendTasks);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+            Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
+        }
+
+        [Fact]
+        public async Task GivenAnOperation_WhenAllResourcesUseSameVerbConcurrently_ThenMergeCompletesWithoutVerbError()
+        {
+            // All resources share the same HTTP verb, appended concurrently.
+            // The merge task should see _knownHttpVerbsInOperation.Count == 1 and skip sorting.
+            const int numberOfResources = 50;
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var orchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = orchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
+
+            ResourceWrapperOperation[] wrappers = new ResourceWrapperOperation[numberOfResources];
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+                wrappers[i] = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                    resource,
+                    new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+            }
+
+            Task<UpsertOutcome>[] appendTasks = new Task<UpsertOutcome>[numberOfResources];
+            Parallel.For(0, numberOfResources, i =>
+            {
+                appendTasks[i] = operation.AppendResourceAsync(wrappers[i], dataStore, cts.Token);
+            });
+
+            await Task.WhenAll(appendTasks);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
+        }
+
         private static Bundle.HTTPVerb GetHttpVerb(int index)
         {
             int nextHttpVerb = index % 6;
