@@ -251,7 +251,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
                         }
-                        else if (bundleResource.Entry.Any(e => string.Equals(e.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal)))
+                        else if (bundleResource.Entry.Any(e => e.Resource?.TypeName == KnownResourceTypes.SearchParameter
+                                                               //// for deletes type name is not populated, so checking url
+                                                               || e.Request?.Url?.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true))
                         {
                             // SearchParameter persistence relies on the parallel-bundle path (MergeResourcesAndSearchParams)
                             // for atomic resource + status row commit, so any sequential transaction bundle containing a
