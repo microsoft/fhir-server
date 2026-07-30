@@ -54,6 +54,18 @@ if (-not $BaselineTrxPaths -or -not $BranchTrxPaths) {
 $iterationCount = [Math]::Max($BaselineTrxPaths.Count, $BranchTrxPaths.Count)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+function Escape-Markdown {
+    param([string] $Text)
+    # Escape characters that break markdown tables or inline code spans
+    $Text = $Text -replace '\|', '\|'
+    $Text = $Text -replace '`', "'"
+    return $Text
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TRX Parsing
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -303,7 +315,7 @@ if ($branchOnlyFailures.Count -gt 0) {
     $codeFence = '```'
     foreach ($item in $branchOnlyFailures) {
         $t = $item.Branch
-        [void]$sb.AppendLine("### ``$($t.TestName)``")
+        [void]$sb.AppendLine("### ``$(Escape-Markdown $t.TestName)``")
         [void]$sb.AppendLine("")
         if ($t.Error) {
             [void]$sb.AppendLine("**Error:**")
@@ -335,7 +347,7 @@ if ($baselineOnlyFailures.Count -gt 0) {
     foreach ($item in $baselineOnlyFailures) {
         $t = $item.Baseline
         $shortError = if ($t.Error) { $t.Error.Substring(0, [Math]::Min(80, $t.Error.Length)) -replace '\|', '¦' -replace "`n", ' ' } else { '—' }
-        [void]$sb.AppendLine("| ``$($t.TestName)`` | $shortError |")
+        [void]$sb.AppendLine("| ``$(Escape-Markdown $t.TestName)`` | $shortError |")
     }
     [void]$sb.AppendLine("")
 }
@@ -350,7 +362,7 @@ if ($latencyRegressions.Count -gt 0) {
     $topRegressions = $latencyRegressions | Select-Object -First 25
     foreach ($item in $topRegressions) {
         $changeStr = "+$([Math]::Round($item.DiffPercent, 1))%"
-        [void]$sb.AppendLine("| ``$($item.TestName)`` | $([Math]::Round($item.BaselineMs, 1)) | $([Math]::Round($item.BranchMs, 1)) | $changeStr |")
+        [void]$sb.AppendLine("| ``$(Escape-Markdown $item.TestName)`` | $([Math]::Round($item.BaselineMs, 1)) | $([Math]::Round($item.BranchMs, 1)) | $changeStr |")
     }
 
     if ($latencyRegressions.Count -gt 25) {
@@ -370,7 +382,7 @@ if ($latencyImprovements.Count -gt 0) {
     $topImprovements = $latencyImprovements | Select-Object -First 25
     foreach ($item in $topImprovements) {
         $changeStr = "$([Math]::Round($item.DiffPercent, 1))%"
-        [void]$sb.AppendLine("| ``$($item.TestName)`` | $([Math]::Round($item.BaselineMs, 1)) | $([Math]::Round($item.BranchMs, 1)) | $changeStr |")
+        [void]$sb.AppendLine("| ``$(Escape-Markdown $item.TestName)`` | $([Math]::Round($item.BaselineMs, 1)) | $([Math]::Round($item.BranchMs, 1)) | $changeStr |")
     }
 
     if ($latencyImprovements.Count -gt 25) {
@@ -390,7 +402,7 @@ if ($bothFailed.Count -gt 0) {
     [void]$sb.AppendLine("")
 
     foreach ($item in $bothFailed) {
-        [void]$sb.AppendLine("- ``$($item.Branch.TestName)``")
+        [void]$sb.AppendLine("- ``$(Escape-Markdown $item.Branch.TestName)``")
     }
 
     [void]$sb.AppendLine("")
@@ -408,12 +420,12 @@ if ($newTests.Count -gt 0) {
     $newPassed = $newTests | Where-Object { $_.Outcome -eq 'Passed' }
     if ($newFailed.Count -gt 0) {
         [void]$sb.AppendLine("**Failing new tests:**")
-        foreach ($t in $newFailed) { [void]$sb.AppendLine("- ❌ ``$($t.TestName)``") }
+        foreach ($t in $newFailed) { [void]$sb.AppendLine("- ❌ ``$(Escape-Markdown $t.TestName)``") }
         [void]$sb.AppendLine("")
     }
     if ($newPassed.Count -gt 0 -and $newPassed.Count -le 20) {
         [void]$sb.AppendLine("**Passing new tests:**")
-        foreach ($t in $newPassed) { [void]$sb.AppendLine("- ✅ ``$($t.TestName)``") }
+        foreach ($t in $newPassed) { [void]$sb.AppendLine("- ✅ ``$(Escape-Markdown $t.TestName)``") }
         [void]$sb.AppendLine("")
     } elseif ($newPassed.Count -gt 20) {
         [void]$sb.AppendLine("**$($newPassed.Count) new tests all passing.** ✅")
