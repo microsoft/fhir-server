@@ -16,6 +16,8 @@ Both services are deployed as Azure Container Apps with **authorization disabled
 - .NET SDK (matching `global.json`)
 - Access to the `healthplatformregistry.azurecr.io` container registry
 - An Azure subscription with permissions to create resource groups and Container Apps
+- Docker Desktop or Docker Engine running locally (for building the branch image)
+- User Access Administrator permissions on the subscription
 
 ## Usage
 
@@ -45,10 +47,11 @@ Both services are deployed as Azure Container Apps with **authorization disabled
 
 ## Output
 
-Results are written to `./ab-test-results/` containing:
+Results are written to `./ab-test-results/<timestamp>` containing:
 - `baseline.trx` — Raw test results for the baseline service
 - `branch.trx` — Raw test results for the branch service
 - `comparison-report.md` — Human-readable comparison highlighting differences
+- `detailed-results.csv` — CSV with per-test latency and pass/fail data
 
 ## How It Works
 
