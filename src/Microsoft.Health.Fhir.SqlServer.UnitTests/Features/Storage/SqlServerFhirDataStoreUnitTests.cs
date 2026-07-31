@@ -553,7 +553,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var message = count > 1
                 ? $"Race condition confirmed (ICM-833659983): {count} resources received the same PendingSearchParameterStatus. " +
                   "SetAndClearPendingSearchParameterStatus is not atomic. " +
-                  "Fix: lock(context.Properties) around TryGetValue + Remove, and add .DistinctBy(s => s.Uri.OriginalString) in MergeAsync."
+                  "Fix: lock(context.Properties) around TryGetValue + Remove in SetAndClearPendingSearchParameterStatus."
                 : $"Expected 1 resource to receive status, got {count}. Check test setup.";
             Assert.True(count == 1, message);
         }

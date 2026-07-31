@@ -2265,7 +2265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 Assert.True(
                     failures.Count == 0,
-                    $"[race-repro] {failures.Count} bundle entries returned HTTP 5xx — likely race condition ICM-833659983. Fix: lock SetAndClearPendingSearchParameterStatus + DistinctBy in MergeAsync.");
+                    $"[race-repro] {failures.Count} bundle entries returned HTTP 5xx — likely race condition ICM-833659983. Fix: lock(context.Properties) in SetAndClearPendingSearchParameterStatus.");
             }
             finally
             {
