@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using FhirJobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
@@ -104,16 +105,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     {
                         foreach (var innerEx in aggEx.InnerExceptions)
                         {
-                            if (innerEx is IncompleteOperationException<Dictionary<string, long>> incompleteEx && incompleteEx.InnerException is JobConflictException conflictEx)
+                            // Reindex conflicts (SQL/Cosmos) are thrown as Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException upstream.
+                            if (innerEx is IncompleteOperationException<Dictionary<string, long>> incompleteEx && incompleteEx.InnerException is FhirJobConflictException conflictEx)
                             {
                                 result.Issues.Add($"JobConflictException: {conflictEx.Message}");
                                 exception = conflictEx;
-                                conflictFound = true;
-                            }
-                            else if (innerEx is JobConflictException directConflictEx)
-                            {
-                                result.Issues.Add($"JobConflictException: {directConflictEx.Message}");
-                                exception = directConflictEx;
                                 conflictFound = true;
                             }
                             else
