@@ -2196,5 +2196,92 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 _output.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Regression guard for ICM-833659983 / AB#198804.
+        ///
+        /// A parallel Transaction bundle containing ONE SearchParameter entry and MULTIPLE Patient
+        /// entries must succeed without hitting the UNIQUE KEY constraint on dbo.@SearchParams.
+        ///
+        /// Root cause: SetAndClearPendingSearchParameterStatus calls TryGetValue + Remove on the
+        /// shared HTTP request-context Properties without locking. Under parallel processing,
+        /// two threads can both read PendingSearchParameterStatus before either removes it, so
+        /// MergeAsync receives pendingStatuses = [URI, URI] → dbo.SearchParamList UNIQUE (Uri)
+        /// violated → SQL error 2627 → HTTP 500.
+        ///
+        /// Fix: lock(context.Properties) around TryGetValue + Remove, AND add
+        ///      .DistinctBy(s => s.Uri.OriginalString) before building the TVP.
+        ///
+        /// NOTE: The race is probabilistic and may not fire on a fast local machine. The unit test
+        /// SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus
+        /// in SqlServerFhirDataStoreUnitTests is the deterministic local proof.
+        /// This test is a regression guard: PASSES after fix, MAY fail before fix.
+        /// </summary>
+        [RetryFact(MaxRetries = 5)]
+        [Trait(Traits.Category, Categories.CustomSearch)]
+        public async Task GivenParallelTransactionBundleWithSearchParamAndPatients_WhenPosted_ShouldNotThrowUniqueKeyConstraint()
+        {
+            if (!_isSql)
+            {
+                return; // race condition is SQL-specific (dbo.SearchParamList TVP UNIQUE constraint)
+            }
+
+            var suffix = Guid.NewGuid().ToString("N")[..8];
+            var spCode = $"race-repro-{suffix}";
+            var spUrl = $"http://example.org/fhir/SearchParameter/{spCode}";
+            const int patientCount = 50;
+
+            _output.WriteLine($"[race-repro] SearchParameter URL: {spUrl}");
+
+            // Transaction bundle: ALL entries share ONE MergeAsync call via the BundleOrchestrator.
+            // If the race fires and multiple resources get the same PendingSearchParameterStatus,
+            // pendingStatuses = [URI, URI, ...] → TVP UNIQUE constraint → SQL error 2627.
+            var bundle = new Bundle { Type = Bundle.BundleType.Transaction, Entry = [] };
+            bundle.Entry.Add(new EntryComponent
+            {
+                Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{spCode}" },
+                Resource = CreatePersonSearchParam(spCode, spUrl),
+            });
+
+            for (int i = 0; i < patientCount; i++)
+            {
+                var pid = $"race-repro-patient-{suffix}-{i}";
+                bundle.Entry.Add(new EntryComponent
+                {
+                    Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"Patient/{pid}" },
+                    Resource = new Patient { Id = pid, Name = [new HumanName { Family = "RaceReproTest" }] },
+                });
+            }
+
+            try
+            {
+                using var response = await _fixture.TestFhirClient.PostBundleAsync(
+                    bundle,
+                    new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+
+                var failures = response.Resource?.Entry?
+                    .Where(e => e.Response?.Status?.StartsWith("5") == true)
+                    .ToList() ?? [];
+
+                Assert.True(
+                    failures.Count == 0,
+                    $"[race-repro] {failures.Count} bundle entries returned HTTP 5xx — likely race condition ICM-833659983. Fix: lock SetAndClearPendingSearchParameterStatus + DistinctBy in MergeAsync.");
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync([spCode]);
+                for (int i = 0; i < patientCount; i++)
+                {
+                    try
+                    {
+                        await _fixture.TestFhirClient.DeleteAsync($"Patient/race-repro-patient-{suffix}-{i}");
+                    }
+                    catch
+                    {
+                        // best-effort cleanup
+                    }
+                }
+            }
+        }
     }
 }

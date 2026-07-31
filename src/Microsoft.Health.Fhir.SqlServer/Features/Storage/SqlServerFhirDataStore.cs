@@ -865,10 +865,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void SetAndClearPendingSearchParameterStatus(ResourceWrapperOperation resource)
         {
-            if (_requestContextAccessor?.RequestContext?.Properties?.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object value) == true)
+            var properties = _requestContextAccessor?.RequestContext?.Properties;
+            if (properties == null)
             {
-                resource.PendingSearchParameterStatus = (ResourceSearchParameterStatus)value;
-                _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+                return;
+            }
+
+            // Lock makes TryGetValue + Remove atomic. Without the lock, two concurrent threads
+            // (e.g. two entries in a parallel bundle) can both read the same value before either
+            // removes it, causing pendingStatuses = [URI, URI] in MergeAsync → TVP UNIQUE
+            // constraint violation (SQL 2627) → HTTP 500. ICM-833659983 / AB#198804.
+            lock (properties)
+            {
+                if (properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object value))
+                {
+                    resource.PendingSearchParameterStatus = (ResourceSearchParameterStatus)value;
+                    properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+                }
             }
         }
 

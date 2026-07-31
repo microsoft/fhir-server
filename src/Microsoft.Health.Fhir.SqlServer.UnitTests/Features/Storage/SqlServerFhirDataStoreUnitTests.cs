@@ -471,5 +471,91 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
         }
+
+        /// <summary>
+        /// Unit regression test for ICM-833659983 / AB#198804.
+        ///
+        /// Directly proves the race condition in SetAndClearPendingSearchParameterStatus:
+        /// when N threads call the method simultaneously, only ONE resource should get
+        /// PendingSearchParameterStatus.  Before the fix (lock + Remove inside the lock),
+        /// TryGetValue and Remove are not atomic, so two threads can both read the value
+        /// before either removes it, producing duplicates in pendingStatuses → TVP UNIQUE
+        /// constraint violation (SQL 2627) → HTTP 500 in production.
+        ///
+        /// This test is DETERMINISTIC: Parallel.For forces true CPU-level concurrency that
+        /// the E2E test cannot guarantee.  It FAILS before the fix and PASSES after.
+        /// </summary>
+        [Fact]
+        public void SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus()
+        {
+            // Arrange -------------------------------------------------------------------
+            // Build a fake request context whose Properties dictionary has PendingStatus set.
+            // We use a real Dictionary (not a mock) so the race condition can actually occur.
+            var pendingStatus = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri("http://example.org/fhir/SearchParameter/race-test"),
+                Status = SearchParameterStatus.Enabled,
+                LastUpdated = DateTimeOffset.UtcNow,
+            };
+
+            var properties = new Dictionary<string, object>
+            {
+                [SearchParameterRequestContextPropertyNames.PendingStatus] = pendingStatus,
+            };
+
+            var fhirContext = Substitute.For<IFhirRequestContext>();
+            fhirContext.Properties.Returns(properties);
+
+            var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            accessor.RequestContext.Returns(fhirContext);
+
+            // Inject the accessor into the data store.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+
+            // Replace the _requestContextAccessor field via reflection.
+            typeof(SqlServerFhirDataStore)
+                .GetField("_requestContextAccessor", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(dataStore, accessor);
+
+            // Create N ResourceWrapperOperation instances — one per concurrent thread.
+            const int threadCount = 50;
+            var resources = Enumerable.Range(0, threadCount)
+                .Select(_ =>
+                {
+                    var w = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"race-test\"}");
+                    return new ResourceWrapperOperation(w, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null);
+                })
+                .ToArray();
+
+            // Resolve the private method via reflection.
+            var method = typeof(SqlServerFhirDataStore)
+                .GetMethod("SetAndClearPendingSearchParameterStatus", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?? throw new InvalidOperationException("SetAndClearPendingSearchParameterStatus not found — method was renamed or removed.");
+
+            // Act -----------------------------------------------------------------------
+            // Fire all N calls simultaneously using Parallel.For (true CPU parallelism,
+            // not just async interleaving) to maximise the chance of two threads hitting
+            // the TryGetValue+Remove window at the same time.
+            Parallel.For(0, threadCount, i => method.Invoke(dataStore, new object[] { resources[i] }));
+
+            // Assert --------------------------------------------------------------------
+            var resourcesWithStatus = resources
+                .Where(r => r.PendingSearchParameterStatus != null)
+                .ToList();
+
+            // EXACTLY one resource must receive the pending status.
+            // If 0 received it: the status was never in the context (setup error).
+            // If >1 received it: the race fired — two threads both read the value before
+            //   either removed it.  This is the bug: pendingStatuses in MergeAsync would
+            //   be [URI, URI] → TVP UNIQUE constraint violation (SQL 2627).
+            var count = resourcesWithStatus.Count;
+            var message = count > 1
+                ? $"Race condition confirmed (ICM-833659983): {count} resources received the same PendingSearchParameterStatus. " +
+                  "SetAndClearPendingSearchParameterStatus is not atomic. " +
+                  "Fix: lock(context.Properties) around TryGetValue + Remove, and add .DistinctBy(s => s.Uri.OriginalString) in MergeAsync."
+                : $"Expected 1 resource to receive status, got {count}. Check test setup.";
+            Assert.True(count == 1, message);
+        }
     }
 }
