@@ -358,7 +358,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                         await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, escapeConditionCancellationToken);
                     }
-                    while (_resources.Count != CurrentExpectedNumberOfResources && _knownHttpVerbsInOperation.IsEmpty && !escapeConditionCancellationToken.IsCancellationRequested);
+                    while (_resources.Count != CurrentExpectedNumberOfResources && !escapeConditionCancellationToken.IsCancellationRequested);
 
                     escapeConditionCancellationToken.ThrowIfCancellationRequested();
                 }
