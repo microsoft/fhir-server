@@ -206,6 +206,50 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenParametersWithNullParameterCollection_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter = null;
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithMissingResourceParameter_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "otherParam",
+                    Value = new FhirString("test"),
+                });
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithNullResourceParameter_WhenValidating_ThenBadRequestExceptionShouldBeThrown()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "resource",
+                    Resource = null,
+                });
+
+            // The inner resource is null, so there is nothing to validate.
+            await Assert.ThrowsAsync<BadRequestException>(() => _controller.Validate(parameters, null));
+
+            await _mediator.Received(0).SendAsync<ValidateOperationResponse>(
+                Arg.Any<ValidateOperationRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
         private ICollection<OperationOutcomeIssue> CreateIssues(int count)
         {
             var issues = new List<OperationOutcomeIssue>();

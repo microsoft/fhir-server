@@ -709,6 +709,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A resource to validate must be provided..
+        /// </summary>
+        public static string ValidateResourceRequired {
+            get {
+                return ResourceManager.GetString("ValidateResourceRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The request host cannot be used as it is not routable..
         /// </summary>
         public static string NonroutableHost {
