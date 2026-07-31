@@ -151,6 +151,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => localController.ConvertData(body));
         }
 
+        [Fact]
+        public async Task GivenAConvertDataRequest_WithNotConfiguredTemplate_WhenContainerRegistryAccessFails_ThenTemplateNotConfiguredThrownBeforeRegistryAccessValidation()
+        {
+            var convertDataConfiguration = new ConvertDataConfiguration() { Enabled = true };
+            convertDataConfiguration.ContainerRegistryServers.Add("test.azurecr.io");
+            var containerRegistryAccessValidator = Substitute.For<IContainerRegistryAccessValidator>();
+            containerRegistryAccessValidator
+                .When(validator => validator.CheckContainerRegistryAccess())
+                .Do(_ => throw new InvalidOperationException());
+
+            var localController = GetController(convertDataConfiguration, new ArtifactStoreConfiguration(), containerRegistryAccessValidator);
+            var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", "abc.azurecr.io/template:123", _testHl7v2RootTemplate);
+
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => localController.ConvertData(body));
+            containerRegistryAccessValidator.DidNotReceive().CheckContainerRegistryAccess();
+        }
+
         [Theory]
         [InlineData(null, null, null, "test.azurecr.io/template:123")] // configured in ConvertData config
         [InlineData("abc.azurecr.io", null, null, "abc.azurecr.io/template:123")]
@@ -209,7 +226,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private ConvertDataController GetController(
             ConvertDataConfiguration convertDataConfiguration,
-            ArtifactStoreConfiguration artifactStoreConfiguration)
+            ArtifactStoreConfiguration artifactStoreConfiguration,
+            IContainerRegistryAccessValidator containerRegistryAccessValidator = null)
         {
             var operationConfig = new OperationsConfiguration()
             {
@@ -222,7 +240,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
             optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfiguration);
 
-            IContainerRegistryAccessValidator containerRegistryAccessValidator = new BaseContainerRegistryAccessValidator();
+            containerRegistryAccessValidator ??= new BaseContainerRegistryAccessValidator();
 
             return new ConvertDataController(
                 _mediator,
