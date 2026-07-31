@@ -603,17 +603,16 @@ if (-not $SkipCleanup) {
     Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
 
     Write-Host "`n► Deleting resource group: $ResourceGroupName"
-    az group delete --name $ResourceGroupName --yes --no-wait --output none
+    az group delete --name $ResourceGroupName --yes
 
     Write-Host "`n► Removing branch image tag from registry..."
     $registryName = $ContainerRegistry -replace '\.azurecr\.io$', ''
     az acr repository delete `
         --name $registryName `
         --image "$($FhirVersion.ToLower())_fhir-server:$branchImageTag" `
-        --yes `
-        --output none 2>$null
+        --yes
 } else {
-    Write-Host "`n⚠ Skipping cleanup. Remember to delete resource group '$ResourceGroupName' manually." -ForegroundColor Yellow
+    Write-Host "`n⚠ Skipping cleanup. Remember to delete resource group '$ResourceGroupName' and image '$($FhirVersion.ToLower())_fhir-server:$branchImageTag' manually." -ForegroundColor Yellow
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -627,8 +626,3 @@ Write-Host ""
 Write-Host " Results directory: $outputDir"
 Write-Host " Comparison report: $(Join-Path $outputDir 'comparison-report.md')"
 Write-Host ""
-
-$reportPath = Join-Path $outputDir "comparison-report.md"
-if (Test-Path $reportPath) {
-    Write-Host (Get-Content $reportPath -Raw)
-}
