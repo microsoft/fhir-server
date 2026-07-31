@@ -484,13 +484,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (Exception ex)
             {
-                if (_bundleType == BundleType.Batch && ex is JobConflictException)
-                {
-                    _logger.LogInformation(ex, "Escaped reindex conflict while processing a batch bundle.");
-                    _metricHandler.EmitSuccess();
-                    return;
-                }
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogWarning(ex, "Operation cancelled. Error while processing a bundle: {ErrorMessage}.", ex.Message);

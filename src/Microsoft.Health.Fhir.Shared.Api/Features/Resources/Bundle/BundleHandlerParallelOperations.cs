@@ -148,8 +148,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         responseBundle.Entry[resourceExecutionContext.Index] = entry;
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, HttpStatusCode.Conflict, watch.Elapsed);
-
-                        await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
                     }
                     catch (BaseFhirTransactionException ex)
                     {
