@@ -1004,7 +1004,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     else
                     {
                         _logger.LogDebug("Search parameter {SearchParamUrl} is not valid for resource type {ResourceType} and will be excluded from processing job", searchParamUrl, resourceType);
-                }
+                    }
                 }
 
                 // Additional validation: Ensure search parameters from the reindex job actually apply to this resource type
@@ -1045,8 +1045,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            await search.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
+            await _searchParameterStatusManager.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private class Counts
