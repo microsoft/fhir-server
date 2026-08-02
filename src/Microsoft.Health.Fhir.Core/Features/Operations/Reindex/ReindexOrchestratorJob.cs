@@ -477,18 +477,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var resourceType = resourceTypeEntry.Key;
                 var resourceCount = resourceTypeEntry.Value;
 
-                // Get search parameters that are valid for this specific resource type
-                var validSearchParameterUrls = GetValidSearchParameterUrlsForResourceType(resourceType);
-
-                if (!validSearchParameterUrls.Any())
-                {
-                    _logger.LogJobWarning(_jobInfo, "No valid search parameters found for resource type {ResourceType} in reindex job {JobId}.", resourceType, _jobInfo.Id);
-                }
-
-                var validSearchParameterUrlStatuses = validSearchParameterUrls
-                    .Select(url => (url, _transientSearchParamResouceTypes[url].Status))
+                var searchParamsToProcess = _transientSearchParamResouceTypes
+                    .Where(_ => _.Value.ResourceTypes.Contains(resourceType))
+                    .Select(_ => (Url: _.Key, Status: _.Value.Status))
                     .ToList();
-                PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, new List<long>());
+                PopulateProcessingLookups(resourceType, searchParamsToProcess, new List<long>());
+                var urlsToProcess = searchParamsToProcess.Select(_ => _.Url).ToList();
 
                 int totalRangesEnqueued = 0;
 
@@ -537,10 +531,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                 var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
                                     ranges,
                                     resourceType,
-                                    validSearchParameterUrlStatuses,
+                                    searchParamsToProcess,
                                     cancellationToken);
 
-                                PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, batchJobIds);
+                                PopulateProcessingLookups(resourceType, searchParamsToProcess, batchJobIds);
 
                                 allEnqueuedJobIds.AddRange(batchJobIds);
                                 totalRangesEnqueued += ranges.Count;
@@ -576,10 +570,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
                         processingRanges,
                         resourceType,
-                        validSearchParameterUrlStatuses,
+                        searchParamsToProcess,
                         cancellationToken);
 
-                    PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, batchJobIds);
+                    PopulateProcessingLookups(resourceType, searchParamsToProcess, batchJobIds);
 
                     allEnqueuedJobIds.AddRange(batchJobIds);
                 }
@@ -588,8 +582,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _jobInfo,
                     "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}",
                     resourceType,
-                    validSearchParameterUrls.Count,
-                    string.Join(", ", validSearchParameterUrls));
+                    urlsToProcess.Count,
+                    string.Join(", ", urlsToProcess));
             }
 
             _logger.LogJobInformation(_jobInfo, "Enqueued {Count} total query processing jobs.", allEnqueuedJobIds.Count);
@@ -975,71 +969,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
                 _reindexJobRecord.Count = _jobInfo.Data.Value;
                 _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
-            }
-        }
-
-        /// <summary>
-        /// Gets the search parameter URLs that are valid for the specified resource type.
-        /// Filters the reindex job's search parameters to only include those that apply to the given resource type.
-        /// </summary>
-        /// <param name="resourceType">The resource type to filter search parameters for</param>
-        /// <returns>A list of search parameter URLs that are valid for the resource type</returns>
-        private List<string> GetValidSearchParameterUrlsForResourceType(string resourceType)
-        {
-            var validSearchParameterUrls = new List<string>();
-
-            try
-            {
-                // Get all search parameters that are valid for this resource type
-                var searchParametersForResourceType = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
-                var validSearchParameterUrlsSet = searchParametersForResourceType.Select(sp => sp.Url.OriginalString).ToHashSet();
-
-                // Filter the reindex job's search parameters to only include those valid for this resource type
-                foreach (var searchParamUrl in _reindexJobRecord.SearchParams)
-                {
-                    if (validSearchParameterUrlsSet.Contains(searchParamUrl))
-                    {
-                        validSearchParameterUrls.Add(searchParamUrl);
-                    }
-                    else
-                    {
-                        _logger.LogDebug("Search parameter {SearchParamUrl} is not valid for resource type {ResourceType} and will be excluded from processing job", searchParamUrl, resourceType);
-                    }
-                }
-
-                // Additional validation: Ensure search parameters from the reindex job actually apply to this resource type
-                // by checking their BaseResourceTypes
-                var finalValidUrls = new List<string>();
-                foreach (var searchParamUrl in validSearchParameterUrls)
-                {
-                    try
-                    {
-                        var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUrl);
-                        var applicableResourceTypes = GetDerivedResourceTypes(searchParamInfo.BaseResourceTypes);
-
-                        if (applicableResourceTypes.Contains(resourceType))
-                        {
-                            finalValidUrls.Add(searchParamUrl);
-                        }
-                        else
-                        {
-                            _logger.LogDebug("Search parameter {SearchParamUrl} base resource types {BaseTypes} do not include {ResourceType}", searchParamUrl, string.Join(", ", searchParamInfo.BaseResourceTypes), resourceType);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogJobWarning(ex, _jobInfo, "Error validating search parameter {SearchParamUrl} for resource type {ResourceType}", searchParamUrl, resourceType);
-                    }
-                }
-
-                return finalValidUrls;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogJobWarning(ex, _jobInfo, "Error getting valid search parameters for resource type {ResourceType}. Using all search parameters as fallback.", resourceType);
-
-                // Fallback to all search parameters if there's an error
-                return _reindexJobRecord.SearchParams.ToList();
             }
         }
 
