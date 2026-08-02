@@ -148,29 +148,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _jobInfo.Status = JobStatus.Running;
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
-                var processingJobs = new List<JobInfo>();
+                var currentJobs = new List<JobInfo>();
                 if (!_isSurrogateIdRangingSupported) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
                 {
                     var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                    processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                    currentJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
                 }
 
                 // For SQL Server, always attempt job creation - we use Export-style resume logic
                 // to calculate remaining work from existing jobs, preventing duplicates.
                 // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
-                if (_isSurrogateIdRangingSupported || !processingJobs.Any())
+                if (_isSurrogateIdRangingSupported || !currentJobs.Any())
                 {
                     await CreateReindexProcessingJobsAsync(cancellationToken);
                 }
                 else // cosmos job restart
                 {
-                    foreach (var job in processingJobs.Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) }))
+                    foreach (var job in currentJobs.Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) }))
                     {
-                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrlStatuses.Select(_ => (_.Url, _.Status)).ToList(), [job.Id]);
+                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrlStatuses, [job.Id]);
                     }
                 }
 
-                _currentResult.CreatedJobs = processingJobs.Count; // TODO: Move this logic inside create
+                _currentResult.CreatedJobs = currentJobs.Count; // TODO: Move this logic inside create
 
                 await CheckForCompletionAsync(cancellationToken);
 
@@ -622,10 +622,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        /// <summary>
-        /// Creates job definitions from ranges and enqueues them immediately.
-        /// This enables streaming/pipelining where workers can start processing while more ranges are being fetched.
-        /// </summary>
         private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
             IReadOnlyList<(long StartId, long EndId, int Count)> ranges,
             string resourceType,
@@ -879,7 +875,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             _reindexJobRecord.Status = OperationStatus.Failed;
             _jobInfo.Status = JobStatus.Failed;
-
             var ser = JsonConvert.SerializeObject(_reindexJobRecord);
             _logger.LogJobInformation(_jobInfo, "ReindexJob Error: Current ReindexJobRecord for reference: {ReindexJobRecord}", ser);
         }
