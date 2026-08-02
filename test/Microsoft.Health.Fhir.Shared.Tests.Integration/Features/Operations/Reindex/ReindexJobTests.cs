@@ -1055,7 +1055,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     TypeId = (int)JobType.ReindexProcessing,
                     ResourceType = "Person",
                     SearchParameterHash = "ABC123",
-                    SearchParameterUrls = new List<string> { "http://example.org/fhir/SearchParameter/custom-person-name" },
+                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/custom-person-name", SearchParameterStatus.Enabled) },
                     ResourceCount = new SearchResultReindex { Count = 5 },
                     MaximumNumberOfResourcesPerQuery = 3,
                     MaximumNumberOfResourcesPerWrite = 3,
@@ -1067,7 +1067,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     TypeId = (int)JobType.ReindexProcessing,
                     ResourceType = "SupplyDelivery",
                     SearchParameterHash = "DEF456",
-                    SearchParameterUrls = new List<string> { "http://example.org/fhir/SearchParameter/test-supply-delivery" },
+                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/test-supply-delivery", SearchParameterStatus.Enabled) },
                     ResourceCount = new SearchResultReindex { Count = 5 },
                     MaximumNumberOfResourcesPerQuery = 3,
                     MaximumNumberOfResourcesPerWrite = 3,
@@ -1079,7 +1079,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 2,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrls,
+                    SearchParameterUrls = personJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 var personJob2Result = new ReindexProcessingJobResult
@@ -1087,7 +1087,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 3,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrls,
+                    SearchParameterUrls = personJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
@@ -1101,7 +1101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 3,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrls,
+                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 var supplyJob2Result = new ReindexProcessingJobResult
@@ -1109,7 +1109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 2,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrls,
+                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
@@ -1252,7 +1252,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 TypeId = (int)JobType.ReindexProcessing,
                 ResourceType = resourceType,
                 SearchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceType),
-                SearchParameterUrls = new List<string> { "http://hl7.org/fhir/SearchParameter/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://hl7.org/fhir/SearchParameter/Patient-name", SearchParameterStatus.Enabled) },
                 ResourceCount = new SearchResultReindex
                 {
                     StartResourceSurrogateId = 1,

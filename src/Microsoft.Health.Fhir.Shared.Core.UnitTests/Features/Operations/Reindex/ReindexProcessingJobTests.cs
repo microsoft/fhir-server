@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     ContinuationToken = null,
                 },
                 SearchParameterHash = "accountHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Accout-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     EndResourceSurrogateId = 2,
                     StartResourceSurrogateId = 0,
                 },
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Accout-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
                 GroupId = 3,
                 SearchParameterHash = "accountHash",
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     ContinuationToken = null,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -590,7 +590,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -655,7 +655,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -722,7 +722,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     ContinuationToken = continuationToken,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -779,7 +779,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     ContinuationToken = null,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -839,7 +839,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     ContinuationToken = null,
                 },
                 SearchParameterHash = "patientHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -943,7 +943,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "diagnosticHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/DiagnosticReport-code", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1056,7 +1056,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "diagnosticHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/DiagnosticReport-code", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1162,7 +1162,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "diagnosticHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/DiagnosticReport-code", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1260,7 +1260,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 1,
                 },
                 SearchParameterHash = "diagnosticHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/DiagnosticReport-code", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1334,7 +1334,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 0,
                 },
                 SearchParameterHash = requestedHash,
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Account-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1378,7 +1378,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 0,
                 },
                 SearchParameterHash = requestedHash,
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Account-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1422,7 +1422,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 0,
                 },
                 SearchParameterHash = matchingHash,
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Account-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
@@ -1485,7 +1485,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 },
                 SearchParameterHash = matchingHash,
                 SearchParamLastUpdated = requestedLastUpdated,
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Account-status", SearchParameterStatus.Enabled) },
                 TypeId = (int)JobType.ReindexProcessing,
             };
 

@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
         private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = [];
-        private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = [];
+        private readonly Dictionary<string, (HashSet<string> ResourceTypes, SearchParameterStatus Status)> _transientSearchParamResouceTypes = [];
         //// populated with holds enqueued job ids. job is removed after it is finished (terminal state, completed or failed).
         private readonly SortedSet<long> _transientProcessingJobIds = [];
 
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     foreach (var job in processingJobs.Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) }))
                     {
-                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrls, [job.Id]);
+                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrlStatuses.Select(_ => (_.Url, _.Status)).ToList(), [job.Id]);
                     }
                 }
 
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
-            var validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
+            var targetStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
             IReadOnlyCollection<ResourceSearchParameterStatus> initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Clean up search parameters in pending delete states if resources don't exist
@@ -294,15 +294,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Get all URIs that have at least one entry with a valid status
             // Exclude search parameters marked as deleted during cleanup
-            var validUris = initialSearchParamStatusCollection
-                .Where(s => validStatus.Contains(s.Status))
-                .Select(s => s.Uri.ToString())
-                .Where(uri => !deletedSearchParameterUrls.Contains(uri))
-                .ToHashSet();
+            var originalStatuses = initialSearchParamStatusCollection
+                .Where(s => targetStatuses.Contains(s.Status))
+                .Where(s => !deletedSearchParameterUrls.Contains(s.Uri.OriginalString))
+                .GroupBy(s => s.Uri.OriginalString, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Status, StringComparer.Ordinal);
 
             // Filter to only those search parameters which have valid definitions
             var possibleNotYetIndexedParams = new List<SearchParameterInfo>();
-            foreach (var validUri in validUris)
+            foreach (var validUri in originalStatuses.Keys)
             {
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
                 {
@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                         foreach (var resourceType in matchingResourceTypes) // TODO: Find better place
                         {
-                            PopulateProcessingLookups(resourceType, [searchParam.Url.OriginalString], new List<long>());
+                            PopulateProcessingLookups(resourceType, [(searchParam.Url.OriginalString, originalStatuses[searchParam.Url.OriginalString])], new List<long>());
                         }
                     }
                     else
@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     resourceTypeList.UnionWith(searchParamResourceTypes);
                     foreach (var resourceType in resourceTypeList) // TODO: Find better place
                     {
-                        PopulateProcessingLookups(resourceType, [param.Url.OriginalString], new List<long>());
+                        PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, originalStatuses[param.Url.OriginalString])], new List<long>());
                     }
                 }
             }
@@ -485,7 +485,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobWarning(_jobInfo, "No valid search parameters found for resource type {ResourceType} in reindex job {JobId}.", resourceType, _jobInfo.Id);
                 }
 
-                PopulateProcessingLookups(resourceType, validSearchParameterUrls, new List<long>());
+                var validSearchParameterUrlStatuses = validSearchParameterUrls
+                    .Select(url => (url, _transientSearchParamResouceTypes[url].Status))
+                    .ToList();
+                PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, new List<long>());
 
                 int totalRangesEnqueued = 0;
 
@@ -534,10 +537,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                 var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
                                     ranges,
                                     resourceType,
-                                    validSearchParameterUrls,
+                                    validSearchParameterUrlStatuses,
                                     cancellationToken);
 
-                                PopulateProcessingLookups(resourceType, validSearchParameterUrls, batchJobIds);
+                                PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, batchJobIds);
 
                                 allEnqueuedJobIds.AddRange(batchJobIds);
                                 totalRangesEnqueued += ranges.Count;
@@ -573,10 +576,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
                         processingRanges,
                         resourceType,
-                        validSearchParameterUrls,
+                        validSearchParameterUrlStatuses,
                         cancellationToken);
 
-                    PopulateProcessingLookups(resourceType, validSearchParameterUrls, batchJobIds);
+                    PopulateProcessingLookups(resourceType, validSearchParameterUrlStatuses, batchJobIds);
 
                     allEnqueuedJobIds.AddRange(batchJobIds);
                 }
@@ -593,7 +596,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return allEnqueuedJobIds;
         }
 
-        private void PopulateProcessingLookups(string resourceType, IReadOnlyCollection<string> urls, IReadOnlyList<long> jobIds)
+        private void PopulateProcessingLookups(string resourceType, IReadOnlyCollection<(string Url, SearchParameterStatus Status)> urlStatuses, IReadOnlyList<long> jobIds)
         {
             if (!_transientResourceTypeJobs.TryGetValue(resourceType, out var jobs))
             {
@@ -612,15 +615,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _transientProcessingJobIds.Add(jobId);
             }
 
-            foreach (var url in urls)
+            foreach (var urlStatus in urlStatuses)
             {
-                if (!_transientSearchParamResouceTypes.TryGetValue(url, out var resourceTypes))
+                if (!_transientSearchParamResouceTypes.TryGetValue(urlStatus.Url, out var lookup))
                 {
-                    _transientSearchParamResouceTypes.Add(url, new HashSet<string>([resourceType]));
+                    _transientSearchParamResouceTypes.Add(urlStatus.Url, (new HashSet<string>([resourceType]), urlStatus.Status));
                 }
                 else
                 {
-                    resourceTypes.Add(resourceType);
+                    lookup.ResourceTypes.Add(resourceType);
                 }
             }
         }
@@ -632,7 +635,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
             IReadOnlyList<(long StartId, long EndId, int Count)> ranges,
             string resourceType,
-            List<string> validSearchParameterUrls,
+            List<(string Url, SearchParameterStatus Status)> validSearchParameterUrlStatuses,
             CancellationToken cancellationToken)
         {
             var definitions = new List<string>();
@@ -670,7 +673,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     ResourceType = resourceType,
                     MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
                     MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
-                    SearchParameterUrls = validSearchParameterUrls.ToImmutableList(),
+                    SearchParameterUrlStatuses = validSearchParameterUrlStatuses.ToImmutableList(),
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
@@ -812,12 +815,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateSearchParameterStatus(List<string> readySearchParameters, CancellationToken cancellationToken)
         {
-            var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken); //// TODO: This call is here only because we do not keep status
-
             foreach (var searchParameterUrl in readySearchParameters.Where(_ => !_processedSearchParameters.Contains(_)))
             {
-                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => string.Equals(sp.Uri.OriginalString, searchParameterUrl, StringComparison.Ordinal))?.Status;
-
+                var spStatus = _transientSearchParamResouceTypes[searchParameterUrl].Status;
                 var output = spStatus == SearchParameterStatus.PendingDisable
                                 ? SearchParameterStatus.Disabled
                                 : spStatus == SearchParameterStatus.PendingDelete || spStatus == SearchParameterStatus.PendingHardDelete
@@ -955,14 +955,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // remove processed resource types from _transientSearchParamResouceTypes
             foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.Counts.Failed == 0).Select(_ => _.Key))
             {
-                foreach (var searchParamResourceType in _transientSearchParamResouceTypes)
+                foreach (var searchParamResourceType in _transientSearchParamResouceTypes.Values)
                 {
-                    searchParamResourceType.Value.Remove(completedResourceType);
+                    searchParamResourceType.ResourceTypes.Remove(completedResourceType);
                 }
             }
 
             // deal with completed search params
-            var completedSearchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.Count == 0).Select(_ => _.Key).ToList();
+            var completedSearchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.ResourceTypes.Count == 0).Select(_ => _.Key).ToList();
             if (completedSearchParams.Any())
             {
                 await UpdateSearchParameterStatus(completedSearchParams, cancellationToken);

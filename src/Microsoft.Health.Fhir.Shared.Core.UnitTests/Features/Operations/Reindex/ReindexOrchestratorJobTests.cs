@@ -672,8 +672,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("patientHash", jobDef.SearchParameterHash);
 
             // Assert - Verify search parameter URLs are included
-            Assert.NotNull(jobDef.SearchParameterUrls);
-            Assert.Contains(searchParam.Url.OriginalString, jobDef.SearchParameterUrls);
+            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
+            Assert.Contains(searchParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
         }
 
         [Fact]
@@ -989,18 +989,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var firstJob = processingJobs.First();
             var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
 
-            // Assert - Verify SearchParameterUrls exist and are filtered correctly
-            Assert.NotNull(jobDef.SearchParameterUrls);
+            // Assert - Verify SearchParameterUrlStatuses exist and are filtered correctly
+            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
 
             // Assert - Verify BOTH Patient parameters are included
-            Assert.Contains(patientNameParam.Url.OriginalString, jobDef.SearchParameterUrls);
-            Assert.Contains(patientBirthdateParam.Url.OriginalString, jobDef.SearchParameterUrls);
+            Assert.Contains(patientNameParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
+            Assert.Contains(patientBirthdateParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
 
             // Assert - Verify Observation parameter is EXCLUDED (this is the key filtering behavior!)
-            Assert.DoesNotContain(observationCodeParam.Url.OriginalString, jobDef.SearchParameterUrls);
+            Assert.DoesNotContain(observationCodeParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
 
             // Assert - Verify exactly 2 parameters (the two Patient parameters)
-            Assert.Equal(2, jobDef.SearchParameterUrls.Count);
+            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count);
 
             // Assert - Verify the job is for Patient resource type
             Assert.Equal("Patient", jobDef.ResourceType);
@@ -1087,15 +1087,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var firstJob = processingJobs.First();
             var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
 
-            Assert.NotNull(jobDef.SearchParameterUrls);
+            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
 
             // The fallback should include ALL search parameters from the reindex job
             // Since the exception occurred, it should use _reindexJobRecord.SearchParams.ToList()
-            Assert.Contains(searchParam1.Url.OriginalString, jobDef.SearchParameterUrls);
-            Assert.Contains(searchParam2.Url.OriginalString, jobDef.SearchParameterUrls);
+            Assert.Contains(searchParam1.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
+            Assert.Contains(searchParam2.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
 
             // Verify that both parameters are present (the fallback includes all)
-            Assert.Equal(2, jobDef.SearchParameterUrls.Count);
+            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count);
         }
 
         [Fact]
@@ -1530,13 +1530,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
 
-            // Verify the created jobs have SearchParameterUrls in their definitions
+            // Verify the created jobs have SearchParameterUrlStatuses in their definitions
             foreach (var job in processingJobs)
             {
                 var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                Assert.NotNull(jobDef.SearchParameterUrls);
-                Assert.Contains(patientNameParam.Url.ToString(), jobDef.SearchParameterUrls);
-                Assert.Contains(patientBirthdateParam.Url.ToString(), jobDef.SearchParameterUrls);
+                Assert.NotNull(jobDef.SearchParameterUrlStatuses);
+                Assert.Contains(patientNameParam.Url.ToString(), jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
+                Assert.Contains(patientBirthdateParam.Url.ToString(), jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
             }
 
             // Mark all jobs as completed to simulate successful reindexing
@@ -1548,7 +1548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 {
                     SucceededResourceCount = (int)jobDef.ResourceCount.Count,
                     FailedResourceCount = 0,
-                    SearchParameterUrls = jobDef.SearchParameterUrls,
+                    SearchParameterUrls = jobDef.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 job.Status = JobStatus.Completed;
@@ -1875,14 +1875,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var firstJob = processingJobs.First();
             var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
 
-            Assert.NotNull(jobDef.SearchParameterUrls);
-            Assert.Contains(searchParamLowercase.Url.OriginalString, jobDef.SearchParameterUrls);
-            Assert.Contains(searchParamMixedCase.Url.OriginalString, jobDef.SearchParameterUrls);
+            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
+            Assert.Contains(searchParamLowercase.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
+            Assert.Contains(searchParamMixedCase.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
 
             // Verify both case variants are present
-            Assert.Equal(2, jobDef.SearchParameterUrls.Count(url =>
-                url.Equals(searchParamLowercase.Url.OriginalString, StringComparison.Ordinal) ||
-                url.Equals(searchParamMixedCase.Url.OriginalString, StringComparison.Ordinal)));
+            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count(url =>
+                url.Url.Equals(searchParamLowercase.Url.OriginalString, StringComparison.Ordinal) ||
+                url.Url.Equals(searchParamMixedCase.Url.OriginalString, StringComparison.Ordinal)));
         }
 
         [Fact]
