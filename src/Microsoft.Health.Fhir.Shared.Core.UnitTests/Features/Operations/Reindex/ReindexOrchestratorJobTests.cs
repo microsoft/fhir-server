@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Returns(new OperationsConfiguration { Reindex = new ReindexJobConfiguration { CacheUpdateMaxWaitMultiplier = 1 } });
+            operationsConfig.Value.Returns(new OperationsConfiguration { Reindex = new ReindexJobConfiguration { CacheUpdateMaxWaitMultiplier = 1, JobsPollingIntervalSec = 1} });
 
             return new ReindexOrchestratorJob(
                 _queueClient,

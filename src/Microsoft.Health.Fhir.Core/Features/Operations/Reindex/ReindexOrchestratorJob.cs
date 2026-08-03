@@ -332,7 +332,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
                 resourceTypeList.UnionWith(searchParamResourceTypes);
-                foreach (var resourceType in resourceTypeList) // TODO: Find better place
+                foreach (var resourceType in searchParamResourceTypes)
                 {
                     PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, originalStatuses[param.Url.OriginalString])], new List<long>());
                 }
