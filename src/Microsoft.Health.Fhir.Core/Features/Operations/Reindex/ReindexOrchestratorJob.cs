@@ -324,45 +324,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             var resourceTypeList = new HashSet<string>();
 
-            // filter list of SearchParameters by the target resource types
-            if (_reindexJobRecord.TargetResourceTypes.Any())
+            notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
+
+            // From the param list, get the list of necessary resources which should be
+            // included in our query
+            foreach (var param in notYetIndexedParams)
             {
-                foreach (var searchParam in possibleNotYetIndexedParams)
+                var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
+                resourceTypeList.UnionWith(searchParamResourceTypes);
+                foreach (var resourceType in resourceTypeList) // TODO: Find better place
                 {
-                    var searchParamResourceTypes = GetDerivedResourceTypes(searchParam.BaseResourceTypes);
-                    var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes).ToList();
-                    if (matchingResourceTypes.Any())
-                    {
-                        notYetIndexedParams.Add(searchParam);
-
-                        // add matching resource types to the set of resource types which we will reindex
-                        resourceTypeList.UnionWith(matchingResourceTypes);
-
-                        foreach (var resourceType in matchingResourceTypes) // TODO: Find better place
-                        {
-                            PopulateProcessingLookups(resourceType, [(searchParam.Url.OriginalString, originalStatuses[searchParam.Url.OriginalString])], new List<long>());
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogJobInformation(_jobInfo, "Search parameter {Url} is not being reindexed as it does not match the target types of reindex job Id: {Reindexid}.", searchParam.Url, _jobInfo.Id);
-                    }
-                }
-            }
-            else
-            {
-                notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
-
-                // From the param list, get the list of necessary resources which should be
-                // included in our query
-                foreach (var param in notYetIndexedParams)
-                {
-                    var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
-                    resourceTypeList.UnionWith(searchParamResourceTypes);
-                    foreach (var resourceType in resourceTypeList) // TODO: Find better place
-                    {
-                        PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, originalStatuses[param.Url.OriginalString])], new List<long>());
-                    }
+                    PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, originalStatuses[param.Url.OriginalString])], new List<long>());
                 }
             }
 
@@ -430,20 +402,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         resourceCountValue.Count = 0;
                     }
                 }
-            }
-
-            // Generate separate queries for each resource type and add them to query list.
-            // This is the starting point for what essentially kicks off the reindexing job
-            foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
-            {
-                var query = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
-                {
-                    LastModified = Clock.UtcNow,
-                    Status = OperationStatus.Queued,
-                    StartResourceSurrogateId = GetSearchResultReindex(resourceType.Key).StartResourceSurrogateId,
-                };
-
-                _reindexJobRecord.QueryList.TryAdd(query, 1);
             }
 
             return await EnqueueQueryProcessingJobsAsync(cancellationToken);

@@ -111,15 +111,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 operationsConfig);
         }
 
-        private async Task<JobInfo> CreateReindexJobRecord(
-            uint maxResourcePerQuery = 100,
-            List<string> targetResourceTypes = null)
+        private async Task<JobInfo> CreateReindexJobRecord(uint maxResourcePerQuery = 100)
         {
-            targetResourceTypes ??= new List<string>();
-
-            var jobRecord = new ReindexJobRecord(
-                targetResourceTypes,
-                maxResourcePerQuery);
+            var jobRecord = new ReindexJobRecord(maxResourcePerQuery);
 
             // Enqueue the orchestrator job through the queue client
             var orchestratorJobs = await _queueClient.EnqueueAsync(
@@ -1654,11 +1648,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task CreateReindexProcessingJobsAsync_WithTargetResourceTypes_FiltersCorrectly()
+        public async Task CreateReindexProcessingJobsAsync_IncludesAllMatchingResourceTypes()
         {
             // Arrange
-            var targetResourceTypes = new List<string> { "Patient" };
-
             var patientParam = CreateSearchParameterInfo(resourceType: "Patient");
             var observationParam = CreateSearchParameterInfo(
                 url: "http://hl7.org/fhir/SearchParameter/Observation-code",
@@ -1733,7 +1725,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         new List<(long StartId, long EndId, int Count)>());
                 });
 
-            var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
+            var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
@@ -1743,7 +1735,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             foreach (var job in processingJobs)
             {
                 var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                Assert.Equal("Patient", jobDef.ResourceType);
+                Assert.Contains(jobDef.ResourceType, new[] { "Patient", "Observation" });
             }
         }
 

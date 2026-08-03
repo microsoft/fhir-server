@@ -481,7 +481,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var reindexJobWorker = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
                 Assert.True(reindexJobWorker.JobRecord.ResourceCounts.Count > 0);
-                Assert.True(reindexJobWorker.JobRecord.Progress > 0);
+                Assert.True(reindexJobWorker.JobRecord.Count > 0);
                 Assert.Contains(reindexJobWorker.JobRecord.ResourceList, "Patient");
             }
             finally
@@ -1037,7 +1037,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 // Create a ReindexJobRecord for the orchestrator
                 var orchestratorRecord = new ReindexJobRecord(
-                    targetResourceTypes: Array.Empty<string>(),
                     maxResourcesPerQuery: 3,
                     maxResourcesPerWrite: 3)
                 {

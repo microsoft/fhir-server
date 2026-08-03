@@ -253,8 +253,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         var jobInfo = results[0];
         jobRecord.Id = jobInfo.Id.ToString();
-        jobRecord.GroupId = jobInfo.GroupId;
         jobRecord.Status = OperationStatus.Queued;
+        PopulateReindexJobRecordTimestampsFromJobInfo(jobInfo, jobRecord);
         return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
@@ -275,6 +275,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         {
             var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, long.Parse(jobRecord.Id), false, cancellationToken);
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Reindex, jobWithGroupId.GroupId, cancellationToken);
+            PopulateReindexJobRecordTimestampsFromJobInfo(jobWithGroupId, jobRecord);
         }
         catch (JobNotExistException ex)
         {
@@ -338,7 +339,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         record.Id = jobInfo.Id.ToString();
-        record.GroupId = jobInfo.GroupId;
 
         var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, cancellationToken)).ToList();
         var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
@@ -391,9 +391,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
-
-        record.LastModified = jobInfo.HeartbeatDateTime;
-        record.QueuedTime = jobInfo.CreateDate;
+        PopulateReindexJobRecordTimestampsFromJobInfo(jobInfo, record);
 
         if (serializedJobResult?.Error != null)
         {
@@ -540,14 +538,18 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
             if (jobResult != null)
             {
-                if (job.Status == JobStatus.Completed)
-                {
-                    record.Progress += jobResult.SucceededResourceCount;
-                }
-
                 record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
+                record.FailureCount += jobResult.FailedResourceCount;
             }
         }
+    }
+
+    private static void PopulateReindexJobRecordTimestampsFromJobInfo(JobInfo jobInfo, ReindexJobRecord record)
+    {
+        record.QueuedTime = jobInfo.CreateDate;
+        record.StartTime = jobInfo.StartDate;
+        record.EndTime = jobInfo.EndDate;
+        record.LastModified = jobInfo.HeartbeatDateTime;
     }
 
     public virtual async Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
