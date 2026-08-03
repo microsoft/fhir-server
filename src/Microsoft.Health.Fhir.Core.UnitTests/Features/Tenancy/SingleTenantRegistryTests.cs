@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -47,14 +49,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         [Fact]
         public void GivenATenantDescriptorWithProperties_WhenPropertiesAreRead_ThenTheyAreExposedReadOnly()
         {
+            var sourceProperties = new Dictionary<string, string> { { "pool", "fhir-eus-01" } };
+
             var descriptor = new TenantDescriptor(
                 new TenantId("contoso"),
-                new System.Uri("https://contoso.fhir.azurehealthcareapis.com/"),
-                new System.Collections.Generic.Dictionary<string, string> { { "pool", "fhir-eus-01" } });
+                new Uri("https://contoso.fhir.azurehealthcareapis.com/"),
+                sourceProperties);
 
             Assert.Equal(new TenantId("contoso"), descriptor.TenantId);
             Assert.Equal("https://contoso.fhir.azurehealthcareapis.com/", descriptor.BaseUri!.ToString());
             Assert.Equal("fhir-eus-01", descriptor.Properties["pool"]);
+        }
+
+        [Fact]
+        public void GivenATenantDescriptorWithProperties_WhenPropertiesAreLookedUpUsingDifferentCasing_ThenTheyAreCaseInsensitive()
+        {
+            var descriptor = new TenantDescriptor(
+                new TenantId("contoso"),
+                new Uri("https://contoso.fhir.azurehealthcareapis.com/"),
+                new Dictionary<string, string> { { "pool", "fhir-eus-01" } });
+
+            Assert.Equal("fhir-eus-01", descriptor.Properties["POOL"]);
+            Assert.True(descriptor.Properties.ContainsKey("PoOl"));
+        }
+
+        [Fact]
+        public void GivenATenantDescriptorWithProperties_WhenTheSourceDictionaryChanges_ThenTheDescriptorIsDefensivelyCopied()
+        {
+            var sourceProperties = new Dictionary<string, string> { { "pool", "fhir-eus-01" } };
+
+            var descriptor = new TenantDescriptor(
+                new TenantId("contoso"),
+                new Uri("https://contoso.fhir.azurehealthcareapis.com/"),
+                sourceProperties);
+
+            sourceProperties["pool"] = "changed";
+            sourceProperties["region"] = "eastus";
+
+            Assert.Equal("fhir-eus-01", descriptor.Properties["pool"]);
+            Assert.False(descriptor.Properties.ContainsKey("region"));
+        }
+
+        [Fact]
+        public void GivenATenantDescriptorWithProperties_WhenMutationIsAttempted_ThenThePropertiesAreReadOnly()
+        {
+            var descriptor = new TenantDescriptor(
+                new TenantId("contoso"),
+                new Uri("https://contoso.fhir.azurehealthcareapis.com/"),
+                new Dictionary<string, string> { { "pool", "fhir-eus-01" } });
+
+            IDictionary<string, string> properties = Assert.IsAssignableFrom<IDictionary<string, string>>(descriptor.Properties);
+
+            Assert.True(properties.IsReadOnly);
+            Assert.Throws<NotSupportedException>(() => properties.Add("region", "eastus"));
         }
     }
 }
