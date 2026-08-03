@@ -112,6 +112,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\EnumLiteralJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManagerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\EmbeddedSearchParameterDefinitionSourceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceTests.cs" />
