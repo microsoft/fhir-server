@@ -24,23 +24,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
     {
         private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
-        private readonly IQueueClient _queueClient;
+        private readonly Func<IScoped<IQueueClient>> _queueClientScopeFactory;
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
 
         public CosmosDbSearchParameterStatusDataStore(
             Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory,
-            IQueueClient queueClient)
+            Func<IScoped<IQueueClient>> queueClientScopeFactory)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(queueClientScopeFactory, nameof(queueClientScopeFactory));
 
             _containerScopeFactory = containerScopeFactory;
             _queryFactory = queryFactory;
-            _queueClient = queueClient;
+            _queueClientScopeFactory = queueClientScopeFactory;
         }
 
         public string SearchParamCacheUpdateProcessName => null;
@@ -105,7 +105,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             // Check for active reindex jobs unless this call is from a reindex job itself
             if (!reindexId.HasValue || reindexId.Value <= 0)
             {
-                var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, returnParentOnly: true, cancellationToken);
+                using IScoped<IQueueClient> queueClientScope = _queueClientScopeFactory.Invoke();
+                var activeJobs = await queueClientScope.Value.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, returnParentOnly: true, cancellationToken);
                 if (activeJobs.Count > 0)
                 {
                     var jobId = activeJobs[0].Id;
