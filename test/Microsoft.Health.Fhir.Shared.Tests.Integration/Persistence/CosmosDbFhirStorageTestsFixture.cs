@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => documentClient,
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
-                mockQueueClientForSearchParams);
+                () => mockQueueClientForSearchParams.CreateMockScope());
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
