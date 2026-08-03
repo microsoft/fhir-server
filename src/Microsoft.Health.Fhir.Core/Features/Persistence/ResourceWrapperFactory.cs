@@ -70,7 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta, bool keepVersion = false)
         {
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta, keepVersion);
-            IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
+            IReadOnlyCollection<SearchIndexEntry> searchIndices = deleted
+                ? Array.Empty<SearchIndexEntry>()
+                : _searchIndexer.Extract(resource);
 
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
@@ -92,6 +94,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <inheritdoc />
         public void Update(ResourceWrapper resourceWrapper)
         {
+            if (resourceWrapper.IsDeleted)
+            {
+                resourceWrapper.UpdateSearchIndices(Array.Empty<SearchIndexEntry>());
+                return;
+            }
+
             var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
             var newIndices = _searchIndexer.Extract(resourceElement);
             ExtractMinAndMaxValues(newIndices);

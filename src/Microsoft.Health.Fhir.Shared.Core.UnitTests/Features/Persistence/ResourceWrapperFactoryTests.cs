@@ -141,5 +141,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 }
             }
         }
+
+        [Fact]
+        public void GivenDeletedResource_WhenCreate_ThenSearchIndicesAreNotExtracted()
+        {
+            var deceasedSearchParameterInfo = new SearchParameterInfo("deceased", "deceased", ValueSets.SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Patient-deceased"))
+            {
+                IsPartiallySupported = true,
+            };
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(deceasedSearchParameterInfo, new TokenSearchValue(null, "false", null)) });
+            _compartmentIndexer
+                .Extract(Arg.Any<string>(), Arg.Any<IReadOnlyCollection<SearchIndexEntry>>())
+                .Returns(new CompartmentIndices());
+
+            ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: true, keepMeta: false);
+
+            Assert.Empty(resourceWrapper.SearchIndices);
+            _searchIndexer.DidNotReceive().Extract(Arg.Any<ResourceElement>());
+        }
+
+        [Fact]
+        public void GivenDeletedResource_WhenUpdate_ThenSearchIndicesAreCleared()
+        {
+            var deceasedSearchParameterInfo = new SearchParameterInfo("deceased", "deceased", ValueSets.SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Patient-deceased"))
+            {
+                IsPartiallySupported = true,
+            };
+            var existingSearchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(deceasedSearchParameterInfo, new TokenSearchValue(null, "false", null)) };
+            ResourceElement resource = Samples.GetDefaultPatient();
+            ResourceWrapper resourceWrapper = new ResourceWrapper(
+                resource,
+                _rawResourceFactory.Create(resource, keepMeta: false),
+                new ResourceRequest("DELETE"),
+                deleted: true,
+                existingSearchIndices,
+                new CompartmentIndices(),
+                Array.Empty<KeyValuePair<string, string>>(),
+                searchParameterHash: "hash");
+
+            _resourceWrapperFactory.Update(resourceWrapper);
+
+            Assert.Empty(resourceWrapper.SearchIndices);
+            _searchIndexer.DidNotReceive().Extract(Arg.Any<ResourceElement>());
+        }
     }
 }
