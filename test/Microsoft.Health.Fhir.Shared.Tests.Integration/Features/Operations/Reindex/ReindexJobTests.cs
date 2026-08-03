@@ -108,7 +108,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task InitializeAsync()
         {
-            _operationsConfig.Value.Returns(new OperationsConfiguration());
+            var reindexConfig = new ReindexJobConfiguration() { JobsPollingIntervalSec = 1 };
+            var opConfig = new OperationsConfiguration();
+            opConfig.Reindex = reindexConfig;
+            _operationsConfig.Value.Returns(opConfig);
+
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             // initialize operations data store to use true queue clients
