@@ -341,26 +341,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
             if (!notYetIndexedParams.Any() && resourceTypeList.Count == 0)
             {
-                AddErrorResult(
-                    OperationOutcomeConstants.IssueSeverity.Information,
-                    OperationOutcomeConstants.IssueType.Informational,
-                    string.Format(Core.Resources.ReindexingNoSearchParameterstoReindex, _jobInfo.Id));
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, string.Format(Core.Resources.ReindexingNoSearchParameterstoReindex, _jobInfo.Id));
                 return new List<long>();
             }
 
-            // Save the list of resource types in the reindexjob document
-            foreach (var resourceType in resourceTypeList)
-            {
-                _reindexJobRecord.Resources.Add(resourceType);
-            }
-
-            // save the list of search parameters to the reindexjob document
-            foreach (var url in notYetIndexedParams.Select(p => p.Url.OriginalString))
-            {
-                _reindexJobRecord.SearchParams.Add(url);
-            }
-
-            await CalculateAndSetTotalAndResourceCounts();
+            await CalculateAndSetTotalAndResourceCounts(resourceTypeList);
 
             // Handle search parameters for resource types with count 0
             var resourceTypesWithZeroCount = _reindexJobRecord.ResourceCounts
@@ -654,10 +639,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// We also store the total # of resources to be reindexed
         /// </summary>
         /// <returns>Task</returns>
-        private async Task CalculateAndSetTotalAndResourceCounts()
+        private async Task CalculateAndSetTotalAndResourceCounts(HashSet<string> resourceTypes)
         {
             long totalCount = 0;
-            foreach (string resourceType in _reindexJobRecord.Resources)
+            foreach (string resourceType in resourceTypes)
             {
                 var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
                 {
