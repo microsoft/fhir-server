@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -127,8 +128,9 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
-            // Register global instance configuration for storing base URI and instance ID
-            // This is available to all services including background tasks that don't have access to HttpContext
+            // Register ambient tenant access and tenant-aware instance configuration for storing the base URI.
+            // These are available to all services including background tasks that don't have access to HttpContext.
+            services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
             services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);

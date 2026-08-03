@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Threading;
+using System.Collections.Concurrent;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Tenancy;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -16,45 +17,62 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     /// This is a singleton service that is populated on the first HTTP request via the middleware and then remains
     /// available for background operations like reindexing that don't have access to the RequestContextAccessor.
     ///
+    /// Values are stored per tenant (see <see cref="ITenantContextAccessor"/>). In a process that serves a single
+    /// FHIR service every caller observes <see cref="TenantId.Default"/>, so behavior is identical to a
+    /// single-valued cache. In a process that serves several tenants, each tenant latches its own base URI and
+    /// cannot observe another tenant's.
+    ///
     /// This design ensures:
     /// - Minimal performance impact (lazy-initialization pattern)
-    /// - Thread-safe access (Interlocked for simple properties)
-    /// - No per-request overhead (values are captured once and reused)
+    /// - Thread-safe access (ConcurrentDictionary; first writer per tenant wins)
+    /// - No per-request overhead (values are captured once per tenant and reused)
     /// - Available to background services and job processing
     /// </summary>
     public class FhirServerInstanceConfiguration : IFhirServerInstanceConfiguration
     {
-        private Uri _cachedBaseUri;
-        private int _baseUriInitialized;
+        private readonly ITenantContextAccessor _tenantContextAccessor;
+        private readonly ConcurrentDictionary<TenantId, Uri> _baseUriByTenant = new();
 
         /// <summary>
-        /// Gets the base URI of the FHIR server instance.
-        /// Populated on first HTTP request and cached for the lifetime of the application.
+        /// Initializes a new instance of the <see cref="FhirServerInstanceConfiguration"/> class.
         /// </summary>
-        public Uri BaseUri
+        /// <param name="tenantContextAccessor">Supplies the tenant that the current operation belongs to.</param>
+        public FhirServerInstanceConfiguration(ITenantContextAccessor tenantContextAccessor)
         {
-            get => _cachedBaseUri;
-            private set => _cachedBaseUri = value;
+            EnsureArg.IsNotNull(tenantContextAccessor, nameof(tenantContextAccessor));
+
+            _tenantContextAccessor = tenantContextAccessor;
         }
 
         /// <summary>
-        /// Initializes the base URI of the instance configuration independently.
-        /// This method is idempotent and thread-safe - only the first caller will succeed in setting the value.
+        /// Gets the base URI of the FHIR server instance for the current tenant.
+        /// Populated on that tenant's first HTTP request and cached for the lifetime of the application.
+        /// Returns <c>null</c> when the current tenant has not served a request yet.
+        /// </summary>
+        public Uri BaseUri =>
+            _baseUriByTenant.TryGetValue(_tenantContextAccessor.Current, out Uri baseUri) ? baseUri : null;
+
+        /// <summary>
+        /// Initializes the base URI of the instance configuration for the current tenant.
+        /// This method is idempotent and thread-safe - only the first caller for a given tenant will succeed
+        /// in setting the value.
         /// </summary>
         /// <param name="baseUriString">The base URI string of the FHIR server.</param>
-        /// <returns>True if the base URI is initialized (either by this call or a previous call); false if the URI is invalid.</returns>
+        /// <returns>True if the base URI is initialized for the current tenant (either by this call or a previous call); false if the URI is invalid.</returns>
         public bool InitializeBaseUri(string baseUriString)
         {
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
 
-            if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri) &&
-                Interlocked.CompareExchange(ref _baseUriInitialized, 1, 0) == 0)
+            TenantId tenantId = _tenantContextAccessor.Current;
+
+            if (!Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri))
             {
-                // We won the race - set the value
-                BaseUri = baseUri;
+                return _baseUriByTenant.ContainsKey(tenantId);
             }
 
-            return _baseUriInitialized != 0;
+            _baseUriByTenant.GetOrAdd(tenantId, baseUri);
+
+            return true;
         }
     }
 }

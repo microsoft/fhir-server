@@ -70,13 +70,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             try
             {
-                // Initialize the global instance configuration on first request (thread-safe, idempotent)
-                // This ensures background services have access to base URI even when there's no active HTTP context
-                // Note this is set only once per application lifetime.
+                // Initialize the current tenant's instance configuration on the first non-loopback request
+                // (thread-safe, idempotent). This ensures background services have access to the current tenant's
+                // base URI even when there's no active HTTP context.
                 // Skip initialization if the request is from a loopback/local IP to avoid using health check requests
                 if (!FhirRequestContextMiddlewareExtensions.IsLoopbackOrLocalRequest(context.Request.Host.Host))
                 {
-                    // Initialize baseUri independently - this will only succeed once per app lifetime
+                    // Initialize the current tenant's base URI independently - this will only capture the first valid
+                    // absolute URI observed for that tenant.
                     instanceConfiguration.InitializeBaseUri(baseUriInString);
                 }
             }

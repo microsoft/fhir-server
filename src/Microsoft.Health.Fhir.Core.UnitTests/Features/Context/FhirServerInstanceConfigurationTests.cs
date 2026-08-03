@@ -6,6 +6,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -16,11 +17,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Operations)]
     public class FhirServerInstanceConfigurationTests
     {
+        private readonly ITenantContextAccessor _tenantContextAccessor = new TenantContextAccessor();
+
         [Fact]
         public void GivenAFhirServerInstanceConfiguration_WhenInitializeBaseUriCalled_ThenBaseUriIsStoredAndReturnsTrue()
         {
             // Arrange
-            var config = new FhirServerInstanceConfiguration();
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
             var baseUriString = "https://localhost/fhir/";
 
             // Act
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public void GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedMultipleTimes_ThenFirstValueWinsAndBothCallsReturnTrue()
         {
             // Arrange
-            var config = new FhirServerInstanceConfiguration();
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
             var baseUriString1 = "https://localhost1/fhir/";
             var baseUriString2 = "https://localhost2/fhir/";
 
@@ -53,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public async Task GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedConcurrently_ThenOnlyOneSucceedsButAllReturnTrue()
         {
             // Arrange
-            var config = new FhirServerInstanceConfiguration();
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
             var baseUriStrings = new[] { "https://localhost1/fhir/", "https://localhost2/fhir/", "https://localhost3/fhir/" };
             var tasks = new Task<bool>[baseUriStrings.Length];
 
@@ -75,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public void GivenAFhirServerInstanceConfiguration_WhenNotInitialized_ThenBaseUriIsNull()
         {
             // Arrange
-            var config = new FhirServerInstanceConfiguration();
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
 
             // Assert
             Assert.Null(config.BaseUri);
@@ -85,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidBaseUri_ThenReturnsFalseAndRemainsUninitialized()
         {
             // Arrange
-            var config = new FhirServerInstanceConfiguration();
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
             var invalidUrlString = "not a valid uri";
 
             // Act
@@ -93,6 +96,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
             // Assert
             Assert.False(result);
+            Assert.Null(config.BaseUri);
+        }
+
+        [Fact]
+        public void GivenTwoTenants_WhenEachInitializesItsOwnBaseUri_ThenEachTenantReadsItsOwnValue()
+        {
+            // Arrange
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
+            var contoso = new TenantId("contoso");
+            var fabrikam = new TenantId("fabrikam");
+
+            // Act
+            _tenantContextAccessor.SetCurrent(contoso);
+            bool contosoResult = config.InitializeBaseUri("https://contoso.example.org/");
+
+            _tenantContextAccessor.SetCurrent(fabrikam);
+            bool fabrikamResult = config.InitializeBaseUri("https://fabrikam.example.org/");
+
+            // Assert
+            Assert.True(contosoResult);
+            Assert.True(fabrikamResult);
+
+            _tenantContextAccessor.SetCurrent(contoso);
+            Assert.Equal(new Uri("https://contoso.example.org/"), config.BaseUri);
+
+            _tenantContextAccessor.SetCurrent(fabrikam);
+            Assert.Equal(new Uri("https://fabrikam.example.org/"), config.BaseUri);
+        }
+
+        [Fact]
+        public void GivenATenantThatNeverInitialized_WhenBaseUriIsRead_ThenItIsNullEvenThoughAnotherTenantInitialized()
+        {
+            // Arrange
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
+
+            // Act
+            _tenantContextAccessor.SetCurrent(new TenantId("contoso"));
+            config.InitializeBaseUri("https://contoso.example.org/");
+
+            _tenantContextAccessor.SetCurrent(new TenantId("fabrikam"));
+
+            // Assert
             Assert.Null(config.BaseUri);
         }
     }

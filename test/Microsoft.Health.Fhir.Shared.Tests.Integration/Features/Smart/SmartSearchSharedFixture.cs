@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration());
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration(new TenantContextAccessor()));
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 

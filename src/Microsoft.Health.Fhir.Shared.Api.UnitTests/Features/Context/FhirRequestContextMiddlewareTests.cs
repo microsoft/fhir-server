@@ -12,6 +12,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             httpContext.Request.Host = new HostString(host, 30);
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var instanceConfiguration = CreateInstanceConfiguration();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
             string Provider() => Guid.NewGuid().ToString();
 
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             httpContext.Request.Host = new HostString("api.example.com", 443);
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var instanceConfiguration = CreateInstanceConfiguration();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
             string Provider() => Guid.NewGuid().ToString();
 
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             loopbackContext.Request.Host = new HostString("localhost", 30);
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var instanceConfiguration = CreateInstanceConfiguration();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
             string Provider() => Guid.NewGuid().ToString();
 
@@ -152,5 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             return httpContext;
         }
+
+        private static FhirServerInstanceConfiguration CreateInstanceConfiguration() => new(new TenantContextAccessor());
     }
 }
