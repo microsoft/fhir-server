@@ -64,7 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         }
 
         [JsonProperty(JobRecordProperties.ResourceCounts)]
-        [JsonConverter(typeof(ReindexJobQueryResourceCountsConverter))]
         public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
 
         [JsonProperty(JobRecordProperties.Count)]
