@@ -27,26 +27,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
 
-        public const uint MaxMaximumNumberOfResourcesPerWrite = 10000;
+        public const uint MaxMaximumNumberOfResourcesPerWrite = 1000;
         public const uint MinMaximumNumberOfResourcesPerWrite = 1;
 
         public ReindexJobRecord(
-            uint maxResourcesPerQuery = 100,
-            uint maxResourcesPerWrite = 1000,
-            int typeId = (int)JobType.ReindexOrchestrator,
-            ushort? targetDataStoreUsagePercentage = null)
+            uint maxResourcesPerQuery = MaxMaximumNumberOfResourcesPerQuery,
+            uint maxResourcesPerWrite = MaxMaximumNumberOfResourcesPerWrite,
+            int typeId = (int)JobType.ReindexOrchestrator)
         {
             TypeId = typeId;
 
-            // Default values
-            SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
-            Status = OperationStatus.Queued;
 
-            QueuedTime = Clock.UtcNow;
-            LastModified = Clock.UtcNow;
-
-            // check for MaximumNumberOfResourcesPerQuery boundary
             if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
             {
                 throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
@@ -56,7 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
                 MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
             }
 
-            // check for MaximumNumberOfResourcesPerWrite boundary
             if (maxResourcesPerWrite < MinMaximumNumberOfResourcesPerWrite || maxResourcesPerWrite > MaxMaximumNumberOfResourcesPerWrite)
             {
                 throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerWrite), MinMaximumNumberOfResourcesPerWrite.ToString(), MaxMaximumNumberOfResourcesPerWrite.ToString()));
