@@ -60,6 +60,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
+            services.Add<EmbeddedSearchParameterDefinitionSource>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ISearchParameterDefinitionSource>();
+
             services
                 .RemoveServiceTypeExact<SearchParameterDefinitionManager, INotificationHandler<SearchParametersUpdatedNotification>>()
                 .RemoveServiceTypeExact<SearchParameterDefinitionManager, INotificationHandler<StorageInitializedNotification>>()

@@ -1517,6 +1517,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 mediator,
                 _fixture.SearchService.CreateMockScopeProvider(),
                 searchParameterComparer,

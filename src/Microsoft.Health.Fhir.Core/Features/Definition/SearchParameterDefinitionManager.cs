@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
+            ISearchParameterDefinitionSource searchParameterDefinitionSource,
             IMediator mediator,
             IScopeProvider<ISearchService> searchServiceFactory,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterDefinitionSource, nameof(searchParameterDefinitionSource));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
@@ -77,14 +79,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _logger = logger;
 
-            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
-            var msBundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("ms-search-parameters.json", _modelInfoProvider);
-
-            var searchParamResources = bundle.Entries.Select(e => e.Resource).ToList();
-            searchParamResources.AddRange(msBundle.Entries.Select(e => e.Resource));
-
             SearchParameterDefinitionBuilder.Build(
-                searchParamResources,
+                searchParameterDefinitionSource.GetSystemSearchParameterResources(),
                 UrlLookup,
                 TypeLookup,
                 _modelInfoProvider,

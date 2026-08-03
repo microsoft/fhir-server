@@ -388,6 +388,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 Substitute.For<IMediator>(),
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,

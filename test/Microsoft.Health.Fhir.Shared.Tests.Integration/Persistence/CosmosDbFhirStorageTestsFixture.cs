@@ -128,6 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 searchParameterComparer,

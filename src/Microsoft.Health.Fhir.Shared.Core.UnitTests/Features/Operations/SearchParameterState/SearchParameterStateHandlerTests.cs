@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         {
             _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 _searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,

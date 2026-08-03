@@ -93,6 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             // Create SearchParameterDefinitionManager with proper dependencies
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 searchServiceProvider,
                 _searchParameterComparer,

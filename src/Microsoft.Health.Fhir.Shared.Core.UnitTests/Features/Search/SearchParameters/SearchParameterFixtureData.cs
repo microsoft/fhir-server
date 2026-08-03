@@ -100,6 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
+                new EmbeddedSearchParameterDefinitionSource(modelInfoProvider),
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
@@ -130,6 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
+                new EmbeddedSearchParameterDefinitionSource(modelInfoProvider),
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,

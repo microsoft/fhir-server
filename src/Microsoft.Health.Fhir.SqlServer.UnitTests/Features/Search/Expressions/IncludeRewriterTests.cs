@@ -1654,6 +1654,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(
                     modelInfoProvider,
+                    new EmbeddedSearchParameterDefinitionSource(modelInfoProvider),
                     mediator,
                     searchService.CreateMockScopeProvider(),
                     searchParameterComparer,

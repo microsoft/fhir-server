@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 mockScopeProvider,
                 _searchParameterComparer,
@@ -594,6 +595,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
@@ -792,6 +794,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
@@ -880,6 +883,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
@@ -963,6 +967,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 _mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
@@ -1032,6 +1037,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var definitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
@@ -1075,6 +1081,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var definitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
+                new EmbeddedSearchParameterDefinitionSource(ModelInfoProvider.Instance),
                 mediator,
                 searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
