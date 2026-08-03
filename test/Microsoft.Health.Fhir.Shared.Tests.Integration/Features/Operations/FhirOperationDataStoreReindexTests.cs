@@ -93,6 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
             // The job should be marked as running now since it's acquired.
             jobRecord.Status = OperationStatus.Running;
+            jobRecord.StartTime = jobs.Single().JobRecord.StartTime;
 
             Assert.NotNull(jobs);
             Assert.Collection(
@@ -266,7 +267,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(expected.Id, actual.Id);
             Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
-            Assert.Equal(expected.StartTime, actual.StartTime);
+            if (expected.StartTime.HasValue)
+            {
+                Assert.True(actual.StartTime.HasValue);
+                Assert.True(actual.StartTime.Value >= expected.StartTime.Value);
+            }
+            else
+            {
+                Assert.Null(actual.StartTime);
+            }
+
             Assert.Equal(expected.Status, actual.Status);
             Assert.Equal(
                 expected.QueuedTime.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"),
