@@ -483,7 +483,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 record.Resources.Add(definition.ResourceType);
             }
 
-            if (string.IsNullOrEmpty(job.Result))
+            if (!string.IsNullOrEmpty(job.Result))
             {
                 var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                 record.Count += result.SucceededResourceCount + result.FailedResourceCount;

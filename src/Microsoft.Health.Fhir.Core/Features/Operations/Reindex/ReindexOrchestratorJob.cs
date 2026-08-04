@@ -322,13 +322,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             var resourceTypes = new HashSet<string>();
+            var usedResourceTypes = await GetUsedResourceTypes(cancellationToken);
 
             // From the param list, get the list of necessary resource types
             foreach (var param in targetParams)
             {
-                var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
-                resourceTypes.UnionWith(searchParamResourceTypes);
-                foreach (var resourceType in searchParamResourceTypes)
+                var paramResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes).Where(_ => usedResourceTypes.Contains(_)).ToList();
+                resourceTypes.UnionWith(paramResourceTypes);
+                foreach (var resourceType in paramResourceTypes)
                 {
                     PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, initialMinusDeleted[param.Url.OriginalString])], new List<long>());
                 }
@@ -356,6 +357,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _currentResult.Error = errorList;
         }
 
+        private async Task<HashSet<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            using var searchService = _searchServiceFactory();
+            var resourceTypes = new HashSet<string>(await searchService.Value.GetUsedResourceTypes(cancellationToken));
+            return resourceTypes;
+        }
+
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes, CancellationToken cancellationToken)
         {
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
@@ -374,54 +382,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Use batched calls to GetSurrogateIdRanges to avoid timeout on large tables
                     // Enqueue each batch immediately so workers can start processing sooner
                     var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfRecordRanges;
-                    long startId = 0;
-                    long endId = long.MaxValue;
+                    var startId = 0L;
+                    var endId = long.MaxValue;
 
                     _logger.LogJobInformation(_jobInfo, "Fetching and enqueueing surrogate ID ranges for resource type {ResourceType} in batches of {BatchSize}. StartId={StartId}, EndId={EndId}", resourceType, numberOfRangesPerBatch, startId, endId);
 
-                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                    using var searchService = _searchServiceFactory();
+                    IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
+                    do
                     {
-                        IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
-                        do
+                        if (cancellationToken.IsCancellationRequested)
                         {
-                            if (cancellationToken.IsCancellationRequested)
-                            {
-                                throw new OperationCanceledException("Reindex operation cancelled by customer.");
-                            }
-
-                            ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, cancellationToken, true);
-                            if (ranges.Any())
-                            {
-                                var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams, cancellationToken);
-
-                                PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
-
-                                allEnqueuedJobIds.AddRange(batchJobIds);
-                                totalRangesEnqueued += ranges.Count;
-
-                                startId = ranges[^1].EndId + 1; // Move past the last range
-                            }
+                            throw new OperationCanceledException("Reindex operation cancelled by customer.");
                         }
-                        while (ranges.Any());
+
+                        ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, cancellationToken, true);
+                        if (ranges.Any())
+                        {
+                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams, cancellationToken);
+
+                            PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
+
+                            allEnqueuedJobIds.AddRange(batchJobIds);
+                            totalRangesEnqueued += ranges.Count;
+
+                            startId = ranges[^1].EndId + 1; // Move past the last range
+                        }
                     }
+                    while (ranges.Any());
 
                     _logger.LogJobInformation(_jobInfo, "Completed fetching and enqueueing {RangeCount} surrogate ID ranges for resource type {ResourceType}.", totalRangesEnqueued, resourceType);
                 }
                 else
                 {
-                    // Traditional chunking approach for Cosmos
+                    // Create uniform-sized chunks based on resource count
                     var resourceCount = _reindexJobRecord.ResourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
                     var numberOfChunks = Math.Max(1, (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob)); // create at least one chunk even if count is zero
                     _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
-
-                    // Create uniform-sized chunks based on resource count
                     var processingRanges = new List<(long StartId, long EndId, int Count)>();
                     for (var i = 0; i < numberOfChunks; i++)
                     {
                         processingRanges.Add((0, 0, 0));
                     }
 
-                    // Enqueue all Cosmos ranges at once (they don't have the same large-scale issue)
                     var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams, cancellationToken);
 
                     PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
