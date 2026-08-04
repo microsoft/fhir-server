@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
-        public void GivenABlueprint_WhenSnapshotIsTakenTwice_ThenTheSnapshotsAreIndependentCollections()
+        public void GivenABlueprint_WhenTheRootCollectionChangesBetweenSnapshots_ThenEachSnapshotPreservesItsCaptureTime()
         {
             var services = new ServiceCollection();
             services.AddSingleton<SampleService>();
@@ -55,10 +55,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             ITenantServiceBlueprint blueprint = new TenantServiceBlueprint(services);
 
             IReadOnlyList<ServiceDescriptor> first = blueprint.CreateSnapshot();
+            services.AddSingleton<OtherService>();
             IReadOnlyList<ServiceDescriptor> second = blueprint.CreateSnapshot();
 
-            Assert.NotSame(first, second);
-            Assert.Equal(first.Count, second.Count);
+            Assert.Single(first);
+            Assert.DoesNotContain(first, d => d.ServiceType == typeof(OtherService));
+            Assert.Equal(2, second.Count);
+            Assert.Contains(second, d => d.ServiceType == typeof(OtherService));
         }
 
         [Fact]
