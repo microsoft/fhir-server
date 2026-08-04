@@ -396,10 +396,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
                     do
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            throw new OperationCanceledException("Reindex operation cancelled by customer.");
-                        }
+                        TryCancel(cancellationToken);
 
                         ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, cancellationToken, true);
                         if (ranges.Any())
@@ -709,10 +706,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogJobInformation(_jobInfo, "ReindexJob Error: Current ReindexJobRecord for reference: {ReindexJobRecord}", ser);
         }
 
+        private static void TryCancel(CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("Reindex operation cancelled by customer.");
+            }
+        }
+
         private async Task CheckForCompletionAsync(CancellationToken cancellationToken)
         {
             do
             {
+                TryCancel(cancellationToken);
+
                 await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
 
                 var batch = _transientProcessingJobIds.Any()
