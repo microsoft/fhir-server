@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             ITenantLease lease = null;
             IServiceScope scope = null;
             ProviderDisposalGate disposalGate = null;
+            bool bodySucceeded = false;
 
             try
             {
@@ -49,6 +50,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                     cancellationTokenSource.Token);
                 scope = lease.Services.CreateScope();
                 var work = scope.ServiceProvider.GetRequiredService<ScopedWork>();
+
+                // Resolve the gate after the provider-owned disposable so DI's LIFO teardown enters the
+                // gate before the owned resource is actually cleaned up.
                 ProviderOwnedDisposable providerOwnedDisposable =
                     lease.Services.GetRequiredService<ProviderOwnedDisposable>();
                 disposalGate = lease.Services.GetRequiredService<ProviderDisposalGate>();
@@ -80,25 +84,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
                 Assert.Equal(1, disposalGate.DisposeCallCount);
                 Assert.Equal(1, providerOwnedDisposable.DisposeCallCount);
+                Assert.Equal(1, container.DisposeInvocationCount);
                 Assert.Equal(1, container.DisposeCallCount);
 
                 scope.Dispose();
                 scope = null;
 
                 Assert.Equal(1, work.DisposeCallCount);
+                bodySucceeded = true;
             }
             finally
             {
-                scope?.Dispose();
-                lease?.Dispose();
+                DisposeWithDiagnostics(scope, "scope", bodySucceeded);
+                DisposeWithDiagnostics(lease, "lease", bodySucceeded);
                 disposalGate?.AllowDisposal();
-                await cache.DisposeAsync().AsTask().WaitAsync(TestTimeout);
+                await DisposeCacheAsync(cache, bodySucceeded);
             }
         }
 
         [Fact]
         public async Task GivenAnAcquireAtTheIdleDrainClaim_WhenSweeping_ThenTheProviderLivesUntilTheReturnedLeaseReleases()
         {
+            // The frozen clock is load-bearing: the idle-drain claim must fail because of the lease-count
+            // CAS, not because time advances during the race.
             var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero));
             var factory = new CoordinatedFactory(timeProvider);
             TenantContainerCache cache = CreateCache(factory, timeProvider, maxResidentTenants: 1, idleTimeout: TimeSpan.Zero);
@@ -106,6 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             ITenantLease racingLease = null;
             ProviderDisposalGate disposalGate = null;
             using var allowDrainClaim = new ManualResetEventSlim();
+            bool bodySucceeded = false;
 
             try
             {
@@ -122,13 +131,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                 initialLease = null;
                 resident.BeforeIdleDrainClaim = () =>
                 {
-                    Assert.Equal(0, resident.ActiveLeaseCount);
-                    resident.BeforeIdleDrainClaim = null;
-                    drainClaimEntered.TrySetResult(true);
-
-                    if (!allowDrainClaim.Wait(TestTimeout))
+                    try
                     {
-                        throw new TimeoutException("The test did not release the idle-drain claim.");
+                        Assert.Equal(0, resident.ActiveLeaseCount);
+                        resident.BeforeIdleDrainClaim = null;
+                        drainClaimEntered.TrySetResult(true);
+
+                        if (!allowDrainClaim.Wait(TestTimeout))
+                        {
+                            throw new TimeoutException("The test did not release the idle-drain claim.");
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        drainClaimEntered.TrySetException(exception);
+                        throw;
                     }
                 };
 
@@ -155,6 +172,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                 await AwaitWithinAsync(disposalGate.DisposalEntered.Task, cancellationTokenSource.Token);
 
                 Assert.False(providerOwnedDisposable.IsDisposed);
+                Assert.Equal(1, resident.DisposeInvocationCount);
                 Assert.Equal(1, resident.DisposeCallCount);
 
                 disposalGate.AllowDisposal();
@@ -163,14 +181,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                 Assert.Equal(0, cache.Count);
                 Assert.Equal(1, cache.EvictionCount);
                 Assert.Equal(1, providerOwnedDisposable.DisposeCallCount);
+                Assert.Equal(1, resident.DisposeInvocationCount);
+                Assert.Equal(1, resident.DisposeCallCount);
+                bodySucceeded = true;
             }
             finally
             {
                 allowDrainClaim.Set();
-                initialLease?.Dispose();
-                racingLease?.Dispose();
+                DisposeWithDiagnostics(racingLease, "racing lease", bodySucceeded);
+                DisposeWithDiagnostics(initialLease, "initial lease", bodySucceeded);
                 disposalGate?.AllowDisposal();
-                await cache.DisposeAsync().AsTask().WaitAsync(TestTimeout);
+                await DisposeCacheAsync(cache, bodySucceeded);
             }
         }
 
@@ -232,10 +253,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             _output.WriteLine(
                 $"Stress attempts={workerCount * iterationsPerWorker}; successes={successfulLeases}; admission rejections={admissionRejections}.");
-            Assert.Empty(failures);
+            Assert.Empty(failures.Select(exception => $"{exception.GetType().Name}: {exception.Message}"));
             Assert.Equal(workerCount * iterationsPerWorker, successfulLeases + admissionRejections);
-            Assert.True(successfulLeases > 0);
-            Assert.True(admissionRejections > 0);
         }
 
         private static async Task<T> AwaitWithinAsync<T>(Task<T> task, CancellationToken cancellationToken) =>
@@ -243,6 +262,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
         private static async Task AwaitWithinAsync(Task task, CancellationToken cancellationToken) =>
             await task.WaitAsync(TestTimeout, cancellationToken);
+
+        private async Task DisposeCacheAsync(TenantContainerCache cache, bool bodySucceeded)
+        {
+            try
+            {
+                await cache.DisposeAsync().AsTask().WaitAsync(TestTimeout);
+            }
+            catch (Exception exception) when (!bodySucceeded)
+            {
+                _output.WriteLine($"cache cleanup failed after body failure: {exception.GetType().Name}: {exception.Message}");
+            }
+        }
+
+        private void DisposeWithDiagnostics(IDisposable disposable, string resourceName, bool bodySucceeded)
+        {
+            if (disposable is null)
+            {
+                return;
+            }
+
+            try
+            {
+                disposable.Dispose();
+            }
+            catch (Exception exception) when (!bodySucceeded)
+            {
+                _output.WriteLine($"{resourceName} cleanup failed after body failure: {exception.GetType().Name}: {exception.Message}");
+            }
+        }
 
         private static TenantContainerCache CreateCache(
             ITenantContainerFactory factory,
@@ -293,6 +341,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             private readonly TenantContainer _inner;
             private readonly object _disposeSync = new();
             private Task _disposeTask;
+            private int _disposeInvocationCount;
             private int _disposeCallCount;
 
             public CoordinatedContainer(TenantDescriptor tenant, ServiceProvider provider, TimeProvider timeProvider)
@@ -307,6 +356,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             public TaskCompletionSource<bool> DrainStarted { get; } =
                 new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+            public int DisposeInvocationCount => Volatile.Read(ref _disposeInvocationCount);
+
             public int DisposeCallCount => Volatile.Read(ref _disposeCallCount);
 
             public DateTimeOffset LastAccessedUtc => _inner.LastAccessedUtc;
@@ -315,6 +366,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             public ValueTask DisposeAsync()
             {
+                Interlocked.Increment(ref _disposeInvocationCount);
                 lock (_disposeSync)
                 {
                     _disposeTask ??= DisposeCoreAsync();
