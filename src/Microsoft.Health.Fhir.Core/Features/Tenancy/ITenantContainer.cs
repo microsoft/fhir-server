@@ -46,6 +46,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when startup is requested after the container has begun draining.
+        /// </exception>
         Task StartInitializersAsync(CancellationToken cancellationToken);
     }
 }

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -29,10 +30,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         private readonly TenantDescriptor _tenant;
         private readonly ServiceProvider _provider;
         private readonly TimeProvider _timeProvider;
+        private readonly object _lifecycleSync = new();
         private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<IHostedService> _startedInitializers = new();
 
+        private Task _disposeTask;
         private int _refCount;
+        private Task _startInitializersTask;
         private int _state = StateOpen;
         private long _lastAccessedTicks;
 
@@ -82,39 +86,118 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         }
 
         /// <inheritdoc />
-        public async Task StartInitializersAsync(CancellationToken cancellationToken)
+        public Task StartInitializersAsync(CancellationToken cancellationToken)
         {
-            foreach (IHostedService initializer in _provider.GetServices<IHostedService>())
+            lock (_lifecycleSync)
             {
-                await initializer.StartAsync(cancellationToken).ConfigureAwait(false);
-                _startedInitializers.Add(initializer);
+                if (Volatile.Read(ref _state) != StateOpen)
+                {
+                    throw new InvalidOperationException("Tenant container initializers cannot be started after disposal begins.");
+                }
+
+                _startInitializersTask ??= StartInitializersCoreAsync(cancellationToken);
+                return _startInitializersTask;
             }
         }
 
         /// <inheritdoc />
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            if (Interlocked.Exchange(ref _state, StateDraining) == StateDraining)
+            Task disposeTask = Volatile.Read(ref _disposeTask);
+
+            if (disposeTask is not null)
             {
-                return;
+                return new ValueTask(disposeTask);
+            }
+
+            lock (_lifecycleSync)
+            {
+                _disposeTask ??= DisposeCoreAsync();
+                return new ValueTask(_disposeTask);
+            }
+        }
+
+        private async Task StartInitializersCoreAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                foreach (IHostedService initializer in _provider.GetServices<IHostedService>())
+                {
+                    await initializer.StartAsync(cancellationToken).ConfigureAwait(false);
+
+                    lock (_lifecycleSync)
+                    {
+                        _startedInitializers.Add(initializer);
+                    }
+                }
+            }
+            catch
+            {
+                Interlocked.CompareExchange(ref _state, StateDraining, StateOpen);
+                TryCompleteDrain();
+                throw;
+            }
+        }
+
+        private async Task DisposeCoreAsync()
+        {
+            Interlocked.Exchange(ref _state, StateDraining);
+
+            Task startInitializersTask;
+
+            lock (_lifecycleSync)
+            {
+                startInitializersTask = _startInitializersTask;
+            }
+
+            List<ExceptionDispatchInfo> failures = [];
+
+            if (startInitializersTask is not null)
+            {
+                try
+                {
+                    await startInitializersTask.ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    AddFailure(failures, ex);
+                }
             }
 
             TryCompleteDrain();
 
             await _drained.Task.ConfigureAwait(false);
 
-            try
+            List<IHostedService> startedInitializers;
+
+            lock (_lifecycleSync)
             {
-                for (int i = _startedInitializers.Count - 1; i >= 0; i--)
+                startedInitializers = [.. _startedInitializers];
+                _startedInitializers.Clear();
+            }
+
+            for (int i = startedInitializers.Count - 1; i >= 0; i--)
+            {
+                try
                 {
-                    await _startedInitializers[i].StopAsync(CancellationToken.None).ConfigureAwait(false);
+                    await startedInitializers[i].StopAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    AddFailure(failures, ex);
                 }
             }
-            finally
+
+            try
             {
-                _startedInitializers.Clear();
                 await _provider.DisposeAsync().ConfigureAwait(false);
             }
+            catch (Exception ex)
+            {
+                AddFailure(failures, ex);
+            }
+
+            ThrowIfAnyFailures(failures);
         }
 
         private void ReleaseCore()
@@ -130,6 +213,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             {
                 _drained.TrySetResult();
             }
+        }
+
+        private static void AddFailure(List<ExceptionDispatchInfo> failures, Exception exception)
+        {
+            if (exception is AggregateException aggregateException)
+            {
+                foreach (Exception innerException in aggregateException.InnerExceptions)
+                {
+                    failures.Add(ExceptionDispatchInfo.Capture(innerException));
+                }
+
+                return;
+            }
+
+            failures.Add(ExceptionDispatchInfo.Capture(exception));
+        }
+
+        private static void ThrowIfAnyFailures(List<ExceptionDispatchInfo> failures)
+        {
+            if (failures.Count == 0)
+            {
+                return;
+            }
+
+            if (failures.Count == 1)
+            {
+                failures[0].Throw();
+            }
+
+            List<Exception> exceptions = new(failures.Count);
+
+            foreach (ExceptionDispatchInfo failure in failures)
+            {
+                exceptions.Add(failure.SourceException);
+            }
+
+            throw new AggregateException(exceptions);
         }
 
         private sealed class TenantLease : ITenantLease
