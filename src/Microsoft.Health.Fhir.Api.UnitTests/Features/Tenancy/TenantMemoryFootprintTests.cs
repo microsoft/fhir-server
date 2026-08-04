@@ -38,13 +38,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
     /// probe, and instance-configuration set in every container so the result does not merely measure DI
     /// descriptors. It must be reported beside, never instead of, the R4
     /// <c>SearchParameterDefinitionManager</c> projection, because that dominant manager is absent here.
+    /// The 50 MiB fatal-bound assertion applies only to this TestHost container measurement. The manager
+    /// projection and any arithmetic comparison with it are separately reported evidence, not a combined
+    /// automated assertion.
     /// </remarks>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     [Collection(TenantMemoryFootprintCollection.Name)]
     public class TenantMemoryFootprintTests
     {
+        private const string WarmupTenantId = "memory-warmup";
         private const int TenantCount = 200;
+
+        // Must remain positive and odd so the selected median is one observed gross-trial tuple.
         private const int TrialCount = 3;
         private const long FatalBytesPerTenant = 50L * 1024 * 1024;
         private const long SupersededEstimateBytesPerTenant = 5L * 1024 * 1024;
@@ -83,6 +89,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                     cache,
                     tenantContextAccessor,
                     rootInstanceConfiguration);
+
+                Assert.True(
+                    TrialCount > 0 && TrialCount % 2 == 1,
+                    "TrialCount must be positive and odd so the median is one observed gross-trial tuple.");
 
                 var trials = new List<ContainerTrialMeasurement>(TrialCount);
                 for (int trial = 0; trial < TrialCount; trial++)
@@ -123,6 +133,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                     "Superseded 5 MB estimate comparison only: median gross {0} the {1:N0}-byte estimate; it is not an assertion.",
                     medianGrossTrial.GrossBytesPerTenant < SupersededEstimateBytesPerTenant ? "is within" : "is above",
                     SupersededEstimateBytesPerTenant));
+                _output.WriteLine(
+                    "Automated-bound scope: the 50 MiB fatal assertion applies only to this TestHost container measurement; the R4 manager projection and any arithmetic sum are report-only evidence.");
 
                 Assert.True(
                     medianGrossTrial.GrossBytesPerTenant < FatalBytesPerTenant,
@@ -160,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             Assert.Equal(0, cache.Count);
             Assert.Equal(1, cache.EvictionCount - httpRequestEvictionCount);
 
-            TenantDescriptor warmupTenant = CreateTenantDescriptor(trialNumber: -1, tenantNumber: 0);
+            TenantDescriptor warmupTenant = CreateWarmupTenantDescriptor();
             var warmup = new ResidentTenantGraphs();
             try
             {
@@ -260,6 +272,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 long constructedBytes = GC.GetTotalMemory(forceFullCollection: true);
                 residentGraphs.KeepAlive();
                 GC.KeepAlive(rootInstanceConfiguration);
+
+                long grossBytes = constructedBytes - baselineBytes;
+                Assert.True(
+                    grossBytes > 0,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Raw TestHost container gross delta for trial {0} must be positive; observed {1:N0} bytes.",
+                        trialNumber + 1,
+                        grossBytes));
 
                 int evictionCountBeforeRelease = cache.EvictionCount;
                 residentGraphs.Dispose();
@@ -377,9 +398,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             }
         }
 
-        private static TenantDescriptor CreateTenantDescriptor(int trialNumber, int tenantNumber)
+        private static TenantDescriptor CreateWarmupTenantDescriptor() =>
+            CreateTenantDescriptor(WarmupTenantId);
+
+        private static TenantDescriptor CreateTenantDescriptor(int trialNumber, int tenantNumber) =>
+            CreateTenantDescriptor($"memory-{trialNumber:D2}-{tenantNumber:D3}");
+
+        private static TenantDescriptor CreateTenantDescriptor(string tenantName)
         {
-            string tenantName = $"memory-{trialNumber:D2}-{tenantNumber:D3}";
             Uri baseUri = new($"https://{tenantName}.example.org/");
 
             return new TenantDescriptor(
@@ -439,6 +465,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
         private sealed class ResidentTenantGraphs : IDisposable
         {
+            // These lists deliberately retain each per-tenant harness graph through the gross sample: the
+            // ITenantLease, MaterializedTenantServiceSet, IServiceScope, JWT options monitor/options, MVC
+            // options, authentication providers/handler, DefaultHttpContext, TenantScopedProbe, and instance
+            // configuration. They make the gross construction sample non-vacuous rather than a descriptor-only
+            // measurement.
             private readonly List<ITenantLease> _leases = [];
             private readonly List<MaterializedTenantServiceSet> _materializedServices = [];
             private readonly List<IFhirServerInstanceConfiguration> _instanceConfigurations = [];
@@ -469,6 +500,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 _materializedServices.Clear();
                 _instanceConfigurations.Clear();
                 _leases.Clear();
+
+                // The holder and its list backing arrays remain reachable until MeasureTrialAsync returns.
+                // Consequently the immediate after-eviction sample is deliberately a conservative upper bound
+                // that can include those arrays and recently disposed HttpContext/scope bookkeeping.
             }
 
             public void KeepAlive()
