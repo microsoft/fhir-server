@@ -1082,7 +1082,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 2,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 var personJob2Result = new ReindexProcessingJobResult
@@ -1090,7 +1089,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 3,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
@@ -1104,7 +1102,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 3,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 var supplyJob2Result = new ReindexProcessingJobResult
@@ -1112,7 +1109,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 2,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
@@ -1322,7 +1318,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Message = jobResult.Error,
                     jobResult.FailedResourceCount,
                     jobResult.SucceededResourceCount,
-                    jobResult.SearchParameterUrls,
                     jobResult.TimeoutCount,
                 })
                 : JsonConvert.SerializeObject(jobResult);

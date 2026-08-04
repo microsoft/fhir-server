@@ -275,8 +275,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrlStatuses.Select(_ => _.Url).ToList();
-
                 // Determine if we're using SQL Server path (surrogate ID range) or Cosmos DB path (continuation tokens)
                 bool useSurrogateIdRange = _reindexProcessingJobDefinition.ResourceCount != null
                     && _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId > 0

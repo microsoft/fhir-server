@@ -1542,7 +1542,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 {
                     SucceededResourceCount = (int)jobDef.ResourceCount.Count,
                     FailedResourceCount = 0,
-                    SearchParameterUrls = jobDef.SearchParameterUrlStatuses.Select(_ => _.Url).ToList(),
                 };
 
                 job.Status = JobStatus.Completed;
@@ -1611,7 +1610,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
                 Assert.True(result.SucceededResourceCount > 0, "Job should have succeeded resources");
                 Assert.Equal(0, result.FailedResourceCount);
-                Assert.NotNull(result.SearchParameterUrls);
             });
 
             // Assert - Verify orchestrator result shows success

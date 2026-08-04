@@ -452,72 +452,32 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(record, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    private void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
+    private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
     {
         // Check the first child job's result
         var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault();
-        IReadOnlyCollection<string> processingJob = null;
-        if (subJob?.Result != null)
+        if (subJob != null)
         {
-            try
+            var urls = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(subJob.Definition).SearchParameterUrlStatuses.Select(x => x.Url).ToList();
+            foreach (var url in urls)
             {
-                processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(subJob.Result)?.SearchParameterUrls;
-            }
-            catch (JsonException ex)
-            {
-                // Log but continue since this is optional data
-                _logger.LogWarning(ex, "Failed to deserialize processing job result for job {JobId}", subJob.Id);
-            }
-        }
-
-        if (processingJob != null)
-        {
-            foreach (var sp in processingJob)
-            {
-                record.SearchParams.Add(sp);
+                record.SearchParams.Add(url);
             }
         }
 
         foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
         {
             ReindexProcessingJobResult jobResult = null;
-            ReindexProcessingJobDefinition jobDefinition = null;
 
             // Safely deserialize Result
             if (!string.IsNullOrEmpty(job.Result))
             {
-                try
-                {
-                    jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                }
-                catch (JsonException ex)
-                {
-                    // Log the error but continue processing
-                    _logger.LogError(ex, "Failed to deserialize job result for job {JobId}", job.Id);
-                    continue;
-                }
+                jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
             }
 
-            // Safely deserialize Definition
-            if (!string.IsNullOrEmpty(job.Definition))
-            {
-                try
-                {
-                    jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                }
-                catch (JsonException ex)
-                {
-                    // Log the error but continue processing
-                    _logger.LogError(ex, "Failed to deserialize job definition for job {JobId}", job.Id);
-                    continue;
-                }
-            }
-            else
-            {
-                _logger.LogError("Job definition is null for job {JobId}", job.Id);
-            }
+            var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
 
-            if (jobDefinition?.ResourceType != null)
+            if (jobDefinition.ResourceType != null)
             {
                 // Aggregate counts instead of ignoring duplicates
                 if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
