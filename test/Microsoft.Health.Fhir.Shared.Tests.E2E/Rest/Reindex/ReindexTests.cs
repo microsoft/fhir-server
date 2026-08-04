@@ -2212,8 +2212,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// Fix: lock(context.Properties) around TryGetValue + Remove so only one thread can claim
         /// the pending status; all subsequent threads find the key already gone.
         ///
+        /// Why Transaction (not Batch) for this E2E guard:
+        ///   Both batch-parallel and transaction-parallel call SetAndClearPendingSearchParameterStatus
+        ///   via the same code path (see SqlServerFhirDataStore.UpsertAsync). The lock fix protects
+        ///   both. Transaction is used here because its BundleOrchestrator explicitly accumulates all
+        ///   resources into ONE MergeAsync call, making it easier to reason about the SQL failure mode
+        ///   in an E2E test. The deterministic unit test
+        ///   (SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus)
+        ///   is the authoritative proof that the lock works for all parallel-processing paths.
+        ///
         /// NOTE: The race is probabilistic and may not fire on a fast local machine. The unit test
-        /// SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus
         /// in SqlServerFhirDataStoreUnitTests is the deterministic local proof.
         /// This test is a regression guard: PASSES after fix, MAY fail before fix.
         /// </summary>

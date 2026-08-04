@@ -875,6 +875,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // (e.g. two entries in a parallel bundle) can both read the same value before either
             // removes it, causing pendingStatuses = [URI, URI] in MergeAsync → TVP UNIQUE
             // constraint violation (SQL 2627) → HTTP 500. ICM-833659983 / AB#198804.
+            //
+            // NOTE (pre-existing limitation, not addressed here): only ONE pending status can be
+            // stored at a time via this single Properties slot. A bundle containing MULTIPLE
+            // SearchParameter entries will have later behavior writes overwrite earlier ones before
+            // they are consumed, resulting in only the last status being committed. Bundles with
+            // multiple SearchParameter entries should be avoided or handled with a list-based slot.
             lock (properties)
             {
                 if (properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object value))
