@@ -291,13 +291,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var initial = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Clean up search parameters in pending delete states if resources don't exist
-            var deletedSearchParameterUrls = await CleanupMissingSearchParameterResourcesAsync(initial, cancellationToken);
+            var deleted = await CleanupMissingSearchParameterResourcesAsync(initial, cancellationToken);
 
             // Get all URIs that have at least one entry with a valid status
             // Exclude search parameters marked as deleted during cleanup
             var initialMinusDeleted = initial
                                         .Where(s => targetStatuses.Contains(s.Status))
-                                        .Where(s => !deletedSearchParameterUrls.Contains(s.Uri.OriginalString))
+                                        .Where(s => !deleted.Contains(s.Uri.OriginalString))
                                         .GroupBy(s => s.Uri.OriginalString, StringComparer.Ordinal)
                                         .ToDictionary(g => g.Key, g => g.First().Status, StringComparer.Ordinal);
 
@@ -305,10 +305,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var targetParams = new List<SearchParameterInfo>();
             foreach (var validUri in initialMinusDeleted.Keys)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var param))
                 {
-                    targetParams.Add(searchInfo);
-                    var msg = $"status={searchInfo.SearchParameterStatus} uri={validUri}";
+                    targetParams.Add(param);
+                    var msg = $"status={param.SearchParameterStatus} uri={validUri}";
                     _logger.LogJobInformation(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null, cancellationToken);
                 }
@@ -324,15 +324,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourceTypes = new HashSet<string>();
             var usedResourceTypes = await GetUsedResourceTypes(cancellationToken);
 
-            // From the param list, get the list of necessary resource types
+            // From the target params, get the list of necessary resource types
             foreach (var param in targetParams)
             {
-                var paramResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes).Where(_ => usedResourceTypes.Contains(_)).ToList();
-                resourceTypes.UnionWith(paramResourceTypes);
+                var paramResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes).ToList();
+
+                // to support no matching resources case register all resource types in the transient lookups
                 foreach (var resourceType in paramResourceTypes)
                 {
                     PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, initialMinusDeleted[param.Url.OriginalString])], new List<long>());
                 }
+
+                // exclude not used resource types from enqueueing. this also removes resource types which we do not have id mapping for (like Resource).
+                paramResourceTypes = paramResourceTypes.Where(_ => usedResourceTypes.Contains(_)).ToList();
+                resourceTypes.UnionWith(paramResourceTypes);
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
