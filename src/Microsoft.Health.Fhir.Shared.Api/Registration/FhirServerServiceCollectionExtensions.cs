@@ -128,9 +128,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
-            // Register ambient tenant access and tenant-aware instance configuration for storing the base URI.
+            // Register single-tenant defaults and tenant-aware instance configuration for storing the base URI.
             // These are available to all services including background tasks that don't have access to HttpContext.
             services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
+            services.AddSingleton<ITenantRegistry, SingleTenantRegistry>();
             services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
