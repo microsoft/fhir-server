@@ -468,29 +468,26 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
         {
             // definition cannot be null
-            var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-            if (jobDefinition.ResourceType != null)
+            var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+            if (record.ResourceCounts.TryGetValue(definition.ResourceType, out var existing))
             {
-                if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
-                {
-                    existing.Count += jobDefinition.ResourceCount.Count;
-                }
-                else
-                {
-                    record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
-                }
+                existing.Count += definition.ResourceCount.Count;
+            }
+            else
+            {
+                record.ResourceCounts.TryAdd(definition.ResourceType, definition.ResourceCount);
+            }
 
-                if (!record.Resources.Contains(jobDefinition.ResourceType))
-                {
-                    record.Resources.Add(jobDefinition.ResourceType);
-                }
+            if (!record.Resources.Contains(definition.ResourceType))
+            {
+                record.Resources.Add(definition.ResourceType);
             }
 
             if (string.IsNullOrEmpty(job.Result))
             {
-                var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
-                record.FailureCount += jobResult.FailedResourceCount;
+                var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                record.Count += result.SucceededResourceCount + result.FailedResourceCount;
+                record.FailureCount += result.FailedResourceCount;
             }
         }
     }
