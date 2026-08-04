@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // From the target params, get the list of necessary resource types
             foreach (var param in targetParams)
             {
-                var paramResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes).ToList();
+                var paramResourceTypes = _searchParameterDefinitionManager.GetDerivedResourceTypes(param.BaseResourceTypes).ToList();
 
                 // to support no matching resources case register all resource types in the transient lookups
                 foreach (var resourceType in paramResourceTypes)
@@ -660,36 +660,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, output, cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.Add(searchParameterUrl);
             }
-        }
-
-        private HashSet<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
-        {
-            var completeResourceList = new HashSet<string>(resourceTypes);
-
-            foreach (var baseResourceType in resourceTypes)
-            {
-                if (baseResourceType == KnownResourceTypes.Resource)
-                {
-                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
-
-                    // We added all possible resource types, so no need to continue
-                    break;
-                }
-
-                if (baseResourceType == KnownResourceTypes.DomainResource)
-                {
-                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
-
-                    // Remove types that inherit from Resource directly
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
-
-                    completeResourceList.UnionWith(domainResourceChildResourceTypes);
-                }
-            }
-
-            return completeResourceList;
         }
 
         private string GetSearchParameterHash(string resourceType)
