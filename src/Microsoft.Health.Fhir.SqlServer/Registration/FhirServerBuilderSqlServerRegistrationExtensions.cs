@@ -68,7 +68,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.TryAddSingleton<ITenantConnectionStringProvider, RootTenantConnectionStringProvider>();
-            services.AddSingleton<ITenantServiceConfigurator, TenantSqlServerConfigurator>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITenantServiceConfigurator, TenantSqlServerConfigurator>());
 
             services.Add(provider =>
                 {
