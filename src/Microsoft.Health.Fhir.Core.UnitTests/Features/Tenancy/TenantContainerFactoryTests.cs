@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
@@ -81,12 +82,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         public async Task GivenTenancyInfrastructure_WhenATenantContainerIsBuilt_ThenItIsNotDuplicated()
         {
             var harness = new Harness();
+            harness.RootServices.AddSingleton<IOptions<TenantContainerCacheOptions>>(
+                Options.Create(new TenantContainerCacheOptions()));
+            harness.RootServices.AddSingleton<TenantContainerCache>();
+            harness.RootServices.AddSingleton<ITenantContainerCache, TenantContainerCache>();
 
-            await using ITenantContainer alpha = await harness.CreateAsync(Alpha);
+            TenantContainerCache rootConcreteCache = harness.RootProvider.GetRequiredService<TenantContainerCache>();
+            ITenantContainerCache rootInterfaceCache = harness.RootProvider.GetRequiredService<ITenantContainerCache>();
 
-            Assert.Same(
-                harness.RootProvider.GetRequiredService<ITenantContainerFactory>(),
-                Resolve<ITenantContainerFactory>(alpha));
+            try
+            {
+                await using ITenantContainer alpha = await harness.CreateAsync(Alpha);
+
+                // The independent registrations prove that both service types are explicitly forwarded.
+                // If either type is omitted from TenancyInfrastructureTypes, the child creates a new cache.
+                Assert.NotSame(rootConcreteCache, rootInterfaceCache);
+                Assert.Same(rootConcreteCache, Resolve<TenantContainerCache>(alpha));
+                Assert.Same(rootInterfaceCache, Resolve<ITenantContainerCache>(alpha));
+                Assert.Same(
+                    harness.RootProvider.GetRequiredService<ITenantContainerFactory>(),
+                    Resolve<ITenantContainerFactory>(alpha));
+            }
+            finally
+            {
+                await rootInterfaceCache.DisposeAsync();
+                await rootConcreteCache.DisposeAsync();
+            }
         }
 
         [Fact]

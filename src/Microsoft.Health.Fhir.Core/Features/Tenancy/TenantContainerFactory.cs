@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         private static readonly Type[] TenancyInfrastructureTypes =
         {
             typeof(ITenantServiceBlueprint),
+            typeof(ITenantContainerCache),
+            typeof(TenantContainerCache),
             typeof(TenantSharedServiceRegistry),
             typeof(ITenantHostedServicePolicy),
             typeof(ITenantContainerFactory),
