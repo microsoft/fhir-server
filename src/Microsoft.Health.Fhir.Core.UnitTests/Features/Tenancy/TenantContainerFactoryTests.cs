@@ -159,6 +159,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public async Task GivenHostedServicesAreSharedWithTenants_WhenATenantContainerIsBuilt_ThenConstructionFails()
+        {
+            var harness = new Harness();
+            harness.RootServices.AddSingleton<IHostedService, InitializerHostedService>();
+            harness.Policy.Set(typeof(InitializerHostedService).FullName, TenantHostedServiceDisposition.PerTenantInitializer);
+            harness.SharedRegistry.ShareWithTenants<IHostedService>();
+
+            InvalidOperationException exception =
+                await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Contains(typeof(IHostedService).FullName, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenForwardedServicesAreRegisteredBetweenHostedServices_WhenClassifiedByPosition_ThenTheInitializerIsStillSelected()
+        {
+            var harness = new Harness();
+            var tracker = new FactoryHostedServiceTracker();
+            harness.RootServices.AddSingleton(tracker);
+
+            // A forwarded service registered between the two factory-based hosted services. Forward()
+            // removes and re-appends its descriptors, which must not disturb the positional correlation
+            // FilterHostedServices relies on.
+            harness.RootServices.AddSingleton<IHostedService>(
+                serviceProvider => new FactoryBasedSharedHostedService(
+                    serviceProvider.GetRequiredService<FactoryHostedServiceTracker>()));
+            harness.RootServices.AddSingleton<SharedService>();
+            harness.SharedRegistry.ShareWithTenants<SharedService>();
+            harness.RootServices.AddSingleton<IHostedService>(
+                serviceProvider => new FactoryBasedInitializerHostedService(
+                    serviceProvider.GetRequiredService<FactoryHostedServiceTracker>()));
+
+            harness.Policy.Set(
+                typeof(FactoryBasedSharedHostedService).FullName,
+                TenantHostedServiceDisposition.Shared);
+            harness.Policy.Set(
+                typeof(FactoryBasedInitializerHostedService).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+
+            await using ITenantContainer alpha = await harness.CreateAsync(Alpha);
+
+            Assert.Same(harness.RootProvider.GetRequiredService<SharedService>(), Resolve<SharedService>(alpha));
+
+            IHostedService hostedService = Assert.Single(Resolve<IEnumerable<IHostedService>>(alpha));
+            Assert.IsType<FactoryBasedInitializerHostedService>(hostedService);
+            Assert.Equal(0, tracker.SharedStartCount);
+            Assert.Equal(1, tracker.InitializerStartCount);
+        }
+
+        [Fact]
         public async Task GivenARelocatedHostedService_WhenATenantContainerIsBuilt_ThenItIsNotPresent()
         {
             var harness = new Harness();

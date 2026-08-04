@@ -97,6 +97,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                 tenantServices.Add(descriptor);
             }
 
+            // FilterHostedServices correlates factory-based IHostedService descriptors to root-resolved
+            // instances by position, which is only valid while the IHostedService descriptors keep their
+            // blueprint registration order. Forward removes and re-appends descriptors of one service
+            // type, so it can only disturb that order if it is ever called for IHostedService itself --
+            // which Forward rejects outright. Do not relax that guard.
             ForwardTenancyInfrastructure(tenantServices);
             ForwardSharedServices(tenantServices);
             FilterHostedServices(tenantServices);
@@ -147,6 +152,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
 
         private void Forward(ServiceCollection tenantServices, Type serviceType)
         {
+            if (serviceType == typeof(IHostedService))
+            {
+                // Forwarding IHostedService would replace every hosted descriptor with the root's own
+                // singleton instances, so a PerTenantInitializer would run as one shared instance across
+                // all tenants instead of one per tenant -- RoleLoader would then load a single
+                // authorization role set for the whole pool. Hosted services are classified by policy,
+                // never forwarded.
+                throw new InvalidOperationException(
+                    $"{typeof(IHostedService).FullName} must not be forwarded into a tenant container. " +
+                    "Hosted services are classified by ITenantHostedServicePolicy.");
+            }
+
             bool wasRegistered = tenantServices.Any(descriptor => descriptor.ServiceType == serviceType);
 
             tenantServices.RemoveAll(serviceType);
