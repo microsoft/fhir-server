@@ -4,16 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,14 +49,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         public const string BetaHost = "beta.example.org";
 
         /// <summary>
-        /// The response header added by the stateless MVC global filter.
+        /// The response header added by the tenant-neutral MVC global filter.
         /// </summary>
         public const string MvcFilterHeaderName = "X-Tenant-Isolation-Global-Filter";
 
         /// <summary>
-        /// The stateless MVC global filter's response value.
+        /// The tenant-neutral MVC global filter's response value.
         /// </summary>
         public const string MvcFilterHeaderValue = "tenant-neutral";
+
+        /// <summary>
+        /// The response header added by the MVC-activated tenant filter.
+        /// </summary>
+        public const string MvcActivatedFilterHeaderName = "X-Tenant-Isolation-Activated-Filter";
+
+        /// <summary>
+        /// The response header containing the executing MVC global filter's identity.
+        /// </summary>
+        public const string MvcGlobalFilterIdentityHeaderName = "X-Tenant-Isolation-Global-Filter-Identity";
 
         private static readonly IReadOnlyDictionary<string, string> SigningKeys =
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -62,11 +76,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             };
 
         private IHost _host;
+        private ProbeConfiguratorInvocationCounter _probeConfiguratorInvocationCounter;
 
         /// <summary>
         /// Gets the in-process server.
         /// </summary>
         public TestServer Server { get; private set; }
+
+        /// <summary>
+        /// Gets the identity of the MVC global filter materialized by the root service provider.
+        /// </summary>
+        public string RootMvcGlobalFilterIdentity { get; private set; }
+
+        /// <summary>
+        /// Gets the total number of probe-configurator invocations across all tenants.
+        /// </summary>
+        public int ProbeConfiguratorInvocationCount => _probeConfiguratorInvocationCounter.TotalInvocationCount;
 
         /// <inheritdoc />
         public async Task InitializeAsync()
@@ -81,6 +106,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 .StartAsync();
 
             Server = _host.GetTestServer();
+            _probeConfiguratorInvocationCounter =
+                _host.Services.GetRequiredService<ProbeConfiguratorInvocationCounter>();
+            RootMvcGlobalFilterIdentity = ReadGlobalFilterIdentity(_host.Services);
         }
 
         /// <inheritdoc />
@@ -98,6 +126,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         /// </summary>
         /// <returns>A connected HTTP client.</returns>
         public HttpClient CreateClient() => Server.CreateClient();
+
+        /// <summary>
+        /// Gets the number of probe-configurator invocations recorded for a tenant.
+        /// </summary>
+        /// <param name="tenantName">The tenant name.</param>
+        /// <returns>The number of probe-configurator invocations recorded for the tenant.</returns>
+        public int GetProbeConfiguratorInvocationCount(string tenantName) =>
+            _probeConfiguratorInvocationCounter.GetInvocationCount(tenantName);
+
+        /// <summary>
+        /// Resolves the identity of the MVC global filter that the named tenant's container materializes.
+        /// </summary>
+        /// <remarks>
+        /// Acquires a lease on the tenant's real container from the root <see cref="TenantContainerCache"/> via
+        /// the root <see cref="ITenantRegistry"/>, resolves the tenant's own <see cref="IOptions{MvcOptions}"/>,
+        /// and releases the lease. A resident container is reused when available; otherwise normal cache admission
+        /// constructs one.
+        /// </remarks>
+        /// <param name="tenantName">The tenant whose container should materialize the filter.</param>
+        /// <returns>The tenant container's MVC global filter identity.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="tenantName"/> is not registered.</exception>
+        public async Task<string> GetTenantMvcGlobalFilterIdentityAsync(string tenantName)
+        {
+            ITenantRegistry registry = _host.Services.GetRequiredService<ITenantRegistry>();
+            if (!registry.TryGetTenant(new TenantId(tenantName), out TenantDescriptor descriptor))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(tenantName),
+                    tenantName,
+                    "The tenant is not registered.");
+            }
+
+            TenantContainerCache cache = _host.Services.GetRequiredService<TenantContainerCache>();
+            using ITenantLease lease = await cache.AcquireAsync(descriptor, CancellationToken.None);
+            return ReadGlobalFilterIdentity(lease.Services);
+        }
 
         /// <summary>
         /// Creates a short-lived JWT signed for the supplied tenant.
@@ -124,7 +188,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private static void ConfigureServices(IServiceCollection services)
+        private static string ReadGlobalFilterIdentity(IServiceProvider services) =>
+            services
+                .GetRequiredService<IOptions<MvcOptions>>()
+                .Value
+                .Filters
+                .OfType<TenantNeutralGlobalFilter>()
+                .Single()
+                .Identity;
+
+        private void ConfigureServices(IServiceCollection services)
         {
             services.AddLogging();
             services.AddSingleton(TimeProvider.System);
@@ -159,6 +232,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                     .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerProvider>());
 
             var hostedServicePolicy = new TenantHostedServicePolicy();
+
+            // These TestHost hosted-service names are pinned to ASP.NET Core 10.0.10, the centrally configured
+            // TestHost/runtime version; update them when that version changes.
             hostedServicePolicy.Set(
                 "Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService",
                 TenantHostedServiceDisposition.Shared);
@@ -168,6 +244,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             services.AddSingleton<ITenantHostedServicePolicy>(hostedServicePolicy);
             services.AddSingleton<ITenantServiceConfigurator, JwtPerTenantConfigurator>();
             services.AddSingleton<ITenantServiceConfigurator, ProbePerTenantConfigurator>();
+            services.AddSingleton<ProbeConfiguratorInvocationCounter>();
             services.AddSingleton(
                 Options.Create(
                     new TenantContainerCacheOptions
@@ -176,7 +253,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                         IdleTimeout = TimeSpan.FromMinutes(30),
                     }));
             services.AddSingleton<ITenantContainerFactory, TenantContainerFactory>();
-            services.AddSingleton<ITenantContainerCache, TenantContainerCache>();
+            services.AddSingleton<TenantContainerCache>();
+            services.AddSingleton<ITenantContainerCache>(
+                serviceProvider => serviceProvider.GetRequiredService<TenantContainerCache>());
             services.AddSingleton<ITenantServiceBlueprint>(new TenantServiceBlueprint(services));
         }
 
@@ -215,8 +294,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         }
 
         /// <summary>
-        /// A scoped service whose tenant name proves that a controller action used
-        /// <see cref="HttpContext.RequestServices"/>.
+        /// A scoped service whose tenant name proves MVC controller constructor injection, <c>FromServices</c>
+        /// parameter resolution, and <c>TypeFilter</c> activation use <see cref="HttpContext.RequestServices"/>.
         /// </summary>
         public sealed class TenantScopedProbe
         {
@@ -237,16 +316,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
         /// <summary>
         /// A deliberately tenant-neutral global filter. Its explicit registration makes the MVC filter
-        /// inspection probe non-vacuous without allowing a filter instance to capture tenant state.
+        /// inspection probe non-vacuous without allowing a filter instance to capture tenant state. Its
+        /// <see cref="Identity"/> lets the test compare the executing instance with the root and tenant
+        /// <see cref="IOptions{MvcOptions}"/> instances.
         /// </summary>
         public sealed class TenantNeutralGlobalFilter : IAsyncActionFilter
         {
+            internal TenantNeutralGlobalFilter()
+            {
+                Identity = Guid.NewGuid().ToString("N");
+            }
+
+            /// <summary>
+            /// Gets this filter instance's unique identity.
+            /// </summary>
+            public string Identity { get; }
+
             /// <inheritdoc />
             public async Task OnActionExecutionAsync(
                 ActionExecutingContext context,
                 ActionExecutionDelegate next)
             {
                 context.HttpContext.Response.Headers[MvcFilterHeaderName] = MvcFilterHeaderValue;
+                context.HttpContext.Response.Headers[MvcGlobalFilterIdentityHeaderName] = Identity;
                 await next();
             }
         }
@@ -270,10 +362,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
         private sealed class ProbePerTenantConfigurator : ITenantServiceConfigurator
         {
+            private readonly ProbeConfiguratorInvocationCounter _invocationCounter;
+
+            public ProbePerTenantConfigurator(ProbeConfiguratorInvocationCounter invocationCounter)
+            {
+                _invocationCounter = invocationCounter;
+            }
+
             public void Configure(IServiceCollection services, TenantDescriptor tenant)
             {
+                string tenantName = tenant.TenantId.ToString();
+
+                // TenantContainerFactory invokes this configurator exactly once per container construction
+                // attempt, before it calls BuildServiceProvider, so this count equals the number of
+                // construction attempts for the tenant.
+                _invocationCounter.RecordInvocation(tenantName);
                 services.RemoveAll<TenantScopedProbe>();
-                services.AddScoped(_ => new TenantScopedProbe(tenant.TenantId.ToString()));
+                services.AddScoped(_ => new TenantScopedProbe(tenantName));
             }
         }
 
@@ -298,6 +403,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                             ValidateLifetime = true,
                         };
                     });
+            }
+        }
+
+        /// <summary>
+        /// Counts <see cref="ProbePerTenantConfigurator"/> invocations. Because the factory invokes that
+        /// configurator once per container construction attempt, these counts double as per-tenant
+        /// construction-attempt totals.
+        /// </summary>
+        private sealed class ProbeConfiguratorInvocationCounter
+        {
+            private readonly ConcurrentDictionary<string, int> _counts = new(StringComparer.Ordinal);
+            private int _totalCount;
+
+            public int TotalInvocationCount => Volatile.Read(ref _totalCount);
+
+            public int GetInvocationCount(string tenantName)
+            {
+                return _counts.TryGetValue(tenantName, out int count) ? count : 0;
+            }
+
+            public void RecordInvocation(string tenantName)
+            {
+                _counts.AddOrUpdate(tenantName, 1, (_, count) => count + 1);
+                Interlocked.Increment(ref _totalCount);
             }
         }
     }
