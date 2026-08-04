@@ -219,6 +219,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             if (exception is AggregateException aggregateException)
             {
+                if (aggregateException.InnerExceptions.Count == 0)
+                {
+                    failures.Add(ExceptionDispatchInfo.Capture(aggregateException));
+                    return;
+                }
+
                 foreach (Exception innerException in aggregateException.InnerExceptions)
                 {
                     failures.Add(ExceptionDispatchInfo.Capture(innerException));
