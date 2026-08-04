@@ -17,10 +17,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -33,6 +35,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
     [Trait(Traits.Category, Categories.Operations)]
     public class FhirServerTenancyRegistrationTests
     {
+        private const string HealthCheckPublisherHostedServiceFullName = "Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckPublisherHostedService";
+        private static readonly string AuditEventTypeMappingFullName = typeof(AuditEventTypeMapping).FullName!;
+
         [Fact]
         public void GivenTenancyDisabled_WhenServicesAreRegistered_ThenNoTenancyRegistrationsAreAdded()
         {
@@ -131,6 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 typeof(IMeterFactory),
                 typeof(IModelInfoProvider),
                 typeof(ICompartmentDefinitionManager),
+                typeof(IAuditEventTypeMapping),
                 typeof(ISearchParameterDefinitionSource),
             };
 
@@ -143,6 +149,60 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(
                 TenantHostedServiceDisposition.Shared,
                 hostedServicePolicy.Classify(typeof(TenantContainerSweeper).FullName));
+        }
+
+        [Fact]
+        public void GivenAddFhirServerWithTenancyEnabled_WhenInspectingHostedServices_ThenDescriptorOrderPolicyCoverageAndAuditSharingMatchTheRealPath()
+        {
+            IServiceCollection services = new ServiceCollection();
+            IConfiguration configuration = CreateAddFhirServerConfiguration(tenancyEnabled: true, securityEnabled: false);
+
+            services.AddFhirServer(configuration);
+
+            ServiceDescriptor tenantContainerCacheDescriptor = GetRequiredDescriptor<TenantContainerCache>(services);
+            ServiceDescriptor tenantContainerCacheAliasDescriptor = GetRequiredDescriptor<ITenantContainerCache>(services);
+            ServiceDescriptor tenantContainerFactoryDescriptor = GetRequiredDescriptor<ITenantContainerFactory>(services);
+            ServiceDescriptor tenantBlueprintDescriptor = GetRequiredDescriptor<ITenantServiceBlueprint>(services);
+            ServiceDescriptor tenantSharedRegistryDescriptor = GetRequiredDescriptor<TenantSharedServiceRegistry>(services);
+            ServiceDescriptor tenantHostedServicePolicyDescriptor = GetRequiredDescriptor<ITenantHostedServicePolicy>(services);
+
+            Assert.Equal(ServiceLifetime.Singleton, tenantContainerCacheDescriptor.Lifetime);
+            Assert.Equal(typeof(TenantContainerCache), tenantContainerCacheDescriptor.ImplementationType);
+            Assert.Equal(ServiceLifetime.Singleton, tenantContainerCacheAliasDescriptor.Lifetime);
+            Assert.Null(tenantContainerCacheAliasDescriptor.ImplementationType);
+            Assert.NotNull(tenantContainerCacheAliasDescriptor.ImplementationFactory);
+            Assert.Equal(ServiceLifetime.Singleton, tenantContainerFactoryDescriptor.Lifetime);
+            Assert.Equal(typeof(TenantContainerFactory), tenantContainerFactoryDescriptor.ImplementationType);
+            Assert.Equal(ServiceLifetime.Singleton, tenantBlueprintDescriptor.Lifetime);
+            Assert.IsType<TenantServiceBlueprint>(tenantBlueprintDescriptor.ImplementationInstance);
+
+            IReadOnlyList<IndexedServiceDescriptor> hostedServiceDescriptors = GetHostedServiceDescriptors(services);
+            IReadOnlyList<IndexedServiceDescriptor> concreteHostedImplementationDescriptors = GetConcreteHostedImplementationDescriptors(services);
+
+            Assert.NotEmpty(hostedServiceDescriptors);
+            Assert.Equal(hostedServiceDescriptors.Count, concreteHostedImplementationDescriptors.Count);
+
+            TenantHostedServicePolicy tenantHostedServicePolicy = Assert.IsType<TenantHostedServicePolicy>(tenantHostedServicePolicyDescriptor.ImplementationInstance);
+            AssertHostedServiceRegistrationPairings(
+                hostedServiceDescriptors,
+                concreteHostedImplementationDescriptors,
+                tenantHostedServicePolicy);
+
+            ServiceDescriptor auditEventTypeMappingDescriptor = GetRequiredConcreteHostedImplementationDescriptor(
+                concreteHostedImplementationDescriptors,
+                AuditEventTypeMappingFullName);
+            Assert.Equal(typeof(IAuditEventTypeMapping), auditEventTypeMappingDescriptor.ServiceType);
+            Assert.Equal(typeof(AuditEventTypeMapping), auditEventTypeMappingDescriptor.ImplementationType);
+            Assert.Equal(AuditEventTypeMappingFullName, GetRequiredImplementationTypeName(auditEventTypeMappingDescriptor));
+            Assert.Equal(
+                TenantHostedServiceDisposition.Shared,
+                tenantHostedServicePolicy.Classify(AuditEventTypeMappingFullName));
+            Assert.Equal(
+                TenantHostedServiceDisposition.Shared,
+                tenantHostedServicePolicy.Classify(HealthCheckPublisherHostedServiceFullName));
+
+            var tenantSharedServiceRegistry = Assert.IsType<TenantSharedServiceRegistry>(tenantSharedRegistryDescriptor.ImplementationInstance);
+            Assert.Contains(typeof(IAuditEventTypeMapping), tenantSharedServiceRegistry.SharedServiceTypes);
         }
 
         [Fact]
@@ -305,6 +365,89 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             return Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TService));
         }
 
+        private static IReadOnlyList<IndexedServiceDescriptor> GetHostedServiceDescriptors(IServiceCollection services)
+        {
+            return services
+                .Select((descriptor, index) => new IndexedServiceDescriptor(descriptor, index))
+                .Where(registration => registration.Descriptor.ServiceType == typeof(IHostedService))
+                .ToArray();
+        }
+
+        private static IReadOnlyList<IndexedServiceDescriptor> GetConcreteHostedImplementationDescriptors(IServiceCollection services)
+        {
+            return services
+                .Select((descriptor, index) => new IndexedServiceDescriptor(descriptor, index))
+                .Where(registration =>
+                    registration.Descriptor.ImplementationType != null &&
+                    typeof(IHostedService).IsAssignableFrom(registration.Descriptor.ImplementationType))
+                .ToArray();
+        }
+
+        private static void AssertHostedServiceRegistrationPairings(
+            IReadOnlyList<IndexedServiceDescriptor> hostedServiceDescriptors,
+            IReadOnlyList<IndexedServiceDescriptor> concreteHostedImplementationDescriptors,
+            ITenantHostedServicePolicy tenantHostedServicePolicy)
+        {
+            int minimumConcreteIndex = 0;
+
+            for (int index = 0; index < hostedServiceDescriptors.Count; index++)
+            {
+                IndexedServiceDescriptor hostedServiceDescriptor = hostedServiceDescriptors[index];
+                IndexedServiceDescriptor concreteHostedImplementationDescriptor = concreteHostedImplementationDescriptors[index];
+
+                AssertHostedServiceRegistrationPair(
+                    concreteHostedImplementationDescriptor,
+                    hostedServiceDescriptor,
+                    minimumConcreteIndex);
+                tenantHostedServicePolicy.Classify(
+                    GetRequiredImplementationTypeName(concreteHostedImplementationDescriptor.Descriptor));
+
+                minimumConcreteIndex = hostedServiceDescriptor.Index + 1;
+            }
+        }
+
+        private static void AssertHostedServiceRegistrationPair(
+            IndexedServiceDescriptor concreteHostedImplementationDescriptor,
+            IndexedServiceDescriptor hostedServiceDescriptor,
+            int minimumConcreteIndex)
+        {
+            ServiceDescriptor concreteDescriptor = concreteHostedImplementationDescriptor.Descriptor;
+            ServiceDescriptor hostedDescriptor = hostedServiceDescriptor.Descriptor;
+
+            Assert.Equal(ServiceLifetime.Singleton, concreteDescriptor.Lifetime);
+            Assert.Equal(ServiceLifetime.Singleton, hostedDescriptor.Lifetime);
+            Assert.Equal(typeof(IHostedService), hostedDescriptor.ServiceType);
+            Assert.Null(hostedDescriptor.ImplementationInstance);
+            Assert.InRange(
+                concreteHostedImplementationDescriptor.Index,
+                minimumConcreteIndex,
+                hostedServiceDescriptor.Index);
+
+            if (ReferenceEquals(concreteDescriptor, hostedDescriptor))
+            {
+                Assert.Null(hostedDescriptor.ImplementationFactory);
+                return;
+            }
+
+            Assert.Null(hostedDescriptor.ImplementationType);
+            Assert.NotNull(hostedDescriptor.ImplementationFactory);
+        }
+
+        private static ServiceDescriptor GetRequiredConcreteHostedImplementationDescriptor(
+            IReadOnlyList<IndexedServiceDescriptor> concreteHostedImplementationDescriptors,
+            string implementationTypeName)
+        {
+            return Assert.Single(
+                concreteHostedImplementationDescriptors,
+                registration => GetRequiredImplementationTypeName(registration.Descriptor) == implementationTypeName).Descriptor;
+        }
+
+        private static string GetRequiredImplementationTypeName(ServiceDescriptor descriptor)
+        {
+            return descriptor.ImplementationType?.FullName
+                ?? throw new InvalidOperationException("Expected a concrete hosted implementation type.");
+        }
+
         private static ServiceProvider BuildProvider(IServiceCollection services)
         {
             return services.BuildServiceProvider(new ServiceProviderOptions
@@ -317,6 +460,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         private static IServiceCollection RegisterEnabledServices()
         {
             return Register(new TenancyConfiguration { Enabled = true });
+        }
+
+        private static IConfiguration CreateAddFhirServerConfiguration(bool tenancyEnabled, bool securityEnabled)
+        {
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    { "FhirServer:Tenancy:Enabled", tenancyEnabled.ToString() },
+                    { "FhirServer:Security:Enabled", securityEnabled.ToString() },
+                })
+                .Build();
         }
 
         private static IServiceCollection Register(TenancyConfiguration configuration)
@@ -368,6 +522,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 new TenantId(tenantName),
                 new Uri($"https://{tenantName}.example"));
         }
+
+        private readonly record struct IndexedServiceDescriptor(ServiceDescriptor Descriptor, int Index);
 
         private sealed class AddedAfterBlueprintService
         {

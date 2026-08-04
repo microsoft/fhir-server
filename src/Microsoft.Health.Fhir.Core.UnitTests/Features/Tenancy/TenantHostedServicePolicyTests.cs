@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         [InlineData("Microsoft.Health.Fhir.Core.Features.Search.CodeSystemResolver", TenantHostedServiceDisposition.Shared)]
         [InlineData("Microsoft.Health.Fhir.Web.PrometheusMetricsServer", TenantHostedServiceDisposition.Shared)]
         [InlineData("Microsoft.Health.Fhir.Api.OpenIddict.Services.OpenIddictApplicationCreater", TenantHostedServiceDisposition.Shared)]
+        [InlineData("Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckPublisherHostedService", TenantHostedServiceDisposition.Shared)]
+        [InlineData("Microsoft.Health.Api.Features.Audit.AuditEventTypeMapping", TenantHostedServiceDisposition.Shared)]
         [InlineData("Microsoft.Health.Fhir.Core.Features.Security.RoleLoader", TenantHostedServiceDisposition.PerTenantInitializer)]
         public void GivenTheDefaultPolicy_WhenAKnownServiceIsClassified_ThenTheExpectedDispositionIsReturned(
             string typeName,

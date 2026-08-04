@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                 ["Microsoft.Health.Fhir.Core.Features.Search.CodeSystemResolver"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Health.Fhir.Web.PrometheusMetricsServer"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Health.Fhir.Api.OpenIddict.Services.OpenIddictApplicationCreater"] = TenantHostedServiceDisposition.Shared,
+                ["Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckPublisherHostedService"] = TenantHostedServiceDisposition.Shared,
+                ["Microsoft.Health.Api.Features.Audit.AuditEventTypeMapping"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Health.Fhir.Core.Features.Security.RoleLoader"] = TenantHostedServiceDisposition.PerTenantInitializer,
             };
 
