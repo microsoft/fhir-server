@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
     /// </remarks>
     public sealed class TenantContainer : ITenantContainer
     {
-        private const int StateOpen = 0;
-        private const int StateDraining = 1;
+        private const int DrainingMask = int.MinValue;
+        private const int LeaseCountMask = int.MaxValue;
 
         private readonly TenantDescriptor _tenant;
         private readonly ServiceProvider _provider;
@@ -35,9 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         private readonly List<IHostedService> _startedInitializers = new();
 
         private Task _disposeTask;
-        private int _refCount;
+        private int _leaseState;
         private Task _startInitializersTask;
-        private int _state = StateOpen;
         private long _lastAccessedTicks;
 
         /// <summary>
@@ -62,27 +61,66 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         public TenantId TenantId => _tenant.TenantId;
 
         /// <inheritdoc />
-        public int ActiveLeaseCount => Volatile.Read(ref _refCount);
+        public int ActiveLeaseCount => GetLeaseCount(Volatile.Read(ref _leaseState));
 
         /// <inheritdoc />
         public DateTimeOffset LastAccessedUtc => new(Interlocked.Read(ref _lastAccessedTicks), TimeSpan.Zero);
 
+        private bool IsDraining => IsDrainingState(Volatile.Read(ref _leaseState));
+
         /// <inheritdoc />
         public bool TryAcquire([NotNullWhen(true)] out ITenantLease lease)
         {
-            Interlocked.Increment(ref _refCount);
-
-            if (Volatile.Read(ref _state) != StateOpen)
+            while (true)
             {
-                ReleaseCore();
-                lease = null;
-                return false;
+                int state = Volatile.Read(ref _leaseState);
+
+                if (IsDrainingState(state))
+                {
+                    lease = null;
+                    return false;
+                }
+
+                if (GetLeaseCount(state) == LeaseCountMask)
+                {
+                    throw new InvalidOperationException("Tenant container lease count exceeded the supported maximum.");
+                }
+
+                if (Interlocked.CompareExchange(ref _leaseState, state + 1, state) == state)
+                {
+                    Interlocked.Exchange(ref _lastAccessedTicks, _timeProvider.GetUtcNow().UtcTicks);
+                    lease = new TenantLease(this);
+                    return true;
+                }
             }
+        }
 
-            Interlocked.Exchange(ref _lastAccessedTicks, _timeProvider.GetUtcNow().UtcTicks);
+        /// <inheritdoc />
+        public bool TryBeginDrainIfIdle(DateTimeOffset? expectedLastAccessedUtc = null)
+        {
+            lock (_lifecycleSync)
+            {
+                long? expectedLastAccessedTicks = expectedLastAccessedUtc?.UtcTicks;
 
-            lease = new TenantLease(this);
-            return true;
+                if (!MatchesExpectedLastAccessed(expectedLastAccessedTicks))
+                {
+                    return false;
+                }
+
+                if (Interlocked.CompareExchange(ref _leaseState, DrainingMask, 0) != 0)
+                {
+                    return false;
+                }
+
+                if (!MatchesExpectedLastAccessed(expectedLastAccessedTicks))
+                {
+                    RollBackIdleDrainClaim();
+                    return false;
+                }
+
+                CompleteDrainIfIdle(DrainingMask);
+                return true;
+            }
         }
 
         /// <inheritdoc />
@@ -90,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             lock (_lifecycleSync)
             {
-                if (Volatile.Read(ref _state) != StateOpen)
+                if (IsDraining)
                 {
                     throw new InvalidOperationException("Tenant container initializers cannot be started after disposal begins.");
                 }
@@ -133,15 +171,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             }
             catch
             {
-                Interlocked.CompareExchange(ref _state, StateDraining, StateOpen);
-                TryCompleteDrain();
+                BeginDrain();
                 throw;
             }
         }
 
         private async Task DisposeCoreAsync()
         {
-            Interlocked.Exchange(ref _state, StateDraining);
+            BeginDrain();
 
             Task startInitializersTask;
 
@@ -163,8 +200,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                     AddFailure(failures, ex);
                 }
             }
-
-            TryCompleteDrain();
 
             await _drained.Task.ConfigureAwait(false);
 
@@ -202,18 +237,74 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
 
         private void ReleaseCore()
         {
-            Interlocked.Decrement(ref _refCount);
+            while (true)
+            {
+                int state = Volatile.Read(ref _leaseState);
+                int leaseCount = GetLeaseCount(state);
 
-            TryCompleteDrain();
+                if (leaseCount == 0)
+                {
+                    throw new InvalidOperationException("Tenant container lease count cannot be negative.");
+                }
+
+                int nextState = state - 1;
+
+                if (Interlocked.CompareExchange(ref _leaseState, nextState, state) == state)
+                {
+                    CompleteDrainIfIdle(nextState);
+                    return;
+                }
+            }
         }
 
-        private void TryCompleteDrain()
+        private void BeginDrain()
         {
-            if (Volatile.Read(ref _state) == StateDraining && Volatile.Read(ref _refCount) == 0)
+            lock (_lifecycleSync)
+            {
+                while (true)
+                {
+                    int state = Volatile.Read(ref _leaseState);
+
+                    if (IsDrainingState(state))
+                    {
+                        CompleteDrainIfIdle(state);
+                        return;
+                    }
+
+                    int drainingState = state | DrainingMask;
+
+                    if (Interlocked.CompareExchange(ref _leaseState, drainingState, state) == state)
+                    {
+                        CompleteDrainIfIdle(drainingState);
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void CompleteDrainIfIdle(int leaseState)
+        {
+            if (leaseState == DrainingMask)
             {
                 _drained.TrySetResult();
             }
         }
+
+        private bool MatchesExpectedLastAccessed(long? expectedLastAccessedTicks) =>
+            !expectedLastAccessedTicks.HasValue ||
+            Interlocked.Read(ref _lastAccessedTicks) == expectedLastAccessedTicks.Value;
+
+        private void RollBackIdleDrainClaim()
+        {
+            if (Interlocked.CompareExchange(ref _leaseState, 0, DrainingMask) != DrainingMask)
+            {
+                throw new InvalidOperationException("Tenant container idle-drain claim could not be rolled back.");
+            }
+        }
+
+        private static int GetLeaseCount(int leaseState) => leaseState & LeaseCountMask;
+
+        private static bool IsDrainingState(int leaseState) => (leaseState & DrainingMask) != 0;
 
         private static void AddFailure(List<ExceptionDispatchInfo> failures, Exception exception)
         {

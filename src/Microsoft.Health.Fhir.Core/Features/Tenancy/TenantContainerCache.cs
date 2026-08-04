@@ -292,19 +292,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                 cancellationToken.ThrowIfCancellationRequested();
                 ThrowIfNotOpen();
 
-                ITenantContainer victim = _containers.Values
-                    .Where(container => container.ActiveLeaseCount == 0)
-                    .OrderBy(container => container.LastAccessedUtc)
-                    .ThenBy(container => container.TenantId.Value, StringComparer.OrdinalIgnoreCase)
-                    .FirstOrDefault();
+                List<(ITenantContainer Container, DateTimeOffset LastAccessedUtc)> candidates =
+                    _containers.Values
+                    .Select(container => (Container: container, LastAccessedUtc: container.LastAccessedUtc))
+                    .OrderBy(candidate => candidate.LastAccessedUtc)
+                    .ThenBy(candidate => candidate.Container.TenantId.Value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                bool removed = false;
 
-                if (victim is null)
+                foreach ((ITenantContainer container, DateTimeOffset lastAccessedUtc) in candidates)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (TryClaimAndRemove(container, lastAccessedUtc))
+                    {
+                        await DisposeRemovedAsync(container, cancellationToken).ConfigureAwait(false);
+                        removed = true;
+                        break;
+                    }
+                }
+
+                if (!removed)
                 {
                     Interlocked.Increment(ref _admissionRejectionCount);
                     throw new TenantAdmissionRejectedException(incoming, _options.MaxResidentTenants);
                 }
-
-                await RemoveAndDisposeAsync(victim, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -313,26 +325,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             cancellationToken.ThrowIfCancellationRequested();
 
             DateTimeOffset cutoff = _timeProvider.GetUtcNow() - _options.IdleTimeout;
-            List<ITenantContainer> candidates = _containers.Values
-                .Where(container => container.ActiveLeaseCount == 0 && container.LastAccessedUtc <= cutoff)
-                .OrderBy(container => container.TenantId.Value, StringComparer.OrdinalIgnoreCase)
+            List<(ITenantContainer Container, DateTimeOffset LastAccessedUtc)> candidates =
+                _containers.Values
+                .Select(container => (Container: container, LastAccessedUtc: container.LastAccessedUtc))
+                .Where(candidate => candidate.LastAccessedUtc <= cutoff)
+                .OrderBy(candidate => candidate.Container.TenantId.Value, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             List<ITenantContainer> removed = [];
             List<ExceptionDispatchInfo> failures = [];
             bool cancellationCaptured = false;
 
-            foreach (ITenantContainer candidate in candidates)
+            foreach ((ITenantContainer container, DateTimeOffset lastAccessedUtc) in candidates)
             {
                 if (CaptureCancellation(failures, ref cancellationCaptured, cancellationToken))
                 {
                     break;
                 }
 
-                if (candidate.ActiveLeaseCount == 0 &&
-                    candidate.LastAccessedUtc <= cutoff &&
-                    _containers.TryRemove(candidate.TenantId, out _))
+                if (TryClaimAndRemove(container, lastAccessedUtc))
                 {
-                    removed.Add(candidate);
+                    removed.Add(container);
                     Interlocked.Increment(ref _evictionCount);
                 }
             }
@@ -349,11 +361,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!_containers.TryRemove(container.TenantId, out _))
+            if (!TryRemoveExact(container))
             {
                 return;
             }
 
+            await DisposeRemovedAsync(container, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async ValueTask DisposeRemovedAsync(
+            ITenantContainer container,
+            CancellationToken cancellationToken)
+        {
             Interlocked.Increment(ref _evictionCount);
             List<ExceptionDispatchInfo> failures = [];
             bool cancellationCaptured = false;
@@ -362,6 +381,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             CaptureCancellation(failures, ref cancellationCaptured, cancellationToken);
             ThrowIfAnyFailures(failures);
         }
+
+        private bool TryRemoveExact(ITenantContainer container)
+        {
+            if (!_containers.TryGetValue(container.TenantId, out ITenantContainer resident) ||
+                !ReferenceEquals(resident, container))
+            {
+                return false;
+            }
+
+            return _containers.TryRemove(
+                new KeyValuePair<TenantId, ITenantContainer>(container.TenantId, resident));
+        }
+
+        private bool TryClaimAndRemove(
+            ITenantContainer container,
+            DateTimeOffset expectedLastAccessedUtc) =>
+            container.TryBeginDrainIfIdle(expectedLastAccessedUtc) && TryRemoveExact(container);
 
         private void Publish(
             TenantId tenantId,

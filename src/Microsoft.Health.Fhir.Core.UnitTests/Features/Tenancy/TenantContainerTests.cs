@@ -57,6 +57,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public async Task GivenAnActiveLease_WhenIdleDrainIsAttempted_ThenTheClaimFailsWithoutDrainingTheContainer()
+        {
+            await using var container = CreateContainer(new ServiceCollection(), new FakeTimeProvider());
+
+            Assert.True(container.TryAcquire(out ITenantLease activeLease));
+
+            using (activeLease)
+            {
+                Assert.False(container.TryBeginDrainIfIdle());
+                Assert.Equal(1, container.ActiveLeaseCount);
+            }
+
+            Assert.True(container.TryAcquire(out ITenantLease laterLease));
+
+            using (laterLease)
+            {
+                Assert.Equal(1, container.ActiveLeaseCount);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnIdleContainer_WhenIdleDrainIsClaimed_ThenLaterAcquisitionsAreRejected()
+        {
+            await using var container = CreateContainer(new ServiceCollection(), new FakeTimeProvider());
+
+            Assert.True(container.TryBeginDrainIfIdle());
+            Assert.False(container.TryBeginDrainIfIdle());
+            Assert.False(container.TryAcquire(out ITenantLease rejectedLease));
+            Assert.Null(rejectedLease);
+
+            Task firstDisposal = container.DisposeAsync().AsTask();
+            Task secondDisposal = container.DisposeAsync().AsTask();
+
+            Assert.Same(firstDisposal, secondDisposal);
+            await Task.WhenAll(firstDisposal, secondDisposal);
+        }
+
+        [Fact]
         public async Task GivenAContainerWithAnInFlightLease_WhenDisposed_ThenDisposalWaitsForTheLease()
         {
             var services = new ServiceCollection();

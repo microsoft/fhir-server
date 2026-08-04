@@ -42,6 +42,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         bool TryAcquire([NotNullWhen(true)] out ITenantLease lease);
 
         /// <summary>
+        /// Atomically begins draining this container only when it is open and has no outstanding leases.
+        /// </summary>
+        /// <param name="expectedLastAccessedUtc">
+        /// When supplied, the last-access snapshot that must still be current for the claim to succeed.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> when this call changed an idle container to draining; otherwise,
+        /// <see langword="false"/> without changing the container state.
+        /// </returns>
+        /// <remarks>
+        /// A successful claim prevents all later lease acquisitions. This method linearizes with
+        /// <see cref="TryAcquire(out ITenantLease)"/> so a lease and an idle-drain claim cannot both win.
+        /// The caller remains responsible for completing teardown through
+        /// <see cref="IAsyncDisposable.DisposeAsync"/>.
+        /// </remarks>
+        bool TryBeginDrainIfIdle(DateTimeOffset? expectedLastAccessedUtc = null);
+
+        /// <summary>
         /// Starts the hosted services that were classified as per-tenant initializers.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>

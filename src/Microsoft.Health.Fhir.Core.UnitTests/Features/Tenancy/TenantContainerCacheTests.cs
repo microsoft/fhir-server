@@ -165,6 +165,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public async Task GivenAnIdleTenantIsTouchedBeforeItsTtlClaim_WhenSwept_ThenItRemainsCachedAndOpen()
+        {
+            await using TenantContainerCache cache = CreateCache(idleTimeout: TimeSpan.FromMinutes(10));
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+            RecordingContainer container = Assert.Single(_factory.CreatedContainers);
+            _timeProvider.Advance(TimeSpan.FromMinutes(11));
+            container.BeforeIdleDrainClaim = () =>
+            {
+                ITenantLease touchLease = null;
+
+                try
+                {
+                    Assert.True(container.TryAcquire(out touchLease));
+                }
+                finally
+                {
+                    container.BeforeIdleDrainClaim = null;
+                    touchLease?.Dispose();
+                }
+            };
+
+            await cache.EvictIdleAsync(CancellationToken.None);
+
+            Assert.Equal(1, cache.Count);
+            Assert.Equal(0, cache.EvictionCount);
+            Assert.Equal(0, container.DisposeInvocationCount);
+
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+
+            Assert.Equal(1, _factory.CreateCount);
+        }
+
+        [Fact]
         public async Task GivenAFullCacheWithAnIdleTenant_WhenANewTenantArrives_ThenTheLeastRecentlyUsedIsEvicted()
         {
             await using TenantContainerCache cache = CreateCache(maxResidentTenants: 2);
@@ -205,6 +238,93 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             Assert.Equal(1, cache.AdmissionRejectionCount);
             Assert.Equal(2, _factory.CreateCount);
             Assert.Equal(0, _factory.CreateCountFor(new TenantId("gamma")));
+        }
+
+        [Fact]
+        public async Task GivenAResidentAcquiresBeforeItsIdleClaim_WhenANewTenantArrives_ThenAdmissionRejectsWithoutRemovingOrDrainingIt()
+        {
+            ITenantLease racingLease = null;
+            _factory.ConfigureContainer = container =>
+            {
+                container.BeforeIdleDrainClaim = () =>
+                {
+                    Assert.Equal(0, container.ActiveLeaseCount);
+                    Assert.True(container.TryAcquire(out racingLease));
+                    container.BeforeIdleDrainClaim = null;
+                };
+            };
+
+            await using TenantContainerCache cache = CreateCache(maxResidentTenants: 1);
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+            RecordingContainer resident = Assert.Single(_factory.CreatedContainers);
+
+            try
+            {
+                TenantAdmissionRejectedException exception =
+                    await Assert.ThrowsAsync<TenantAdmissionRejectedException>(
+                        () => cache.AcquireAsync(Tenant("beta"), CancellationToken.None).AsTask());
+
+                Assert.Equal(new TenantId("beta"), exception.TenantId);
+                Assert.NotNull(racingLease);
+                Assert.Equal(new TenantId("alpha"), racingLease.TenantId);
+                Assert.Equal(1, resident.ActiveLeaseCount);
+                Assert.Equal(1, cache.Count);
+                Assert.Equal(0, cache.EvictionCount);
+                Assert.Equal(1, cache.AdmissionRejectionCount);
+                Assert.Equal(0, resident.DisposeInvocationCount);
+                Assert.Equal(0, _factory.CreateCountFor(new TenantId("beta")));
+            }
+            finally
+            {
+                racingLease?.Dispose();
+            }
+
+            using ITenantLease beta = await cache.AcquireAsync(Tenant("beta"), CancellationToken.None);
+
+            Assert.Equal(new TenantId("beta"), beta.TenantId);
+            Assert.Equal(1, cache.Count);
+            Assert.Equal(1, cache.EvictionCount);
+            Assert.Equal(1, resident.DisposeInvocationCount);
+            Assert.Equal(1, resident.DisposeCallCount);
+            Assert.Equal(1, _factory.CreateCountFor(new TenantId("beta")));
+        }
+
+        [Fact]
+        public async Task GivenAResidentIsTouchedBeforeItsIdleClaim_WhenANewTenantArrives_ThenTheUpdatedLeastRecentlyUsedTenantIsEvicted()
+        {
+            _factory.ConfigureContainer = container =>
+            {
+                if (container.TenantId == new TenantId("alpha"))
+                {
+                    container.BeforeIdleDrainClaim = () =>
+                    {
+                        _timeProvider.Advance(TimeSpan.FromMinutes(1));
+                        Assert.True(container.TryAcquire(out ITenantLease lease));
+                        container.BeforeIdleDrainClaim = null;
+                        lease.Dispose();
+                    };
+                }
+            };
+
+            await using TenantContainerCache cache = CreateCache(maxResidentTenants: 2);
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+            _timeProvider.Advance(TimeSpan.FromMinutes(1));
+            (await cache.AcquireAsync(Tenant("beta"), CancellationToken.None)).Dispose();
+            RecordingContainer alpha =
+                _factory.CreatedContainers.Single(container => container.TenantId == new TenantId("alpha"));
+            RecordingContainer beta =
+                _factory.CreatedContainers.Single(container => container.TenantId == new TenantId("beta"));
+
+            (await cache.AcquireAsync(Tenant("gamma"), CancellationToken.None)).Dispose();
+
+            Assert.Equal(0, alpha.DisposeInvocationCount);
+            Assert.Equal(1, beta.DisposeInvocationCount);
+            Assert.Equal(1, cache.EvictionCount);
+            Assert.Equal(3, _factory.CreateCount);
+
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+
+            Assert.Equal(3, _factory.CreateCount);
         }
 
         [Fact]
@@ -626,6 +746,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             public int ActiveLeaseCount => _inner.ActiveLeaseCount;
 
+            public Action BeforeIdleDrainClaim { get; set; }
+
             public Func<int> CacheCountObserver { get; set; }
 
             public int? CacheCountAtFirstAcquire { get; private set; }
@@ -668,6 +790,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             public Task StartInitializersAsync(CancellationToken cancellationToken) =>
                 _inner.StartInitializersAsync(cancellationToken);
+
+            public bool TryBeginDrainIfIdle(DateTimeOffset? expectedLastAccessedUtc = null)
+            {
+                BeforeIdleDrainClaim?.Invoke();
+                return _inner.TryBeginDrainIfIdle(expectedLastAccessedUtc);
+            }
 
             public bool TryAcquire(out ITenantLease lease)
             {
