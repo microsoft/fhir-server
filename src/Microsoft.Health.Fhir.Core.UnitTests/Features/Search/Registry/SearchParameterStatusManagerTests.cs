@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceSecurity = "http://hl7.org/fhir/SearchParameter/Resource-security";
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
         private static readonly string ResourceSource = "http://hl7.org/fhir/SearchParameter/Resource-source";
+        private static readonly string MissingUri = "http://hl7.org/fhir/SearchParameter/us-core-patient-gender-identity";
 
         private readonly SearchParameterStatusManager _manager;
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
@@ -253,6 +255,98 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .PublishAsync(
                     Arg.Any<SearchParametersUpdatedNotification>(),
                     Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenASearchParameterMissingFromTheRegistry_WhenUpdatingStatusWithoutIgnoreFlag_ThenSearchParameterNotSupportedExceptionIsThrown()
+        {
+            // Arrange - the url is no longer in the registry, which is what happens once a search parameter
+            // reached the Deleted status and was removed by SearchParameterOperations.GetAndApplySearchParameterUpdates.
+            _searchParameterDefinitionManager
+                .GetSearchParameter(MissingUri)
+                .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUri)));
+
+            // Act & Assert
+            await Assert.ThrowsAsync<SearchParameterNotSupportedException>(
+                () => _manager.UpdateSearchParameterStatusAsync(
+                    new[] { MissingUri },
+                    SearchParameterStatus.PendingHardDelete,
+                    CancellationToken.None));
+
+            await _searchParameterStatusDataStore
+                .DidNotReceive()
+                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>(), Arg.Any<long?>());
+        }
+
+        [Fact]
+        public async Task GivenASearchParameterMissingFromTheRegistry_WhenUpdatingStatusWithIgnoreFlag_ThenTheUriIsSkipped()
+        {
+            // Arrange - hard deleting a SearchParameter resource whose registry entry is already gone must not fail.
+            _searchParameterDefinitionManager
+                .GetSearchParameter(MissingUri)
+                .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUri)));
+
+            // Act
+            await _manager.UpdateSearchParameterStatusAsync(
+                new[] { MissingUri },
+                SearchParameterStatus.PendingHardDelete,
+                CancellationToken.None,
+                ignoreSearchParameterNotSupportedException: true);
+
+            // Assert - nothing was persisted for a url the registry does not know about.
+            await _searchParameterStatusDataStore
+                .DidNotReceive()
+                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>(), Arg.Any<long?>());
+        }
+
+        [Fact]
+        public async Task GivenAMixOfKnownAndMissingSearchParameters_WhenUpdatingStatusWithIgnoreFlag_ThenOnlyTheKnownOnesArePersisted()
+        {
+            // Arrange
+            _searchParameterDefinitionManager
+                .GetSearchParameter(MissingUri)
+                .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUri)));
+
+            // Act
+            await _manager.UpdateSearchParameterStatusAsync(
+                new[] { MissingUri, ResourceQuery },
+                SearchParameterStatus.PendingHardDelete,
+                CancellationToken.None,
+                ignoreSearchParameterNotSupportedException: true);
+
+            // Assert
+            await _searchParameterStatusDataStore
+                .Received(1)
+                .UpsertStatuses(
+                    Arg.Is<List<ResourceSearchParameterStatus>>(statuses =>
+                        statuses.Count == 1 &&
+                        statuses[0].Uri.OriginalString == ResourceQuery &&
+                        statuses[0].Status == SearchParameterStatus.PendingHardDelete),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<long?>());
+        }
+
+        [Fact]
+        public async Task GivenASearchParameterMissingFromTheRegistry_WhenDeletingItsStatus_ThenTheRegistryIsNotConsulted()
+        {
+            // Arrange - the Deleted status skips registry validation altogether.
+            _searchParameterDefinitionManager
+                .GetSearchParameter(MissingUri)
+                .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUri)));
+
+            // Act
+            await _manager.DeleteSearchParameterStatusAsync(MissingUri, CancellationToken.None);
+
+            // Assert
+            await _searchParameterStatusDataStore
+                .Received(1)
+                .UpsertStatuses(
+                    Arg.Is<List<ResourceSearchParameterStatus>>(statuses =>
+                        statuses.Count == 1 &&
+                        statuses[0].Uri.OriginalString == MissingUri &&
+                        statuses[0].Status == SearchParameterStatus.Deleted),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<long?>());
         }
     }
 }

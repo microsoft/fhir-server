@@ -136,6 +136,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// Persists a new status for a set of search parameters.
+        /// </summary>
+        /// <param name="searchParameterUris">The definition urls of the search parameters to update.</param>
+        /// <param name="status">The status to persist.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="ignoreSearchParameterNotSupportedException">
+        /// When <c>true</c>, urls that are no longer present in the search parameter registry are logged and skipped
+        /// instead of failing the whole operation. Callers that are deleting search parameters use this so that a
+        /// registry entry that was already removed does not turn the delete into a bad request.
+        /// </param>
+        /// <param name="reindexId">The id of the reindex job performing the update, when applicable.</param>
+        /// <param name="lastUpdated">The last updated value used for optimistic concurrency, when applicable.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
@@ -149,7 +163,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // This makes sense only for status other than Deleted.
                 if (status != SearchParameterStatus.Deleted)
                 {
-                    _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    try
+                    {
+                        _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    }
+                    catch (SearchParameterNotSupportedException ex) when (ignoreSearchParameterNotSupportedException)
+                    {
+                        // SearchParameterNotSupportedException is thrown by SearchParameterDefinitionManager.GetSearchParameter
+                        // when the given url is not in its cache. That happens legitimately when the parameter already reached
+                        // the Deleted status and was removed from the registry while its SearchParameter resource still exists.
+                        // Callers that pass this flag (for example $bulk-delete and hard delete) want to delete as many search
+                        // parameters as possible, so skip this uri instead of failing the whole request. No status row is written
+                        // for it: the registry no longer knows the url, so persisting for instance PendingHardDelete would leave
+                        // an orphaned row that every reindex job would have to reconcile.
+                        _logger.LogWarning(ex, "The search parameter '{Uri}' is not in the search parameter registry. Skipping its status update to '{NewStatus}'.", uri, status.ToString());
+                        continue;
+                    }
                 }
 
                 // It does not make sense to keep any of existing ResourceSearchParameterStatus components as results do not depend on them.
@@ -159,6 +188,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     Uri = new Uri(uri),
                     LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow,
                 });
+            }
+
+            if (statuses.Count == 0)
+            {
+                _logger.LogInformation("No search parameter statuses to update.");
+                return;
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken, reindexId);
