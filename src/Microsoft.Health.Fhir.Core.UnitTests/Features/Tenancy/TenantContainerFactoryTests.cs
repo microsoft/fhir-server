@@ -333,6 +333,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                 failure => Assert.Same(failures.DisposeFailure, failure));
         }
 
+        [Fact]
+        public async Task GivenNestedInitializerStartupAndCleanupAggregateFailures_WhenCreationFails_ThenEveryLeafFailureIsPreservedInOccurrenceOrder()
+        {
+            var harness = new Harness();
+            var events = new List<string>();
+
+            var startupLeaf1 = new InvalidOperationException("startup:1");
+            var startupLeaf2 = new InvalidOperationException("startup:2");
+            var startupLeaf3 = new InvalidOperationException("startup:3");
+            var startupLeaf4 = new InvalidOperationException("startup:4");
+            var startupEmptyAggregate = new AggregateException();
+            var startupNestedAggregate = new AggregateException(startupLeaf2, startupEmptyAggregate, startupLeaf3);
+            var startupFailure = new AggregateException(startupLeaf1, startupNestedAggregate, startupLeaf4);
+
+            var cleanupLeaf1 = new InvalidOperationException("cleanup:1");
+            var cleanupLeaf2 = new InvalidOperationException("cleanup:2");
+            var cleanupLeaf3 = new InvalidOperationException("cleanup:3");
+            var cleanupLeaf4 = new InvalidOperationException("cleanup:4");
+            var cleanupEmptyAggregate = new AggregateException();
+            var cleanupNestedAggregate = new AggregateException(cleanupLeaf2, cleanupEmptyAggregate, cleanupLeaf3);
+            var cleanupFailure = new AggregateException(cleanupLeaf1, cleanupNestedAggregate, cleanupLeaf4);
+
+            harness.RootServices.AddSingleton<IHostedService>(
+                new NestedAggregateHostedService("first", events, null, cleanupFailure));
+            harness.RootServices.AddSingleton<IHostedService>(
+                new NestedAggregateHostedService("second", events, startupFailure, null));
+            harness.Policy.Set(typeof(NestedAggregateHostedService).FullName, TenantHostedServiceDisposition.PerTenantInitializer);
+
+            AggregateException exception =
+                await Assert.ThrowsAsync<AggregateException>(() => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Equal(new[] { "start:first", "start:second", "stop:first" }, events);
+            Assert.Collection(
+                exception.InnerExceptions,
+                failure => Assert.Same(startupLeaf1, failure),
+                failure => Assert.Same(startupLeaf2, failure),
+                failure => Assert.Same(startupEmptyAggregate, failure),
+                failure => Assert.Same(startupLeaf3, failure),
+                failure => Assert.Same(startupLeaf4, failure),
+                failure => Assert.Same(cleanupLeaf1, failure),
+                failure => Assert.Same(cleanupLeaf2, failure),
+                failure => Assert.Same(cleanupEmptyAggregate, failure),
+                failure => Assert.Same(cleanupLeaf3, failure),
+                failure => Assert.Same(cleanupLeaf4, failure));
+        }
+
         private static T Resolve<T>(ITenantContainer container)
         {
             Assert.True(container.TryAcquire(out ITenantLease lease));
@@ -599,6 +645,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             {
                 Interlocked.Increment(ref _stopCallCount);
                 throw Failure;
+            }
+        }
+
+        private sealed class NestedAggregateHostedService : IHostedService
+        {
+            private readonly string _name;
+            private readonly IList<string> _events;
+            private readonly AggregateException _startFailure;
+            private readonly AggregateException _stopFailure;
+
+            public NestedAggregateHostedService(
+                string name,
+                IList<string> events,
+                AggregateException startFailure,
+                AggregateException stopFailure)
+            {
+                _name = name;
+                _events = events;
+                _startFailure = startFailure;
+                _stopFailure = stopFailure;
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _events.Add($"start:{_name}");
+
+                if (_startFailure is not null)
+                {
+                    throw _startFailure;
+                }
+
+                return Task.CompletedTask;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                _events.Add($"stop:{_name}");
+
+                if (_stopFailure is not null)
+                {
+                    throw _stopFailure;
+                }
+
+                return Task.CompletedTask;
             }
         }
 
