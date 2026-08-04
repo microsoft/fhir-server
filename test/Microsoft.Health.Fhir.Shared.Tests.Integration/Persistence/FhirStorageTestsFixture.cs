@@ -182,6 +182,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        internal IFhirOperationDataStore TestSqlServerOperationDataStore
+        {
+            get
+            {
+                if (_fixture is SqlServerFhirStorageTestsFixture sqlFixture)
+                {
+                    return sqlFixture.TestSqlServerOperationDataStore;
+                }
+
+                return null;
+            }
+        }
+
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
         public IServiceProvider Service => _fixture;
@@ -331,10 +344,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 searchParameterSupportResolver,
                 dataStoreSearchParameterValidator,
-                () => OperationDataStore.CreateMockScope(),
                 () => SearchService.CreateMockScope(),
                 DataStore.CreateMockScopeProvider(),
-                resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             var deleter = new DeletionService(

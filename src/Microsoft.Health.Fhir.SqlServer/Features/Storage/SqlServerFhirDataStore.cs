@@ -217,6 +217,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _logger.LogWarning(sqlEx, "Optimistic concurrency conflict occurred while calling dbo.MergeResourcesAndSearchParams");
                             throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
                         }
+                        else if (sqlEx.IsReindexJobConflict())
+                        {
+                            _logger.LogWarning(sqlEx, $"Error calling dbo.MergeResourcesAndSearchParams. {sqlEx.Message}");
+                            throw new JobConflictException(sqlEx.Message);
+                        }
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
@@ -818,7 +823,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
-                cmd.Parameters.AddWithValue("@ReindexId", 0);
             }
             else
             {
