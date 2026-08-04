@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Parameters
 
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly SearchParameterOperations _searchParameterOperations;
 
         public SearchParameterOperationsTests()
@@ -61,13 +60,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Parameters
                 .GetSearchParameter(MissingUrl)
                 .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUrl)));
 
-            // No active reindex job. default gives (found: false, id: null) without an explicit cast on null.
-            (bool Found, string Id) noActiveReindexJob = default;
-
-            _fhirOperationDataStore
-                .CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>())
-                .Returns(noActiveReindexJob);
-
             var statusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
@@ -81,10 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Parameters
                 ModelInfoProvider.Instance,
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => _fhirOperationDataStore.CreateMockScope(),
                 () => Substitute.For<ISearchService>().CreateMockScope(),
                 Substitute.For<IFhirDataStore>().CreateMockScopeProvider(),
-                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
