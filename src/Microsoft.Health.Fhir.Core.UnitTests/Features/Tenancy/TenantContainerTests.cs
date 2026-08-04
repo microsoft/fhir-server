@@ -167,21 +167,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         [Fact]
         public async Task GivenConcurrentDisposals_WhenTeardownFails_ThenTheyObserveTheSameFailure()
         {
+            RecordingDisposable disposable = null;
+            var events = new EventRecorder();
+            BlockingThrowingStopHostedService initializer = null;
             var services = new ServiceCollection();
-            services.AddSingleton<RecordingDisposable>();
-            services.AddSingleton<ThrowingHostedService>();
-            services.AddSingleton<IHostedService>(serviceProvider => serviceProvider.GetRequiredService<ThrowingHostedService>());
+            services.AddSingleton(_ => disposable = new RecordingDisposable());
+            services.AddSingleton<IHostedService>(serviceProvider => initializer = new BlockingThrowingStopHostedService(
+                events,
+                serviceProvider.GetRequiredService<RecordingDisposable>()));
 
             var container = CreateContainer(services, new FakeTimeProvider());
             await container.StartInitializersAsync(CancellationToken.None);
 
             Task first = container.DisposeAsync().AsTask();
+            Assert.NotNull(initializer);
+            await initializer.StopEntered.Task;
+
             Task second = container.DisposeAsync().AsTask();
-
             Assert.Same(first, second);
+            Assert.False(first.IsCompleted);
+            Assert.False(second.IsCompleted);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await first);
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await second);
+            initializer.AllowStopFailure.TrySetResult(true);
+
+            InvalidOperationException firstException = await Assert.ThrowsAsync<InvalidOperationException>(async () => await first);
+            InvalidOperationException secondException = await Assert.ThrowsAsync<InvalidOperationException>(async () => await second);
+
+            Assert.Equal("stop failed", firstException.Message);
+            Assert.Equal(firstException.Message, secondException.Message);
+            Assert.NotNull(disposable);
+            Assert.True(disposable.Disposed);
         }
 
         [Fact]
@@ -277,6 +292,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             Assert.False(container.TryAcquire(out ITenantLease lease));
             Assert.Null(lease);
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await container.DisposeAsync());
+        }
+
+        [Fact]
+        public async Task GivenStartupCancellationDuringDisposal_WhenTeardownWaitsForStartup_ThenTheContainerBecomesTerminalAndCleansUp()
+        {
+            RecordingDisposable disposable = null;
+            var events = new EventRecorder();
+            var cancellationTokenSource = new CancellationTokenSource();
+            CancellableBlockingStartHostedService blockingInitializer = null;
+            var services = new ServiceCollection();
+            services.AddSingleton(_ => disposable = new RecordingDisposable());
+            services.AddSingleton<IHostedService>(serviceProvider => new EventingHostedService(
+                "first",
+                events,
+                serviceProvider.GetRequiredService<RecordingDisposable>()));
+            services.AddSingleton<IHostedService>(serviceProvider => blockingInitializer = new CancellableBlockingStartHostedService(
+                "second",
+                events,
+                serviceProvider.GetRequiredService<RecordingDisposable>()));
+
+            var container = CreateContainer(services, new FakeTimeProvider());
+            Task startup = container.StartInitializersAsync(cancellationTokenSource.Token);
+
+            Assert.NotNull(blockingInitializer);
+            await blockingInitializer.StartEntered.Task;
+
+            Task disposal = container.DisposeAsync().AsTask();
+
+            Assert.False(disposal.IsCompleted);
+
+            cancellationTokenSource.Cancel();
+
+            OperationCanceledException startupException =
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await startup);
+            Assert.Equal(cancellationTokenSource.Token, startupException.CancellationToken);
+
+            OperationCanceledException disposalException =
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await disposal);
+            Assert.Equal(cancellationTokenSource.Token, disposalException.CancellationToken);
+
+            Assert.False(container.TryAcquire(out ITenantLease lease));
+            Assert.Null(lease);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => container.StartInitializersAsync(CancellationToken.None));
+
+            Assert.Equal(
+                new[] { "start:first", "start:second:entered", "start:second:canceled", "stop:first" },
+                events.Snapshot());
+            Assert.Equal(1, blockingInitializer.StartCallCount);
+            Assert.Equal(0, blockingInitializer.StopCallCount);
+            Assert.NotNull(disposable);
+            Assert.True(disposable.Disposed);
         }
 
         [Fact]
@@ -435,6 +501,102 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             public Task StartAsync(CancellationToken cancellationToken) => throw new InvalidOperationException("start failed");
 
             public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private sealed class BlockingThrowingStopHostedService : IHostedService
+        {
+            private readonly EventRecorder _events;
+
+            public BlockingThrowingStopHostedService(EventRecorder events, RecordingDisposable disposable)
+            {
+                _events = events;
+            }
+
+            public TaskCompletionSource<bool> AllowStopFailure { get; } =
+                new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TaskCompletionSource<bool> StopEntered { get; } =
+                new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public async Task StopAsync(CancellationToken cancellationToken)
+            {
+                _events.Record("stop:entered");
+                StopEntered.TrySetResult(true);
+                await AllowStopFailure.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                _events.Record("stop:throw");
+                throw new InvalidOperationException("stop failed");
+            }
+        }
+
+        private sealed class EventingHostedService : IHostedService
+        {
+            private readonly string _name;
+            private readonly EventRecorder _events;
+
+            public EventingHostedService(string name, EventRecorder events, RecordingDisposable disposable)
+            {
+                _name = name;
+                _events = events;
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _events.Record($"start:{_name}");
+                return Task.CompletedTask;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                _events.Record($"stop:{_name}");
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class CancellableBlockingStartHostedService : IHostedService
+        {
+            private readonly string _name;
+            private readonly EventRecorder _events;
+            private int _startCallCount;
+            private int _stopCallCount;
+
+            public CancellableBlockingStartHostedService(string name, EventRecorder events, RecordingDisposable disposable)
+            {
+                _name = name;
+                _events = events;
+            }
+
+            public int StartCallCount => Volatile.Read(ref _startCallCount);
+
+            public int StopCallCount => Volatile.Read(ref _stopCallCount);
+
+            public TaskCompletionSource<bool> StartEntered { get; } =
+                new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async Task StartAsync(CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref _startCallCount);
+                _events.Record($"start:{_name}:entered");
+                StartEntered.TrySetResult(true);
+
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _events.Record($"start:{_name}:canceled");
+                    throw;
+                }
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref _stopCallCount);
+                _events.Record($"stop:{_name}");
+                return Task.CompletedTask;
+            }
         }
 
         private sealed class EventRecorder
