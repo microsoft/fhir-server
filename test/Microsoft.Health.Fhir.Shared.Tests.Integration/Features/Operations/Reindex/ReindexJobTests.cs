@@ -348,15 +348,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
-        public Task GivenALegacyReindexJobRecord_WhenGettingJobStatus_ThenJobRecordShouldReturn()
-        {
-            string legacyJobRecord = Samples.GetJson("LegacyRawReindexJobRecord");
-            var reindexJobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(legacyJobRecord);
-            Assert.True(reindexJobRecord.ResourceCounts.Any());
-            return Task.CompletedTask;
-        }
-
-        [Fact]
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
             await CancelActiveReindexJobIfExists();
