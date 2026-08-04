@@ -165,7 +165,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Parse the value.
-            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
+            // Not every SearchParamType has a parser. SearchParamType.Special (for example Location-near) has no
+            // parser at all and SearchParamType.Composite is handled by the caller. Those parameters are expected to be
+            // marked Unsupported in the search parameter registry, but a stale or repaired registry can still let one
+            // reach this point. Surface it as SearchParameterNotSupportedException, which callers translate into a
+            // NotSupported OperationOutcome, instead of letting a KeyNotFoundException escape as a 500.
+            if (!_parserDictionary.TryGetValue(searchParameter.Type, out Func<string, ISearchValue> parser))
+            {
+                throw searchParameter.Url != null
+                    ? new SearchParameterNotSupportedException(searchParameter.Url)
+                    : new SearchParameterNotSupportedException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.NoConverterForSearchParamType, searchParameter.Type, searchParameter.Expression));
+            }
 
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();

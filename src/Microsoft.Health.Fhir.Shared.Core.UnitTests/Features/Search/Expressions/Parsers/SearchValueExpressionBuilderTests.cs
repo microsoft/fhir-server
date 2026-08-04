@@ -23,6 +23,7 @@ using Expression=Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expressi
 using SearchComparator = Microsoft.Health.Fhir.ValueSets.SearchComparator;
 using SearchModifierCode = Microsoft.Health.Fhir.ValueSets.SearchModifierCode;
 using SearchParamType = Hl7.Fhir.Model.SearchParamType;
+using SearchParamTypeValueSet = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
@@ -931,6 +932,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Uri), new SearchModifier(modifier, targetTypeModifier?.ToString()), "test"));
+        }
+
+        [Fact]
+        public void GivenASearchParameterTypeWithoutAParser_WhenBuilding_ThenSearchParameterNotSupportedExceptionShouldBeThrown()
+        {
+            // SearchParamType.Special (for example http://hl7.org/fhir/SearchParameter/Location-near) has no value
+            // parser. Such a parameter should never reach the parser because it is marked Unsupported in the registry,
+            // but a stale registry can still let it through. It has to surface as a NotSupported OperationOutcome
+            // rather than as an unhandled KeyNotFoundException, which the API layer would report as a 500.
+            var searchParameter = new SearchParameterInfo(
+                "near",
+                "near",
+                SearchParamTypeValueSet.Special,
+                new Uri("http://hl7.org/fhir/SearchParameter/Location-near"));
+
+            Assert.Throws<SearchParameterNotSupportedException>(
+                () => _parser.Parse(searchParameter, null, "-83.694810|42.256500"));
+        }
+
+        [Fact]
+        public void GivenASearchParameterTypeWithoutAParserAndWithoutAUrl_WhenBuilding_ThenSearchParameterNotSupportedExceptionShouldBeThrown()
+        {
+            var searchParameter = new SearchParameterInfo(
+                DefaultParamName,
+                DefaultParamName,
+                SearchParamTypeValueSet.Special);
+
+            Assert.Throws<SearchParameterNotSupportedException>(
+                () => _parser.Parse(searchParameter, null, "test"));
         }
 
         private SearchParameterInfo CreateSearchParameter(SearchParamType searchParameterType)
