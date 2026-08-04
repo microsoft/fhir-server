@@ -467,16 +467,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
         {
-            ReindexProcessingJobResult jobResult = null;
-
-            // Safely deserialize Result
-            if (!string.IsNullOrEmpty(job.Result))
-            {
-                jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-            }
-
+            // job result can be null, definition cannot
+            var jobResult = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
             var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-
             if (jobDefinition.ResourceType != null)
             {
                 // Aggregate counts instead of ignoring duplicates
