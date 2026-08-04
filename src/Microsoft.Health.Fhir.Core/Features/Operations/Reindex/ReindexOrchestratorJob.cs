@@ -9,6 +9,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -287,26 +288,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             var targetStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
-            IReadOnlyCollection<ResourceSearchParameterStatus> initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var initial = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Clean up search parameters in pending delete states if resources don't exist
-            var deletedSearchParameterUrls = await CleanupMissingSearchParameterResourcesAsync(initialSearchParamStatusCollection, cancellationToken);
+            var deletedSearchParameterUrls = await CleanupMissingSearchParameterResourcesAsync(initial, cancellationToken);
 
             // Get all URIs that have at least one entry with a valid status
             // Exclude search parameters marked as deleted during cleanup
-            var originalStatuses = initialSearchParamStatusCollection
-                .Where(s => targetStatuses.Contains(s.Status))
-                .Where(s => !deletedSearchParameterUrls.Contains(s.Uri.OriginalString))
-                .GroupBy(s => s.Uri.OriginalString, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First().Status, StringComparer.Ordinal);
+            var initialMinusDeleted = initial
+                                        .Where(s => targetStatuses.Contains(s.Status))
+                                        .Where(s => !deletedSearchParameterUrls.Contains(s.Uri.OriginalString))
+                                        .GroupBy(s => s.Uri.OriginalString, StringComparer.Ordinal)
+                                        .ToDictionary(g => g.Key, g => g.First().Status, StringComparer.Ordinal);
 
             // Filter to only those search parameters which have valid definitions
-            var possibleNotYetIndexedParams = new List<SearchParameterInfo>();
-            foreach (var validUri in originalStatuses.Keys)
+            var targetParams = new List<SearchParameterInfo>();
+            foreach (var validUri in initialMinusDeleted.Keys)
             {
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
                 {
-                    possibleNotYetIndexedParams.Add(searchInfo);
+                    targetParams.Add(searchInfo);
                     var msg = $"status={searchInfo.SearchParameterStatus} uri={validUri}";
                     _logger.LogJobInformation(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null, cancellationToken);
@@ -320,164 +321,80 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            var notYetIndexedParams = new List<SearchParameterInfo>();
+            var resourceTypes = new HashSet<string>();
 
-            var resourceTypeList = new HashSet<string>();
-
-            notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
-
-            // From the param list, get the list of necessary resources which should be
-            // included in our query
-            foreach (var param in notYetIndexedParams)
+            // From the param list, get the list of necessary resource types
+            foreach (var param in targetParams)
             {
                 var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
-                resourceTypeList.UnionWith(searchParamResourceTypes);
+                resourceTypes.UnionWith(searchParamResourceTypes);
                 foreach (var resourceType in searchParamResourceTypes)
                 {
-                    PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, originalStatuses[param.Url.OriginalString])], new List<long>());
+                    PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, initialMinusDeleted[param.Url.OriginalString])], new List<long>());
                 }
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!notYetIndexedParams.Any() && resourceTypeList.Count == 0)
+            if (targetParams.Count == 0 && resourceTypes.Count == 0)
             {
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, string.Format(Core.Resources.ReindexingNoSearchParameterstoReindex, _jobInfo.Id));
                 return new List<long>();
             }
 
-            await CalculateAndSetTotalAndResourceCounts(resourceTypeList);
-
-            // Handle search parameters for resource types with count 0
-            var resourceTypesWithZeroCount = _reindexJobRecord.ResourceCounts
-                .Where(kvp => kvp.Value.Count == 0)
-                .Select(kvp => kvp.Key)
-                .ToList();
-
-            // Confirm counts for range by not ignoring hash this time incase it's 0
-            // Because we ignore hash to get full range set for initial count, we need to double-check counts here
-            foreach (var resourceCount in _reindexJobRecord.ResourceCounts)
+            if (!_isSurrogateIdRangingSupported) // only cosmos needs resource counts to support chunking
             {
-                var resourceType = resourceCount.Key;
-                var resourceCountValue = resourceCount.Value;
-                var startResourceSurrogateId = resourceCountValue.StartResourceSurrogateId;
-                var endResourceSurrogateId = resourceCountValue.EndResourceSurrogateId;
-                var count = resourceCountValue.Count;
-
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
-                {
-                    LastModified = Clock.UtcNow,
-                    Status = OperationStatus.Queued,
-                    StartResourceSurrogateId = startResourceSurrogateId,
-                    EndResourceSurrogateId = endResourceSurrogateId,
-                };
-
-                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, _cancellationToken);
-
-                // Check if the result has no records and add to zero-count list
-                if (countOnlyResults?.TotalCount == 0)
-                {
-                    if (!resourceTypesWithZeroCount.Contains(resourceType))
-                    {
-                        resourceTypesWithZeroCount.Add(resourceType);
-
-                        // subtract this count from JobRecordCount
-                        _reindexJobRecord.Count -= resourceCountValue.Count;
-
-                        // Update the ResourceCounts entry to reflect zero count
-                        resourceCountValue.Count = 0;
-                    }
-                }
+                await CalculateAndSetTotalAndResourceCounts(resourceTypes);
             }
 
-            return await EnqueueQueryProcessingJobsAsync(cancellationToken);
+            return await EnqueueQueryProcessingJobsAsync(resourceTypes, cancellationToken);
         }
 
         private void AddErrorResult(string severity, string issueType, string message)
         {
-            var errorList = new List<OperationOutcomeIssue>
-            {
-                new OperationOutcomeIssue(
-                    severity,
-                    issueType,
-                    message),
-            };
+            var errorList = new List<OperationOutcomeIssue> { new OperationOutcomeIssue(severity, issueType, message) };
             errorList.AddRange(_currentResult.Error);
             _currentResult.Error = errorList;
         }
 
-        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes, CancellationToken cancellationToken)
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                throw new OperationCanceledException("Reindex operation cancelled by customer.");
-            }
-
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
-            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
+            foreach (var resourceType in resourceTypes)
             {
-                var resourceType = resourceTypeEntry.Key;
-                var resourceCount = resourceTypeEntry.Value;
+                var searchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.ResourceTypes.Contains(resourceType)).Select(_ => (Url: _.Key, _.Value.Status)).ToList();
+                PopulateProcessingLookups(resourceType, searchParams, new List<long>());
+                var urlsToProcess = searchParams.Select(_ => _.Url).ToList();
 
-                var searchParamsToProcess = _transientSearchParamResouceTypes
-                    .Where(_ => _.Value.ResourceTypes.Contains(resourceType))
-                    .Select(_ => (Url: _.Key, Status: _.Value.Status))
-                    .ToList();
-                PopulateProcessingLookups(resourceType, searchParamsToProcess, new List<long>());
-                var urlsToProcess = searchParamsToProcess.Select(_ => _.Url).ToList();
+                var totalRangesEnqueued = 0;
 
-                int totalRangesEnqueued = 0;
-
-                // Check if surrogate ID ranging hasn't been determined yet or is supported
                 if (_isSurrogateIdRangingSupported)
                 {
                     // Use batched calls to GetSurrogateIdRanges to avoid timeout on large tables
-                    // Following the same pattern as Export job
-                    // Stream and enqueue each batch immediately so workers can start processing sooner
+                    // Enqueue each batch immediately so workers can start processing sooner
                     var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfRecordRanges;
-                    long startId = resourceCount.StartResourceSurrogateId;
-                    long endId = resourceCount.EndResourceSurrogateId;
+                    long startId = 0;
+                    long endId = long.MaxValue;
 
-                    _logger.LogJobInformation(
-                        _jobInfo,
-                        "Fetching and enqueueing surrogate ID ranges for resource type {ResourceType} in batches of {BatchSize}. StartId={StartId}, EndId={EndId}",
-                        resourceType,
-                        numberOfRangesPerBatch,
-                        startId,
-                        endId);
+                    _logger.LogJobInformation(_jobInfo, "Fetching and enqueueing surrogate ID ranges for resource type {ResourceType} in batches of {BatchSize}. StartId={StartId}, EndId={EndId}", resourceType, numberOfRangesPerBatch, startId, endId);
 
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
                         IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
                         do
                         {
-                            // Check for cancellation between batches
                             if (cancellationToken.IsCancellationRequested)
                             {
                                 throw new OperationCanceledException("Reindex operation cancelled by customer.");
                             }
 
-                            ranges = await searchService.Value.GetSurrogateIdRanges(
-                                resourceType,
-                                startId,
-                                endId,
-                                resourcesPerJob,
-                                numberOfRangesPerBatch,
-                                true,
-                                cancellationToken,
-                                true);
-
+                            ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, cancellationToken, true);
                             if (ranges.Any())
                             {
-                                // Stream: Create and enqueue job definitions for this batch immediately
-                                var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
-                                    ranges,
-                                    resourceType,
-                                    searchParamsToProcess,
-                                    cancellationToken);
+                                var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams, cancellationToken);
 
-                                PopulateProcessingLookups(resourceType, searchParamsToProcess, batchJobIds);
+                                PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
                                 allEnqueuedJobIds.AddRange(batchJobIds);
                                 totalRangesEnqueued += ranges.Count;
@@ -488,45 +405,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         while (ranges.Any());
                     }
 
-                    _logger.LogJobInformation(
-                        _jobInfo,
-                        "Completed fetching and enqueueing {RangeCount} surrogate ID ranges for resource type {ResourceType}.",
-                        totalRangesEnqueued,
-                        resourceType);
+                    _logger.LogJobInformation(_jobInfo, "Completed fetching and enqueueing {RangeCount} surrogate ID ranges for resource type {ResourceType}.", totalRangesEnqueued, resourceType);
                 }
                 else
                 {
-                    // Traditional chunking approach for Cosmos or fallback
-                    long totalResources = resourceCount.Count;
-
-                    int numberOfChunks = (int)Math.Ceiling(totalResources / (double)resourcesPerJob);
+                    // Traditional chunking approach for Cosmos
+                    var resourceCount = _reindexJobRecord.ResourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
+                    var numberOfChunks = Math.Max(1, (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob)); // create at least one chunk even if count is zero
                     _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
 
                     // Create uniform-sized chunks based on resource count
                     var processingRanges = new List<(long StartId, long EndId, int Count)>();
-                    for (int i = 0; i < numberOfChunks; i++)
+                    for (var i = 0; i < numberOfChunks; i++)
                     {
-                        processingRanges.Add((0, 0, 0)); // For Cosmos, we don't use surrogate IDs directly
+                        processingRanges.Add((0, 0, 0));
                     }
 
                     // Enqueue all Cosmos ranges at once (they don't have the same large-scale issue)
-                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
-                        processingRanges,
-                        resourceType,
-                        searchParamsToProcess,
-                        cancellationToken);
+                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams, cancellationToken);
 
-                    PopulateProcessingLookups(resourceType, searchParamsToProcess, batchJobIds);
+                    PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
                     allEnqueuedJobIds.AddRange(batchJobIds);
                 }
 
-                _logger.LogJobInformation(
-                    _jobInfo,
-                    "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}",
-                    resourceType,
-                    urlsToProcess.Count,
-                    string.Join(", ", urlsToProcess));
+                _logger.LogJobInformation(_jobInfo, "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}", resourceType, urlsToProcess.Count, string.Join(", ", urlsToProcess));
             }
 
             _logger.LogJobInformation(_jobInfo, "Enqueued {Count} total query processing jobs.", allEnqueuedJobIds.Count);
@@ -568,29 +471,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
             IReadOnlyList<(long StartId, long EndId, int Count)> ranges,
             string resourceType,
-            List<(string Url, SearchParameterStatus Status)> validSearchParameterUrlStatuses,
+            List<(string Url, SearchParameterStatus Status)> searchParamUrlStatuses,
             CancellationToken cancellationToken)
         {
             var definitions = new List<string>();
 
             foreach (var range in ranges)
             {
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
-                {
-                    LastModified = Clock.UtcNow,
-                    Status = OperationStatus.Queued,
-                    StartResourceSurrogateId = range.StartId,
-                    EndResourceSurrogateId = range.EndId,
-                };
-
-                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, cancellationToken);
-
-                if (countOnlyResults?.TotalCount == 0)
-                {
-                    // nothing to do here
-                    continue;
-                }
-
                 var reindexJobPayload = new ReindexProcessingJobDefinition()
                 {
                     SearchParamLastUpdated = _searchParamLastUpdated,
@@ -601,28 +488,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         StartResourceSurrogateId = range.StartId,
                         EndResourceSurrogateId = range.EndId,
-                        Count = countOnlyResults?.TotalCount ?? 0,
+                        Count = range.Count, ////countOnlyResults?.TotalCount ?? 0,
                     },
                     ResourceType = resourceType,
                     MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
                     MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
-                    SearchParameterUrlStatuses = validSearchParameterUrlStatuses.ToImmutableList(),
+                    SearchParameterUrlStatuses = searchParamUrlStatuses.ToImmutableList(),
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
             }
 
-            if (!definitions.Any())
+            if (definitions.Count == 0)
             {
-                return Array.Empty<long>();
+                return new List<long>();
             }
 
             try
             {
-                var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
-                    .Select(job => job.Id)
-                    .ToList());
-
+                var jobIds = await _timeoutRetries.ExecuteAsync(
+                    async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken)).Select(job => job.Id).ToList());
                 _logger.LogJobInformation(_jobInfo, "Enqueued batch of {Count} jobs for resource type {ResourceType}.", jobIds.Count, resourceType);
                 return jobIds;
             }
@@ -684,7 +569,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<SearchResult> GetResourceCountForQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, bool ignoreSearchParamHash, CancellationToken cancellationToken)
         {
-            SearchResultReindex searchResultReindex = GetSearchResultReindex(queryStatus.ResourceType);
+            _reindexJobRecord.ResourceCounts.TryGetValue(queryStatus.ResourceType, out var searchResultReindex);
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Count, _reindexJobRecord.MaximumNumberOfResourcesPerQuery.ToString()),
@@ -800,12 +685,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return completeResourceList;
-        }
-
-        private SearchResultReindex GetSearchResultReindex(string resourceType)
-        {
-            _reindexJobRecord.ResourceCounts.TryGetValue(resourceType, out SearchResultReindex searchResultReindex);
-            return searchResultReindex;
         }
 
         private string GetSearchParameterHash(string resourceType)
