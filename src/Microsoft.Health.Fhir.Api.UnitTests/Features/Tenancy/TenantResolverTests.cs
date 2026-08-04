@@ -91,6 +91,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             Assert.Equal(new TenantId("alpha"), tenantId);
         }
 
+        [Fact]
+        public void GivenAHostHeaderResolver_WhenATenantIsAppendedAfterInitialLookup_ThenTheResolverRefreshesTheCachedMap()
+        {
+            var registry = new StaticTenantRegistry(
+                new TenantDescriptor(new TenantId("alpha"), new Uri("https://alpha.example.org")));
+
+            ITenantResolver resolver = new HostHeaderTenantResolver(registry);
+
+            var initialContext = new DefaultHttpContext();
+            initialContext.Request.Host = new HostString("alpha.example.org");
+
+            Assert.True(resolver.TryResolve(initialContext, out TenantId initialTenantId));
+            Assert.Equal(new TenantId("alpha"), initialTenantId);
+
+            registry.Append(new TenantDescriptor(new TenantId("beta"), new Uri("https://beta.example.org")));
+
+            var appendedContext = new DefaultHttpContext();
+            appendedContext.Request.Host = new HostString("beta.example.org");
+
+            Assert.True(resolver.TryResolve(appendedContext, out TenantId appendedTenantId));
+            Assert.Equal(new TenantId("beta"), appendedTenantId);
+        }
+
         private sealed class StaticTenantRegistry : ITenantRegistry
         {
             private readonly Dictionary<TenantId, TenantDescriptor> _tenants = new();
@@ -104,6 +127,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             }
 
             public IReadOnlyCollection<TenantDescriptor> Tenants => _tenants.Values;
+
+            public void Append(TenantDescriptor tenant)
+            {
+                _tenants[tenant.TenantId] = tenant;
+            }
 
             public bool TryGetTenant(TenantId tenantId, out TenantDescriptor descriptor)
                 => _tenants.TryGetValue(tenantId, out descriptor);
