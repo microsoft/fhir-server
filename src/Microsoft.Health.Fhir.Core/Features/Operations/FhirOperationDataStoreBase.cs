@@ -467,12 +467,10 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
         {
-            // job result can be null, definition cannot
-            var jobResult = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+            // definition cannot be null
             var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
             if (jobDefinition.ResourceType != null)
             {
-                // Aggregate counts instead of ignoring duplicates
                 if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
                 {
                     existing.Count += jobDefinition.ResourceCount.Count;
@@ -482,15 +480,15 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
                 }
 
-                // Add to resources list only once
                 if (!record.Resources.Contains(jobDefinition.ResourceType))
                 {
                     record.Resources.Add(jobDefinition.ResourceType);
                 }
             }
 
-            if (jobResult != null)
+            if (string.IsNullOrEmpty(job.Result))
             {
+                var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                 record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
                 record.FailureCount += jobResult.FailedResourceCount;
             }
