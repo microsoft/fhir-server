@@ -76,6 +76,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
                 .Returns(new List<string> { "Patient", "Observation", "Condition" });
 
+            _searchDefinitionManager
+                .GetDerivedResourceTypes(Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(callInfo =>
+                {
+                    var input = callInfo.ArgAt<IReadOnlyCollection<string>>(0);
+                    return input?.ToList() ?? new List<string>();
+                });
+
             // Initialize a fresh queue client for each test
             _queueClient = new TestQueueClient();
         }
@@ -402,6 +410,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var allResourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames().ToList();
 
             _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(allResourceTypes);
+            _searchDefinitionManager.GetDerivedResourceTypes(Arg.Any<IReadOnlyCollection<string>>()).Returns(allResourceTypes);
 
             // Set up search results to return data for all resource types
             _searchService.SearchForReindexAsync(
@@ -535,6 +544,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var domainResourceTypes = allResourceTypes.Where(rt => rt != "Binary" && rt != "Bundle" && rt != "Parameters").ToList();
 
             _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(domainResourceTypes);
+            _searchDefinitionManager.GetDerivedResourceTypes(Arg.Any<IReadOnlyCollection<string>>()).Returns(domainResourceTypes);
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob();
