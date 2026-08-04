@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Tenancy;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Core.Models;
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Registration
             ValidateEnabledConfiguration(configuration);
 
             services.TryAddSingleton(TimeProvider.System);
+            services.TryAddSingleton<ITenantResolver, HostHeaderTenantResolver>();
             services.AddSingleton(CreateCacheOptions(configuration));
             services.AddSingleton(CreateDefaultSharedServiceRegistry());
             services.AddSingleton<ITenantHostedServicePolicy>(CreateHostedServicePolicy());
@@ -99,6 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Registration
             registry.ShareWithTenants<IHostApplicationLifetime>();
             registry.ShareWithTenants<IHttpClientFactory>();
             registry.ShareWithTenants<IMeterFactory>();
+            registry.ShareWithTenants<ITenantResolver>();
 
             registry.ShareWithTenants<IAuditEventTypeMapping>();
             registry.ShareWithTenants<IModelInfoProvider>();

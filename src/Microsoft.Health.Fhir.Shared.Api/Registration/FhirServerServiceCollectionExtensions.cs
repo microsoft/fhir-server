@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -46,6 +47,7 @@ namespace Microsoft.Extensions.DependencyInjection
     public static class FhirServerServiceCollectionExtensions
     {
         private const string FhirServerConfigurationSectionName = "FhirServer";
+        private const string ForwardedHeadersEnabledSettingName = "ASPNETCORE_FORWARDEDHEADERS_ENABLED";
 
         /// <summary>
         /// Adds services for enabling a FHIR server.
@@ -109,7 +111,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 return throttlingOptions;
             });
 
-            if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(configurationRoot?[ForwardedHeadersEnabledSettingName], "true", StringComparison.OrdinalIgnoreCase))
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
@@ -168,7 +170,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // Register tenancy after the built-in FHIR services so the initial blueprint already includes
             // them. TenantServiceBlueprint keeps a live reference to the collection and snapshots it on
             // demand, so later registrations are captured as well.
-            services.AddFhirServerTenancy(fhirServerConfiguration.Tenancy);
+            services.AddFhirServerTenancy(fhirServerConfiguration.MultiTenantApplication);
 
             return new FhirServerBuilder(services);
         }
@@ -230,19 +232,40 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private class FhirServerStartupFilter : IStartupFilter
         {
+            private readonly bool _tenancyEnabled;
+            private readonly bool _forwardedHeadersEnabled;
+
+            public FhirServerStartupFilter(
+                IOptions<FhirServerConfiguration> fhirServerConfigurationOptions,
+                IConfiguration configuration)
+            {
+                EnsureArg.IsNotNull(fhirServerConfigurationOptions, nameof(fhirServerConfigurationOptions));
+                EnsureArg.IsNotNull(fhirServerConfigurationOptions.Value, nameof(fhirServerConfigurationOptions.Value));
+                EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+                _tenancyEnabled = fhirServerConfigurationOptions.Value.MultiTenantApplication.Enabled;
+                _forwardedHeadersEnabled = string.Equals(configuration[ForwardedHeadersEnabledSettingName], "true", StringComparison.OrdinalIgnoreCase);
+            }
+
             public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
             {
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-                    IConfiguration config = app.ApplicationServices.GetRequiredService<IConfiguration>();
 
-                    app.UseCors(Constants.DefaultCorsPolicy);
+                    if (_tenancyEnabled)
+                    {
+                        // Tenant resolution must run before every other middleware in this startup filter so
+                        // downstream components resolve from the tenant container.
+                        app.UseFhirTenancy();
+                    }
 
-                    if (string.Equals(config["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+                    if (_forwardedHeadersEnabled)
                     {
                         app.UseForwardedHeaders();
                     }
+
+                    app.UseCors(Constants.DefaultCorsPolicy);
 
                     // This middleware rejects requests that contain access tokens (JWTs) in the URL path or query string.
                     // It must run before FhirRequestContext to prevent the token from being logged.

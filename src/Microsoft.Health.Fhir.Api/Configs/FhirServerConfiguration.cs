@@ -46,6 +46,15 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// <summary>
         /// Gets the multi-tenant hosting configuration.
         /// </summary>
-        public TenancyConfiguration Tenancy { get; } = new TenancyConfiguration();
+        public TenancyConfiguration MultiTenantApplication { get; } = new TenancyConfiguration();
+
+        /// <summary>
+        /// Gets the multi-tenant hosting configuration.
+        /// </summary>
+        /// <remarks>
+        /// This alias preserves existing callers while the configuration surface moves to
+        /// <see cref="MultiTenantApplication"/>.
+        /// </remarks>
+        public TenancyConfiguration Tenancy => MultiTenantApplication;
     }
 }

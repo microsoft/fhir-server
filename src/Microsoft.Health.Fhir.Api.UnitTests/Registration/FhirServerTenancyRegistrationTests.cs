@@ -4,21 +4,31 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Tenancy;
 using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -85,9 +95,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             await using var rootProvider = BuildProvider(services);
             TenantContainerCache rootConcreteCache = rootProvider.GetRequiredService<TenantContainerCache>();
             ITenantContainerCache rootInterfaceCache = rootProvider.GetRequiredService<ITenantContainerCache>();
+            ITenantResolver rootResolver = rootProvider.GetRequiredService<ITenantResolver>();
             IHostedService rootHostedService = Assert.Single(rootProvider.GetServices<IHostedService>());
 
             Assert.Same(rootConcreteCache, rootInterfaceCache);
+            Assert.IsType<HostHeaderTenantResolver>(rootResolver);
             Assert.IsType<TenantContainerSweeper>(rootHostedService);
 
             ITenantContainer tenantContainer =
@@ -97,6 +109,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             {
                 Assert.Same(rootConcreteCache, Resolve<TenantContainerCache>(tenantContainer));
                 Assert.Same(rootInterfaceCache, Resolve<ITenantContainerCache>(tenantContainer));
+                Assert.Same(rootResolver, Resolve<ITenantResolver>(tenantContainer));
                 Assert.Empty(ResolveAll<IHostedService>(tenantContainer));
             }
             finally
@@ -134,6 +147,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 typeof(IHostApplicationLifetime),
                 typeof(IHttpClientFactory),
                 typeof(IMeterFactory),
+                typeof(ITenantResolver),
                 typeof(IModelInfoProvider),
                 typeof(ICompartmentDefinitionManager),
                 typeof(IAuditEventTypeMapping),
@@ -149,6 +163,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(
                 TenantHostedServiceDisposition.Shared,
                 hostedServicePolicy.Classify(typeof(TenantContainerSweeper).FullName));
+        }
+
+        [Fact]
+        public void GivenTenancyEnabled_WhenServicesAreRegistered_ThenTenantResolverIsRegisteredOnceAsASingletonHostHeaderTenantResolver()
+        {
+            IServiceCollection services = RegisterEnabledServices();
+
+            ServiceDescriptor descriptor = GetRequiredDescriptor<ITenantResolver>(services);
+
+            Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+            Assert.Equal(typeof(HostHeaderTenantResolver), descriptor.ImplementationType);
+        }
+
+        [Fact]
+        public void GivenACustomTenantResolverRegisteredBeforeTenancy_WhenServicesAreRegistered_ThenOnlyTheCustomDescriptorRemains()
+        {
+            IServiceCollection services = CreateBaseServices();
+            var customResolver = new TestTenantResolver();
+
+            services.AddSingleton<ITenantResolver>(customResolver);
+            services.AddFhirServerTenancy(new TenancyConfiguration { Enabled = true });
+
+            ServiceDescriptor descriptor = Assert.Single(
+                services,
+                registration => registration.ServiceType == typeof(ITenantResolver));
+
+            Assert.Same(customResolver, descriptor.ImplementationInstance);
+            Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
         }
 
         [Fact]
@@ -203,6 +245,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             var tenantSharedServiceRegistry = Assert.IsType<TenantSharedServiceRegistry>(tenantSharedRegistryDescriptor.ImplementationInstance);
             Assert.Contains(typeof(IAuditEventTypeMapping), tenantSharedServiceRegistry.SharedServiceTypes);
+        }
+
+        [Fact]
+        public void GivenAddFhirServerWithTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantMiddlewareIsInsertedFirstBeforeCorsRequestContextAndFhirAuthentication()
+        {
+            IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(tenancyEnabled: true);
+
+            int tenantIndex = GetMiddlewareIndex(components, typeof(TenantMiddleware));
+            int corsIndex = GetMiddlewareIndex(components, typeof(CorsMiddleware));
+            int requestContextIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
+            int beforeAuthenticationIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
+
+            Assert.Equal(0, tenantIndex);
+            Assert.True(tenantIndex < corsIndex);
+            Assert.True(tenantIndex < requestContextIndex);
+            Assert.True(tenantIndex < beforeAuthenticationIndex);
+        }
+
+        [Fact]
+        public void GivenAddFhirServerWithTenancyDisabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantMiddlewareIsNotInserted()
+        {
+            IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(tenancyEnabled: false);
+
+            Assert.DoesNotContain(components, component => component.Contains(typeof(TenantMiddleware)));
+            Assert.Equal(0, GetMiddlewareIndex(components, typeof(CorsMiddleware)));
+            GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
+            GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
+        }
+
+        [Fact]
+        public void GivenAddFhirServerWithForwardedHeadersAndTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantResolutionStillRunsFirst()
+        {
+            IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(
+                tenancyEnabled: true,
+                forwardedHeadersEnabled: true);
+
+            int forwardedHeadersIndex = GetMiddlewareIndex(components, typeof(ForwardedHeadersMiddleware));
+            int tenantIndex = GetMiddlewareIndex(components, typeof(TenantMiddleware));
+
+            Assert.Equal(0, tenantIndex);
+            Assert.True(tenantIndex < forwardedHeadersIndex);
         }
 
         [Fact]
@@ -457,17 +540,56 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             });
         }
 
+        private static IReadOnlyList<RecordedMiddlewareComponent> GetConfiguredPipeline(
+            bool tenancyEnabled,
+            bool forwardedHeadersEnabled = false)
+        {
+            IConfiguration configuration = CreateAddFhirServerConfiguration(
+                tenancyEnabled,
+                securityEnabled: false,
+                forwardedHeadersEnabled);
+            var services = new ServiceCollection();
+            var environment = new TestWebHostEnvironment();
+
+            services.AddSingleton<IConfiguration>(configuration);
+            services.AddSingleton<IWebHostEnvironment>(environment);
+
+            services.AddFhirServer(configuration);
+
+            using ServiceProvider provider = BuildProvider(services);
+            IStartupFilter startupFilter = provider
+                .GetServices<IStartupFilter>()
+                .Single(filter => filter.GetType().Name == "FhirServerStartupFilter");
+
+            var builder = new RecordingApplicationBuilder(provider);
+            startupFilter.Configure(static _ => { })(builder);
+
+            return builder.Components
+                .Select((component, index) => new RecordedMiddlewareComponent(index, component))
+                .ToArray();
+        }
+
+        private static int GetMiddlewareIndex(IReadOnlyList<RecordedMiddlewareComponent> components, Type middlewareType)
+        {
+            RecordedMiddlewareComponent component = Assert.Single(components, registration => registration.Contains(middlewareType));
+            return component.Index;
+        }
+
         private static IServiceCollection RegisterEnabledServices()
         {
             return Register(new TenancyConfiguration { Enabled = true });
         }
 
-        private static IConfiguration CreateAddFhirServerConfiguration(bool tenancyEnabled, bool securityEnabled)
+        private static IConfiguration CreateAddFhirServerConfiguration(
+            bool tenancyEnabled,
+            bool securityEnabled,
+            bool forwardedHeadersEnabled = false)
         {
             return new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string>
                 {
-                    { "FhirServer:Tenancy:Enabled", tenancyEnabled.ToString() },
+                    { "ASPNETCORE_FORWARDEDHEADERS_ENABLED", forwardedHeadersEnabled.ToString() },
+                    { "FhirServer:MultiTenantApplication:Enabled", tenancyEnabled.ToString() },
                     { "FhirServer:Security:Enabled", securityEnabled.ToString() },
                 })
                 .Build();
@@ -524,6 +646,117 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         }
 
         private readonly record struct IndexedServiceDescriptor(ServiceDescriptor Descriptor, int Index);
+
+        private sealed record RecordedMiddlewareComponent(int Index, Func<RequestDelegate, RequestDelegate> Component)
+        {
+            public bool Contains(Type middlewareType)
+            {
+                return GetCandidateTypes(Component.Target).Contains(middlewareType);
+            }
+
+            private static IReadOnlyList<Type> GetCandidateTypes(object value)
+            {
+                if (value == null)
+                {
+                    return Array.Empty<Type>();
+                }
+
+                object[] fieldValues = GetFieldValues(value).ToArray();
+
+                return fieldValues
+                    .Concat(fieldValues.SelectMany(GetFieldValues))
+                    .OfType<Type>()
+                    .Distinct()
+                    .ToArray();
+            }
+
+            private static IEnumerable<object> GetFieldValues(object value)
+            {
+                foreach (FieldInfo field in value.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                {
+                    object fieldValue = field.GetValue(value);
+
+                    if (fieldValue != null)
+                    {
+                        yield return fieldValue;
+
+                        if (fieldValue is IEnumerable sequence and not string)
+                        {
+                            foreach (object item in sequence)
+                            {
+                                if (item != null)
+                                {
+                                    yield return item;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private sealed class RecordingApplicationBuilder : IApplicationBuilder
+        {
+            public RecordingApplicationBuilder(IServiceProvider applicationServices)
+            {
+                ApplicationServices = applicationServices;
+            }
+
+            public IServiceProvider ApplicationServices { get; set; }
+
+            public IFeatureCollection ServerFeatures { get; } = new FeatureCollection();
+
+            public IDictionary<string, object> Properties { get; } = new Dictionary<string, object>();
+
+            public List<Func<RequestDelegate, RequestDelegate>> Components { get; } = new();
+
+            public RequestDelegate Build()
+            {
+                RequestDelegate app = static _ => Task.CompletedTask;
+
+                for (int index = Components.Count - 1; index >= 0; index--)
+                {
+                    app = Components[index](app);
+                }
+
+                return app;
+            }
+
+            public IApplicationBuilder New()
+            {
+                return new RecordingApplicationBuilder(ApplicationServices);
+            }
+
+            public IApplicationBuilder Use(Func<RequestDelegate, RequestDelegate> middleware)
+            {
+                Components.Add(middleware);
+                return this;
+            }
+        }
+
+        private sealed class TestTenantResolver : ITenantResolver
+        {
+            public bool TryResolve(HttpContext httpContext, out TenantId tenantId)
+            {
+                tenantId = TenantId.Default;
+                return true;
+            }
+        }
+
+        private sealed class TestWebHostEnvironment : IWebHostEnvironment
+        {
+            public string ApplicationName { get; set; } = "Microsoft.Health.Fhir.R4.Api.UnitTests";
+
+            public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+
+            public string ContentRootPath { get; set; } = Environment.CurrentDirectory;
+
+            public string EnvironmentName { get; set; } = Environments.Production;
+
+            public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+
+            public string WebRootPath { get; set; } = Environment.CurrentDirectory;
+        }
 
         private sealed class AddedAfterBlueprintService
         {
