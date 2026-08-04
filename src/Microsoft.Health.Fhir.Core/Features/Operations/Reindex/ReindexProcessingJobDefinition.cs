@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.JobManagement;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -29,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public uint MaximumNumberOfResourcesPerWrite { get; set; }
 
+        [JsonConverter(typeof(ReindexSearchParameterUrlStatusesConverter))]
         public IReadOnlyCollection<(string Url, SearchParameterStatus Status)> SearchParameterUrlStatuses { get; set; }
     }
 }
