@@ -26,6 +26,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Tenancy;
 using Microsoft.Health.Fhir.Api.Registration;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
@@ -75,8 +76,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 ["beta"] = "beta-signing-key-beta-signing-key-beta!!!!",
             };
 
+        private readonly int _maxResidentTenants;
+        private readonly TimeSpan _idleTimeout;
         private IHost _host;
         private ProbeConfiguratorInvocationCounter _probeConfiguratorInvocationCounter;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TenantIsolationTestServerFixture"/> class using the
+        /// default tenant container cache capacity of 8 resident tenants and a 30-minute idle timeout.
+        /// </summary>
+        public TenantIsolationTestServerFixture()
+            : this(maxResidentTenants: 8, idleTimeout: TimeSpan.FromMinutes(30))
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TenantIsolationTestServerFixture"/> class using the
+        /// supplied tenant container cache capacity and idle timeout.
+        /// </summary>
+        /// <param name="maxResidentTenants">The maximum number of resident tenant containers.</param>
+        /// <param name="idleTimeout">The idle timeout after which a resident tenant container becomes eligible for eviction.</param>
+        internal TenantIsolationTestServerFixture(int maxResidentTenants, TimeSpan idleTimeout)
+        {
+            _maxResidentTenants = maxResidentTenants;
+            _idleTimeout = idleTimeout;
+        }
 
         /// <summary>
         /// Gets the in-process server.
@@ -226,6 +250,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             services.AddSingleton<ITenantResolver, HostHeaderTenantResolver>();
             services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
             services.AddSingleton<ITenantRegistry>(CreateRegistry());
+            services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
             services.AddSingleton(
                 new TenantSharedServiceRegistry()
                     .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerFactory>()
@@ -244,13 +269,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             services.AddSingleton<ITenantHostedServicePolicy>(hostedServicePolicy);
             services.AddSingleton<ITenantServiceConfigurator, JwtPerTenantConfigurator>();
             services.AddSingleton<ITenantServiceConfigurator, ProbePerTenantConfigurator>();
+            services.AddSingleton<ITenantServiceConfigurator, TenantInstanceConfigurationConfigurator>();
             services.AddSingleton<ProbeConfiguratorInvocationCounter>();
             services.AddSingleton(
                 Options.Create(
                     new TenantContainerCacheOptions
                     {
-                        MaxResidentTenants = 8,
-                        IdleTimeout = TimeSpan.FromMinutes(30),
+                        MaxResidentTenants = _maxResidentTenants,
+                        IdleTimeout = _idleTimeout,
                     }));
             services.AddSingleton<ITenantContainerFactory, TenantContainerFactory>();
             services.AddSingleton<TenantContainerCache>();
@@ -292,6 +318,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
             return registry;
         }
+
+        private static string GetSigningKey(string tenantName) =>
+            SigningKeys.TryGetValue(tenantName, out string signingKey)
+                ? signingKey
+                : $"tenant-memory-harness-{tenantName}-signing-key";
 
         /// <summary>
         /// A scoped service whose tenant name proves MVC controller constructor injection, <c>FromServices</c>
@@ -395,7 +426,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                         {
                             ValidateIssuerSigningKey = true,
                             IssuerSigningKey = new SymmetricSecurityKey(
-                                Encoding.UTF8.GetBytes(SigningKeys[tenantName])),
+                                Encoding.UTF8.GetBytes(GetSigningKey(tenantName))),
                             ValidateIssuer = true,
                             ValidIssuer = tenant.Properties[TenantDescriptorProperties.Authority],
                             ValidateAudience = true,
