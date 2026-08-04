@@ -419,7 +419,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger,
                 cancellationToken);
 
-            fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
+            // Drop file statuses that are already reflected in the database.
+            //
+            // A row is considered "already reflected" once its stored status has moved past Initialized, because from
+            // that point on the stored status is authoritative (it can have been changed by a customer through
+            // $status, by a reindex job, or by a delete).
+            //
+            // The one exception is a search parameter that unsupported-search-parameters.json marks as Unsupported but
+            // that is stored as Enabled or Supported. The server has no way to evaluate such a parameter, so those rows
+            // can only have come from a defect (see PR #5403, which unconditionally overwrote the file's Unsupported
+            // status between 2026-03-06 and 2026-07-23) and are repaired back to Unsupported below. Rows in any other
+            // stored status - Disabled, Deleted, PendingDelete, PendingHardDelete, PendingDisable - are left alone so
+            // that customer-driven and reindex-driven states are never clobbered. PartialSupport entries come back from
+            // the file as Enabled (not Unsupported) and are therefore untouched by this rule as well.
+            fileStatuses.RemoveAll((fs) => existingParams.Any((param) =>
+                param.Uri == fs.Uri
+                && param.Status != SearchParameterStatus.Initialized
+                && !RequiresUnsupportedRepair(fs, param)));
 
             if (fileStatuses.Count == 0)
             {
@@ -432,6 +448,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceExistCmd.CommandText = "SELECT TOP 1 1 FROM dbo.Resource";
             var hasResources = await resourceExistCmd.ExecuteScalarAsync<int?>(_sqlRetryService, _logger, cancellationToken) == 1;
 
+            // dbo.MergeSearchParams treats the highest LastUpdated in the input as an optimistic concurrency token: it
+            // fails with error 50001 unless that value equals the current max(LastUpdated) in dbo.SearchParam. The
+            // stored procedure then stamps every merged row with a fresh server-side LastUpdated, which is what other
+            // replicas poll on to refresh their caches. So we deliberately do not try to preserve or hand-pick a
+            // LastUpdated per row here - we only need the input's maximum to match what is currently stored.
+            DateTimeOffset? maxExistingLastUpdated = existingParams.Count > 0 ? existingParams.Max(p => p.LastUpdated) : null;
+
             fileStatuses.ForEach(fs =>
             {
                 // Preserve the Unsupported status that comes from unsupported-search-parameters.json.
@@ -442,7 +465,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
                 }
 
-                fs.LastUpdated = existingParams.FirstOrDefault(p => p.Uri == fs.Uri)?.LastUpdated ?? fs.LastUpdated;
+                fs.LastUpdated = maxExistingLastUpdated ?? fs.LastUpdated;
             });
 
             using var cmd = new SqlCommand();
@@ -467,6 +490,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogInformation("Concurrent update detected, retrying");
                 await InitializeSearchParameterStatuses(cancellationToken, retryDepth + 1);
             }
+        }
+
+        /// <summary>
+        /// Determines whether a stored search parameter status has to be repaired back to
+        /// <see cref="SearchParameterStatus.Unsupported"/> because it is stored in a state that claims the server can
+        /// search on a parameter that it has no support for.
+        /// </summary>
+        /// <param name="fileStatus">The status coming from unsupported-search-parameters.json.</param>
+        /// <param name="storedStatus">The status currently stored in dbo.SearchParam.</param>
+        /// <returns><c>true</c> when the stored status has to be rewritten as Unsupported.</returns>
+        private static bool RequiresUnsupportedRepair(ResourceSearchParameterStatus fileStatus, ResourceSearchParameterStatus storedStatus)
+        {
+            return fileStatus.Status == SearchParameterStatus.Unsupported
+                && (storedStatus.Status == SearchParameterStatus.Enabled || storedStatus.Status == SearchParameterStatus.Supported);
         }
 
         private int GetStringId(FhirMemoryCache<int> cache, string stringValue, StoredProcedure sproc)
