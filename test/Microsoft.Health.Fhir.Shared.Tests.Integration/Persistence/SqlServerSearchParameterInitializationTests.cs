@@ -14,11 +14,13 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -136,18 +138,23 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         await SeedStoredStatusAsync(locationNear.Uri, SearchParameterStatus.Enabled);
         await SeedStoredStatusAsync(untouchedUri, SearchParameterStatus.Disabled);
 
-        // Act - simulate a service restart against the existing database.
-        await CreateSqlServerFhirModel().Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+        try
+        {
+            // Act - simulate a service restart against the existing database.
+            await CreateSqlServerFhirModel().Initialize(SchemaVersionConstants.Max, CancellationToken.None);
 
-        // Assert
-        var dbStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
-            .ToDictionary(s => s.Uri);
+            // Assert
+            var dbStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+                .ToDictionary(s => s.Uri);
 
-        Assert.Equal(SearchParameterStatus.Unsupported, dbStatuses[locationNear.Uri].Status);
-        Assert.Equal(SearchParameterStatus.Disabled, dbStatuses[untouchedUri].Status);
-
-        // Restore the parameter that was deliberately disabled so the other tests in this class see a clean state.
-        await SeedStoredStatusAsync(untouchedUri, SearchParameterStatus.Unsupported);
+            Assert.Equal(SearchParameterStatus.Unsupported, dbStatuses[locationNear.Uri].Status);
+            Assert.Equal(SearchParameterStatus.Disabled, dbStatuses[untouchedUri].Status);
+        }
+        finally
+        {
+            await SeedStoredStatusAsync(untouchedUri, SearchParameterStatus.Unsupported);
+            await RestoreUniformLastUpdatedAsync();
+        }
     }
 
     [Fact]
@@ -176,6 +183,54 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
             Assert.True(after.TryGetValue(entry.Key, out var actual), $"Expected search parameter '{entry.Key}' to still exist in the SQL SearchParam table.");
             Assert.Equal(entry.Value.Status, actual.Status);
             Assert.Equal(entry.Value.LastUpdated, actual.LastUpdated);
+        }
+    }
+
+    [Fact]
+    public async Task GivenADatabaseNeedingRepairAndAReindexJobInProgress_WhenInitializing_ThenTheRepairIsDeferredAndInitializationSucceeds()
+    {
+        // Arrange - dbo.MergeSearchParams throws error 50002 whenever an active QueueType 6 job exists. Before the
+        // repair existed an aged database in steady state had nothing to merge and never reached the sproc, so 50002
+        // was unreachable from startup. Now an affected database calls the sproc on every startup until the repair
+        // lands, and an unhandled 50002 would stop SqlServerFhirModel.Initialize before it sets
+        // _highestInitializedVersion and publishes StorageInitializedNotification - leaving every replica unable to
+        // finish storage initialization for as long as the reindex runs.
+        var fileStatuses = (await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
+        Uri locationNear = fileStatuses.Single(s => s.Uri.OriginalString == LocationNearUri).Uri;
+
+        await SeedStoredStatusAsync(locationNear, SearchParameterStatus.Enabled);
+
+        long groupId = await EnqueueReindexJobAsync();
+
+        try
+        {
+            try
+            {
+                // Act
+                await CreateSqlServerFhirModel().Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+
+                // Assert - initialization completed, and the repair was deferred rather than applied.
+                var deferred = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+                    .Single(s => s.Uri == locationNear);
+
+                Assert.Equal(SearchParameterStatus.Enabled, deferred.Status);
+            }
+            finally
+            {
+                await RemoveReindexJobsAsync(groupId);
+            }
+
+            // Assert - the next startup after the reindex finishes performs the deferred repair.
+            await CreateSqlServerFhirModel().Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+
+            var repaired = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+                .Single(s => s.Uri == locationNear);
+
+            Assert.Equal(SearchParameterStatus.Unsupported, repaired.Status);
+        }
+        finally
+        {
+            await RestoreUniformLastUpdatedAsync();
         }
     }
 
@@ -215,6 +270,52 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
             Substitute.For<IMediator>(),
             _fixture.SqlRetryService,
             NullLogger<SqlServerFhirModel>.Instance);
+    }
+
+    /// <summary>
+    /// Re-stamps every row in dbo.SearchParam with a single LastUpdated value. dbo.MergeSearchParams only touches the
+    /// rows it merges, so seeding and repairing individual rows leaves the table with a mix of LastUpdated values.
+    /// Other tests in this class upsert a subset of statuses, which the stored procedure only accepts when that subset
+    /// carries the current maximum, so tests that mutate individual rows restore the uniform state they inherited.
+    /// </summary>
+    private async Task RestoreUniformLastUpdatedAsync()
+    {
+        var dbStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
+        var maxLastUpdated = dbStatuses.Max(s => s.LastUpdated);
+
+        dbStatuses.ForEach(s => s.LastUpdated = maxLastUpdated);
+
+        await _fixture.SqlServerSearchParameterStatusDataStore.UpsertStatuses(dbStatuses, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Enqueues a reindex job so that dbo.GetActiveJobs reports a reindex in progress, which is what makes
+    /// dbo.MergeSearchParams reject search parameter changes with error 50002.
+    /// </summary>
+    private async Task<long> EnqueueReindexJobAsync()
+    {
+        var queueClient = (IQueueClient)((IServiceProvider)_fixture).GetService(typeof(IQueueClient));
+
+        IReadOnlyList<JobInfo> jobs = await queueClient.EnqueueAsync(
+            (byte)QueueType.Reindex,
+            new[] { "{\"typeId\":1}" },
+            groupId: null,
+            forceOneActiveJobGroup: false,
+            CancellationToken.None);
+
+        return jobs[0].GroupId;
+    }
+
+    private async Task RemoveReindexJobsAsync(long groupId)
+    {
+        using SqlConnectionWrapper sqlConnectionWrapper = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true);
+        using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+        sqlCommandWrapper.CommandText = "DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType AND GroupId = @GroupId";
+        sqlCommandWrapper.Parameters.AddWithValue("@QueueType", (byte)QueueType.Reindex);
+        sqlCommandWrapper.Parameters.AddWithValue("@GroupId", groupId);
+
+        await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
     }
 
     private async Task CheckSearchParametersForInvalid()

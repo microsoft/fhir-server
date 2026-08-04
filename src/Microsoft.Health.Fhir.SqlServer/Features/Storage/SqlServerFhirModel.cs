@@ -432,6 +432,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // stored status - Disabled, Deleted, PendingDelete, PendingHardDelete, PendingDisable - are left alone so
             // that customer-driven and reindex-driven states are never clobbered. PartialSupport entries come back from
             // the file as Enabled (not Unsupported) and are therefore untouched by this rule as well.
+            HashSet<Uri> repairUris = fileStatuses
+                .Where(fs => existingParams.Any(param => param.Uri == fs.Uri && RequiresUnsupportedRepair(fs, param)))
+                .Select(fs => fs.Uri)
+                .ToHashSet();
+
             fileStatuses.RemoveAll((fs) => existingParams.Any((param) =>
                 param.Uri == fs.Uri
                 && param.Status != SearchParameterStatus.Initialized
@@ -442,6 +447,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogInformation("No Search Parameters need to be initialized.");
                 return;
             }
+
+            // dbo.MergeSearchParams refuses any change to search parameters while a reindex job is running and throws
+            // error 50002. When the repair above is the only thing left to merge, that rejection must not fail startup:
+            // the repair is opportunistic, and deferring it to the next startup is strictly better than leaving the
+            // server unable to complete storage initialization for the duration of the reindex. Merges that also carry
+            // new parameters from the file keep the pre-existing behaviour of surfacing the error.
+            bool isRepairOnly = fileStatuses.TrueForAll(fs => repairUris.Contains(fs.Uri));
 
             using var resourceExistCmd = new SqlCommand();
             resourceExistCmd.CommandType = CommandType.Text;
@@ -478,6 +490,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
                 _logger.LogInformation("Number of Search Parameters initialized: {Number}", fileStatuses.Count);
+            }
+            catch (SqlException ex) when (ex.Number == 50002 && isRepairOnly)
+            {
+                _logger.LogWarning(ex, "A reindex job is in progress, so repairing {Number} search parameter status(es) back to Unsupported was deferred to the next startup.", fileStatuses.Count);
             }
             catch (SqlException ex) when (ex.Number == 50001)
             {
