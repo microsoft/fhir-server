@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -36,6 +37,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public void GivenATypeBasedRegistration_WhenChained_ThenItReturnsTheSameRegistryAndRegistersTheType()
+        {
+            var registry = new TenantSharedServiceRegistry();
+
+            TenantSharedServiceRegistry chainedRegistry = registry.ShareWithTenants(typeof(ILoggerFactory));
+            chainedRegistry.ShareWithTenants(typeof(ILoggerProvider));
+
+            Assert.Same(registry, chainedRegistry);
+            Assert.True(registry.IsShared(typeof(ILoggerFactory)));
+            Assert.True(registry.IsShared(typeof(ILoggerProvider)));
+            Assert.Contains(typeof(ILoggerFactory), registry.SharedServiceTypes);
+            Assert.Contains(typeof(ILoggerProvider), registry.SharedServiceTypes);
+        }
+
+        [Fact]
         public void GivenADuplicateRegistration_WhenQueried_ThenItAppearsOnce()
         {
             var registry = new TenantSharedServiceRegistry();
@@ -51,6 +67,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             var registry = new TenantSharedServiceRegistry();
 
             Assert.Throws<ArgumentNullException>(() => registry.ShareWithTenants((Type)null));
+        }
+
+        [Fact]
+        public void GivenSharedServiceTypesSnapshot_WhenMutationIsAttempted_ThenItIsRejectedAndRegistryRemainsUnchanged()
+        {
+            var registry = new TenantSharedServiceRegistry();
+            registry.ShareWithTenants<ILoggerFactory>();
+
+            IReadOnlyCollection<Type> sharedServiceTypes = registry.SharedServiceTypes;
+            ICollection<Type> mutableView = Assert.IsAssignableFrom<ICollection<Type>>(sharedServiceTypes);
+
+            Assert.True(mutableView.IsReadOnly);
+            Assert.Throws<NotSupportedException>(() => mutableView.Add(typeof(ILoggerProvider)));
+
+            Assert.Single(registry.SharedServiceTypes);
+            Assert.True(registry.IsShared(typeof(ILoggerFactory)));
+            Assert.False(registry.IsShared(typeof(ILoggerProvider)));
         }
     }
 }

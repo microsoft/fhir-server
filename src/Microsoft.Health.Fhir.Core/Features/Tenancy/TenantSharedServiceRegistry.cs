@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Tenancy
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         /// <summary>
         /// Gets the service types that are shared with every tenant container.
         /// </summary>
-        public IReadOnlyCollection<Type> SharedServiceTypes => _sharedServiceTypes;
+        public IReadOnlyCollection<Type> SharedServiceTypes => _sharedServiceTypes.ToArray();
 
         /// <summary>
         /// Declares <typeparamref name="TService"/> as shared with every tenant container.
