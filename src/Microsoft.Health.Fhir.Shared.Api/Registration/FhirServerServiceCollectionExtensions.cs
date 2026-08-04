@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -163,6 +164,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsService<RequestContextAccessor<IFhirRequestContext>>();
+
+            // Register tenancy after the built-in FHIR services so the initial blueprint already includes
+            // them. TenantServiceBlueprint keeps a live reference to the collection and snapshots it on
+            // demand, so later registrations are captured as well.
+            services.AddFhirServerTenancy(fhirServerConfiguration.Tenancy);
 
             return new FhirServerBuilder(services);
         }
