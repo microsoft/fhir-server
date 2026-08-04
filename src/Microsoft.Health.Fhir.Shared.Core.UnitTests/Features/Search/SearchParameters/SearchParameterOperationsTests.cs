@@ -61,9 +61,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Parameters
                 .GetSearchParameter(MissingUrl)
                 .Returns(x => throw new SearchParameterNotSupportedException(new Uri(MissingUrl)));
 
+            // No active reindex job. default gives (found: false, id: null) without an explicit cast on null.
+            (bool Found, string Id) noActiveReindexJob = default;
+
             _fhirOperationDataStore
                 .CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>())
-                .Returns((false, (string)null));
+                .Returns(noActiveReindexJob);
 
             var statusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
