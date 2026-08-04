@@ -482,8 +482,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         /// before either removes it, producing duplicates in pendingStatuses → TVP UNIQUE
         /// constraint violation (SQL 2627) → HTTP 500 in production.
         ///
-        /// This test is DETERMINISTIC: Parallel.For forces true CPU-level concurrency that
-        /// the E2E test cannot guarantee.  It FAILS before the fix and PASSES after.
+        /// This test uses Parallel.For to maximise thread contention on the narrow TryGetValue+Remove
+        /// window, reliably triggering the race on most machines. It FAILS before the fix and PASSES
+        /// consistently after SetAndClearPendingSearchParameterStatus is made atomic.
         /// </summary>
         [Fact]
         public void SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus()
@@ -514,9 +515,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
 
             // Replace the _requestContextAccessor field via reflection.
-            typeof(SqlServerFhirDataStore)
+            var requestContextAccessorField = typeof(SqlServerFhirDataStore)
                 .GetField("_requestContextAccessor", BindingFlags.NonPublic | BindingFlags.Instance)
-                ?.SetValue(dataStore, accessor);
+                ?? throw new InvalidOperationException("Field '_requestContextAccessor' not found — was it renamed?");
+            requestContextAccessorField.SetValue(dataStore, accessor);
 
             // Create N ResourceWrapperOperation instances — one per concurrent thread.
             const int threadCount = 50;

@@ -2209,8 +2209,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// MergeAsync receives pendingStatuses = [URI, URI] → dbo.SearchParamList UNIQUE (Uri)
         /// violated → SQL error 2627 → HTTP 500.
         ///
-        /// Fix: lock(context.Properties) around TryGetValue + Remove, AND add
-        ///      .DistinctBy(s => s.Uri.OriginalString) before building the TVP.
+        /// Fix: lock(context.Properties) around TryGetValue + Remove so only one thread can claim
+        /// the pending status; all subsequent threads find the key already gone.
         ///
         /// NOTE: The race is probabilistic and may not fire on a fast local machine. The unit test
         /// SetAndClearPendingSearchParameterStatus_WhenCalledConcurrently_OnlyOneResourceReceivesStatus
@@ -2259,9 +2259,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     bundle,
                     new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
 
-                var failures = response.Resource?.Entry?
+                Assert.NotNull(response.Resource);
+                Assert.Equal(patientCount + 1, response.Resource.Entry.Count);
+
+                var failures = response.Resource.Entry
                     .Where(e => e.Response?.Status?.StartsWith("5") == true)
-                    .ToList() ?? [];
+                    .ToList();
 
                 Assert.True(
                     failures.Count == 0,
@@ -2276,7 +2279,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     {
                         await _fixture.TestFhirClient.DeleteAsync($"Patient/race-repro-patient-{suffix}-{i}");
                     }
-                    catch
+                    catch (Exception)
                     {
                         // best-effort cleanup
                     }
