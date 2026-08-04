@@ -53,8 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
         private JobInfo _jobInfo;
-        private ReindexJobRecord _reindexJobRecord;
-        private ReindexOrchestratorJobResult _currentResult;
+        private ReindexOrchestratorJobDefinition _definition;
+        private readonly Dictionary<string, SearchResultReindex> _resourceCounts = [];
+        private ReindexOrchestratorJobResult _result;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -135,19 +136,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            _currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ReindexOrchestratorJobResult() : JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(jobInfo.Result);
-            var reindexJobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
             _jobInfo = jobInfo;
-            _reindexJobRecord = reindexJobRecord;
+            _result = new ReindexOrchestratorJobResult();
+            _definition = JsonConvert.DeserializeObject<ReindexOrchestratorJobDefinition>(_jobInfo.Definition);
             _cancellationToken = cancellationToken; // TODO: Do we need cancel?
 
             try
             {
                 await RefreshSearchParameterCache(true);
 
-                _reindexJobRecord.Status = OperationStatus.Running;
-                _jobInfo.Status = JobStatus.Running;
-                _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
+                _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
 
                 var currentJobs = new List<JobInfo>();
                 if (!_isSurrogateIdRangingSupported) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
@@ -171,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                _currentResult.CreatedJobs = currentJobs.Count; // TODO: Move this logic inside create
+                _result.CreatedJobs = currentJobs.Count; // TODO: Move this logic inside create
 
                 await CheckForCompletionAsync(cancellationToken);
 
@@ -179,22 +177,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogJobInformation(jobInfo, "The reindex job was cancelled by caller, Id: {Id}", jobInfo.Id);
+                _logger.LogJobInformation(jobInfo, $"The reindex job was cancelled by caller, Id={_jobInfo.Id}");
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, Core.Resources.ReindexingCancelledbyCaller);
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "The reindex job was canceled, Id: {Id}", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, $"The reindex job was canceled, Id={_jobInfo.Id}");
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Incomplete, Core.Resources.ReindexingJobCancelled);
             }
             catch (Exception ex)
             {
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
-                LogReindexJobRecordErrorMessage();
-                _logger.LogJobError(ex, _jobInfo, "ReindexJob Failed and didn't complete.");
+                _logger.LogJobError(ex, _jobInfo, $"The reindex failed. Id={_jobInfo.Id}");
             }
 
-            return JsonConvert.SerializeObject(_currentResult);
+            return JsonConvert.SerializeObject(_result);
         }
 
         private async Task RefreshSearchParameterCache(bool isReindexStart)
@@ -358,8 +355,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private void AddErrorResult(string severity, string issueType, string message)
         {
             var errorList = new List<OperationOutcomeIssue> { new OperationOutcomeIssue(severity, issueType, message) };
-            errorList.AddRange(_currentResult.Error);
-            _currentResult.Error = errorList;
+            errorList.AddRange(_result.Error);
+            _result.Error = errorList;
         }
 
         private async Task<HashSet<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
@@ -371,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes, CancellationToken cancellationToken)
         {
-            var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
+            var resourcesPerJob = (int)_definition.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
             foreach (var resourceType in resourceTypes)
@@ -416,7 +413,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 else
                 {
                     // Create uniform-sized chunks based on resource count
-                    var resourceCount = _reindexJobRecord.ResourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
+                    var resourceCount = _resourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
                     var numberOfChunks = Math.Max(1, (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob)); // create at least one chunk even if count is zero
                     _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
                     var processingRanges = new List<(long StartId, long EndId, int Count)>();
@@ -494,8 +491,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         Count = range.Count, ////countOnlyResults?.TotalCount ?? 0,
                     },
                     ResourceType = resourceType,
-                    MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
-                    MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
+                    MaximumNumberOfResourcesPerQuery = _definition.MaximumNumberOfResourcesPerQuery,
+                    MaximumNumberOfResourcesPerWrite = _definition.MaximumNumberOfResourcesPerWrite,
                     SearchParameterUrlStatuses = searchParamUrlStatuses.ToImmutableList(),
                 };
 
@@ -529,7 +526,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <returns>Task</returns>
         private async Task CalculateAndSetTotalAndResourceCounts(HashSet<string> resourceTypes)
         {
-            long totalCount = 0;
             foreach (string resourceType in resourceTypes)
             {
                 var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
@@ -539,12 +535,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 };
 
                 SearchResult searchResult = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, true, _cancellationToken);
-                totalCount += searchResult != null ? searchResult.TotalCount.Value : 0;
-
                 if (searchResult?.ReindexResult?.StartResourceSurrogateId > 0)
                 {
                     SearchResultReindex reindexResults = searchResult.ReindexResult;
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex()
+                    _resourceCounts.TryAdd(resourceType, new SearchResultReindex()
                     {
                         Count = reindexResults.Count,
                         EndResourceSurrogateId = reindexResults.EndResourceSurrogateId,
@@ -555,27 +549,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // No action needs to be taken if an entry for this resource fails to get added to the dictionary
                     // We will reindex all resource types that do not have a dictionary entry
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex(searchResult.TotalCount.Value));
+                    _resourceCounts.TryAdd(resourceType, new SearchResultReindex(searchResult.TotalCount.Value));
                 }
                 else
                 {
                     // no resources found, so this becomes a no-op entry just to show we did look it up but found no resources
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex(0));
+                    _resourceCounts.TryAdd(resourceType, new SearchResultReindex(0));
                 }
-            }
-
-            if (_reindexJobRecord.Count == 0)
-            {
-                _reindexJobRecord.Count = totalCount;
             }
         }
 
         private async Task<SearchResult> GetResourceCountForQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, bool ignoreSearchParamHash, CancellationToken cancellationToken)
         {
-            _reindexJobRecord.ResourceCounts.TryGetValue(queryStatus.ResourceType, out var searchResultReindex);
+            _resourceCounts.TryGetValue(queryStatus.ResourceType, out var searchResultReindex);
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _reindexJobRecord.MaximumNumberOfResourcesPerQuery.ToString()),
+                Tuple.Create(KnownQueryParameterNames.Count, _definition.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
             };
 
@@ -627,7 +616,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var reindexJobException = new ReindexJobException(message, ex);
                     _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", queryStatus.ResourceType);
                     queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
-                    LogReindexJobRecordErrorMessage();
 
                     throw reindexJobException;
                 }
@@ -666,14 +654,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return hash;
         }
 
-        private void LogReindexJobRecordErrorMessage()
-        {
-            _reindexJobRecord.Status = OperationStatus.Failed;
-            _jobInfo.Status = JobStatus.Failed;
-            var ser = JsonConvert.SerializeObject(_reindexJobRecord);
-            _logger.LogJobInformation(_jobInfo, "ReindexJob Error: Current ReindexJobRecord for reference: {ReindexJobRecord}", ser);
-        }
-
         private async Task CheckForCompletionAsync(CancellationToken cancellationToken)
         {
             do
@@ -708,8 +688,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     if (job.Status == JobStatus.Completed)
                     {
                         var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                        _currentResult.SucceededResources += result.SucceededResourceCount;
-                        _currentResult.FailedResources += result.FailedResourceCount;
+                        _result.SucceededResources += result.SucceededResourceCount;
+                        _result.FailedResources += result.FailedResourceCount;
                         resourceTypeJobs.Value.Counts.Succeeded += result.SucceededResourceCount; // TODO: Do we need this?
                         resourceTypeJobs.Value.Counts.Failed += result.FailedResourceCount; // TODO: Do we need this?
                     }
@@ -724,7 +704,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         else
                         {
                             var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                            _currentResult.FailedResources += def.ResourceCount.Count;
+                            _result.FailedResources += def.ResourceCount.Count;
                             resourceTypeJobs.Value.Counts.Failed += def.ResourceCount.Count; // TODO: Do we need this?
                             AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, $"Processing job failed for resource type {def.ResourceType}: {result.Error}");
                         }
@@ -734,7 +714,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _transientProcessingJobIds.Remove(job.Id);
             }
 
-            _currentResult.CompletedJobs += finishedJobs.Count(j => j.Status == JobStatus.Completed);
+            _result.CompletedJobs += finishedJobs.Count(j => j.Status == JobStatus.Completed);
 
             // remove processed resource types from _transientSearchParamResouceTypes
             foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.Counts.Failed == 0).Select(_ => _.Key))
@@ -756,9 +736,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
             if (allJobsComplete)
             {
-                _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
-                _reindexJobRecord.Count = _jobInfo.Data.Value;
-                _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
+                _jobInfo.Data = _result.SucceededResources + _result.FailedResources;
+                _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _result.CompletedJobs, _result.CreatedJobs);
             }
         }
 
