@@ -260,12 +260,12 @@ namespace Microsoft.Extensions.DependencyInjection
                         app.UseFhirTenancy();
                     }
 
+                    app.UseCors(Constants.DefaultCorsPolicy);
+
                     if (_forwardedHeadersEnabled)
                     {
                         app.UseForwardedHeaders();
                     }
-
-                    app.UseCors(Constants.DefaultCorsPolicy);
 
                     // This middleware rejects requests that contain access tokens (JWTs) in the URL path or query string.
                     // It must run before FhirRequestContext to prevent the token from being logged.

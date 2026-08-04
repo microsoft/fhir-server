@@ -275,6 +275,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         }
 
         [Fact]
+        public void GivenAddFhirServerWithForwardedHeadersAndTenancyDisabled_WhenTheStartupFilterConfiguresThePipeline_ThenCorsStillPrecedesForwardedHeadersAndTenantMiddlewareIsNotInserted()
+        {
+            IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(
+                tenancyEnabled: false,
+                forwardedHeadersEnabled: true);
+
+            int corsIndex = GetMiddlewareIndex(components, typeof(CorsMiddleware));
+            int forwardedHeadersIndex = GetMiddlewareIndex(components, typeof(ForwardedHeadersMiddleware));
+
+            Assert.DoesNotContain(components, component => component.Contains(typeof(TenantMiddleware)));
+            Assert.True(corsIndex < forwardedHeadersIndex);
+        }
+
+        [Fact]
         public void GivenAddFhirServerWithForwardedHeadersAndTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantResolutionStillRunsFirst()
         {
             IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(
