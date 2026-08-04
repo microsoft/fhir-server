@@ -26,14 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
         public TenancyRegistrationTests()
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string>
-                {
-                    { "FhirServer:Security:Enabled", "false" },
-                })
-                .Build();
-
-            _services.AddFhirServer(configuration);
+            _services.AddFhirServer(CreateConfiguration());
         }
 
         [Fact]
@@ -56,6 +49,61 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             Assert.Equal(typeof(SingleTenantRegistry), descriptor.ImplementationType);
             Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+        }
+
+        [Fact]
+        public void GivenCustomTenancySeamsRegisteredBeforeAddFhirServer_WhenInspected_ThenOnlyTheCustomDescriptorsRemain()
+        {
+            var services = new ServiceCollection();
+            var customTenantContextAccessor = new TestTenantContextAccessor();
+            var customTenantRegistry = new TestTenantRegistry();
+
+            services.AddSingleton<ITenantContextAccessor>(customTenantContextAccessor);
+            services.AddSingleton<ITenantRegistry>(customTenantRegistry);
+
+            services.AddFhirServer(CreateConfiguration());
+
+            ServiceDescriptor tenantContextAccessorDescriptor = Assert.Single(
+                services,
+                d => d.ServiceType == typeof(ITenantContextAccessor));
+            ServiceDescriptor tenantRegistryDescriptor = Assert.Single(
+                services,
+                d => d.ServiceType == typeof(ITenantRegistry));
+
+            Assert.Same(customTenantContextAccessor, tenantContextAccessorDescriptor.ImplementationInstance);
+            Assert.Equal(ServiceLifetime.Singleton, tenantContextAccessorDescriptor.Lifetime);
+            Assert.Same(customTenantRegistry, tenantRegistryDescriptor.ImplementationInstance);
+            Assert.Equal(ServiceLifetime.Singleton, tenantRegistryDescriptor.Lifetime);
+        }
+
+        private static IConfiguration CreateConfiguration()
+        {
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    { "FhirServer:Security:Enabled", "false" },
+                })
+                .Build();
+        }
+
+        private sealed class TestTenantContextAccessor : ITenantContextAccessor
+        {
+            public TenantId Current => TenantId.Default;
+
+            public void SetCurrent(TenantId tenantId)
+            {
+            }
+        }
+
+        private sealed class TestTenantRegistry : ITenantRegistry
+        {
+            public IReadOnlyCollection<TenantDescriptor> Tenants { get; } = new List<TenantDescriptor>();
+
+            public bool TryGetTenant(TenantId tenantId, out TenantDescriptor descriptor)
+            {
+                descriptor = null;
+                return false;
+            }
         }
     }
 }

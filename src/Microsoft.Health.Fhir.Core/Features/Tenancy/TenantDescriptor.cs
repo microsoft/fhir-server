@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
     /// Describes a tenant served by this process.
     /// </summary>
     /// <remarks>
-    /// This type contains only tenant identity and host-specific metadata. It deliberately carries no secrets and
-    /// exposes no behavior.
+    /// This type is intended to carry tenant identity plus non-secret host metadata and exposes no behavior.
+    /// Property keys are copied into a case-insensitive read-only dictionary.
     /// </remarks>
     public sealed class TenantDescriptor
     {
@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         /// <param name="tenantId">The tenant identifier.</param>
         /// <param name="baseUri">The public base URI for the tenant, or <c>null</c> if unknown.</param>
         /// <param name="properties">Host-specific properties for the tenant, or <c>null</c> for none.</param>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="properties"/> contains keys that differ only by case and therefore collide during the case-insensitive defensive copy.</exception>
         public TenantDescriptor(TenantId tenantId, Uri baseUri = null, IReadOnlyDictionary<string, string> properties = null)
         {
             TenantId = tenantId;

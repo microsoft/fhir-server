@@ -16,6 +16,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Reads the system search parameter definitions from the embedded resources exactly once per source instance.
     /// </summary>
+    /// <remarks>
+    /// All callers that share this source instance reuse the same parsed <see cref="ITypedElement"/> trees for the
+    /// lifetime of that instance. When the source is registered as a singleton, that intentionally becomes
+    /// process-lifetime sharing of the embedded bundles across tenant managers. P4a must measure the resident-memory
+    /// and concurrent-traversal tradeoff before any release or weak-reference strategy is considered.
+    /// </remarks>
     public sealed class EmbeddedSearchParameterDefinitionSource : ISearchParameterDefinitionSource
     {
         private const string SpecificationBundleResourceName = "search-parameters.json";

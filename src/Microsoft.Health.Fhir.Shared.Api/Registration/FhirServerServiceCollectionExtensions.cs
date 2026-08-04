@@ -130,8 +130,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             // Register single-tenant defaults and tenant-aware instance configuration for storing the base URI.
             // These are available to all services including background tasks that don't have access to HttpContext.
-            services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
-            services.AddSingleton<ITenantRegistry, SingleTenantRegistry>();
+            services.TryAddSingleton<ITenantContextAccessor, TenantContextAccessor>();
+            services.TryAddSingleton<ITenantRegistry, SingleTenantRegistry>();
             services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);

@@ -100,6 +100,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         }
 
         [Fact]
+        public void GivenATenantWithALatchedBaseUri_WhenInitializedWithAnInvalidUri_ThenTheExistingValueIsRetainedAndTrueIsReturned()
+        {
+            // Arrange
+            var config = new FhirServerInstanceConfiguration(_tenantContextAccessor);
+            const string validBaseUri = "https://localhost/fhir/";
+            const string invalidBaseUri = "not a valid uri";
+
+            // Act
+            bool firstResult = config.InitializeBaseUri(validBaseUri);
+            bool secondResult = config.InitializeBaseUri(invalidBaseUri);
+
+            // Assert
+            Assert.True(firstResult);
+            Assert.True(secondResult);
+            Assert.Equal(new Uri(validBaseUri), config.BaseUri);
+        }
+
+        [Fact]
         public void GivenTwoTenants_WhenEachInitializesItsOwnBaseUri_ThenEachTenantReadsItsOwnValue()
         {
             // Arrange

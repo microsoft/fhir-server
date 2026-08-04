@@ -91,6 +91,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public void GivenATenantDescriptorWithCaseCollidingPropertyKeys_WhenConstructed_ThenArgumentExceptionIsThrown()
+        {
+            var sourceProperties = new Dictionary<string, string>
+            {
+                { "pool", "fhir-eus-01" },
+                { "POOL", "fhir-wus-02" },
+            };
+
+            Assert.Throws<ArgumentException>(() => new TenantDescriptor(new TenantId("contoso"), properties: sourceProperties));
+        }
+
+        [Fact]
         public void GivenATenantDescriptorWithProperties_WhenMutationIsAttempted_ThenThePropertiesAreReadOnly()
         {
             var descriptor = new TenantDescriptor(

@@ -96,6 +96,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             Assert.Equal(new Uri("https://fabrikam.example.org/"), configuration.BaseUri);
         }
 
+        // Each returned manager is treated as one tenant-specific instance over the shared source.
+        // Construction is explicit and does not depend on ambient tenant context.
         private SearchParameterDefinitionManager CreateDefinitionManager()
         {
             return new SearchParameterDefinitionManager(
