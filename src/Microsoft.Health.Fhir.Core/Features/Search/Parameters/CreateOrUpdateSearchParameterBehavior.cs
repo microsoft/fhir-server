@@ -107,8 +107,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
                 else
                 {
-                    // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                    var newUrl = request.Resource.Instance.GetStringScalar("url");
+
+                    // Reject if a completely new resource ID is being PUT with a URL already owned by a different resource.
+                    // Two resources sharing a URL violates the 1-URL-per-resource invariant and causes SQL 2627 errors
+                    // in bundle operations that derive SearchParameter URLs from resource IDs at runtime. Bug 187119.
+                    if (prevSearchParamResource == null && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                    }
+
+                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
                 }
 
                 // Now allow the resource to updated per the normal behavior
