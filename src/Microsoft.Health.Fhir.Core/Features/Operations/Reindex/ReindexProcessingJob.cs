@@ -173,29 +173,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (searchResultReindex != null)
             {
-                // If we have SurrogateId range, we simply use those and ignore search parameter hash
-                // Otherwise, it's cosmos DB and we must use it and ensure we pass MaximumNumberOfResourcesPerQuery so we get expected count returned.
+                // If we have SurrogateId range, it is SQL. We simply use those and ignore search parameter hash
                 if (searchResultReindex.StartResourceSurrogateId > 0 && searchResultReindex.EndResourceSurrogateId > 0)
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
 
-                    // Always use the StartResourceSurrogateId for the start of the range
-                    // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine
-                    // how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
-                    // When this function returns, it knows what the next starting value to use in
-                    // searching for the next block of results and will use that as the queryStatus starting point
                     queryParametersList.AddRange(
                     [
                         Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
                         Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
                     ]);
-
-                    // SQL surrogate-range path uses server-selected ranges. OOM mitigation is handled by
-                    // splitting ranges via GetSurrogateIdRanges instead of adding a _count hint.
                 }
                 else
                 {
-                    // Cosmos DB path uses _count based on effective batch size.
+                    // Otherwise, it's cosmos DB and we must use it and ensure we pass MaximumNumberOfResourcesPerQuery so we get expected count returned.
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, batchSize.ToString()));
                 }
 
@@ -213,8 +204,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             using var searchService = _searchServiceFactory();
             try
             {
-                // we always ingnore search param hash. to make it clear send empty string.
-                return await searchService.Value.SearchForReindexAsync(queryParametersList, string.Empty, false, cancellationToken, true);
+                return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, cancellationToken, true);
             }
             catch (OutOfMemoryException)
             {
