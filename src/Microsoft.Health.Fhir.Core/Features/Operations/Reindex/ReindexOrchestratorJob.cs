@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
                 if (_isSurrogateIdRangingSupported || !currentJobs.Any())
                 {
-                    await CreateReindexProcessingJobsAsync(cancellationToken);
+                    await CreateReindexProcessingJobsAsync();
                 }
                 else // cosmos job restart
                 {
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null);
 
             if (_isSurrogateIdRangingSupported)
             {
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var msg = "Unable to sync search parameter cache. Please resubmit reindex. If issue persists please contact your administrator.";
                     _logger.LogJobError(_jobInfo, msg);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null, _cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null);
                     throw new JobExecutionException(msg, false);
                 }
             }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParamLastUpdated = _searchParameterOperations.SearchParamLastUpdated;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null);
 
             async Task<bool> WaitForAllInstancesCacheSyncAsync(DateTime updateEventsSince, CancellationToken cancellationToken)
             {
@@ -254,14 +254,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<List<string>> CleanupMissingSearchParameterResourcesAsync(IReadOnlyCollection<ResourceSearchParameterStatus> allStatuses, CancellationToken cancellationToken)
+        private async Task<List<string>> CleanupMissingSearchParameterResourcesAsync(IReadOnlyCollection<ResourceSearchParameterStatus> allStatuses)
         {
             _logger.LogJobInformation(_jobInfo, "Checking for search parameters in pending delete states with missing resources.");
 
             var pending = allStatuses.Where(sp => sp.Status == SearchParameterStatus.PendingDelete || sp.Status == SearchParameterStatus.PendingHardDelete).Select(sp => sp.Uri.OriginalString).ToList();
             _logger.LogJobInformation(_jobInfo, "Found {Count} search parameter(s) in pending delete states. Checking if resources exist.", pending.Count);
 
-            var searchParameters = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(pending, cancellationToken));
+            var searchParameters = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(pending, _cancellationToken));
 
             var toMarkDeleted = new List<string>();
             foreach (var url in pending.Where(url => !searchParameters.ContainsKey(url)))
@@ -274,21 +274,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobInformation(_jobInfo, "Marking {Count} search parameter(s) as Deleted due to missing resources.", toMarkDeleted.Count);
                 await _retries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, cancellationToken, reindexId: _jobInfo.Id));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, _cancellationToken, reindexId: _jobInfo.Id));
             }
 
             return toMarkDeleted;
         }
 
-        private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync()
         {
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             var targetStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
-            var initial = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var initial = await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken);
 
             // Clean up search parameters in pending delete states if resources don't exist
-            var deleted = await CleanupMissingSearchParameterResourcesAsync(initial, cancellationToken);
+            var deleted = await CleanupMissingSearchParameterResourcesAsync(initial);
 
             // Get all URIs that have at least one entry with a valid status
             // Exclude search parameters marked as deleted during cleanup
@@ -307,19 +307,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     targetParams.Add(param);
                     var msg = $"status={param.SearchParameterStatus} uri={validUri}";
                     _logger.LogJobInformation(_jobInfo, msg);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null);
                 }
                 else
                 {
                     // TODO: We should throw here in the next phase otherwise we will reindex incorrectly
                     var msg = $"status=null uri={validUri}";
                     _logger.LogJobWarning(_jobInfo, msg);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Error", msg, null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Error", msg, null);
                 }
             }
 
             var resourceTypes = new HashSet<string>();
-            var usedResourceTypes = await GetUsedResourceTypes(cancellationToken);
+            var usedResourceTypes = await GetUsedResourceTypes();
 
             // From the target params, get the list of necessary resource types
             foreach (var param in targetParams)
@@ -349,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await CalculateAndSetTotalAndResourceCounts(resourceTypes);
             }
 
-            return await EnqueueQueryProcessingJobsAsync(resourceTypes, cancellationToken);
+            return await EnqueueQueryProcessingJobsAsync(resourceTypes);
         }
 
         private void AddErrorResult(string severity, string issueType, string message)
@@ -359,14 +359,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _result.Error = errorList;
         }
 
-        private async Task<HashSet<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        private async Task<HashSet<string>> GetUsedResourceTypes()
         {
             using var searchService = _searchServiceFactory();
-            var resourceTypes = new HashSet<string>(await searchService.Value.GetUsedResourceTypes(cancellationToken));
+            var resourceTypes = new HashSet<string>(await searchService.Value.GetUsedResourceTypes(_cancellationToken));
             return resourceTypes;
         }
 
-        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes)
         {
             var resourcesPerJob = (int)_definition.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
@@ -393,10 +393,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
                     do
                     {
-                        ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, cancellationToken, true);
+                        ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, _cancellationToken, true);
                         if (ranges.Any())
                         {
-                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams, cancellationToken);
+                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams);
 
                             PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
@@ -422,7 +422,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         processingRanges.Add((0, 0, 0));
                     }
 
-                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams, cancellationToken);
+                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams);
 
                     PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
@@ -468,11 +468,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
-            IReadOnlyList<(long StartId, long EndId, int Count)> ranges,
-            string resourceType,
-            List<(string Url, SearchParameterStatus Status)> searchParamUrlStatuses,
-            CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(IReadOnlyList<(long StartId, long EndId, int Count)> ranges, string resourceType, List<(string Url, SearchParameterStatus Status)> searchParamUrlStatuses)
         {
             var definitions = new List<string>();
 
@@ -507,7 +503,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 var jobIds = await _timeoutRetries.ExecuteAsync(
-                    async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken)).Select(job => job.Id).ToList());
+                    async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, _cancellationToken)).Select(job => job.Id).ToList());
                 _logger.LogJobInformation(_jobInfo, "Enqueued batch of {Count} jobs for resource type {ResourceType}.", jobIds.Count, resourceType);
                 return jobIds;
             }
@@ -621,7 +617,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task UpdateSearchParameterStatus(List<string> readySearchParameters, CancellationToken cancellationToken)
+        private async Task UpdateSearchParameterStatus(List<string> readySearchParameters)
         {
             foreach (var searchParameterUrl in readySearchParameters.Where(_ => !_processedSearchParameters.Contains(_)))
             {
@@ -638,11 +634,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (output == SearchParameterStatus.Deleted)
                 {
                     await _retries.ExecuteAsync(
-                        async () => await _searchParameterOperations.DeleteSearchParameterResourceAsync(searchParameterUrl, spStatus == SearchParameterStatus.PendingHardDelete, cancellationToken));
+                        async () => await _searchParameterOperations.DeleteSearchParameterResourceAsync(searchParameterUrl, spStatus == SearchParameterStatus.PendingHardDelete, _cancellationToken));
                 }
 
                 await _retries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, output, cancellationToken, reindexId: _jobInfo.Id));
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, output, _cancellationToken, reindexId: _jobInfo.Id));
                 _processedSearchParameters.Add(searchParameterUrl);
             }
         }
@@ -666,12 +662,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
 
-                await ProcessFinishedJobs(finishedJobs, cancellationToken);
+                await ProcessFinishedJobs(finishedJobs);
             }
             while (_transientProcessingJobIds.Any());
         }
 
-        private async Task ProcessFinishedJobs(IReadOnlyList<JobInfo> finishedJobs, CancellationToken cancellationToken)
+        private async Task ProcessFinishedJobs(IReadOnlyList<JobInfo> finishedJobs)
         {
             // remove processed jobs from _transientResourceTypeJobs and update counts
             foreach (var job in finishedJobs)
@@ -728,7 +724,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var completedSearchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.ResourceTypes.Count == 0).Select(_ => _.Key).ToList();
             if (completedSearchParams.Any())
             {
-                await UpdateSearchParameterStatus(completedSearchParams, cancellationToken);
+                await UpdateSearchParameterStatus(completedSearchParams);
             }
 
             // update counts when all done
@@ -740,9 +736,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)
         {
-            await _searchParameterStatusManager.TryLogEvent(process, status, text, startDate, cancellationToken);
+            await _searchParameterStatusManager.TryLogEvent(process, status, text, startDate, _cancellationToken);
         }
 
         private class Counts
