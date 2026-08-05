@@ -57,16 +57,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                // Before committing the SearchParameter resource to the data store, validate the parameter type
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                var url = request.Resource.Instance.GetStringScalar("url");
 
-                // Allow the resource to be updated with the normal handler
+                // POST always creates a new resource; reject if the URL is already owned by an active SearchParameter. Bug 187119.
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(url, out var existingParam)
+                    && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                    && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
+                {
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
+                }
+
+                QueueStatus(url, SearchParameterStatus.Supported, lastUpdated);
+
                 return await next();
             }
 
-            // Allow the resource to be updated with the normal handler
             return await next();
         }
 
