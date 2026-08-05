@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
@@ -19,6 +20,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -46,6 +48,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
     public class FhirServerTenancyRegistrationTests
     {
         private const string HealthCheckPublisherHostedServiceFullName = "Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckPublisherHostedService";
+        private const string DataProtectionHostedServiceFullName = "Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService";
+        private const string GenericWebHostServiceFullName = "Microsoft.AspNetCore.Hosting.GenericWebHostService";
         private static readonly string AuditEventTypeMappingFullName = typeof(AuditEventTypeMapping).FullName!;
 
         [Fact]
@@ -146,11 +150,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 typeof(IWebHostEnvironment),
                 typeof(IHostApplicationLifetime),
                 typeof(IHttpClientFactory),
+                typeof(IHttpMessageHandlerFactory),
                 typeof(IMeterFactory),
                 typeof(ITenantResolver),
                 typeof(IModelInfoProvider),
+                typeof(CompartmentDefinitionManager),
                 typeof(ICompartmentDefinitionManager),
                 typeof(IAuditEventTypeMapping),
+                typeof(EmbeddedSearchParameterDefinitionSource),
                 typeof(ISearchParameterDefinitionSource),
             };
 
@@ -248,7 +255,65 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         }
 
         [Fact]
-        public void GivenAddFhirServerWithTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantMiddlewareIsInsertedFirstBeforeCorsRequestContextAndFhirAuthentication()
+        public void GivenSecurityAndTenancyEnabled_WhenTheRootHostBuilds_ThenEveryRealHostedServiceIsClassifiedByTheShippedPolicy()
+        {
+            IConfiguration configuration = CreateAddFhirServerConfiguration(tenancyEnabled: true, securityEnabled: true);
+            IServiceCollection rootServices = null;
+
+            using IHost host = new HostBuilder()
+                .ConfigureWebHost(webBuilder =>
+                {
+                    webBuilder.UseTestServer();
+                    webBuilder.ConfigureServices(services =>
+                    {
+                        rootServices = services;
+                        services.AddFhirServer(
+                            configuration,
+                            fhirServerConfiguration =>
+                                fhirServerConfiguration.Security.AddAuthenticationLibrary =
+                                    static (serviceCollection, _) =>
+                                        serviceCollection.AddAuthentication().AddJwtBearer());
+                    });
+                    webBuilder.Configure(static _ => { });
+                })
+                .Build();
+
+            Assert.NotNull(rootServices);
+
+            TenantHostedServicePolicy hostedServicePolicy = Assert.IsType<TenantHostedServicePolicy>(
+                GetRequiredDescriptor<ITenantHostedServicePolicy>(rootServices).ImplementationInstance);
+            IReadOnlyList<IndexedServiceDescriptor> hostedServiceDescriptors = GetHostedServiceDescriptors(rootServices);
+            IReadOnlyList<IndexedServiceDescriptor> concreteHostedImplementationDescriptors =
+                GetConcreteHostedImplementationDescriptors(rootServices);
+
+            Assert.NotEmpty(hostedServiceDescriptors);
+            Assert.Equal(hostedServiceDescriptors.Count, concreteHostedImplementationDescriptors.Count);
+            AssertHostedServiceRegistrationPairings(
+                hostedServiceDescriptors,
+                concreteHostedImplementationDescriptors,
+                hostedServicePolicy);
+            Assert.Equal(
+                TenantHostedServiceDisposition.Shared,
+                hostedServicePolicy.Classify(DataProtectionHostedServiceFullName));
+            Assert.Equal(
+                TenantHostedServiceDisposition.Shared,
+                hostedServicePolicy.Classify(GenericWebHostServiceFullName));
+            Assert.Equal(
+                DataProtectionHostedServiceFullName,
+                GetRequiredImplementationTypeName(
+                    GetRequiredConcreteHostedImplementationDescriptor(
+                        concreteHostedImplementationDescriptors,
+                        DataProtectionHostedServiceFullName)));
+            Assert.Equal(
+                GenericWebHostServiceFullName,
+                GetRequiredImplementationTypeName(
+                    GetRequiredConcreteHostedImplementationDescriptor(
+                        concreteHostedImplementationDescriptors,
+                        GenericWebHostServiceFullName)));
+        }
+
+        [Fact]
+        public void GivenAddFhirServerWithTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantMiddlewarePrecedesCorsRequestContextAndFhirAuthentication()
         {
             IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(tenancyEnabled: true);
 
@@ -259,8 +324,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             Assert.Equal(0, tenantIndex);
             Assert.True(tenantIndex < corsIndex);
-            Assert.True(tenantIndex < requestContextIndex);
-            Assert.True(tenantIndex < beforeAuthenticationIndex);
+            Assert.True(corsIndex < requestContextIndex);
+            Assert.True(corsIndex < beforeAuthenticationIndex);
+            Assert.True(requestContextIndex < beforeAuthenticationIndex);
         }
 
         [Fact]
@@ -268,10 +334,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         {
             IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(tenancyEnabled: false);
 
+            int corsIndex = GetMiddlewareIndex(components, typeof(CorsMiddleware));
+            int requestContextIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
+            int beforeAuthenticationIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
+
             Assert.DoesNotContain(components, component => component.Contains(typeof(TenantMiddleware)));
-            Assert.Equal(0, GetMiddlewareIndex(components, typeof(CorsMiddleware)));
-            GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
-            GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
+            Assert.Equal(0, corsIndex);
+            Assert.True(corsIndex < requestContextIndex);
+            Assert.True(corsIndex < beforeAuthenticationIndex);
+            Assert.True(requestContextIndex < beforeAuthenticationIndex);
         }
 
         [Fact]
@@ -283,13 +354,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             int corsIndex = GetMiddlewareIndex(components, typeof(CorsMiddleware));
             int forwardedHeadersIndex = GetMiddlewareIndex(components, typeof(ForwardedHeadersMiddleware));
+            int requestContextIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
+            int beforeAuthenticationIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
 
             Assert.DoesNotContain(components, component => component.Contains(typeof(TenantMiddleware)));
             Assert.True(corsIndex < forwardedHeadersIndex);
+            Assert.True(forwardedHeadersIndex < requestContextIndex);
+            Assert.True(forwardedHeadersIndex < beforeAuthenticationIndex);
+            Assert.True(requestContextIndex < beforeAuthenticationIndex);
         }
 
         [Fact]
-        public void GivenAddFhirServerWithForwardedHeadersAndTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenTenantResolutionStillRunsFirst()
+        public void GivenAddFhirServerWithForwardedHeadersAndTenancyEnabled_WhenTheStartupFilterConfiguresThePipeline_ThenForwardedHeadersPrecedeTenantCorsRequestContextAndFhirAuthentication()
         {
             IReadOnlyList<RecordedMiddlewareComponent> components = GetConfiguredPipeline(
                 tenancyEnabled: true,
@@ -297,9 +373,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             int forwardedHeadersIndex = GetMiddlewareIndex(components, typeof(ForwardedHeadersMiddleware));
             int tenantIndex = GetMiddlewareIndex(components, typeof(TenantMiddleware));
+            int corsIndex = GetMiddlewareIndex(components, typeof(CorsMiddleware));
+            int requestContextIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextMiddleware));
+            int beforeAuthenticationIndex = GetMiddlewareIndex(components, typeof(FhirRequestContextBeforeAuthenticationMiddleware));
 
-            Assert.Equal(0, tenantIndex);
-            Assert.True(tenantIndex < forwardedHeadersIndex);
+            Assert.Equal(0, forwardedHeadersIndex);
+            Assert.True(forwardedHeadersIndex < tenantIndex);
+            Assert.True(tenantIndex < corsIndex);
+            Assert.True(corsIndex < requestContextIndex);
+            Assert.True(corsIndex < beforeAuthenticationIndex);
+            Assert.True(requestContextIndex < beforeAuthenticationIndex);
         }
 
         [Fact]

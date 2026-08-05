@@ -100,12 +100,15 @@ namespace Microsoft.Health.Fhir.Api.Registration
             registry.ShareWithTenants<IWebHostEnvironment>();
             registry.ShareWithTenants<IHostApplicationLifetime>();
             registry.ShareWithTenants<IHttpClientFactory>();
+            registry.ShareWithTenants<IHttpMessageHandlerFactory>();
             registry.ShareWithTenants<IMeterFactory>();
             registry.ShareWithTenants<ITenantResolver>();
 
             registry.ShareWithTenants<IAuditEventTypeMapping>();
             registry.ShareWithTenants<IModelInfoProvider>();
+            registry.ShareHostedServiceImplementationWithTenants<CompartmentDefinitionManager>();
             registry.ShareWithTenants<ICompartmentDefinitionManager>();
+            registry.ShareWithTenants<EmbeddedSearchParameterDefinitionSource>();
             registry.ShareWithTenants<ISearchParameterDefinitionSource>();
 
             // ILogger<T> resolves from ILoggerFactory, IServer remains intentionally unshared, and

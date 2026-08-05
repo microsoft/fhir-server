@@ -5,6 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -70,6 +73,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public void GivenTheHostedServiceInterface_WhenShared_ThenAnExceptionExplainsHostedServicesMustUseThePolicy()
+        {
+            var registry = new TenantSharedServiceRegistry();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => registry.ShareWithTenants<IHostedService>());
+
+            Assert.Contains(typeof(IHostedService).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(typeof(ITenantHostedServicePolicy).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Empty(registry.SharedServiceTypes);
+        }
+
+        [Fact]
+        public void GivenAConcreteHostedService_WhenShared_ThenAnExceptionExplainsHostedServicesMustUseThePolicy()
+        {
+            var registry = new TenantSharedServiceRegistry();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => registry.ShareWithTenants<TestHostedService>());
+
+            Assert.Contains(typeof(TestHostedService).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(typeof(ITenantHostedServicePolicy).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Empty(registry.SharedServiceTypes);
+        }
+
+        [Fact]
         public void GivenSharedServiceTypesSnapshot_WhenMutationIsAttempted_ThenItIsRejectedAndRegistryRemainsUnchanged()
         {
             var registry = new TenantSharedServiceRegistry();
@@ -84,6 +113,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             Assert.Single(registry.SharedServiceTypes);
             Assert.True(registry.IsShared(typeof(ILoggerFactory)));
             Assert.False(registry.IsShared(typeof(ILoggerProvider)));
+        }
+
+        private sealed class TestHostedService : IHostedService
+        {
+            public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         }
     }
 }

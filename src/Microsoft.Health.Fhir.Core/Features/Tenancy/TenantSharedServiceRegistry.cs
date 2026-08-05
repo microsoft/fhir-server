@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.Health.Fhir.Core.Features.Tenancy
 {
@@ -45,8 +46,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             EnsureArg.IsNotNull(serviceType, nameof(serviceType));
 
+            if (typeof(IHostedService).IsAssignableFrom(serviceType))
+            {
+                throw new InvalidOperationException(
+                    $"{serviceType.FullName} cannot be shared with tenant containers because hosted services " +
+                    $"must be classified by {typeof(ITenantHostedServicePolicy).FullName}.");
+            }
+
             _sharedServiceTypes.Add(serviceType);
             return this;
+        }
+
+        internal void ShareHostedServiceImplementationWithTenants<TService>()
+            where TService : IHostedService
+        {
+            _sharedServiceTypes.Add(typeof(TService));
         }
 
         /// <summary>

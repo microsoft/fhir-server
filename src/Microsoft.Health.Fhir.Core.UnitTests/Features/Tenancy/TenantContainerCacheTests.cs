@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Fhir.Core.Features.Tenancy;
@@ -147,6 +148,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             Assert.Equal(0, cache.Count);
             Assert.Equal(1, cache.EvictionCount);
             Assert.Equal(1, Assert.Single(_factory.CreatedContainers).DisposeCallCount);
+        }
+
+        [Fact]
+        public async Task GivenAnIdleTenantWithAnInitializer_WhenSwept_ThenStopObservesTheTenantAndRestoresTheSweeperContext()
+        {
+            var accessor = new RecordingTenantContextAccessor();
+            var initializer = new AmbientInitializerProbe(accessor);
+            var factory = new InitializingFactory(_timeProvider, accessor, initializer);
+            var options = new TenantContainerCacheOptions
+            {
+                IdleTimeout = TimeSpan.FromMinutes(10),
+            };
+            await using var cache = new TenantContainerCache(factory, Options.Create(options), _timeProvider);
+            var sweeperTenant = new TenantId("sweeper");
+
+            accessor.SetCurrent(sweeperTenant);
+            (await cache.AcquireAsync(Tenant("alpha"), CancellationToken.None)).Dispose();
+            _timeProvider.Advance(TimeSpan.FromMinutes(11));
+            accessor.ClearSetHistory();
+
+            await cache.EvictIdleAsync(CancellationToken.None);
+
+            Assert.Equal(new TenantId("alpha"), initializer.StartTenant);
+            Assert.Equal(new TenantId("alpha"), initializer.StopTenant);
+            Assert.Equal(sweeperTenant, accessor.Current);
+            Assert.Equal(new[] { new TenantId("alpha"), sweeperTenant }, accessor.SetHistory);
         }
 
         [Fact]
@@ -724,6 +751,85 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             public int CreateCountFor(TenantId tenantId) =>
                 _createCounts.TryGetValue(tenantId, out int count) ? count : 0;
+        }
+
+        private sealed class InitializingFactory : ITenantContainerFactory
+        {
+            private readonly TimeProvider _timeProvider;
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientInitializerProbe _initializer;
+
+            public InitializingFactory(
+                TimeProvider timeProvider,
+                ITenantContextAccessor accessor,
+                AmbientInitializerProbe initializer)
+            {
+                _timeProvider = timeProvider;
+                _accessor = accessor;
+                _initializer = initializer;
+            }
+
+            public async ValueTask<ITenantContainer> CreateAsync(
+                TenantDescriptor tenant,
+                CancellationToken cancellationToken)
+            {
+                ServiceProvider provider = new ServiceCollection()
+                    .AddSingleton(_accessor)
+                    .AddSingleton<IHostedService>(_initializer)
+                    .BuildServiceProvider();
+                var container = new TenantContainer(tenant, provider, _timeProvider, _accessor);
+                await container.StartInitializersAsync(cancellationToken);
+                return container;
+            }
+        }
+
+        private sealed class AmbientInitializerProbe : IHostedService
+        {
+            private readonly ITenantContextAccessor _accessor;
+
+            public AmbientInitializerProbe(ITenantContextAccessor accessor)
+            {
+                _accessor = accessor;
+            }
+
+            public TenantId StartTenant { get; private set; }
+
+            public TenantId StopTenant { get; private set; }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                StartTenant = _accessor.Current;
+                return Task.CompletedTask;
+            }
+
+            public async Task StopAsync(CancellationToken cancellationToken)
+            {
+                await Task.Yield();
+                StopTenant = _accessor.Current;
+            }
+        }
+
+        private sealed class RecordingTenantContextAccessor : ITenantContextAccessor
+        {
+            private readonly TenantContextAccessor _inner = new();
+            private readonly ConcurrentQueue<TenantId> _setHistory = new();
+
+            public TenantId Current => _inner.Current;
+
+            public TenantId[] SetHistory => _setHistory.ToArray();
+
+            public void ClearSetHistory()
+            {
+                while (_setHistory.TryDequeue(out _))
+                {
+                }
+            }
+
+            public void SetCurrent(TenantId tenantId)
+            {
+                _setHistory.Enqueue(tenantId);
+                _inner.SetCurrent(tenantId);
+            }
         }
 
         private sealed class RecordingContainer : ITenantContainer

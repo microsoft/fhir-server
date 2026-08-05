@@ -17,13 +17,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Tenancy;
 using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -48,6 +52,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         /// The host that resolves to the beta tenant.
         /// </summary>
         public const string BetaHost = "beta.example.org";
+
+        /// <summary>
+        /// A host that simulates an internal proxy address not registered in the tenant registry.
+        /// Used to prove that <c>X-Forwarded-Host</c> is needed for correct external host resolution.
+        /// </summary>
+        public const string InternalProxyHost = "internal.proxy.example.org";
 
         /// <summary>
         /// The response header added by the tenant-neutral MVC global filter.
@@ -78,6 +88,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
         private readonly int _maxResidentTenants;
         private readonly TimeSpan _idleTimeout;
+        private IHost _forwardedHeadersDisabledHost;
+        private IHost _forwardedHeadersEnabledHost;
         private IHost _host;
         private ProbeConfiguratorInvocationCounter _probeConfiguratorInvocationCounter;
 
@@ -120,29 +132,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         /// <inheritdoc />
         public async Task InitializeAsync()
         {
-            _host = await new HostBuilder()
-                .ConfigureWebHost(webBuilder =>
-                {
-                    webBuilder.UseTestServer();
-                    webBuilder.ConfigureServices(ConfigureServices);
-                    webBuilder.Configure(Configure);
-                })
-                .StartAsync();
+            _host = await StartHostAsync(ConfigureServices, Configure);
 
             Server = _host.GetTestServer();
             _probeConfiguratorInvocationCounter =
                 _host.Services.GetRequiredService<ProbeConfiguratorInvocationCounter>();
             RootMvcGlobalFilterIdentity = ReadGlobalFilterIdentity(_host.Services);
+
+            _forwardedHeadersDisabledHost = await StartProductionHostAsync(forwardedHeadersEnabled: false);
+            _forwardedHeadersEnabledHost = await StartProductionHostAsync(forwardedHeadersEnabled: true);
         }
 
         /// <inheritdoc />
         public async Task DisposeAsync()
         {
-            if (_host != null)
-            {
-                await _host.StopAsync();
-                _host.Dispose();
-            }
+            await StopAndDisposeHostAsync(_forwardedHeadersDisabledHost);
+            await StopAndDisposeHostAsync(_forwardedHeadersEnabledHost);
+            await StopAndDisposeHostAsync(_host);
         }
 
         /// <summary>
@@ -150,6 +156,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
         /// </summary>
         /// <returns>A connected HTTP client.</returns>
         public HttpClient CreateClient() => Server.CreateClient();
+
+        /// <summary>
+        /// Creates a client connected to the in-process server configured by the production startup filters
+        /// with tenancy enabled and forwarded headers disabled.
+        /// </summary>
+        /// <returns>A connected HTTP client.</returns>
+        public HttpClient CreateForwardedHeadersDisabledClient() => _forwardedHeadersDisabledHost.GetTestClient();
+
+        /// <summary>
+        /// Creates a client connected to the in-process server configured by the production startup filters
+        /// with forwarded headers and tenancy enabled.
+        /// </summary>
+        /// <returns>A connected HTTP client.</returns>
+        public HttpClient CreateForwardedHeadersEnabledClient() => _forwardedHeadersEnabledHost.GetTestClient();
 
         /// <summary>
         /// Gets the number of probe-configurator invocations recorded for a tenant.
@@ -221,6 +241,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 .Single()
                 .Identity;
 
+        private static Task<IHost> StartHostAsync(
+            Action<IServiceCollection> configureServices,
+            Action<IApplicationBuilder> configureApplication)
+        {
+            return new HostBuilder()
+                .ConfigureWebHost(webBuilder =>
+                {
+                    webBuilder.UseTestServer();
+                    webBuilder.ConfigureServices(configureServices);
+                    webBuilder.Configure(configureApplication);
+                })
+                .StartAsync();
+        }
+
+        private static Task<IHost> StartProductionHostAsync(bool forwardedHeadersEnabled)
+        {
+            return new HostBuilder()
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder.UseTestServer();
+                    webBuilder.ConfigureServices(
+                        services => ConfigureProductionServices(services, forwardedHeadersEnabled));
+                    webBuilder.Configure(ConfigureProductionApplication);
+                })
+                .StartAsync();
+        }
+
+        private static async Task StopAndDisposeHostAsync(IHost host)
+        {
+            if (host == null)
+            {
+                return;
+            }
+
+            await host.StopAsync();
+            host.Dispose();
+        }
+
         private void ConfigureServices(IServiceCollection services)
         {
             services.AddLogging();
@@ -245,38 +303,87 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
                 });
             services.AddAuthorization();
 
-            services.AddScoped<TenantScopedProbe>(_ => new TenantScopedProbe("root"));
-
-            services.AddSingleton<ITenantResolver, HostHeaderTenantResolver>();
-            services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
-            services.AddSingleton<ITenantRegistry>(CreateRegistry());
-            services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
-            services.AddSingleton(
-                new TenantSharedServiceRegistry()
-                    .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerFactory>()
-                    .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerProvider>());
-
-            var hostedServicePolicy = new TenantHostedServicePolicy();
-
-            // These TestHost hosted-service names are pinned to ASP.NET Core 10.0.10, the centrally configured
-            // TestHost/runtime version; update them when that version changes.
-            hostedServicePolicy.Set(
-                "Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService",
-                TenantHostedServiceDisposition.Shared);
-            hostedServicePolicy.Set(
-                "Microsoft.AspNetCore.Hosting.GenericWebHostService",
-                TenantHostedServiceDisposition.Shared);
-            services.AddSingleton<ITenantHostedServicePolicy>(hostedServicePolicy);
             services.AddSingleton<ITenantServiceConfigurator, JwtPerTenantConfigurator>();
             services.AddSingleton<ITenantServiceConfigurator, ProbePerTenantConfigurator>();
             services.AddSingleton<ITenantServiceConfigurator, TenantInstanceConfigurationConfigurator>();
+            ConfigureTenantServices(services, _maxResidentTenants, _idleTimeout);
+        }
+
+        private static void ConfigureProductionServices(
+            IServiceCollection services,
+            bool forwardedHeadersEnabled)
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(
+                    new Dictionary<string, string>
+                    {
+                        ["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = forwardedHeadersEnabled.ToString(),
+                        ["DataStore"] = "SqlServer",
+                        ["FhirServer:MultiTenantApplication:Enabled"] = bool.FalseString,
+                        ["FhirServer:Security:Enabled"] = bool.FalseString,
+                    })
+                .Build();
+
+            services.AddSingleton(configuration);
+            services.AddFhirServer(configuration);
+            services.Configure<ForwardedHeadersOptions>(
+                options => options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost);
+
+            // Use AddFhirServer for its production startup filter, but replace its registration-time
+            // disabled-tenancy options so this focused host can supply the smaller tenant service graph below.
+            services.RemoveAll<IOptions<FhirServerConfiguration>>();
+            services.AddSingleton(
+                Options.Create(
+                    new FhirServerConfiguration
+                    {
+                        MultiTenantApplication = { Enabled = true },
+                    }));
+
+            // Production hosted services are not started by this request pipeline probe. TestHost adds its
+            // framework hosted services after this callback, so they remain in the tenant blueprint.
+            services.RemoveAll<IHostedService>();
+            services.RemoveAll<ITenantResolver>();
+            services.RemoveAll<ITenantRegistry>();
+
+            services.AddSingleton<ITenantServiceConfigurator, TenantInstanceConfigurationConfigurator>();
+            services.AddSingleton<ITenantServiceConfigurator, ProbePerTenantConfigurator>();
+            ConfigureTenantServices(
+                services,
+                8,
+                TimeSpan.FromMinutes(30),
+                shareRequestContextAccessor: true);
+        }
+
+        private static void ConfigureTenantServices(
+            IServiceCollection services,
+            int maxResidentTenants,
+            TimeSpan idleTimeout,
+            bool shareRequestContextAccessor = false)
+        {
+            services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+            services.AddScoped<TenantScopedProbe>(_ => new TenantScopedProbe("root"));
+            services.AddSingleton<ITenantResolver, HostHeaderTenantResolver>();
+            services.TryAddSingleton<ITenantContextAccessor, TenantContextAccessor>();
+            services.AddSingleton<ITenantRegistry>(CreateRegistry());
+            services.TryAddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
+            var sharedServiceRegistry = new TenantSharedServiceRegistry()
+                .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerFactory>()
+                .ShareWithTenants<Microsoft.Extensions.Logging.ILoggerProvider>();
+            if (shareRequestContextAccessor)
+            {
+                sharedServiceRegistry.ShareWithTenants<RequestContextAccessor<IFhirRequestContext>>();
+            }
+
+            services.AddSingleton(sharedServiceRegistry);
+
+            services.AddSingleton<ITenantHostedServicePolicy>(new TenantHostedServicePolicy());
             services.AddSingleton<ProbeConfiguratorInvocationCounter>();
             services.AddSingleton(
                 Options.Create(
                     new TenantContainerCacheOptions
                     {
-                        MaxResidentTenants = _maxResidentTenants,
-                        IdleTimeout = _idleTimeout,
+                        MaxResidentTenants = maxResidentTenants,
+                        IdleTimeout = idleTimeout,
                     }));
             services.AddSingleton<ITenantContainerFactory, TenantContainerFactory>();
             services.AddSingleton<TenantContainerCache>();
@@ -292,6 +399,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseEndpoints(endpoints => endpoints.MapControllers());
+        }
+
+        private static void ConfigureProductionApplication(IApplicationBuilder app)
+        {
+            // Production startup filters own the forwarded-header and tenancy middleware.
+            app.UseRouting();
+            app.UseEndpoints(
+                endpoints => endpoints.MapGet(
+                    "/forwarded-host/tenant",
+                    async context =>
+                    {
+                        TenantScopedProbe probe =
+                            context.RequestServices.GetRequiredService<TenantScopedProbe>();
+                        await context.Response.WriteAsJsonAsync(new { tenant = probe.TenantName });
+                    }));
         }
 
         private static InMemoryTenantRegistry CreateRegistry()

@@ -59,6 +59,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
+        public async Task GivenASingletonCapturesAScopedService_WhenTheFirstTenantContainerIsBuilt_ThenConstructionFails()
+        {
+            var harness = new Harness();
+            harness.RootServices.AddScoped<ScopedDependency>();
+            harness.RootServices.AddSingleton<SingletonCapturingScopedDependency>();
+            harness.RootServices.AddSingleton<IHostedService, ScopeCapturingInitializerHostedService>();
+            harness.Policy.Set(
+                typeof(ScopeCapturingInitializerHostedService).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+
+            InvalidOperationException exception =
+                await Assert.ThrowsAsync<InvalidOperationException>(() => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Contains("Cannot consume scoped service", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(typeof(ScopedDependency).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                typeof(SingletonCapturingScopedDependency).FullName,
+                exception.Message,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
         public async Task GivenASharedDisposableSingleton_WhenTheTenantContainerIsDisposed_ThenTheRootInstanceSurvives()
         {
             var harness = new Harness();
@@ -159,18 +181,53 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
         }
 
         [Fact]
-        public async Task GivenHostedServicesAreSharedWithTenants_WhenATenantContainerIsBuilt_ThenConstructionFails()
+        public void GivenHostedServicesAreSharedWithTenants_WhenDeclared_ThenDeclarationFails()
+        {
+            var harness = new Harness();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => harness.SharedRegistry.ShareWithTenants<IHostedService>());
+
+            Assert.Contains(typeof(IHostedService).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(typeof(ITenantHostedServicePolicy).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Empty(harness.SharedRegistry.SharedServiceTypes);
+        }
+
+        [Fact]
+        public async Task GivenAHostedServiceIsInternallyShared_WhenATenantContainerIsBuilt_ThenTheForwardGuardFailsConstruction()
         {
             var harness = new Harness();
             harness.RootServices.AddSingleton<IHostedService, InitializerHostedService>();
-            harness.Policy.Set(typeof(InitializerHostedService).FullName, TenantHostedServiceDisposition.PerTenantInitializer);
-            harness.SharedRegistry.ShareWithTenants<IHostedService>();
+            harness.SharedRegistry.ShareHostedServiceImplementationWithTenants<IHostedService>();
 
             InvalidOperationException exception =
                 await Assert.ThrowsAsync<InvalidOperationException>(
                     () => harness.CreateAsync(Alpha).AsTask());
 
             Assert.Contains(typeof(IHostedService).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains("must not be forwarded", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(nameof(ITenantHostedServicePolicy), exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenAConcretePerTenantInitializerIsInternallyShared_WhenATenantContainerIsBuilt_ThenForwardingFailsConstruction()
+        {
+            var harness = new Harness();
+            harness.RootServices.AddSingleton<InitializerHostedService>();
+            harness.RootServices.AddSingleton<IHostedService>(
+                serviceProvider => serviceProvider.GetRequiredService<InitializerHostedService>());
+            harness.SharedRegistry.ShareHostedServiceImplementationWithTenants<InitializerHostedService>();
+            harness.Policy.Set(
+                typeof(InitializerHostedService).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+
+            InvalidOperationException exception =
+                await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Contains(typeof(InitializerHostedService).FullName, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(nameof(TenantHostedServiceDisposition.PerTenantInitializer), exception.Message, StringComparison.Ordinal);
+            Assert.Contains(nameof(ITenantHostedServicePolicy), exception.Message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -257,6 +314,192 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
             Assert.Equal("alpha", Resolve<StampedService>(alpha).Stamp);
             Assert.Equal("root", harness.RootProvider.GetRequiredService<StampedService>().Stamp);
+        }
+
+        [Fact]
+        public async Task GivenACallerAmbientTenant_WhenAContainerIsCreatedAndDisposed_ThenTheEntireLifecycleObservesTheCreatedTenantAndRestoresTheCaller()
+        {
+            var harness = new Harness();
+            var callerTenant = new TenantId("caller");
+            var accessor = new TenantContextAccessorProbe();
+            var probe = new AmbientTenantLifecycleProbe();
+            harness.RootServices.AddSingleton<ITenantContextAccessor>(accessor);
+            harness.RootServices.AddSingleton(probe);
+            harness.RootServices.AddSingleton<IHostedService, AmbientTenantInitializer>();
+            harness.Configurators.Add(new AmbientTenantConfigurator(accessor, probe));
+            harness.Policy.Set(
+                typeof(AmbientTenantInitializer).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+            accessor.SetCurrent(callerTenant);
+
+            ITenantContainer alpha = await harness.CreateAsync(Alpha);
+
+            try
+            {
+                Assert.Same(accessor, probe.ConfiguratorRegistration);
+                Assert.Same(accessor, Resolve<ITenantContextAccessor>(alpha));
+                Assert.Equal(callerTenant, accessor.Current);
+                Assert.Equal(
+                    new[]
+                    {
+                        "construct:success",
+                        "configure",
+                        "construct:success",
+                        "start:success",
+                    },
+                    probe.Observations.Select(observation => observation.Phase));
+                Assert.All(
+                    probe.Observations,
+                    observation => Assert.Equal(Alpha.TenantId, observation.TenantId));
+                Assert.All(
+                    probe.InjectedAccessors,
+                    injectedAccessor => Assert.Same(accessor, injectedAccessor));
+            }
+            finally
+            {
+                await alpha.DisposeAsync();
+            }
+
+            Assert.Equal("stop:success", probe.Observations.Last().Phase);
+            Assert.Equal(Alpha.TenantId, probe.Observations.Last().TenantId);
+            Assert.Equal(callerTenant, accessor.Current);
+        }
+
+        [Fact]
+        public async Task GivenAConfiguratorFailure_WhenContainerCreationFails_ThenTheConfiguratorObservesTheCreatedTenantAndTheCallerIsRestored()
+        {
+            var harness = new Harness();
+            var callerTenant = new TenantId("caller");
+            var accessor = new TenantContextAccessorProbe();
+            var probe = new AmbientTenantLifecycleProbe();
+            var failure = new InvalidOperationException("configuration failed");
+            harness.RootServices.AddSingleton<ITenantContextAccessor>(accessor);
+            harness.Configurators.Add(new AmbientTenantConfigurator(accessor, probe, failure));
+            accessor.SetCurrent(callerTenant);
+
+            InvalidOperationException exception =
+                await Assert.ThrowsAsync<InvalidOperationException>(() => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Same(failure, exception);
+            Assert.Same(accessor, probe.ConfiguratorRegistration);
+            Assert.Collection(
+                probe.Observations,
+                observation =>
+                {
+                    Assert.Equal("configure", observation.Phase);
+                    Assert.Equal(Alpha.TenantId, observation.TenantId);
+                });
+            Assert.Equal(callerTenant, accessor.Current);
+        }
+
+        [Fact]
+        public async Task GivenCanceledInitializerStartup_WhenContainerCreationIsCanceled_ThenStartupObservesTheCreatedTenantAndTheCallerIsRestored()
+        {
+            var harness = new Harness();
+            var callerTenant = new TenantId("caller");
+            var accessor = new TenantContextAccessorProbe();
+            var probe = new AmbientTenantLifecycleProbe();
+            using var cancellationSource = new CancellationTokenSource();
+            harness.RootServices.AddSingleton<ITenantContextAccessor>(accessor);
+            harness.RootServices.AddSingleton(probe);
+            harness.RootServices.AddSingleton<IHostedService, AmbientTenantCancellationInitializer>();
+            harness.Policy.Set(
+                typeof(AmbientTenantCancellationInitializer).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+            accessor.SetCurrent(callerTenant);
+            cancellationSource.Cancel();
+
+            OperationCanceledException exception =
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    () => harness.CreateAsync(Alpha, cancellationSource.Token).AsTask());
+
+            Assert.Equal(cancellationSource.Token, exception.CancellationToken);
+            Assert.Contains(
+                probe.Observations,
+                observation =>
+                    observation.Phase == "start:canceled" &&
+                    observation.TenantId == Alpha.TenantId);
+            Assert.All(
+                probe.Observations,
+                observation => Assert.Equal(Alpha.TenantId, observation.TenantId));
+            Assert.All(
+                probe.InjectedAccessors,
+                injectedAccessor => Assert.Same(accessor, injectedAccessor));
+            Assert.Equal(callerTenant, accessor.Current);
+        }
+
+        [Fact]
+        public async Task GivenAnInitializerStartupFailure_WhenContainerCreationFails_ThenStartupAndCleanupObserveTheCreatedTenantAndTheCallerIsRestored()
+        {
+            var harness = new Harness();
+            var callerTenant = new TenantId("caller");
+            var accessor = new TenantContextAccessorProbe();
+            var probe = new AmbientTenantLifecycleProbe();
+            harness.RootServices.AddSingleton<ITenantContextAccessor>(accessor);
+            harness.RootServices.AddSingleton(probe);
+            harness.RootServices.AddSingleton<IHostedService, AmbientTenantInitializer>();
+            harness.RootServices.AddSingleton<IHostedService, AmbientTenantStartupFailureInitializer>();
+            harness.Policy.Set(
+                typeof(AmbientTenantInitializer).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+            harness.Policy.Set(
+                typeof(AmbientTenantStartupFailureInitializer).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+            accessor.SetCurrent(callerTenant);
+
+            InvalidOperationException exception =
+                await Assert.ThrowsAsync<InvalidOperationException>(() => harness.CreateAsync(Alpha).AsTask());
+
+            Assert.Same(probe.StartupFailure, exception);
+            Assert.Contains(
+                probe.Observations,
+                observation =>
+                    observation.Phase == "start:success" &&
+                    observation.TenantId == Alpha.TenantId);
+            Assert.Contains(
+                probe.Observations,
+                observation =>
+                    observation.Phase == "start:failure" &&
+                    observation.TenantId == Alpha.TenantId);
+            Assert.Contains(
+                probe.Observations,
+                observation =>
+                    observation.Phase == "stop:success" &&
+                    observation.TenantId == Alpha.TenantId);
+            Assert.All(
+                probe.Observations,
+                observation => Assert.Equal(Alpha.TenantId, observation.TenantId));
+            Assert.All(
+                probe.InjectedAccessors,
+                injectedAccessor => Assert.Same(accessor, injectedAccessor));
+            Assert.Equal(callerTenant, accessor.Current);
+        }
+
+        [Fact]
+        public async Task GivenAStopCancellation_WhenAContainerIsDisposed_ThenStopObservesTheCreatedTenantAndTheCallerIsRestored()
+        {
+            var harness = new Harness();
+            var callerTenant = new TenantId("caller");
+            var accessor = new TenantContextAccessorProbe();
+            var probe = new AmbientTenantLifecycleProbe();
+            harness.RootServices.AddSingleton<ITenantContextAccessor>(accessor);
+            harness.RootServices.AddSingleton(probe);
+            harness.RootServices.AddSingleton<IHostedService, AmbientTenantStopCancellationInitializer>();
+            harness.Policy.Set(
+                typeof(AmbientTenantStopCancellationInitializer).FullName,
+                TenantHostedServiceDisposition.PerTenantInitializer);
+            accessor.SetCurrent(callerTenant);
+
+            ITenantContainer alpha = await harness.CreateAsync(Alpha);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => alpha.DisposeAsync().AsTask());
+
+            Assert.Contains(
+                probe.Observations,
+                observation =>
+                    observation.Phase == "stop:canceled" &&
+                    observation.TenantId == Alpha.TenantId);
+            Assert.Equal(callerTenant, accessor.Current);
         }
 
         [Fact]
@@ -475,10 +718,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             public ServiceProvider RootProvider => _rootProvider ??= Build();
 
             public ValueTask<ITenantContainer> CreateAsync(TenantDescriptor tenant)
+                => CreateAsync(tenant, CancellationToken.None);
+
+            public ValueTask<ITenantContainer> CreateAsync(
+                TenantDescriptor tenant,
+                CancellationToken cancellationToken)
             {
                 ServiceProvider root = RootProvider;
                 var factory = root.GetRequiredService<ITenantContainerFactory>();
-                return factory.CreateAsync(tenant, CancellationToken.None);
+                return factory.CreateAsync(tenant, cancellationToken);
             }
 
             private ServiceProvider Build()
@@ -501,6 +749,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
 
         private sealed class PerTenantService
         {
+        }
+
+        private sealed class ScopedDependency
+        {
+        }
+
+        private sealed class SingletonCapturingScopedDependency
+        {
+            public SingletonCapturingScopedDependency(ScopedDependency scopedDependency)
+            {
+            }
         }
 
         private sealed class SharedService
@@ -537,6 +796,160 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
             }
         }
 
+        private sealed class TenantContextAccessorProbe : ITenantContextAccessor
+        {
+            public TenantId Current { get; private set; }
+
+            public void SetCurrent(TenantId tenantId) => Current = tenantId;
+        }
+
+        private sealed class AmbientTenantLifecycleProbe
+        {
+            public IList<ITenantContextAccessor> InjectedAccessors { get; } = new List<ITenantContextAccessor>();
+
+            public IList<(string Phase, TenantId TenantId)> Observations { get; } =
+                new List<(string Phase, TenantId TenantId)>();
+
+            public ITenantContextAccessor ConfiguratorRegistration { get; set; }
+
+            public InvalidOperationException StartupFailure { get; } = new("startup failed");
+
+            public void Observe(string phase, ITenantContextAccessor accessor)
+            {
+                InjectedAccessors.Add(accessor);
+                Observations.Add((phase, accessor.Current));
+            }
+        }
+
+        private sealed class AmbientTenantConfigurator : ITenantServiceConfigurator
+        {
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientTenantLifecycleProbe _probe;
+            private readonly Exception _failure;
+
+            public AmbientTenantConfigurator(
+                ITenantContextAccessor accessor,
+                AmbientTenantLifecycleProbe probe,
+                Exception failure = null)
+            {
+                _accessor = accessor;
+                _probe = probe;
+                _failure = failure;
+            }
+
+            public void Configure(IServiceCollection services, TenantDescriptor tenant)
+            {
+                _probe.ConfiguratorRegistration = services
+                    .Single(descriptor => descriptor.ServiceType == typeof(ITenantContextAccessor))
+                    .ImplementationInstance as ITenantContextAccessor;
+                _probe.Observe("configure", _accessor);
+
+                if (_failure is not null)
+                {
+                    throw _failure;
+                }
+            }
+        }
+
+        private sealed class AmbientTenantInitializer : IHostedService
+        {
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientTenantLifecycleProbe _probe;
+
+            public AmbientTenantInitializer(
+                ITenantContextAccessor accessor,
+                AmbientTenantLifecycleProbe probe)
+            {
+                _accessor = accessor;
+                _probe = probe;
+                _probe.Observe("construct:success", _accessor);
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("start:success", _accessor);
+                return Task.CompletedTask;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("stop:success", _accessor);
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class AmbientTenantCancellationInitializer : IHostedService
+        {
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientTenantLifecycleProbe _probe;
+
+            public AmbientTenantCancellationInitializer(
+                ITenantContextAccessor accessor,
+                AmbientTenantLifecycleProbe probe)
+            {
+                _accessor = accessor;
+                _probe = probe;
+                _probe.Observe("construct:canceled", _accessor);
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("start:canceled", _accessor);
+                return Task.FromCanceled(cancellationToken);
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private sealed class AmbientTenantStartupFailureInitializer : IHostedService
+        {
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientTenantLifecycleProbe _probe;
+
+            public AmbientTenantStartupFailureInitializer(
+                ITenantContextAccessor accessor,
+                AmbientTenantLifecycleProbe probe)
+            {
+                _accessor = accessor;
+                _probe = probe;
+                _probe.Observe("construct:failure", _accessor);
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("start:failure", _accessor);
+                throw _probe.StartupFailure;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private sealed class AmbientTenantStopCancellationInitializer : IHostedService
+        {
+            private readonly ITenantContextAccessor _accessor;
+            private readonly AmbientTenantLifecycleProbe _probe;
+
+            public AmbientTenantStopCancellationInitializer(
+                ITenantContextAccessor accessor,
+                AmbientTenantLifecycleProbe probe)
+            {
+                _accessor = accessor;
+                _probe = probe;
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("start:stop-cancellation", _accessor);
+                return Task.CompletedTask;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                _probe.Observe("stop:canceled", _accessor);
+                return Task.FromCanceled(new CancellationToken(canceled: true));
+            }
+        }
+
         private sealed class ForwardingProbeConfigurator : ITenantServiceConfigurator
         {
             public object ForwardedAccessor { get; private set; }
@@ -558,6 +971,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Tenancy
                 Started = true;
                 return Task.CompletedTask;
             }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private sealed class ScopeCapturingInitializerHostedService : IHostedService
+        {
+            public ScopeCapturingInitializerHostedService(SingletonCapturingScopedDependency dependency)
+            {
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
             public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         }

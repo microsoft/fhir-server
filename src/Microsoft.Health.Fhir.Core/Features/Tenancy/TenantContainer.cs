@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         private readonly TenantDescriptor _tenant;
         private readonly ServiceProvider _provider;
         private readonly TimeProvider _timeProvider;
+        private readonly ITenantContextAccessor _tenantContextAccessor;
         private readonly object _lifecycleSync = new();
         private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<IHostedService> _startedInitializers = new();
@@ -46,6 +47,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         /// <param name="provider">The tenant's service provider. This container takes ownership of it.</param>
         /// <param name="timeProvider">The time provider used for idle tracking.</param>
         public TenantContainer(TenantDescriptor tenant, ServiceProvider provider, TimeProvider timeProvider)
+            : this(tenant, provider, timeProvider, provider?.GetService<ITenantContextAccessor>())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TenantContainer"/> class.
+        /// </summary>
+        /// <param name="tenant">The tenant this container serves.</param>
+        /// <param name="provider">The tenant's service provider. This container takes ownership of it.</param>
+        /// <param name="timeProvider">The time provider used for idle tracking.</param>
+        /// <param name="tenantContextAccessor">
+        /// The ambient tenant context accessor. When provided, <see cref="IHostedService"/> initializers
+        /// start and stop under this tenant's ambient context and restore the prior value on all outcomes.
+        /// </param>
+        public TenantContainer(TenantDescriptor tenant, ServiceProvider provider, TimeProvider timeProvider, ITenantContextAccessor tenantContextAccessor)
         {
             EnsureArg.IsNotNull(tenant, nameof(tenant));
             EnsureArg.IsNotNull(provider, nameof(provider));
@@ -54,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             _tenant = tenant;
             _provider = provider;
             _timeProvider = timeProvider;
+            _tenantContextAccessor = tenantContextAccessor;
             _lastAccessedTicks = timeProvider.GetUtcNow().UtcTicks;
         }
 
@@ -161,7 +178,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             {
                 foreach (IHostedService initializer in _provider.GetServices<IHostedService>())
                 {
-                    await initializer.StartAsync(cancellationToken).ConfigureAwait(false);
+                    await ExecuteInTenantContextAsync(
+                        () => initializer.StartAsync(cancellationToken)).ConfigureAwait(false);
 
                     lock (_lifecycleSync)
                     {
@@ -215,7 +233,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             {
                 try
                 {
-                    await startedInitializers[i].StopAsync(CancellationToken.None).ConfigureAwait(false);
+                    await ExecuteInTenantContextAsync(
+                        () => startedInitializers[i].StopAsync(CancellationToken.None)).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -233,6 +252,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             }
 
             ThrowIfAnyFailures(failures);
+        }
+
+        private async Task ExecuteInTenantContextAsync(Func<Task> operation)
+        {
+            TenantId priorTenant = _tenantContextAccessor?.Current ?? default;
+            _tenantContextAccessor?.SetCurrent(_tenant.TenantId);
+            try
+            {
+                await operation().ConfigureAwait(false);
+            }
+            finally
+            {
+                _tenantContextAccessor?.SetCurrent(priorTenant);
+            }
         }
 
         private void ReleaseCore()

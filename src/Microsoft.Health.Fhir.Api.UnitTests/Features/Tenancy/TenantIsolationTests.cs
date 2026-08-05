@@ -294,6 +294,50 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
             Assert.Equal(AllowedRootValueProviderFactoryTypes, GetTypeNames(options.ValueProviderFactories));
         }
 
+        [Fact]
+        public async Task GivenForwardedHeadersNotEnabled_WhenXForwardedHostMatchesTenantButRawHostDoesNot_ThenTenantIsNotResolved()
+        {
+            using HttpClient client = _fixture.CreateForwardedHeadersDisabledClient();
+            using HttpRequestMessage request = CreateForwardedHostRequest(
+                "/forwarded-host/tenant",
+                TenantIsolationTestServerFixture.AlphaHost);
+
+            using HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            using JsonDocument content = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal(404, content.RootElement.GetProperty("status").GetInt32());
+            Assert.Equal("Unknown FHIR endpoint.", content.RootElement.GetProperty("detail").GetString());
+        }
+
+        [Theory]
+        [InlineData(TenantIsolationTestServerFixture.AlphaHost, "alpha")]
+        [InlineData(TenantIsolationTestServerFixture.BetaHost, "beta")]
+        public async Task GivenForwardedHeadersAndTenancyEnabled_WhenXForwardedHostMatchesTenant_ThenExternalTenantIsResolved(
+            string externalHost,
+            string expectedTenant)
+        {
+            using HttpClient client = _fixture.CreateForwardedHeadersEnabledClient();
+            using HttpRequestMessage request =
+                CreateForwardedHostRequest("/forwarded-host/tenant", externalHost);
+
+            using HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using JsonDocument content = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal(expectedTenant, content.RootElement.GetProperty("tenant").GetString());
+        }
+
+        private static HttpRequestMessage CreateForwardedHostRequest(string path, string forwardedHost)
+        {
+            var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                new Uri($"https://{TenantIsolationTestServerFixture.InternalProxyHost}{path}"));
+            request.Headers.TryAddWithoutValidation("X-Forwarded-Host", forwardedHost);
+
+            return request;
+        }
+
         private static HttpRequestMessage CreateAuthenticatedRequest(string host, string tenant)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, new Uri($"https://{host}/mvc/secure"));

@@ -43,10 +43,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         private readonly ITenantHostedServicePolicy _hostedServicePolicy;
         private readonly IEnumerable<ITenantServiceConfigurator> _configurators;
         private readonly TimeProvider _timeProvider;
+        private readonly ITenantContextAccessor _tenantContextAccessor;
         private readonly Lazy<IReadOnlyList<string>> _rootHostedServiceTypeNamesInRegistrationOrder;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="TenantContainerFactory"/> class.
+        /// Initializes a new instance of the <see cref="TenantContainerFactory"/> class, resolving the
+        /// tenant context accessor from the root provider or creating a compatibility instance.
         /// </summary>
         /// <param name="rootProvider">The root service provider.</param>
         /// <param name="blueprint">The captured root service registrations.</param>
@@ -61,6 +63,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             ITenantHostedServicePolicy hostedServicePolicy,
             IEnumerable<ITenantServiceConfigurator> configurators,
             TimeProvider timeProvider)
+            : this(
+                rootProvider,
+                blueprint,
+                sharedServices,
+                hostedServicePolicy,
+                configurators,
+                timeProvider,
+                ResolveTenantContextAccessor(rootProvider))
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TenantContainerFactory"/> class with the shared
+        /// tenant context accessor supplied by dependency injection.
+        /// </summary>
+        /// <param name="rootProvider">The root service provider.</param>
+        /// <param name="blueprint">The captured root service registrations.</param>
+        /// <param name="sharedServices">The services shared with every tenant.</param>
+        /// <param name="hostedServicePolicy">The hosted service classification policy.</param>
+        /// <param name="configurators">Tenant-specific configuration steps.</param>
+        /// <param name="timeProvider">The time provider used for idle tracking.</param>
+        /// <param name="tenantContextAccessor">The shared tenant context accessor.</param>
+        public TenantContainerFactory(
+            IServiceProvider rootProvider,
+            ITenantServiceBlueprint blueprint,
+            TenantSharedServiceRegistry sharedServices,
+            ITenantHostedServicePolicy hostedServicePolicy,
+            IEnumerable<ITenantServiceConfigurator> configurators,
+            TimeProvider timeProvider,
+            ITenantContextAccessor tenantContextAccessor)
         {
             EnsureArg.IsNotNull(rootProvider, nameof(rootProvider));
             EnsureArg.IsNotNull(blueprint, nameof(blueprint));
@@ -68,6 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             EnsureArg.IsNotNull(hostedServicePolicy, nameof(hostedServicePolicy));
             EnsureArg.IsNotNull(configurators, nameof(configurators));
             EnsureArg.IsNotNull(timeProvider, nameof(timeProvider));
+            EnsureArg.IsNotNull(tenantContextAccessor, nameof(tenantContextAccessor));
 
             _rootProvider = rootProvider;
             _blueprint = blueprint;
@@ -75,12 +108,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
             _hostedServicePolicy = hostedServicePolicy;
             _configurators = configurators;
             _timeProvider = timeProvider;
+            _tenantContextAccessor = tenantContextAccessor;
 
             // Resolving hosted services in the constructor could re-enter the container while the host is
             // starting. Tenant construction occurs after host startup, so resolve them only when first needed.
             _rootHostedServiceTypeNamesInRegistrationOrder = new Lazy<IReadOnlyList<string>>(
                 () => _rootProvider.GetServices<IHostedService>().Select(service => service.GetType().FullName).ToArray(),
                 LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        private static ITenantContextAccessor ResolveTenantContextAccessor(IServiceProvider rootProvider)
+        {
+            EnsureArg.IsNotNull(rootProvider, nameof(rootProvider));
+
+            return rootProvider.GetService<ITenantContextAccessor>()
+                ?? ActivatorUtilities.CreateInstance<TenantContextAccessor>(rootProvider);
         }
 
         /// <inheritdoc />
@@ -90,42 +132,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             EnsureArg.IsNotNull(tenant, nameof(tenant));
 
-            var tenantServices = new ServiceCollection();
-
-            foreach (ServiceDescriptor descriptor in _blueprint.CreateSnapshot())
-            {
-                tenantServices.Add(descriptor);
-            }
-
-            // FilterHostedServices correlates factory-based IHostedService descriptors to root-resolved
-            // instances by position, which is only valid while the IHostedService descriptors keep their
-            // blueprint registration order. Forward removes and re-appends descriptors of one service
-            // type, so it can only disturb that order if it is ever called for IHostedService itself --
-            // which Forward rejects outright. Do not relax that guard.
-            ForwardTenancyInfrastructure(tenantServices);
-            ForwardSharedServices(tenantServices);
-            FilterHostedServices(tenantServices);
-
-            foreach (ITenantServiceConfigurator configurator in _configurators)
-            {
-                configurator.Configure(tenantServices, tenant);
-            }
-
-            ServiceProvider provider = tenantServices.BuildServiceProvider(
-                new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = false });
-
-            var container = new TenantContainer(tenant, provider, _timeProvider);
-
+            TenantContainer container;
+            TenantId priorTenant = _tenantContextAccessor.Current;
+            _tenantContextAccessor.SetCurrent(tenant.TenantId);
             try
             {
-                await container.StartInitializersAsync(cancellationToken).ConfigureAwait(false);
+                var tenantServices = new ServiceCollection();
+
+                foreach (ServiceDescriptor descriptor in _blueprint.CreateSnapshot())
+                {
+                    tenantServices.Add(descriptor);
+                }
+
+                // FilterHostedServices correlates factory-based IHostedService descriptors to root-resolved
+                // instances by position, which is only valid while the IHostedService descriptors keep their
+                // blueprint registration order. Forward removes and re-appends descriptors of one service
+                // type, so it can only disturb that order if it is ever called for IHostedService itself --
+                // which Forward rejects outright. Do not relax that guard.
+                ForwardTenancyInfrastructure(tenantServices);
+                ForwardSharedServices(tenantServices);
+                RegisterTenantContextAccessor(tenantServices);
+                FilterHostedServices(tenantServices);
+
+                foreach (ITenantServiceConfigurator configurator in _configurators)
+                {
+                    configurator.Configure(tenantServices, tenant);
+                }
+
+                RegisterTenantContextAccessor(tenantServices);
+                ServiceProvider provider = tenantServices.BuildServiceProvider(
+                    new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = false });
+
+                container = new TenantContainer(tenant, provider, _timeProvider, _tenantContextAccessor);
+                try
+                {
+                    await container.StartInitializersAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // TenantContainer disposal preserves a lone startup failure and aggregates it with any
+                    // initializer-stop or provider-disposal failures.
+                    await container.DisposeAsync().ConfigureAwait(false);
+                    throw;
+                }
             }
-            catch
+            finally
             {
-                // TenantContainer disposal preserves a lone startup failure and aggregates it with any
-                // initializer-stop or provider-disposal failures.
-                await container.DisposeAsync().ConfigureAwait(false);
-                throw;
+                _tenantContextAccessor.SetCurrent(priorTenant);
             }
 
             return container;
@@ -138,7 +191,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                 Forward(tenantServices, type);
             }
 
-            Forward(tenantServices, typeof(ITenantContextAccessor));
             Forward(tenantServices, typeof(ITenantRegistry));
         }
 
@@ -146,15 +198,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
         {
             foreach (Type type in _sharedServices.SharedServiceTypes)
             {
+                if (type != typeof(IHostedService) &&
+                    typeof(IHostedService).IsAssignableFrom(type) &&
+                    _hostedServicePolicy.Classify(type.FullName) == TenantHostedServiceDisposition.PerTenantInitializer)
+                {
+                    throw new InvalidOperationException(
+                        $"{type.FullName} cannot be forwarded into a tenant container because it is classified as " +
+                        $"{TenantHostedServiceDisposition.PerTenantInitializer} by {typeof(ITenantHostedServicePolicy).FullName}.");
+                }
+
                 Forward(tenantServices, type);
             }
+        }
+
+        private void RegisterTenantContextAccessor(ServiceCollection tenantServices)
+        {
+            tenantServices.RemoveAll<ITenantContextAccessor>();
+            tenantServices.AddSingleton<ITenantContextAccessor>(_tenantContextAccessor);
         }
 
         private void Forward(ServiceCollection tenantServices, Type serviceType)
         {
             if (serviceType == typeof(IHostedService))
             {
-                // Forwarding IHostedService would replace every hosted descriptor with the root's own
+                // Forwarding IHostedService directly would replace every hosted descriptor with the root's own
                 // singleton instances, so a PerTenantInitializer would run as one shared instance across
                 // all tenants instead of one per tenant -- RoleLoader would then load a single
                 // authorization role set for the whole pool. Hosted services are classified by policy,

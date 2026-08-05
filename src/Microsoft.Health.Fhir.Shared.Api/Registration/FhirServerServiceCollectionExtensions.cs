@@ -255,16 +255,25 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     if (_tenancyEnabled)
                     {
-                        // Tenant resolution must run before every other middleware in this startup filter so
-                        // downstream components resolve from the tenant container.
+                        if (_forwardedHeadersEnabled)
+                        {
+                            app.UseForwardedHeaders();
+                        }
+
+                        // Tenant resolution must run before downstream FHIR middleware so components resolve
+                        // from the tenant container.
                         app.UseFhirTenancy();
+
+                        app.UseCors(Constants.DefaultCorsPolicy);
                     }
-
-                    app.UseCors(Constants.DefaultCorsPolicy);
-
-                    if (_forwardedHeadersEnabled)
+                    else
                     {
-                        app.UseForwardedHeaders();
+                        app.UseCors(Constants.DefaultCorsPolicy);
+
+                        if (_forwardedHeadersEnabled)
+                        {
+                            app.UseForwardedHeaders();
+                        }
                     }
 
                     // This middleware rejects requests that contain access tokens (JWTs) in the URL path or query string.

@@ -30,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Tenancy
                 ["Microsoft.Health.Fhir.Api.OpenIddict.Services.OpenIddictApplicationCreater"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckPublisherHostedService"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Health.Api.Features.Audit.AuditEventTypeMapping"] = TenantHostedServiceDisposition.Shared,
+                ["Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService"] = TenantHostedServiceDisposition.Shared,
+                ["Microsoft.AspNetCore.Hosting.GenericWebHostService"] = TenantHostedServiceDisposition.Shared,
                 ["Microsoft.Health.Fhir.Core.Features.Security.RoleLoader"] = TenantHostedServiceDisposition.PerTenantInitializer,
             };
 
