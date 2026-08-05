@@ -31,6 +31,26 @@ namespace Microsoft.Health.Fhir.Core.Models
         public const string MaxInputTokensExtensionUrl = "maxInputTokens";
 
         /// <summary>
+        /// Gets the nested extension URL for the minimum normalized relevance score.
+        /// </summary>
+        public const string MinimumScoreExtensionUrl = "minimumScore";
+
+        /// <summary>
+        /// Gets the nested extension URL for the chunk size.
+        /// </summary>
+        public const string ChunkSizeTokensExtensionUrl = "chunkSizeTokens";
+
+        /// <summary>
+        /// Gets the nested extension URL for the chunk overlap.
+        /// </summary>
+        public const string ChunkOverlapTokensExtensionUrl = "chunkOverlapTokens";
+
+        /// <summary>
+        /// Gets the nested extension URL for the vector distance metric.
+        /// </summary>
+        public const string DistanceMetricExtensionUrl = "distanceMetric";
+
+        /// <summary>
         /// Gets or sets the policy used to turn expression values into source passages.
         /// </summary>
         public VectorTextExtractionPolicy ExtractionPolicy { get; set; } = VectorTextExtractionPolicy.Concatenate;
@@ -44,5 +64,25 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// Gets or sets the maximum number of source tokens accepted from this SearchParameter.
         /// </summary>
         public int MaxInputTokens { get; set; } = 8000;
+
+        /// <summary>
+        /// Gets or sets the minimum normalized relevance score required for a chunk to match.
+        /// </summary>
+        public decimal MinimumScore { get; set; }
+
+        /// <summary>
+        /// Gets or sets the optional chunk size. A null value uses the server default.
+        /// </summary>
+        public int? ChunkSizeTokens { get; set; }
+
+        /// <summary>
+        /// Gets or sets the optional chunk overlap. A null value uses the server default.
+        /// </summary>
+        public int? ChunkOverlapTokens { get; set; }
+
+        /// <summary>
+        /// Gets or sets the optional vector distance metric. A null value uses the server default.
+        /// </summary>
+        public string DistanceMetric { get; set; }
     }
 }

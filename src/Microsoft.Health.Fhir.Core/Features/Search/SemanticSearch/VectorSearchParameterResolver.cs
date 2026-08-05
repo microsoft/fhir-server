@@ -7,38 +7,27 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
     /// <summary>
-    /// Resolves configured canonical URIs through the server's FHIR SearchParameter registry.
+    /// Resolves active vector definitions through the server's FHIR SearchParameter registry.
     /// </summary>
     public sealed class VectorSearchParameterResolver : IVectorSearchParameterResolver
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IReadOnlyList<Uri> _enabledSearchParameters;
-        private readonly HashSet<string> _enabledCanonicalUris;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorSearchParameterResolver"/> class.
         /// </summary>
         /// <param name="searchParameterDefinitionManager">The FHIR SearchParameter definition manager.</param>
-        /// <param name="configuration">The vector-search configuration.</param>
-        public VectorSearchParameterResolver(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IOptions<VectorSearchConfiguration> configuration)
+        public VectorSearchParameterResolver(ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            VectorSearchConfiguration vectorSearchConfiguration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value;
-            _enabledSearchParameters = vectorSearchConfiguration.Indexing.EnabledSearchParameters.ToList();
-            _enabledCanonicalUris = _enabledSearchParameters
-                .Select(uri => uri.OriginalString)
-                .ToHashSet(StringComparer.Ordinal);
         }
 
         /// <inheritdoc />
@@ -46,14 +35,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
-            foreach (Uri canonicalUri in _enabledSearchParameters)
-            {
-                GetSearchParameter(canonicalUri);
-            }
+            return _searchParameterDefinitionManager
+                .GetSearchParameters(resourceType)
+                .Where(searchParameter => TryValidate(searchParameter, requireSearchable: true, out _))
+                .OrderBy(searchParameter => searchParameter.Url.OriginalString, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        /// <inheritdoc />
+        public IReadOnlyList<SearchParameterInfo> GetIndexingSearchParameters(string resourceType)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             return _searchParameterDefinitionManager
                 .GetSearchParameters(resourceType)
-                .Where(searchParameter => searchParameter.Url != null && _enabledCanonicalUris.Contains(searchParameter.Url.OriginalString))
+                .Where(searchParameter => TryValidate(searchParameter, requireSearchable: false, out _))
                 .OrderBy(searchParameter => searchParameter.Url.OriginalString, StringComparer.Ordinal)
                 .ToList();
         }
@@ -63,14 +59,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         {
             EnsureArg.IsNotNull(canonicalUri, nameof(canonicalUri));
 
-            if (!_enabledCanonicalUris.Contains(canonicalUri.OriginalString))
-            {
-                throw new SearchParameterNotSupportedException(canonicalUri);
-            }
-
             if (!_searchParameterDefinitionManager.TryGetSearchParameter(canonicalUri.OriginalString, excludePendingDelete: true, out SearchParameterInfo searchParameter))
             {
-                throw new InvalidOperationException($"Enabled vector SearchParameter '{canonicalUri}' is not registered by the FHIR server.");
+                throw new SearchParameterNotSupportedException(canonicalUri);
             }
 
             Validate(searchParameter);
@@ -79,35 +70,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 
         private static void Validate(SearchParameterInfo searchParameter)
         {
+            if (!TryValidate(searchParameter, requireSearchable: true, out string errorMessage))
+            {
+                throw new InvalidOperationException(errorMessage);
+            }
+        }
+
+        private static bool TryValidate(SearchParameterInfo searchParameter, bool requireSearchable, out string errorMessage)
+        {
             if (searchParameter.Type != SearchParamType.Special)
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must use FHIR type 'special'.");
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must use FHIR type 'special'.";
+                return false;
             }
 
             if (!string.Equals(searchParameter.DefinitionStatus, "active", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must have FHIR publication status 'active'.");
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must have FHIR publication status 'active'.";
+                return false;
             }
 
             if (searchParameter.BaseResourceTypes == null || searchParameter.BaseResourceTypes.Count == 0)
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must declare at least one FHIR base resource type.");
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must declare at least one FHIR base resource type.";
+                return false;
             }
 
             if (string.IsNullOrWhiteSpace(searchParameter.Expression))
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must declare an expression.");
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must declare an expression.";
+                return false;
             }
 
             if (searchParameter.VectorConfig == null)
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must declare the '{VectorSearchParameterConfig.ExtensionUrl}' extension.");
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must declare the '{VectorSearchParameterConfig.ExtensionUrl}' extension.";
+                return false;
             }
 
-            if (!searchParameter.IsSupported || !searchParameter.IsSearchable)
+            bool isEligibleForIndexing = searchParameter.IsSearchable || searchParameter.SearchParameterStatus == SearchParameterStatus.Supported;
+            if (!searchParameter.IsSupported || (requireSearchable ? !searchParameter.IsSearchable : !isEligibleForIndexing))
             {
-                throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' must be supported and searchable.");
+                errorMessage = requireSearchable
+                    ? $"Vector SearchParameter '{searchParameter.Url}' must be supported and searchable."
+                    : $"Vector SearchParameter '{searchParameter.Url}' must be enabled or awaiting activation in the supported state.";
+                return false;
             }
+
+            errorMessage = null;
+            return true;
         }
     }
 }

@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -24,20 +23,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         private const string BinaryResourceType = "Binary";
         private const string BinaryDataPath = "Binary.data";
         private const int MaximumUtf8BytesPerToken = 4;
-        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
         private readonly IVectorResourceReader _resourceReader;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly Dictionary<string, IBinaryContentExtractor> _binaryContentExtractors;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorTextSourceResolver"/> class.
         /// </summary>
         /// <param name="resourceReader">The persisted resource reader.</param>
         /// <param name="resourceDeserializer">The FHIR resource deserializer.</param>
-        public VectorTextSourceResolver(IVectorResourceReader resourceReader, IResourceDeserializer resourceDeserializer)
+        /// <param name="binaryContentExtractors">The registered Binary content extractors.</param>
+        public VectorTextSourceResolver(
+            IVectorResourceReader resourceReader,
+            IResourceDeserializer resourceDeserializer,
+            IEnumerable<IBinaryContentExtractor> binaryContentExtractors)
         {
             _resourceReader = EnsureArg.IsNotNull(resourceReader, nameof(resourceReader));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            _binaryContentExtractors = EnsureArg.IsNotNull(binaryContentExtractors, nameof(binaryContentExtractors))
+                .SelectMany(extractor => extractor.SupportedContentTypes.Select(contentType => (ContentType: contentType, Extractor: extractor)))
+                .ToDictionary(item => item.ContentType, item => item.Extractor, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
@@ -84,12 +90,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                     binary = await _resourceReader.GetAsync(new ResourceKey(BinaryResourceType, binaryId), cancellationToken);
                 }
 
-                if (binary == null || binary.IsDeleted || binary.IsHistory || !TryDecodeBinary(binary, searchParameter.VectorConfig.MaxInputTokens, out string text))
+                if (binary == null || binary.IsDeleted || binary.IsHistory || !TryDecodeBinary(binary, searchParameter.VectorConfig.MaxInputTokens, out IReadOnlyList<BinaryContentSegment> segments))
                 {
                     continue;
                 }
 
-                sources.Add(new VectorTextSource(text, BinaryResourceType, binary.ResourceId, binary.Version, BinaryDataPath));
+                sources.AddRange(segments.Select(segment => new VectorTextSource(
+                    segment.Text,
+                    BinaryResourceType,
+                    binary.ResourceId,
+                    binary.Version,
+                    GetSourcePath(segment.SourceLocator))));
             }
 
             return sources;
@@ -117,9 +128,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             return true;
         }
 
-        private bool TryDecodeBinary(ResourceWrapper binary, int maxInputTokens, out string text)
+        private bool TryDecodeBinary(ResourceWrapper binary, int maxInputTokens, out IReadOnlyList<BinaryContentSegment> segments)
         {
-            text = null;
+            segments = null;
 
             try
             {
@@ -130,45 +141,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 }
 
                 string contentType = resource.Instance.Children("contentType").SingleOrDefault()?.Value?.ToString();
-                if (!IsUtf8PlainText(contentType))
+                string normalizedContentType = contentType?.Split(';', 2, StringSplitOptions.TrimEntries)[0];
+                if (string.IsNullOrWhiteSpace(normalizedContentType) || !_binaryContentExtractors.TryGetValue(normalizedContentType, out IBinaryContentExtractor extractor))
                 {
                     return false;
                 }
 
                 object data = resource.Instance.Children("data").SingleOrDefault()?.Value;
-                int maximumBytes = (int)Math.Min((long)maxInputTokens * MaximumUtf8BytesPerToken, int.MaxValue);
+                int maximumTextLength = (int)Math.Min((long)maxInputTokens * MaximumUtf8BytesPerToken, int.MaxValue);
+                int maximumBytes = extractor.GetMaximumContentLength(maximumTextLength);
                 if (!TryGetBytes(data, maximumBytes, out byte[] bytes))
                 {
                     return false;
                 }
 
-                text = StrictUtf8.GetString(bytes);
-                return !string.IsNullOrWhiteSpace(text);
+                return extractor.TryExtract(bytes, contentType, maximumTextLength, out segments) && segments?.Count > 0;
             }
-            catch (Exception exception) when (exception is FormatException or DecoderFallbackException or InvalidOperationException)
+            catch (Exception exception) when (exception is FormatException or InvalidOperationException)
             {
                 return false;
             }
         }
 
-        private static bool IsUtf8PlainText(string contentType)
+        private static string GetSourcePath(string sourceLocator)
         {
-            if (string.IsNullOrWhiteSpace(contentType))
-            {
-                return false;
-            }
-
-            string[] parts = contentType.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0 || !string.Equals(parts[0], "text/plain", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            string charset = parts
-                .Skip(1)
-                .FirstOrDefault(part => part.StartsWith("charset=", StringComparison.OrdinalIgnoreCase));
-
-            return charset == null || string.Equals(charset.Substring("charset=".Length).Trim('"'), "utf-8", StringComparison.OrdinalIgnoreCase);
+            return string.IsNullOrWhiteSpace(sourceLocator) ? BinaryDataPath : $"{BinaryDataPath}#{sourceLocator}";
         }
 
         private static bool TryGetBytes(object data, int maximumBytes, out byte[] bytes)

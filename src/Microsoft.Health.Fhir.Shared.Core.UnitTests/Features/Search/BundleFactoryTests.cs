@@ -151,10 +151,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ResourceElement observation = Samples.GetDefaultObservation().UpdateId("123");
             var evidence = new SemanticSearchEvidence(
                 "Patient reports shortness of breath while climbing stairs.",
-                2,
+                chunkOrdinal: 2,
+                score: 0.91m,
                 new Uri("https://example.org/fhir/SearchParameter/semantic-text"),
                 "Observation/123/_history/4",
-                "Observation.note.text");
+                "Observation.note.text",
+                rank: 2);
             var searchResult = new SearchResult(
                 new[] { new SearchResultEntry(CreateResourceWrapper(observation, HttpMethod.Post), score: 0.91m, evidence: evidence) },
                 continuationToken: null,
@@ -168,6 +170,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Extension evidenceExtension = Assert.Single(search.Extension, extension => extension.Url == SemanticSearchEvidence.ExtensionUrl);
             Assert.Equal(evidence.Text, ((FhirString)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.TextExtensionUrl).Value).Value);
             Assert.Equal(evidence.ChunkOrdinal, ((Integer)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.ChunkOrdinalExtensionUrl).Value).Value);
+            Assert.Equal(evidence.Rank, ((PositiveInt)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.RankExtensionUrl).Value).Value);
+            Assert.DoesNotContain(evidenceExtension.Extension, extension => extension.Url == "globalRank");
+            Assert.Equal(evidence.Score, ((FhirDecimal)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.ScoreExtensionUrl).Value).Value);
             Assert.Equal(evidence.SearchParameterCanonical.OriginalString, ((FhirUri)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SearchParameterExtensionUrl).Value).Value);
             Assert.Equal(evidence.SourceReference, ((ResourceReference)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourceExtensionUrl).Value).Reference);
             Assert.Equal(evidence.SourcePath, ((FhirString)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourcePathExtensionUrl).Value).Value);

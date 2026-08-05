@@ -112,6 +112,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonIgnore]
         public IReadOnlyCollection<VectorSearchIndexEntry> VectorSearchIndices { get; private set; } = Array.Empty<VectorSearchIndexEntry>();
 
+        /// <summary>
+        /// Gets a value indicating whether vector search indices were evaluated for this wrapper.
+        /// </summary>
+        [JsonIgnore]
+        public bool VectorSearchIndicesUpdated { get; private set; }
+
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
 
@@ -134,6 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public void UpdateVectorSearchIndices(IReadOnlyCollection<VectorSearchIndexEntry> vectorSearchIndices)
         {
             VectorSearchIndices = EnsureArg.IsNotNull(vectorSearchIndices, nameof(vectorSearchIndices));
+            VectorSearchIndicesUpdated = true;
         }
     }
 }

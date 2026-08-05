@@ -179,7 +179,8 @@ public class SqlQueryGeneratorTests
             PreparedVectorQuery = new PreparedVectorSearchQuery(
                 vectorSearchParameter,
                 embeddingModelId: 3,
-                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                minimumScore: 0.65m),
         };
 
         // Act
@@ -205,8 +206,18 @@ public class SqlQueryGeneratorTests
         Assert.Contains("AS SemanticSourceResourceId", generatedSql, StringComparison.Ordinal);
         Assert.Contains("AS SemanticSourceResourceVersion", generatedSql, StringComparison.Ordinal);
         Assert.Contains("AS SemanticSourcePath", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AS SemanticEvidenceJson", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("FOR JSON PATH", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("))) <= ", generatedSql, StringComparison.Ordinal);
         Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("[0.25,0.25", generatedSql, StringComparison.Ordinal);
+
+        // The Top CTE that normally carries IsMatch/IsPartial is suppressed for vector search,
+        // so the outer projection must emit constant match bits instead of reading them from the last CTE.
+        Assert.Contains("CAST(1 AS bit) AS IsMatch", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("CAST(0 AS bit) AS IsPartial", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("CAST(IsMatch AS bit)", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("CAST(IsPartial AS bit)", generatedSql, StringComparison.Ordinal);
     }
 
     [Fact]

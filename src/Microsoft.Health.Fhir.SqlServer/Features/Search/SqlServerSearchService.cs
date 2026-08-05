@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -67,6 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SemanticSourceResourceIdColumnName = "SemanticSourceResourceId";
         private const string SemanticSourceResourceVersionColumnName = "SemanticSourceResourceVersion";
         private const string SemanticSourcePathColumnName = "SemanticSourcePath";
+        private const string SemanticEvidenceJsonColumnName = "SemanticEvidenceJson";
 
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
@@ -188,6 +190,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            if (sqlSearchOptions.Sort.Count > 0 && ContainsVectorSearch(sqlSearchOptions.Expression))
+            {
+                throw new SearchOperationNotSupportedException(Core.Resources.SortNotSupported);
+            }
+
             if (_vectorSearchQueryProcessor != null)
             {
                 sqlSearchOptions.PreparedVectorQuery = await _vectorSearchQueryProcessor.PrepareAsync(sqlSearchOptions.Expression, cancellationToken);
@@ -443,6 +450,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        private static bool ContainsVectorSearch(Expression expression)
+        {
+            return expression?.AcceptVisitor(VectorSearchPresenceVisitor.Instance, context: null) ?? false;
+        }
+
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
         {
             if (sqlSearchOptions.IsIncludesOperation)
@@ -664,7 +676,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         out short? semanticSourceResourceTypeId,
                                         out string semanticSourceResourceId,
                                         out string semanticSourceResourceVersion,
-                                        out string semanticSourcePath);
+                                        out string semanticSourcePath,
+                                        out string semanticEvidenceJson);
 
                                     if (isInvisible)
                                     {
@@ -738,26 +751,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             };
 
                                         SemanticSearchEvidence semanticEvidence = null;
+                                        IReadOnlyList<SemanticSearchEvidence> semanticEvidenceItems = Array.Empty<SemanticSearchEvidence>();
                                         decimal? semanticScore = null;
                                         if (semanticDistance.HasValue)
                                         {
                                             semanticScore = NormalizeCosineDistance(semanticDistance.Value);
-                                            semanticEvidence = new SemanticSearchEvidence(
-                                                semanticChunkText,
-                                                semanticChunkOrdinal.Value,
-                                                sqlSearchOptions.PreparedVectorQuery.SearchParameter.Url,
-                                                new ResourceKey(
-                                                    semanticSourceResourceTypeId.HasValue ? _model.GetResourceTypeName(semanticSourceResourceTypeId.Value) : resourceWrapper.ResourceTypeName,
-                                                    semanticSourceResourceId ?? resourceWrapper.ResourceId,
-                                                    semanticSourceResourceVersion ?? resourceWrapper.Version).ToString(),
-                                                semanticSourcePath ?? sqlSearchOptions.PreparedVectorQuery.SearchParameter.Expression);
+                                            semanticEvidenceItems = DeserializeSemanticEvidence(
+                                                semanticEvidenceJson,
+                                                sqlSearchOptions.PreparedVectorQuery,
+                                                resourceWrapper);
+
+                                            if (semanticEvidenceItems.Count == 0)
+                                            {
+                                                semanticEvidence = new SemanticSearchEvidence(
+                                                    semanticChunkText,
+                                                    semanticChunkOrdinal.Value,
+                                                    semanticScore,
+                                                    sqlSearchOptions.PreparedVectorQuery.SearchParameter.Url,
+                                                    new ResourceKey(
+                                                        semanticSourceResourceTypeId.HasValue ? _model.GetResourceTypeName(semanticSourceResourceTypeId.Value) : resourceWrapper.ResourceTypeName,
+                                                        semanticSourceResourceId ?? resourceWrapper.ResourceId,
+                                                        semanticSourceResourceVersion ?? resourceWrapper.Version).ToString(),
+                                                    semanticSourcePath ?? sqlSearchOptions.PreparedVectorQuery.SearchParameter.Expression);
+                                            }
                                         }
 
                                         matchedResources.Add(new SearchResultEntry(
                                             resourceWrapper,
                                             SearchEntryMode.Match,
                                             semanticScore,
-                                            semanticEvidence));
+                                            semanticEvidence,
+                                            semanticEvidenceItems));
                                     }
                                     else
                                     {
@@ -856,6 +880,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 if (clonedSearchOptions.IsSortWithFilter)
                                 {
                                     sqlSearchOptions.IsSortWithFilter = true;
+                                }
+
+                                if (sqlSearchOptions.PreparedVectorQuery != null)
+                                {
+                                    AssignEvidenceRanks(matchedResources);
                                 }
 
                                 if (clonedSearchOptions.SortHasMissingModifier)
@@ -980,6 +1009,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out int? _,
                             out string _,
                             out short? _,
+                            out string _,
                             out string _,
                             out string _,
                             out string _);
@@ -1713,7 +1743,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out short? semanticSourceResourceTypeId,
             out string semanticSourceResourceId,
             out string semanticSourceResourceVersion,
-            out string semanticSourcePath)
+            out string semanticSourcePath,
+            out string semanticEvidenceJson)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
@@ -1743,6 +1774,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             semanticSourcePath = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticSourcePathColumnName))
                 ? Convert.ToString(reader.GetValue(SemanticSourcePathColumnName), CultureInfo.InvariantCulture)
                 : null;
+            semanticEvidenceJson = readSemanticEvidence && !reader.IsDBNull(reader.GetOrdinal(SemanticEvidenceJsonColumnName))
+                ? Convert.ToString(reader.GetValue(SemanticEvidenceJsonColumnName), CultureInfo.InvariantCulture)
+                : null;
+        }
+
+        private IReadOnlyList<SemanticSearchEvidence> DeserializeSemanticEvidence(
+            string semanticEvidenceJson,
+            PreparedVectorSearchQuery preparedQuery,
+            ResourceWrapper resourceWrapper)
+        {
+            if (string.IsNullOrWhiteSpace(semanticEvidenceJson))
+            {
+                return Array.Empty<SemanticSearchEvidence>();
+            }
+
+            using JsonDocument document = JsonDocument.Parse(semanticEvidenceJson);
+            var evidenceItems = new List<SemanticSearchEvidence>();
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                string sourceResourceType = element.TryGetProperty("sourceResourceTypeId", out JsonElement sourceResourceTypeId)
+                    ? _model.GetResourceTypeName(sourceResourceTypeId.GetInt16())
+                    : resourceWrapper.ResourceTypeName;
+                string sourceResourceId = element.TryGetProperty("sourceResourceId", out JsonElement sourceResourceIdElement)
+                    ? sourceResourceIdElement.GetString()
+                    : resourceWrapper.ResourceId;
+                string sourceResourceVersion = element.TryGetProperty("sourceResourceVersion", out JsonElement sourceResourceVersionElement)
+                    ? sourceResourceVersionElement.GetString()
+                    : resourceWrapper.Version;
+                string sourcePath = element.TryGetProperty("sourcePath", out JsonElement sourcePathElement)
+                    ? sourcePathElement.GetString()
+                    : preparedQuery.SearchParameter.Expression;
+
+                evidenceItems.Add(new SemanticSearchEvidence(
+                    element.GetProperty("text").GetString(),
+                    element.GetProperty("chunkOrdinal").GetInt32(),
+                    NormalizeCosineDistance(element.GetProperty("distance").GetDouble()),
+                    preparedQuery.SearchParameter.Url,
+                    new ResourceKey(sourceResourceType, sourceResourceId, sourceResourceVersion).ToString(),
+                    sourcePath));
+            }
+
+            return evidenceItems;
+        }
+
+        private static void AssignEvidenceRanks(List<SearchResultEntry> matchedResources)
+        {
+            IReadOnlyList<IReadOnlyList<SemanticSearchEvidence>> rankedEvidence = SemanticSearchEvidenceRanker.AssignRanks(
+                matchedResources.Select(result => result.EvidenceItems).ToList());
+
+            for (int index = 0; index < matchedResources.Count; index++)
+            {
+                SearchResultEntry result = matchedResources[index];
+                matchedResources[index] = new SearchResultEntry(
+                    result.Resource,
+                    result.SearchEntryMode,
+                    result.Score,
+                    evidenceItems: rankedEvidence[index]);
+            }
         }
 
         private static decimal NormalizeCosineDistance(double distance)
@@ -2273,6 +2362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         out int? _,
                                         out string _,
                                         out short? _,
+                                        out string _,
                                         out string _,
                                         out string _,
                                         out string _);
@@ -3125,6 +3215,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     logger.LogWarning(ex, "ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
             }
+        }
+
+        private sealed class VectorSearchPresenceVisitor : DefaultExpressionVisitor<object, bool>
+        {
+            public static readonly VectorSearchPresenceVisitor Instance = new VectorSearchPresenceVisitor();
+
+            private VectorSearchPresenceVisitor()
+                : base((left, right) => left || right)
+            {
+            }
+
+            public override bool VisitVectorSearch(VectorSearchExpression expression, object context) => true;
         }
 
         private class Token

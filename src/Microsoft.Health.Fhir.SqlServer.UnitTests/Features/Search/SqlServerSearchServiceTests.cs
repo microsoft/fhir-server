@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -58,6 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
         private readonly SqlServerSearchService _searchService;
 
         public SqlServerSearchServiceTests()
@@ -71,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
+            _vectorSearchQueryProcessor = Substitute.For<IVectorSearchQueryProcessor>();
 
             var config = new SqlServerDataStoreConfiguration
             {
@@ -114,7 +117,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
-                NullLogger<SqlServerSearchService>.Instance);
+                NullLogger<SqlServerSearchService>.Instance,
+                _vectorSearchQueryProcessor);
         }
 
         [Fact]
@@ -298,6 +302,35 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.Same(_model, model);
+        }
+
+        [Fact]
+        public async Task GivenSemanticSearchWithExplicitSort_WhenSearching_ThenSortIsRejected()
+        {
+            // Arrange
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SearchOptions
+            {
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = new[] { (new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Descending) },
+            };
+
+            // Act
+            SearchOperationNotSupportedException exception = await Assert.ThrowsAsync<SearchOperationNotSupportedException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueType.NotSupported, issue.Code);
+            Assert.Equal(Core.Resources.SortNotSupported, issue.Diagnostics);
+            await _vectorSearchQueryProcessor.DidNotReceive().PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>());
         }
 
         public static IEnumerable<object[]> SingleColumnTableData()

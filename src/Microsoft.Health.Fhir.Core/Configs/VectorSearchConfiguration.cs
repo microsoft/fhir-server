@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -94,25 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 throw new InvalidOperationException($"Vector search indexing mode '{Indexing.Mode}' is not supported.");
             }
 
-            if (Indexing.EnabledSearchParameters == null || Indexing.EnabledSearchParameters.Count == 0)
-            {
-                throw new InvalidOperationException("At least one vector SearchParameter canonical URI is required when vector search is enabled.");
-            }
-
-            var uniqueSearchParameters = new HashSet<Uri>();
-            foreach (Uri searchParameterUri in Indexing.EnabledSearchParameters)
-            {
-                if (searchParameterUri == null || !searchParameterUri.IsAbsoluteUri)
-                {
-                    throw new InvalidOperationException("Every enabled vector SearchParameter URI must be absolute.");
-                }
-
-                if (!uniqueSearchParameters.Add(searchParameterUri))
-                {
-                    throw new InvalidOperationException($"Vector SearchParameter URI '{searchParameterUri}' is configured more than once.");
-                }
-            }
-
             if (Indexing.ChunkSizeTokens <= 0)
             {
                 throw new InvalidOperationException("Vector search chunk size must be greater than zero.");
@@ -121,6 +101,31 @@ namespace Microsoft.Health.Fhir.Core.Configs
             if (Indexing.ChunkOverlapTokens < 0 || Indexing.ChunkOverlapTokens >= Indexing.ChunkSizeTokens)
             {
                 throw new InvalidOperationException("Vector search chunk overlap must be non-negative and smaller than the chunk size.");
+            }
+
+            if (Indexing.Pdf == null)
+            {
+                throw new InvalidOperationException("Vector search PDF extraction configuration is required when vector search is enabled.");
+            }
+
+            if (Indexing.Pdf.MaximumFileSizeBytes <= 0)
+            {
+                throw new InvalidOperationException("Vector search PDF maximum file size must be greater than zero.");
+            }
+
+            if (Indexing.Pdf.MaximumPageCount <= 0)
+            {
+                throw new InvalidOperationException("Vector search PDF maximum page count must be greater than zero.");
+            }
+
+            if (Indexing.Pdf.MaximumExtractedCharacters <= 0)
+            {
+                throw new InvalidOperationException("Vector search PDF maximum extracted characters must be greater than zero.");
+            }
+
+            if (Indexing.Pdf.ExtractionTimeout <= TimeSpan.Zero)
+            {
+                throw new InvalidOperationException("Vector search PDF extraction timeout must be greater than zero.");
             }
 
             if (Query == null)
@@ -141,6 +146,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
             if (Query.CandidateCount < Query.MaxCount)
             {
                 throw new InvalidOperationException("Vector search candidate count must be greater than or equal to the maximum result count.");
+            }
+
+            if (Query.EvidenceCount <= 0)
+            {
+                throw new InvalidOperationException("Vector search evidence count must be greater than zero.");
             }
 
             if (!string.Equals(Query.DistanceMetric, SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))

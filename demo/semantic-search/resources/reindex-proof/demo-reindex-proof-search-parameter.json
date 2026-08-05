@@ -1,0 +1,39 @@
+{
+  "resourceType": "SearchParameter",
+  "url": "https://example.org/fhir/SearchParameter/demo-reindex-proof-template",
+  "version": "1.0.0",
+  "name": "DemoVectorReindexProofTemplate",
+  "status": "active",
+  "experimental": true,
+  "publisher": "Microsoft FHIR Server semantic search demo",
+  "description": "Proves that system reindex backfills semantic vectors for an Observation created before this definition exists.",
+  "code": "demo-reindex-proof-template",
+  "base": [
+    "Observation"
+  ],
+  "type": "special",
+  "expression": "Observation.note.text",
+  "extension": [
+    {
+      "url": "http://microsoft.com/fhir/StructureDefinition/vector-search-config",
+      "extension": [
+        {
+          "url": "sourceStrategy",
+          "valueCode": "directText"
+        },
+        {
+          "url": "extractionPolicy",
+          "valueCode": "perValueRow"
+        },
+        {
+          "url": "maxInputTokens",
+          "valueInteger": 8000
+        },
+        {
+          "url": "minimumScore",
+          "valueDecimal": 0.0
+        }
+      ]
+    }
+  ]
+}

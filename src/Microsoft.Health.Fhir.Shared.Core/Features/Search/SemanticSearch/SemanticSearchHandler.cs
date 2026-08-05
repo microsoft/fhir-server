@@ -94,24 +94,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 cancellationToken);
             Dictionary<(string ResourceTypeName, long ResourceSurrogateId), ResourceWrapper> candidatesById = candidates.ToDictionary(
                 candidate => (candidate.ResourceTypeName, candidate.ResourceSurrogateId));
+            List<VectorSearchResult> returnedResults = ranked
+                .Where(result => candidatesById.ContainsKey((result.ResourceTypeName, result.ResourceSurrogateId)))
+                .ToList();
+            IReadOnlyList<IReadOnlyList<SemanticSearchEvidence>> rankedEvidence = SemanticSearchEvidenceRanker.AssignRanks(
+                returnedResults.Select(result => result.EvidenceItems).ToList());
 
             var bundle = new Bundle
             {
                 Type = Bundle.BundleType.Searchset,
-                Total = ranked.Count,
-                Entry = ranked
-                    .Where(result => candidatesById.ContainsKey((result.ResourceTypeName, result.ResourceSurrogateId)))
-                    .Select(result => new Bundle.EntryComponent
+                Total = returnedResults.Count,
+                Entry = returnedResults
+                    .Select((result, index) => new Bundle.EntryComponent
                     {
                         Resource = new RawResourceElement(candidatesById[(result.ResourceTypeName, result.ResourceSurrogateId)]).ToPoco(_resourceDeserializer),
                         Search = new Bundle.SearchComponent
                         {
                             Mode = Bundle.SearchEntryMode.Match,
                             Score = (decimal)result.Score,
-                            Extension =
-                            {
-                                BundleFactory.CreateSemanticEvidenceExtension(result.Evidence),
-                            },
+                            Extension = rankedEvidence[index]
+                                .Select(BundleFactory.CreateSemanticEvidenceExtension)
+                                .ToList(),
                         },
                     })
                     .ToList(),

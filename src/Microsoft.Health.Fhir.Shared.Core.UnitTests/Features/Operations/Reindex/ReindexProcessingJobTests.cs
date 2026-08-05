@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -383,6 +384,65 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // Should be called 3 times: batch 1 (2 resources), batch 2 (2 resources), batch 3 (1 resource)
             await _fhirDataStore.Received(3).BulkUpdateSearchParameterIndicesAsync(
+                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ProcessSearchResultsAsync_WithVectorIndexer_IndexesEachBatchBeforePersistence()
+        {
+            const int batchSize = 2;
+            var resources = Enumerable.Range(1, 5)
+                .Select(index => new ResourceWrapper(
+                    index.ToString(),
+                    "1",
+                    "Patient",
+                    new RawResource($"data{index}", FhirResourceFormat.Json, isMetaSet: false),
+                    null,
+                    DateTimeOffset.MinValue,
+                    false,
+                    null,
+                    null,
+                    null))
+                .ToList();
+            var searchResult = new SearchResult(
+                resources.Select(resource => new SearchResultEntry(resource)).ToList(),
+                null,
+                null,
+                new List<Tuple<string, string>>());
+            var indexedBatchSizes = new List<int>();
+            IVectorSearchIndexer vectorSearchIndexer = Substitute.For<IVectorSearchIndexer>();
+            vectorSearchIndexer.IndexAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    IReadOnlyCollection<ResourceWrapper> batch = callInfo.ArgAt<IReadOnlyCollection<ResourceWrapper>>(0);
+                    indexedBatchSizes.Add(batch.Count);
+                    foreach (ResourceWrapper resource in batch)
+                    {
+                        resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
+                    }
+
+                    return Task.CompletedTask;
+                });
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Assert.All(callInfo.ArgAt<IReadOnlyCollection<ResourceWrapper>>(0), resource => Assert.True(resource.VectorSearchIndicesUpdated));
+                    return Task.CompletedTask;
+                });
+            var job = new ReindexProcessingJob(
+                () => _searchService.CreateMockScope(),
+                () => _fhirDataStore.CreateMockScope(),
+                _resourceWrapperFactory,
+                _searchParameterOperations,
+                _searchParameterStatusManager,
+                NullLogger<ReindexProcessingJob>.Instance,
+                vectorSearchIndexer);
+
+            await job.ProcessSearchResultsAsync(searchResult, "patientHash", batchSize, _cancellationToken);
+
+            Assert.Equal(new[] { 2, 2, 1 }, indexedBatchSizes);
+            await vectorSearchIndexer.Received(3).IndexAsync(
                 Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                 Arg.Any<CancellationToken>());
         }

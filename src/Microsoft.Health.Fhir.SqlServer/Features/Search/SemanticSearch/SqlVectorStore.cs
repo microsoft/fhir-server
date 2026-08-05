@@ -50,26 +50,42 @@ WITH RankedChunks AS
            ROW_NUMBER() OVER
            (
                PARTITION BY v.ResourceSurrogateId
-               ORDER BY VECTOR_DISTANCE(@DistanceMetric, v.Embedding, CAST(@QueryEmbedding AS VECTOR(1536)))
+               ORDER BY VECTOR_DISTANCE(@DistanceMetric, v.Embedding, CAST(@QueryEmbedding AS VECTOR(1536))), v.ChunkOrdinal
            ) AS ChunkRank
     FROM dbo.VectorSearchParam AS v
     WHERE v.ResourceTypeId = @ResourceTypeId
       AND v.SearchParamId = @SearchParamId
       AND v.EmbeddingModelId = @EmbeddingModelId
       AND v.ResourceSurrogateId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@CandidateIds, ','))
+),
+BestResources AS
+(
+    SELECT ResourceSurrogateId,
+           MIN(Distance) AS BestDistance
+    FROM RankedChunks
+    GROUP BY ResourceSurrogateId
+),
+SelectedResources AS
+(
+    SELECT TOP (@MaxResults)
+           ResourceSurrogateId,
+           BestDistance
+    FROM BestResources
+    ORDER BY BestDistance, ResourceSurrogateId
 )
-SELECT TOP (@MaxResults)
-       ResourceSurrogateId,
-       ChunkOrdinal,
-             ChunkText,
-             SourceResourceTypeId,
-             SourceResourceId,
-             SourceResourceVersion,
-             SourcePath,
-       Distance
-FROM RankedChunks
-WHERE ChunkRank = 1
-ORDER BY Distance;";
+SELECT c.ResourceSurrogateId,
+       c.ChunkOrdinal,
+       c.ChunkText,
+       c.SourceResourceTypeId,
+       c.SourceResourceId,
+       c.SourceResourceVersion,
+       c.SourcePath,
+       c.Distance
+FROM RankedChunks AS c
+INNER JOIN SelectedResources AS s
+    ON s.ResourceSurrogateId = c.ResourceSurrogateId
+WHERE c.ChunkRank <= @EvidenceCount
+ORDER BY s.BestDistance, s.ResourceSurrogateId, c.ChunkRank;";
 
         private readonly string _connectionString;
 
@@ -136,12 +152,14 @@ ORDER BY Distance;";
             IReadOnlyList<float> queryEmbedding,
             IReadOnlyList<long> candidateResourceSurrogateIds,
             int maxResults,
+            int evidenceCount,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(queryEmbedding, nameof(queryEmbedding));
             EnsureArg.IsNotNull(candidateResourceSurrogateIds, nameof(candidateResourceSurrogateIds));
             EnsureArg.IsNotNullOrWhiteSpace(distanceMetric, nameof(distanceMetric));
             EnsureArg.IsGt(maxResults, 0, nameof(maxResults));
+            EnsureArg.IsGt(evidenceCount, 0, nameof(evidenceCount));
 
             // Nothing passed the structured filter, so there is nothing to rank.
             if (candidateResourceSurrogateIds.Count == 0)
@@ -156,6 +174,7 @@ ORDER BY Distance;";
             command.CommandText = SearchChunks;
 
             command.Parameters.Add("@MaxResults", SqlDbType.Int).Value = maxResults;
+            command.Parameters.Add("@EvidenceCount", SqlDbType.Int).Value = evidenceCount;
             command.Parameters.Add("@ResourceTypeId", SqlDbType.SmallInt).Value = resourceTypeId;
             command.Parameters.Add("@SearchParamId", SqlDbType.SmallInt).Value = searchParamId;
             command.Parameters.Add("@EmbeddingModelId", SqlDbType.SmallInt).Value = embeddingModelId;
@@ -178,7 +197,7 @@ ORDER BY Distance;";
                 double distance = Convert.ToDouble(reader.GetValue(7), CultureInfo.InvariantCulture);
 
                 // The supported cosine distance is 0 (identical) to 2 (opposite); map it to a 0..1 relevance score where higher is better.
-                float score = (float)(1.0 - (distance / 2.0));
+                float score = (float)Math.Clamp(1.0 - (distance / 2.0), 0.0, 1.0);
 
                 results.Add(new VectorSearchHit(
                     resourceSurrogateId,

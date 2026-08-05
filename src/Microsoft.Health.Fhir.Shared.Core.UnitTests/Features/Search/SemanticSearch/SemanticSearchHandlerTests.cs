@@ -89,10 +89,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 entry => Assert.IsType<DocumentReference>(entry.Resource),
                 entry => Assert.IsType<DiagnosticReport>(entry.Resource));
             Assert.Equal(new decimal?[] { 0.95m, 0.85m, 0.75m }, bundle.Entry.Select(entry => entry.Search.Score).ToArray());
+            int expectedRank = 1;
             foreach (Bundle.EntryComponent entry in bundle.Entry)
             {
                 Extension evidence = Assert.Single(entry.Search.Extension, extension => extension.Url == SemanticSearchEvidence.ExtensionUrl);
                 Assert.Equal("Matched passage", ((FhirString)evidence.Extension.Single(extension => extension.Url == SemanticSearchEvidence.TextExtensionUrl).Value).Value);
+                Assert.Equal(expectedRank++, ((PositiveInt)evidence.Extension.Single(extension => extension.Url == SemanticSearchEvidence.RankExtensionUrl).Value).Value);
+                Assert.DoesNotContain(evidence.Extension, nestedExtension => nestedExtension.Url == "globalRank");
                 Assert.Equal($"{entry.Resource.TypeName}.text", ((FhirString)evidence.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourcePathExtensionUrl).Value).Value);
                 Assert.Equal(
                     $"{entry.Resource.TypeName}/{entry.Resource.Id}",
@@ -174,7 +177,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         {
             var evidence = new SemanticSearchEvidence(
                 "Matched passage",
-                0,
+                chunkOrdinal: 0,
+                score: (decimal)score,
                 new Uri($"https://example.org/fhir/SearchParameter/{resource.ResourceTypeName}-semantic"),
                 $"{resource.ResourceTypeName}/{resource.ResourceId}",
                 $"{resource.ResourceTypeName}.text");

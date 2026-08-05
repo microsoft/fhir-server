@@ -1,0 +1,66 @@
+{
+  "resourceType": "Encounter",
+  "id": "demo-encounter-prior-ed",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "VN",
+            "display": "Visit number"
+          }
+        ]
+      },
+      "system": "https://example.org/fhir/NamingSystem/semantic-search-demo-visit-number",
+      "value": "VIS-20251114-1842"
+    }
+  ],
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "EMER",
+    "display": "emergency"
+  },
+  "type": [
+    {
+      "text": "Prior emergency department evaluation"
+    }
+  ],
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "participant": [
+    {
+      "individual": {
+        "reference": "Practitioner/demo-practitioner-emergency",
+        "display": "Amara Okafor, MD"
+      }
+    }
+  ],
+  "period": {
+    "start": "2025-11-14T08:42:00Z",
+    "end": "2025-11-14T13:20:00Z"
+  },
+  "reasonCode": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "427461000",
+          "display": "Presyncope"
+        }
+      ],
+      "text": "Near-syncope after standing"
+    }
+  ]
+}

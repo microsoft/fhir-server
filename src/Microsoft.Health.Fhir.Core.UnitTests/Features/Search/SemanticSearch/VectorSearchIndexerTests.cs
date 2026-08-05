@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
     public sealed class VectorSearchIndexerTests
     {
         private static readonly Uri VectorCanonical = new Uri("https://example.org/fhir/SearchParameter/observation-note-vector");
+        private static readonly Uri AlternateVectorCanonical = new Uri("https://example.org/fhir/SearchParameter/observation-text-vector");
 
         [Fact]
         public async Task GivenConcatenatePolicy_WhenIndexingExtractedValues_ThenOnePassageIsEmbeddedWithModelProvenance()
@@ -77,12 +79,78 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         }
 
         [Fact]
+        public async Task GivenSearchParameterChunkSettings_WhenIndexing_ThenTheyOverrideGlobalDefaults()
+        {
+            // Arrange
+            SearchParameterInfo searchParameter = CreateSearchParameter(
+                VectorTextExtractionPolicy.Concatenate,
+                chunkSizeTokens: 4,
+                chunkOverlapTokens: 1);
+            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue("abcdefghij"));
+            var embeddedTexts = new List<string>();
+            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 10, chunkOverlap: 0);
+
+            // Act
+            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { "abcd", "defg", "ghij" }, embeddedTexts);
+        }
+
+        [Fact]
+        public async Task GivenNoSearchParameterChunkSettings_WhenIndexing_ThenGlobalDefaultsAreUsed()
+        {
+            // Arrange
+            SearchParameterInfo searchParameter = CreateSearchParameter(VectorTextExtractionPolicy.Concatenate);
+            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue("abcdefghij"));
+            var embeddedTexts = new List<string>();
+            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 5, chunkOverlap: 2);
+
+            // Act
+            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { "abcde", "defgh", "ghij" }, embeddedTexts);
+        }
+
+        [Fact]
+        public async Task GivenSearchParametersWithDifferentChunkSettings_WhenIndexingOneResource_ThenEachUsesItsOwnSettings()
+        {
+            // Arrange
+            SearchParameterInfo firstSearchParameter = CreateSearchParameter(
+                VectorTextExtractionPolicy.Concatenate,
+                chunkSizeTokens: 4,
+                chunkOverlapTokens: 0);
+            SearchParameterInfo secondSearchParameter = CreateSearchParameter(
+                VectorTextExtractionPolicy.Concatenate,
+                chunkSizeTokens: 5,
+                chunkOverlapTokens: 2,
+                canonical: AlternateVectorCanonical);
+            ResourceWrapper resource = CreateResource(
+                new SearchIndexEntry(firstSearchParameter, new StringSearchValue("abcdefgh")),
+                new SearchIndexEntry(secondSearchParameter, new StringSearchValue("ijklmnop")));
+            var embeddedTexts = new List<string>();
+            VectorSearchIndexer indexer = CreateIndexer(
+                new[] { firstSearchParameter, secondSearchParameter },
+                embeddedTexts,
+                chunkSize: 10,
+                chunkOverlap: 0);
+
+            // Act
+            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { "abcd", "efgh", "ijklm", "lmnop" }, embeddedTexts);
+            Assert.Equal(2, resource.VectorSearchIndices.Count);
+        }
+
+        [Fact]
         public async Task GivenResourceWithoutEnabledSearchParameter_WhenIndexing_ThenEmbeddingServiceIsNotCalled()
         {
             // Arrange
             ResourceWrapper resource = CreateResource();
             IVectorSearchParameterResolver resolver = Substitute.For<IVectorSearchParameterResolver>();
-            resolver.GetSearchParameters("Observation").Returns(Array.Empty<SearchParameterInfo>());
+            resolver.GetIndexingSearchParameters("Observation").Returns(Array.Empty<SearchParameterInfo>());
             IEmbeddingClient embeddingClient = Substitute.For<IEmbeddingClient>();
             var indexer = new VectorSearchIndexer(
                 resolver,
@@ -90,13 +158,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 embeddingClient,
                 Substitute.For<IEmbeddingModelRegistry>(),
                 CreateTextSourceResolver(),
-                Options.Create(CreateConfiguration()));
+                Options.Create(CreateConfiguration()),
+                NullLogger<VectorSearchIndexer>.Instance);
 
             // Act
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Empty(resource.VectorSearchIndices);
+            Assert.True(resource.VectorSearchIndicesUpdated);
             await embeddingClient.DidNotReceiveWithAnyArgs().GenerateEmbeddingsAsync(default, default);
         }
 
@@ -104,10 +174,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             SearchParameterInfo searchParameter,
             List<string> embeddedTexts,
             short embeddingModelId = 1,
-            int chunkSize = 100)
+            int chunkSize = 100,
+            int chunkOverlap = 0)
+        {
+            return CreateIndexer(new[] { searchParameter }, embeddedTexts, embeddingModelId, chunkSize, chunkOverlap);
+        }
+
+        private static VectorSearchIndexer CreateIndexer(
+            IReadOnlyCollection<SearchParameterInfo> searchParameters,
+            List<string> embeddedTexts,
+            short embeddingModelId = 1,
+            int chunkSize = 100,
+            int chunkOverlap = 0)
         {
             IVectorSearchParameterResolver resolver = Substitute.For<IVectorSearchParameterResolver>();
-            resolver.GetSearchParameters("Observation").Returns(new[] { searchParameter });
+            resolver.GetIndexingSearchParameters("Observation").Returns(searchParameters);
 
             IEmbeddingClient embeddingClient = Substitute.For<IEmbeddingClient>();
             embeddingClient.Dimensions.Returns(2);
@@ -125,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
 
             VectorSearchConfiguration configuration = CreateConfiguration();
             configuration.Indexing.ChunkSizeTokens = chunkSize;
-            configuration.Indexing.ChunkOverlapTokens = 0;
+            configuration.Indexing.ChunkOverlapTokens = chunkOverlap;
 
             return new VectorSearchIndexer(
                 resolver,
@@ -133,14 +214,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 embeddingClient,
                 embeddingModelRegistry,
                 CreateTextSourceResolver(),
-                Options.Create(configuration));
+                Options.Create(configuration),
+                NullLogger<VectorSearchIndexer>.Instance);
         }
 
         private static VectorTextSourceResolver CreateTextSourceResolver()
         {
             return new VectorTextSourceResolver(
                 Substitute.For<IVectorResourceReader>(),
-                Substitute.For<IResourceDeserializer>());
+                Substitute.For<IResourceDeserializer>(),
+                new[] { new PlainTextBinaryContentExtractor() });
         }
 
         private static VectorSearchConfiguration CreateConfiguration()
@@ -148,16 +231,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             return new VectorSearchConfiguration();
         }
 
-        private static SearchParameterInfo CreateSearchParameter(VectorTextExtractionPolicy extractionPolicy)
+        private static SearchParameterInfo CreateSearchParameter(
+            VectorTextExtractionPolicy extractionPolicy,
+            int? chunkSizeTokens = null,
+            int? chunkOverlapTokens = null,
+            Uri canonical = null)
         {
             return new SearchParameterInfo(
                 name: "ObservationNoteVector",
                 code: "note-vector",
                 searchParamType: SearchParamType.Special,
-                url: VectorCanonical,
+                url: canonical ?? VectorCanonical,
                 expression: "Observation.note.text",
                 baseResourceTypes: new[] { "Observation" },
-                vectorConfig: new VectorSearchParameterConfig { ExtractionPolicy = extractionPolicy },
+                vectorConfig: new VectorSearchParameterConfig
+                {
+                    ExtractionPolicy = extractionPolicy,
+                    ChunkSizeTokens = chunkSizeTokens,
+                    ChunkOverlapTokens = chunkOverlapTokens,
+                },
                 definitionStatus: "active");
         }
 
@@ -169,6 +261,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 ? Array.Empty<SearchIndexEntry>()
                 : values.Select(value => new SearchIndexEntry(searchParameter, value)).ToList();
 
+            return CreateResource(searchIndices);
+        }
+
+        private static ResourceWrapper CreateResource(params SearchIndexEntry[] searchIndices)
+        {
+            return CreateResource((IReadOnlyCollection<SearchIndexEntry>)searchIndices);
+        }
+
+        private static ResourceWrapper CreateResource(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
             return new ResourceWrapper(
                 resourceId: "example",
                 versionId: "1",

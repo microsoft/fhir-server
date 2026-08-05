@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry;
         private readonly IVectorTextSourceResolver _textSourceResolver;
         private readonly VectorSearchIndexingConfiguration _configuration;
+        private readonly ILogger<VectorSearchIndexer> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorSearchIndexer"/> class.
@@ -42,7 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             IEmbeddingClient embeddingClient,
             IEmbeddingModelRegistry embeddingModelRegistry,
             IVectorTextSourceResolver textSourceResolver,
-            IOptions<VectorSearchConfiguration> configuration)
+            IOptions<VectorSearchConfiguration> configuration,
+            ILogger<VectorSearchIndexer> logger)
         {
             _searchParameterResolver = EnsureArg.IsNotNull(searchParameterResolver, nameof(searchParameterResolver));
             _textChunker = EnsureArg.IsNotNull(textChunker, nameof(textChunker));
@@ -50,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             _embeddingModelRegistry = EnsureArg.IsNotNull(embeddingModelRegistry, nameof(embeddingModelRegistry));
             _textSourceResolver = EnsureArg.IsNotNull(textSourceResolver, nameof(textSourceResolver));
             _configuration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value.Indexing;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         /// <inheritdoc />
@@ -70,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                     continue;
                 }
 
-                foreach (SearchParameterInfo searchParameter in _searchParameterResolver.GetSearchParameters(resource.ResourceTypeName))
+                foreach (SearchParameterInfo searchParameter in _searchParameterResolver.GetIndexingSearchParameters(resource.ResourceTypeName))
                 {
                     IReadOnlyList<string> extractedValues = GetExtractedValues(resource, searchParameter);
                     IReadOnlyList<VectorTextSource> resolvedSources = await _textSourceResolver.ResolveAsync(
@@ -81,8 +85,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                         cancellationToken);
                     IReadOnlyList<VectorTextSource> sourceTexts = ApplyExtractionPolicy(searchParameter.VectorConfig.ExtractionPolicy, resolvedSources);
                     var chunks = new List<VectorTextSource>();
-                    int chunkSize = Math.Min(_configuration.ChunkSizeTokens, searchParameter.VectorConfig.MaxInputTokens);
-                    int chunkOverlap = Math.Min(_configuration.ChunkOverlapTokens, chunkSize - 1);
+                    int configuredChunkSize = searchParameter.VectorConfig.ChunkSizeTokens ?? _configuration.ChunkSizeTokens;
+                    int configuredChunkOverlap = searchParameter.VectorConfig.ChunkOverlapTokens ?? _configuration.ChunkOverlapTokens;
+                    int chunkSize = Math.Min(configuredChunkSize, searchParameter.VectorConfig.MaxInputTokens);
+                    int chunkOverlap = Math.Min(configuredChunkOverlap, chunkSize - 1);
 
                     foreach (VectorTextSource sourceText in sourceTexts)
                     {
@@ -108,9 +114,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 
             if (pendingIndices.Count == 0)
             {
+                _logger.LogInformation("Vector indexing found no text to embed across {ResourceCount} resource(s); embedding endpoint not invoked.", resources.Count);
                 return;
             }
 
+            _logger.LogInformation("Vector indexing invoking embedding endpoint for {PassageCount} passage(s) across {IndexCount} search-parameter target(s).", passages.Count, pendingIndices.Count);
             IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(passages.Select(passage => passage.Text).ToList(), cancellationToken);
             if (embeddings.Count != passages.Count)
             {

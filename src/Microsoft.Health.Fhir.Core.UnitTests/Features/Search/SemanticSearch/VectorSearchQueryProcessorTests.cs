@@ -76,6 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Equal(embeddingModelId, result.EmbeddingModelId);
             Assert.Equal(0.25f, result.Embedding[0]);
             Assert.Equal(VectorSearchConfiguration.SupportedDimensions, result.Embedding.Count);
+            Assert.Equal(0.65m, result.MinimumScore);
             await _embeddingClient.Received(1).GenerateEmbeddingsAsync(
                 Arg.Is<IReadOnlyList<string>>(texts => texts.SequenceEqual(new[] { queryText })),
                 cancellationToken);
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 url: VectorCanonical,
                 expression: "Resource.text.div",
                 baseResourceTypes: new[] { "Resource" },
-                vectorConfig: new VectorSearchParameterConfig(),
+                vectorConfig: new VectorSearchParameterConfig { MinimumScore = 0.65m },
                 definitionStatus: "active");
         }
     }

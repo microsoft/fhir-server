@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -62,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IVectorSearchIndexer _vectorSearchIndexer;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -85,7 +87,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterStatusManager searchParameterStatusManager,
-            ILogger<ReindexProcessingJob> logger)
+            ILogger<ReindexProcessingJob> logger,
+            IVectorSearchIndexer vectorSearchIndexer = null)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
@@ -100,6 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _logger = logger;
+            _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -669,6 +673,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
                 {
                     var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
+                    if (_vectorSearchIndexer != null)
+                    {
+                        await _vectorSearchIndexer.IndexAsync(batch, cancellationToken);
+                    }
+
                     try
                     {
                         await _bulkUpdateRetries.ExecuteAsync(

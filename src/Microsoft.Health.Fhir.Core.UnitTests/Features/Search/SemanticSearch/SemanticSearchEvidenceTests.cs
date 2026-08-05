@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -36,6 +38,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Equal("Observation/123/_history/4", evidence.SourceReference);
             Assert.Equal("Observation.note.text", evidence.SourcePath);
             Assert.Equal("http://microsoft.com/fhir/StructureDefinition/semantic-search-evidence", SemanticSearchEvidence.ExtensionUrl);
+        }
+
+        [Fact]
+        public void GivenEvidenceFromReturnedResources_WhenAssigningRanks_ThenRanksAreDenseAcrossResources()
+        {
+            // Arrange
+            var canonical = new Uri("https://example.org/fhir/SearchParameter/semantic-text");
+            IReadOnlyList<IReadOnlyList<SemanticSearchEvidence>> evidenceByResource = new[]
+            {
+                new[]
+                {
+                    CreateEvidence("Resource one best", chunkOrdinal: 0, score: 0.90m, canonical),
+                    CreateEvidence("Resource one second", chunkOrdinal: 1, score: 0.70m, canonical),
+                },
+                new[]
+                {
+                    CreateEvidence("Resource two best", chunkOrdinal: 0, score: 0.80m, canonical),
+                    CreateEvidence("Resource two second", chunkOrdinal: 1, score: 0.70m, canonical),
+                },
+            };
+
+            // Act
+            IReadOnlyList<IReadOnlyList<SemanticSearchEvidence>> ranked = SemanticSearchEvidenceRanker.AssignRanks(evidenceByResource);
+
+            // Assert
+            Assert.Equal(new int?[] { 1, 3 }, ranked[0].Select(evidence => evidence.Rank));
+            Assert.Equal(new int?[] { 2, 4 }, ranked[1].Select(evidence => evidence.Rank));
+            Assert.All(evidenceByResource.SelectMany(evidence => evidence), evidence => Assert.Null(evidence.Rank));
         }
 
         [Fact]
@@ -75,6 +105,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
 
             // Assert
             Assert.ThrowsAny<ArgumentException>(create);
+        }
+
+        private static SemanticSearchEvidence CreateEvidence(string text, int chunkOrdinal, decimal score, Uri canonical)
+        {
+            return new SemanticSearchEvidence(
+                text,
+                chunkOrdinal,
+                score,
+                canonical,
+                $"Observation/{chunkOrdinal}",
+                "Observation.note.text");
         }
     }
 }

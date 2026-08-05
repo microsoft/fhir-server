@@ -29,12 +29,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Null(configuration.Embedding.ModelVersion);
             Assert.Equal(VectorSearchConfiguration.SupportedDimensions, configuration.Embedding.Dimensions);
             Assert.Equal(VectorSearchIndexingMode.Synchronous, configuration.Indexing.Mode);
-            Assert.Empty(configuration.Indexing.EnabledSearchParameters);
             Assert.Equal(800, configuration.Indexing.ChunkSizeTokens);
             Assert.Equal(100, configuration.Indexing.ChunkOverlapTokens);
+            Assert.Equal(10 * 1024 * 1024, configuration.Indexing.Pdf.MaximumFileSizeBytes);
+            Assert.Equal(200, configuration.Indexing.Pdf.MaximumPageCount);
+            Assert.Equal(500_000, configuration.Indexing.Pdf.MaximumExtractedCharacters);
+            Assert.Equal(TimeSpan.FromSeconds(30), configuration.Indexing.Pdf.ExtractionTimeout);
             Assert.Equal(10, configuration.Query.DefaultCount);
             Assert.Equal(50, configuration.Query.MaxCount);
             Assert.Equal(100, configuration.Query.CandidateCount);
+            Assert.Equal(3, configuration.Query.EvidenceCount);
             Assert.Equal(VectorSearchConfiguration.SupportedDistanceMetric, configuration.Query.DistanceMetric);
         }
 
@@ -196,49 +200,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Throws<InvalidOperationException>(validate);
         }
 
-        [Fact]
-        public void GivenEnabledConfigurationWithoutSearchParameters_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Indexing.EnabledSearchParameters.Clear();
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
-        [Fact]
-        public void GivenEnabledConfigurationWithRelativeSearchParameterUri_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Indexing.EnabledSearchParameters.Clear();
-            configuration.Indexing.EnabledSearchParameters.Add(new Uri("relative", UriKind.Relative));
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
-        [Fact]
-        public void GivenEnabledConfigurationWithDuplicateSearchParameterUri_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Indexing.EnabledSearchParameters.Add(configuration.Indexing.EnabledSearchParameters[0]);
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
@@ -264,6 +225,84 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             // Arrange
             VectorSearchConfiguration configuration = CreateValidConfiguration();
             configuration.Indexing.ChunkOverlapTokens = chunkOverlapTokens;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Fact]
+        public void GivenEnabledConfigurationWithoutPdfSettings_WhenValidated_ThenValidationFails()
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.Pdf = null;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void GivenEnabledConfigurationWithInvalidPdfFileSize_WhenValidated_ThenValidationFails(int maximumFileSizeBytes)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.Pdf.MaximumFileSizeBytes = maximumFileSizeBytes;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void GivenEnabledConfigurationWithInvalidPdfPageCount_WhenValidated_ThenValidationFails(int maximumPageCount)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.Pdf.MaximumPageCount = maximumPageCount;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void GivenEnabledConfigurationWithInvalidPdfCharacterLimit_WhenValidated_ThenValidationFails(int maximumExtractedCharacters)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.Pdf.MaximumExtractedCharacters = maximumExtractedCharacters;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void GivenEnabledConfigurationWithInvalidPdfTimeout_WhenValidated_ThenValidationFails(int timeoutSeconds)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.Pdf.ExtractionTimeout = TimeSpan.FromSeconds(timeoutSeconds);
 
             // Act
             Action validate = configuration.Validate;
@@ -361,7 +400,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
                 Indexing = new VectorSearchIndexingConfiguration(),
             };
 
-            configuration.Indexing.EnabledSearchParameters.Add(new Uri("https://example.com/fhir/SearchParameter/document-reference-content-vector"));
             return configuration;
         }
     }

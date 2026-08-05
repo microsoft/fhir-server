@@ -1,0 +1,49 @@
+{
+  "resourceType": "DiagnosticReport",
+  "id": "demo-report-cardiology",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+          "code": "CG",
+          "display": "Cardiology"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "11524-6",
+        "display": "EKG study"
+      }
+    ],
+    "text": "Ambulatory cardiac rhythm evaluation"
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "encounter": {
+    "reference": "Encounter/demo-encounter-outpatient"
+  },
+  "effectiveDateTime": "2025-12-01T00:00:00Z",
+  "issued": "2025-12-08T18:30:00Z",
+  "performer": [
+    {
+      "reference": "Practitioner/demo-practitioner-primary-care"
+    }
+  ],
+  "conclusion": "Sinus rhythm was present during recorded symptoms, without sustained tachyarrhythmia or clinically significant pause. In the context of a reproducible postural blood-pressure drop, the prior event is most consistent with orthostatic presyncope rather than a primary rhythm disturbance."
+}

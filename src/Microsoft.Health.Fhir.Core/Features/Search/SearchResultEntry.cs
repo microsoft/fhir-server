@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
@@ -17,14 +18,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceWrapper resourceWrapper,
             SearchEntryMode searchEntryMode = SearchEntryMode.Match,
             decimal? score = null,
-            SemanticSearchEvidence evidence = null)
+            SemanticSearchEvidence evidence = null,
+            IReadOnlyList<SemanticSearchEvidence> evidenceItems = null)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             Resource = resourceWrapper;
             SearchEntryMode = searchEntryMode;
             Score = score;
-            Evidence = evidence;
+            EvidenceItems = evidenceItems ?? (evidence == null ? Array.Empty<SemanticSearchEvidence>() : new[] { evidence });
+            Evidence = EvidenceItems.Count > 0 ? EvidenceItems[0] : null;
         }
 
         public ResourceWrapper Resource { get; }
@@ -40,6 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the exact passage and provenance supporting this semantic result.
         /// </summary>
         public SemanticSearchEvidence Evidence { get; }
+
+        /// <summary>
+        /// Gets the supporting passages ordered by relevance within this resource.
+        /// </summary>
+        public IReadOnlyList<SemanticSearchEvidence> EvidenceItems { get; }
 
         public static bool operator ==(SearchResultEntry left, SearchResultEntry right)
         {

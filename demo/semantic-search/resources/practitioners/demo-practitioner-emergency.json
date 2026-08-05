@@ -1,0 +1,59 @@
+{
+  "resourceType": "Practitioner",
+  "id": "demo-practitioner-emergency",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "PRN",
+            "display": "Provider number"
+          }
+        ]
+      },
+      "system": "https://example.org/fhir/NamingSystem/semantic-search-demo-provider-id",
+      "value": "PROV-10482"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Okafor",
+      "given": [
+        "Amara"
+      ],
+      "prefix": [
+        "Dr."
+      ],
+      "suffix": [
+        "MD"
+      ]
+    }
+  ],
+  "qualification": [
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360",
+            "code": "MD",
+            "display": "Doctor of Medicine"
+          }
+        ]
+      },
+      "issuer": {
+        "display": "State medical board (synthetic)"
+      }
+    }
+  ]
+}

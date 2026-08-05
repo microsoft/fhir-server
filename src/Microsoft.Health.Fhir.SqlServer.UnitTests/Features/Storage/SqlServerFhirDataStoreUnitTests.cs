@@ -434,7 +434,34 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        [Theory]
+        [InlineData(SchemaVersionConstants.VectorSearchReindexVersion, true, "dbo.UpdateResourceSearchParamsWithVectors", true)]
+        [InlineData(SchemaVersionConstants.VectorSearchReindexVersion, false, "dbo.UpdateResourceSearchParams", false)]
+        [InlineData((int)SchemaVersion.V117, true, "dbo.UpdateResourceSearchParams", false)]
+        public void BulkUpdateSearchParameterIndicesAsync_SelectsProcedureForSchemaAndVectorUpdateIntent(
+            int schemaVersion,
+            bool vectorSearchIndicesUpdated,
+            string expectedProcedure,
+            bool expectedVectorParameters)
+        {
+            // Arrange
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            resource.ResourceSurrogateId = 42;
+            if (vectorSearchIndicesUpdated)
+            {
+                resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
+            }
+
+            // Act
+            bool updateVectorSearchIndices = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, schemaVersion);
+            using SqlCommand command = SqlServerFhirDataStore.CreateBulkUpdateSearchParameterIndicesCommand(updateVectorSearchIndices, resourceCount: 1);
+
+            // Assert
+            Assert.Equal(expectedVectorParameters, updateVectorSearchIndices);
+            Assert.Equal(expectedProcedure, command.CommandText);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, int? currentSchemaVersion = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -442,7 +469,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
-                Current = SchemaVersionConstants.Max,
+                Current = currentSchemaVersion ?? SchemaVersionConstants.Max,
             };
 
             var searchService = Substitute.For<ISearchService>();

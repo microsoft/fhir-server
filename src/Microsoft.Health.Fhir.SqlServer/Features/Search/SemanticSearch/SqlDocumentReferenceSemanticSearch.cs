@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch
 
             IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(new[] { query }, cancellationToken);
             short embeddingModelId = await _embeddingModelRegistry.GetEmbeddingModelIdAsync(cancellationToken);
-            var results = new List<VectorSearchResult>();
+            var rankedHits = new List<(string ResourceType, ResourceWrapper Owner, SearchParameterInfo SearchParameter, VectorSearchHit Hit)>();
 
             foreach (IGrouping<string, ResourceWrapper> candidatesByResourceType in candidates.GroupBy(candidate => candidate.ResourceTypeName, System.StringComparer.Ordinal))
             {
@@ -84,35 +84,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch
                         embeddings[0],
                         candidateIds,
                         count,
+                        _configuration.Query.EvidenceCount,
                         cancellationToken);
 
                     foreach (VectorSearchHit hit in targetHits)
                     {
                         ResourceWrapper owner = candidatesBySurrogateId[hit.ResourceSurrogateId];
-                        string sourceResourceType = hit.SourceResourceTypeId.HasValue
-                            ? _model.GetResourceTypeName(hit.SourceResourceTypeId.Value)
-                            : owner.ResourceTypeName;
-                        var sourceKey = new ResourceKey(
-                            sourceResourceType,
-                            hit.SourceResourceId ?? owner.ResourceId,
-                            hit.SourceResourceVersion ?? owner.Version);
-                        var evidence = new SemanticSearchEvidence(
-                            hit.ChunkText,
-                            hit.ChunkOrdinal,
-                            searchParameter.Url,
-                            sourceKey.ToString(),
-                            hit.SourcePath ?? searchParameter.Expression);
-                        results.Add(new VectorSearchResult(resourceType, hit.ResourceSurrogateId, hit.Score, evidence));
+                        rankedHits.Add((resourceType, owner, searchParameter, hit));
                     }
                 }
             }
 
-            return results
-                .GroupBy(result => (result.ResourceTypeName, result.ResourceSurrogateId))
-                .Select(group => group.OrderByDescending(result => result.Score).First())
+            return rankedHits
+                .GroupBy(result => (result.ResourceType, result.Hit.ResourceSurrogateId))
+                .Select(group =>
+                {
+                    var orderedHits = group
+                        .OrderByDescending(result => result.Hit.Score)
+                        .ThenBy(result => result.Hit.ChunkOrdinal)
+                        .ThenBy(result => result.SearchParameter.Url.AbsoluteUri, System.StringComparer.Ordinal)
+                        .Take(_configuration.Query.EvidenceCount)
+                        .ToList();
+                    IReadOnlyList<SemanticSearchEvidence> evidenceItems = orderedHits
+                        .Select(result => CreateEvidence(result.Owner, result.SearchParameter, result.Hit))
+                        .ToList();
+
+                    return new VectorSearchResult(
+                        group.Key.ResourceType,
+                        group.Key.ResourceSurrogateId,
+                        orderedHits[0].Hit.Score,
+                        evidenceItems);
+                })
                 .OrderByDescending(result => result.Score)
                 .Take(count)
                 .ToList();
+        }
+
+        private SemanticSearchEvidence CreateEvidence(
+            ResourceWrapper owner,
+            SearchParameterInfo searchParameter,
+            VectorSearchHit hit)
+        {
+            string sourceResourceType = hit.SourceResourceTypeId.HasValue
+                ? _model.GetResourceTypeName(hit.SourceResourceTypeId.Value)
+                : owner.ResourceTypeName;
+            var sourceKey = new ResourceKey(
+                sourceResourceType,
+                hit.SourceResourceId ?? owner.ResourceId,
+                hit.SourceResourceVersion ?? owner.Version);
+
+            return new SemanticSearchEvidence(
+                hit.ChunkText,
+                hit.ChunkOrdinal,
+                (decimal)hit.Score,
+                searchParameter.Url,
+                sourceKey.ToString(),
+                hit.SourcePath ?? searchParameter.Expression);
         }
     }
 }

@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -963,8 +964,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // This logic relies on surrogate id in ResourceWrapper populated using database values
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
+                var vectorMergeWrappers = mergeWrappers.Where(resource => resource.ResourceWrapper.VectorSearchIndicesUpdated).ToList();
+                bool updateVectorSearchIndices = ShouldUpdateVectorSearchIndices(resources, _schemaInformation.Current);
 
-                using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
+                using SqlCommand cmd = CreateBulkUpdateSearchParameterIndicesCommand(updateVectorSearchIndices, mergeWrappers.Count);
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -981,6 +984,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                if (updateVectorSearchIndices)
+                {
+                    new ResourceListTableValuedParameterDefinition("@VectorSearchResources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(vectorMergeWrappers));
+                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model).GenerateRows(vectorMergeWrappers));
+                }
+
                 var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(failedResourcesParam);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -999,6 +1008,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogError("{Error}", message);
                 throw new PreconditionFailedException(message + " " + userAction);
             }
+        }
+
+        internal static bool ShouldUpdateVectorSearchIndices(IReadOnlyCollection<ResourceWrapper> resources, int? currentSchemaVersion)
+        {
+            return currentSchemaVersion >= SchemaVersionConstants.VectorSearchReindexVersion && resources.Any(resource => resource.VectorSearchIndicesUpdated);
+        }
+
+        internal static SqlCommand CreateBulkUpdateSearchParameterIndicesCommand(bool updateVectorSearchIndices, int resourceCount)
+        {
+            var command = updateVectorSearchIndices
+                ? new SqlCommand("dbo.UpdateResourceSearchParamsWithVectors")
+                : new SqlCommand("dbo.UpdateResourceSearchParams");
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandTimeout = 300 + (int)(3600.0 / 10000 * resourceCount);
+            return command;
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)

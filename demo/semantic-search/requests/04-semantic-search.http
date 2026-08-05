@@ -1,0 +1,145 @@
+@baseUrl = https://localhost:44348
+@patientId = 8f789d0b-3145-4cf2-8504-13159edaa747
+
+# @name bearer
+POST {{baseUrl}}/connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+
+# Mixed-resource clinical question. No type parameters means all three supported
+# types: Observation, DiagnosticReport, and DocumentReference.
+POST {{baseUrl}}/Patient/{{patientId}}/$semantic-search
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "query",
+      "valueString": "Has this patient had previous episodes of dizziness, fainting, or nearly passing out?"
+    },
+    {
+      "name": "count",
+      "valueInteger": 10
+    }
+  ]
+}
+
+###
+
+# Exact-match calibration across all supported types.
+# Expected first result: Observation/demo-obs-exact-presyncope with score about 1.
+# Observation/demo-control-obs-exact-presyncope must not appear despite identical text.
+POST {{baseUrl}}/Patient/{{patientId}}/$semantic-search
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "query",
+      "valueString": "Lightheaded when standing with a near-syncopal episode and no loss of consciousness."
+    },
+    {
+      "name": "count",
+      "valueInteger": 10
+    }
+  ]
+}
+
+###
+
+# Type filtering: rank only unstructured Binary-backed documents.
+# Expected: five DocumentReference entries; clinically related notes rank above dermatology.
+POST {{baseUrl}}/Patient/{{patientId}}/$semantic-search
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "query",
+      "valueString": "Has this patient had previous episodes of dizziness, fainting, or nearly passing out?"
+    },
+    {
+      "name": "count",
+      "valueInteger": 10
+    },
+    {
+      "name": "type",
+      "valueCode": "DocumentReference"
+    }
+  ]
+}
+
+###
+
+# Repeated type parameters: one request, globally ranked subset.
+POST {{baseUrl}}/Patient/{{patientId}}/$semantic-search
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "query",
+      "valueString": "Has this patient had previous episodes of dizziness, fainting, or nearly passing out?"
+    },
+    {
+      "name": "count",
+      "valueInteger": 5
+    },
+    {
+      "name": "type",
+      "valueCode": "Observation"
+    },
+    {
+      "name": "type",
+      "valueCode": "DiagnosticReport"
+    }
+  ]
+}
+
+###
+
+# Repeated type parameters: one request, globally ranked subset.
+POST {{baseUrl}}/Patient/{{patientId}}/$semantic-search
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "query",
+      "valueString": "reproducible orthostatic blood-pressure decrease, and improvement with hydration favor presyncope from volume depletion and antihypertensive effect. The presentation is not consistent with seizure, acute stroke, or sustained arrhythmia. She received oral and intravenous fluids with resolution of symptoms and later walked independently. Hydrochlorothiazide will be held pending primary-care review. Return precautions include actual fainting, chest pain, palpitations, new neu"
+    },
+    {
+      "name": "count",
+      "valueInteger": 5
+    },
+    {
+      "name": "type",
+      "valueCode": "Observation"
+    },
+    {
+      "name": "type",
+      "valueCode": "DiagnosticReport"
+    }
+  ]
+}

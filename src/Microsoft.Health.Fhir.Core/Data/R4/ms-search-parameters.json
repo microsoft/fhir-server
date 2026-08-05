@@ -36,6 +36,132 @@
                     "ap"
                 ]
             }
+        },
+        {
+            "fullUrl": "https://azurehealthcareapis.com/search-parameters/observation-semantic-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ahcapis-observation-semantic-text",
+                "url": "https://azurehealthcareapis.com/search-parameters/observation-semantic-text",
+                "version": "1.0.0",
+                "name": "ObservationSemanticText",
+                "status": "active",
+                "experimental": true,
+                "date": "2026-07-28",
+                "publisher": "Microsoft",
+                "description": "Search Observation note text by semantic similarity.",
+                "code": "semantic-text",
+                "base": [ "Observation" ],
+                "type": "special",
+                "expression": "Observation.note.text",
+                "extension": [
+                    {
+                        "url": "http://microsoft.com/fhir/StructureDefinition/vector-search-config",
+                        "extension": [
+                            {
+                                "url": "sourceStrategy",
+                                "valueCode": "directText"
+                            },
+                            {
+                                "url": "extractionPolicy",
+                                "valueCode": "perValueRow"
+                            },
+                            {
+                                "url": "maxInputTokens",
+                                "valueInteger": 8000
+                            },
+                            {
+                                "url": "minimumScore",
+                                "valueDecimal": 0
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "https://azurehealthcareapis.com/search-parameters/diagnostic-report-semantic-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ahcapis-diagnostic-report-semantic-text",
+                "url": "https://azurehealthcareapis.com/search-parameters/diagnostic-report-semantic-text",
+                "version": "1.0.0",
+                "name": "DiagnosticReportSemanticText",
+                "status": "active",
+                "experimental": true,
+                "date": "2026-07-28",
+                "publisher": "Microsoft",
+                "description": "Search DiagnosticReport conclusions by semantic similarity.",
+                "code": "semantic-text",
+                "base": [ "DiagnosticReport" ],
+                "type": "special",
+                "expression": "DiagnosticReport.conclusion",
+                "extension": [
+                    {
+                        "url": "http://microsoft.com/fhir/StructureDefinition/vector-search-config",
+                        "extension": [
+                            {
+                                "url": "sourceStrategy",
+                                "valueCode": "directText"
+                            },
+                            {
+                                "url": "extractionPolicy",
+                                "valueCode": "perValueRow"
+                            },
+                            {
+                                "url": "maxInputTokens",
+                                "valueInteger": 8000
+                            },
+                            {
+                                "url": "minimumScore",
+                                "valueDecimal": 0
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "https://azurehealthcareapis.com/search-parameters/document-reference-semantic-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ahcapis-document-reference-semantic-text",
+                "url": "https://azurehealthcareapis.com/search-parameters/document-reference-semantic-text",
+                "version": "1.0.0",
+                "name": "DocumentReferenceSemanticText",
+                "status": "active",
+                "experimental": true,
+                "date": "2026-07-28",
+                "publisher": "Microsoft",
+                "description": "Search UTF-8 text/plain content in a locally referenced Binary by semantic similarity.",
+                "code": "semantic-text",
+                "base": [ "DocumentReference" ],
+                "type": "special",
+                "expression": "DocumentReference.content.attachment.url.toString()",
+                "extension": [
+                    {
+                        "url": "http://microsoft.com/fhir/StructureDefinition/vector-search-config",
+                        "extension": [
+                            {
+                                "url": "sourceStrategy",
+                                "valueCode": "localBinaryReference"
+                            },
+                            {
+                                "url": "extractionPolicy",
+                                "valueCode": "perValueRow"
+                            },
+                            {
+                                "url": "maxInputTokens",
+                                "valueInteger": 8000
+                            },
+                            {
+                                "url": "minimumScore",
+                                "valueDecimal": 0
+                            }
+                        ]
+                    }
+                ]
+            }
         }
     ]
 }

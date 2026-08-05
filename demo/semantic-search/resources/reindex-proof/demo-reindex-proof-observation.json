@@ -1,0 +1,17 @@
+{
+  "resourceType": "Observation",
+  "id": "demo-reindex-proof-observation",
+  "status": "final",
+  "code": {
+    "text": "Vector reindex proof narrative"
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747"
+  },
+  "effectiveDateTime": "2025-02-04T09:30:00Z",
+  "note": [
+    {
+      "text": "After standing in a warm crowded room, the patient developed tunnel vision and leg weakness but remained conscious. Symptoms resolved after lying flat."
+    }
+  ]
+}

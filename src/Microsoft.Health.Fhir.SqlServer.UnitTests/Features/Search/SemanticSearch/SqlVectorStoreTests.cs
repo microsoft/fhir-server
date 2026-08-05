@@ -131,9 +131,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
                     chestPain,
                     new[] { surrogateChestPain, surrogateFracture },
                     maxResults: 2,
+                    evidenceCount: 2,
                     CancellationToken.None);
 
-                Assert.Equal(2, results.Count);
+                Assert.Equal(3, results.Count);
                 Assert.Equal(surrogateChestPain, results[0].ResourceSurrogateId);
                 Assert.Equal("chest pain", results[0].ChunkText);
                 Assert.Equal(0, results[0].ChunkOrdinal);
@@ -141,8 +142,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SemanticSear
                 Assert.Equal("binary-1", results[0].SourceResourceId);
                 Assert.Equal("2", results[0].SourceResourceVersion);
                 Assert.Equal("Binary.data", results[0].SourcePath);
+                Assert.Equal(surrogateChestPain, results[1].ResourceSurrogateId);
+                Assert.Equal("fractured femur", results[1].ChunkText);
                 Assert.Equal(2, results.Select(result => result.ResourceSurrogateId).Distinct().Count());
-                Assert.True(results[0].Score >= results[1].Score);
+                Assert.True(results[0].Score >= results[2].Score);
             }
             finally
             {

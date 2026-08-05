@@ -1,0 +1,98 @@
+# @name bearer
+POST https://localhost:44348/connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+
+# NORMAL FHIR SEARCHES
+
+# Find this patient's finalized Observations from 2025 onward.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&status=final&date=ge2025-01-01&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Find the patient's orthostatic blood-pressure panel by LOINC code.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&code=http%3A%2F%2Floinc.org%7C85354-9
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Find current clinical documents authored from 2026 onward.
+GET https://localhost:44348/DocumentReference?patient=8f789d0b-3145-4cf2-8504-13159edaa747&status=current&date=ge2026-01-01&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# SEMANTIC SEARCHPARAMETER SEARCHES (NO $ OPERATION)
+
+# These are ordinary FHIR resource searches using the custom semantic-text
+# SearchParameter. Each request searches and returns only the resource type in
+# its URL. The Patient/$semantic-search operation approximately combines these
+# three searches and globally ranks their results.
+
+# Search this patient's Observation note text using the same clinical question
+# used by the mixed-resource operation.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=Has%20this%20patient%20had%20previous%20episodes%20of%20dizziness%2C%20fainting%2C%20or%20nearly%20passing%20out%3F&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Search Observation note text by meaning while retaining deterministic patient scope.
+# Expected first result: Observation/demo-obs-exact-presyncope, score about 1.
+# The control patient's identical Observation must not appear.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=Lightheaded%20when%20standing%20with%20a%20near-syncopal%20episode%20and%20no%20loss%20of%20consciousness.&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Search DiagnosticReport conclusions using a clinical paraphrase.
+# Expected first result: DiagnosticReport/demo-report-cardiology.
+GET https://localhost:44348/DiagnosticReport?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=Has%20this%20patient%20had%20previous%20episodes%20of%20dizziness%2C%20fainting%2C%20or%20nearly%20passing%20out%3F&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Search text resolved from Binary-backed DocumentReferences.
+# Expected first result: DocumentReference/demo-doc-prior-ed.
+# Inspect evidence source Binary/demo-binary-prior-ed-long/_history/{version} and
+# sourcePath Binary.data. The evidence text should be a passage, not all 3,438 chars.
+GET https://localhost:44348/DocumentReference?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=Has%20this%20patient%20had%20previous%20episodes%20of%20dizziness%2C%20fainting%2C%20or%20nearly%20passing%20out%3F&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# HYBRID FHIR SEARCHES
+
+# Apply patient, status, and date filters first, then rank matching reports by meaning.
+GET https://localhost:44348/DiagnosticReport?patient=8f789d0b-3145-4cf2-8504-13159edaa747&status=final&date=ge2025-01-01&semantic-text=What%20prior%20testing%20explains%20the%20near-fainting%20episodes%3F&_count=3
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Restrict candidates to current 2025 documents, then rank their Binary text.
+GET https://localhost:44348/DocumentReference?patient=8f789d0b-3145-4cf2-8504-13159edaa747&status=current&date=ge2025-01-01&date=lt2026-01-01&semantic-text=Has%20this%20patient%20nearly%20passed%20out%20before%3F&_count=2
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# Explicit sorting is not yet supported with semantic search. This request must
+# return a FHIR OperationOutcome with issue code not-supported instead of
+# silently replacing the requested sort with relevance order.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=previous%20near-fainting%20episodes&_sort=-_lastUpdated&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}

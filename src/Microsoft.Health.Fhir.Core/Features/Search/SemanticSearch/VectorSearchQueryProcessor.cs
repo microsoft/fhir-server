@@ -80,7 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             }
 
             short embeddingModelId = await _embeddingModelRegistry.GetEmbeddingModelIdAsync(cancellationToken);
-            return new PreparedVectorSearchQuery(vectorExpression.Parameter, embeddingModelId, embedding);
+            return new PreparedVectorSearchQuery(
+                vectorExpression.Parameter,
+                embeddingModelId,
+                embedding,
+                vectorExpression.Parameter.VectorConfig.MinimumScore);
         }
 
         private sealed class VectorSearchExpressionCollector : DefaultExpressionVisitor<object, object>

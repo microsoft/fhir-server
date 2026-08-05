@@ -143,6 +143,8 @@ namespace Microsoft.Health.Fhir.Web
 
             services.AddSingleton<ITextChunker, TextChunker>();
             services.AddSingleton<IVectorSearchParameterResolver, VectorSearchParameterResolver>();
+            services.AddSingleton<IBinaryContentExtractor, PlainTextBinaryContentExtractor>();
+            services.AddSingleton<IBinaryContentExtractor, PdfBinaryContentExtractor>();
             services.AddScoped<IVectorTextSourceResolver, VectorTextSourceResolver>();
             services.AddScoped<IEmbeddingClient>(provider => new AzureFoundryEmbeddingClient(
                 provider.GetRequiredService<IOptions<VectorSearchConfiguration>>().Value.Embedding,
@@ -291,6 +293,14 @@ namespace Microsoft.Health.Fhir.Web
                 options.Authority = securityConfiguration.Authentication.Authority;
                 options.Audience = securityConfiguration.Authentication.Audience;
                 options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
+
+                // Accept issuer with or without trailing slash (common OpenIddict variation).
+                string normalizedAuthority = securityConfiguration.Authentication.Authority?.TrimEnd('/');
+                if (!string.IsNullOrWhiteSpace(normalizedAuthority))
+                {
+                    options.TokenValidationParameters.ValidIssuers = new[] { normalizedAuthority, normalizedAuthority + "/" };
+                }
+
                 options.MapInboundClaims = false;
                 options.RequireHttpsMetadata = true;
                 options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";

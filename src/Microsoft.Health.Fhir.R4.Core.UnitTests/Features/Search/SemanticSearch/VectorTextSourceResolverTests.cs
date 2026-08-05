@@ -11,10 +11,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
@@ -22,6 +27,10 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Fonts.Standard14Fonts;
+using UglyToad.PdfPig.Writer;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -34,11 +43,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         private static readonly Uri VectorCanonical = new Uri("https://example.org/fhir/SearchParameter/document-reference-binary-vector");
 
         [Fact]
+        public async Task GivenDocumentReferenceAttachmentUrl_WhenExtractingVectorSearchParameter_ThenBinaryReferenceIsReturnedAsString()
+        {
+            // Arrange
+            SearchParameterInfo searchParameter = CreateSearchParameter("DocumentReference.content.attachment.url.toString()");
+            ISupportedSearchParameterDefinitionManager definitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters("DocumentReference").Returns(new[] { searchParameter });
+            FhirTypedElementToSearchValueConverterManager converterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
+            var indexer = new TypedElementSearchIndexer(
+                definitionManager,
+                converterManager,
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+            var documentReference = new DocumentReference
+            {
+                Content = new List<DocumentReference.ContentComponent>
+                {
+                    new DocumentReference.ContentComponent
+                    {
+                        Attachment = new Attachment { Url = "Binary/source" },
+                    },
+                },
+            };
+
+            // Act
+            IReadOnlyCollection<SearchIndexEntry> searchIndices = indexer.Extract(documentReference.ToResourceElement());
+
+            // Assert
+            SearchIndexEntry searchIndex = Assert.Single(searchIndices);
+            Assert.Same(searchParameter, searchIndex.SearchParameter);
+            Assert.Equal("Binary/source", Assert.IsType<StringSearchValue>(searchIndex.Value).String);
+        }
+
+        [Fact]
         public async Task GivenBinaryInWriteBatch_WhenResolvingReference_ThenBatchTextAndProvenanceAreReturned()
         {
             // Arrange
             IVectorResourceReader resourceReader = Substitute.For<IVectorResourceReader>();
-            var resolver = new VectorTextSourceResolver(resourceReader, Deserializers.ResourceDeserializer);
+            VectorTextSourceResolver resolver = CreateResolver(resourceReader);
             ResourceWrapper owner = CreateResource("DocumentReference", "document", "1", "{}");
             ResourceWrapper binary = CreateBinary("source", "4", "same-batch text");
 
@@ -69,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                     Arg.Is<ResourceKey>(key => key.ResourceType == "Binary" && key.Id == "source"),
                     Arg.Any<CancellationToken>())
                 .Returns(CreateBinary("source", "7", "persisted text"));
-            var resolver = new VectorTextSourceResolver(resourceReader, Deserializers.ResourceDeserializer);
+            VectorTextSourceResolver resolver = CreateResolver(resourceReader);
             ResourceWrapper owner = CreateResource("DocumentReference", "document", "1", "{}");
 
             // Act
@@ -87,6 +130,97 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         }
 
         [Fact]
+        public async Task GivenPdfBinary_WhenResolvingReference_ThenPageTextAndProvenanceAreReturned()
+        {
+            // Arrange
+            var resolver = new VectorTextSourceResolver(
+                Substitute.For<IVectorResourceReader>(),
+                Deserializers.ResourceDeserializer,
+                new IBinaryContentExtractor[]
+                {
+                    new PlainTextBinaryContentExtractor(),
+                    new PdfBinaryContentExtractor(Options.Create(new VectorSearchConfiguration())),
+                });
+            ResourceWrapper owner = CreateResource("DocumentReference", "document", "1", "{}");
+            ResourceWrapper binary = CreateBinary("source", "3", "application/pdf", CreatePdf("first clinical page", "second clinical page"));
+
+            // Act
+            IReadOnlyList<VectorTextSource> sources = await resolver.ResolveAsync(
+                owner,
+                CreateSearchParameter(),
+                new[] { "Binary/source" },
+                new[] { owner, binary },
+                CancellationToken.None);
+
+            // Assert
+            Assert.Collection(
+                sources,
+                source =>
+                {
+                    Assert.Contains("first clinical page", source.Text, StringComparison.Ordinal);
+                    Assert.Equal("Binary.data#page=1", source.Path);
+                },
+                source =>
+                {
+                    Assert.Contains("second clinical page", source.Text, StringComparison.Ordinal);
+                    Assert.Equal("Binary.data#page=2", source.Path);
+                });
+            Assert.All(sources, source =>
+            {
+                Assert.Equal("Binary", source.ResourceType);
+                Assert.Equal("source", source.ResourceId);
+                Assert.Equal("3", source.ResourceVersion);
+            });
+        }
+
+        [Fact]
+        public async Task GivenSegmentedBinaryContent_WhenResolvingReference_ThenOrderedTextAndLocatorsAreReturned()
+        {
+            // Arrange
+            var extractor = new StubBinaryContentExtractor(
+                new BinaryContentSegment("first page", "page=1"),
+                new BinaryContentSegment("second page", "page=2"));
+            var resolver = new VectorTextSourceResolver(
+                Substitute.For<IVectorResourceReader>(),
+                Deserializers.ResourceDeserializer,
+                new[] { extractor });
+            ResourceWrapper owner = CreateResource("DocumentReference", "document", "1", "{}");
+            ResourceWrapper binary = CreateResource(
+                "Binary",
+                "source",
+                "3",
+                "{\"resourceType\":\"Binary\",\"id\":\"source\",\"contentType\":\"application/pdf\",\"data\":\"cGRm\"}");
+
+            // Act
+            IReadOnlyList<VectorTextSource> sources = await resolver.ResolveAsync(
+                owner,
+                CreateSearchParameter(),
+                new[] { "Binary/source" },
+                new[] { owner, binary },
+                CancellationToken.None);
+
+            // Assert
+            Assert.Collection(
+                sources,
+                source =>
+                {
+                    Assert.Equal("first page", source.Text);
+                    Assert.Equal("Binary.data#page=1", source.Path);
+                },
+                source =>
+                {
+                    Assert.Equal("second page", source.Text);
+                    Assert.Equal("Binary.data#page=2", source.Path);
+                });
+            Assert.All(sources, source =>
+            {
+                Assert.Equal("Binary", source.ResourceType);
+                Assert.Equal("source", source.ResourceId);
+                Assert.Equal("3", source.ResourceVersion);
+            });
+        }
+
+        [Fact]
         public async Task GivenDocumentReferenceToBinary_WhenIndexing_ThenDecodedTextIsEmbeddedWithBinaryProvenance()
         {
             // Arrange
@@ -99,8 +233,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 new SearchIndexEntry(searchParameter, new StringSearchValue("Binary/source")));
             ResourceWrapper binary = CreateBinary("source", "5", "decoded clinical passage");
             IVectorSearchParameterResolver searchParameterResolver = Substitute.For<IVectorSearchParameterResolver>();
-            searchParameterResolver.GetSearchParameters("DocumentReference").Returns(new[] { searchParameter });
-            searchParameterResolver.GetSearchParameters("Binary").Returns(Array.Empty<SearchParameterInfo>());
+            searchParameterResolver.GetIndexingSearchParameters("DocumentReference").Returns(new[] { searchParameter });
+            searchParameterResolver.GetIndexingSearchParameters("Binary").Returns(Array.Empty<SearchParameterInfo>());
             var embeddedTexts = new List<string>();
             IEmbeddingClient embeddingClient = Substitute.For<IEmbeddingClient>();
             embeddingClient.Dimensions.Returns(2);
@@ -120,8 +254,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 new TextChunker(),
                 embeddingClient,
                 modelRegistry,
-                new VectorTextSourceResolver(Substitute.For<IVectorResourceReader>(), Deserializers.ResourceDeserializer),
-                Options.Create(configuration));
+                CreateResolver(),
+                Options.Create(configuration),
+                NullLogger<VectorSearchIndexer>.Instance);
 
             // Act
             await indexer.IndexAsync(new[] { owner, binary }, CancellationToken.None);
@@ -142,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         public async Task GivenUnsupportedBinaryContent_WhenResolvingReference_ThenSourceIsSkipped(string contentType, string data)
         {
             // Arrange
-            var resolver = new VectorTextSourceResolver(Substitute.For<IVectorResourceReader>(), Deserializers.ResourceDeserializer);
+            VectorTextSourceResolver resolver = CreateResolver();
             ResourceWrapper owner = CreateResource("DocumentReference", "document", "1", "{}");
             ResourceWrapper binary = CreateResource(
                 "Binary",
@@ -162,14 +297,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Empty(sources);
         }
 
-        private static SearchParameterInfo CreateSearchParameter()
+        private static SearchParameterInfo CreateSearchParameter(string expression = "DocumentReference.content.attachment.url")
         {
             return new SearchParameterInfo(
                 name: "DocumentReferenceBinaryVector",
                 code: "binary-vector",
                 searchParamType: Microsoft.Health.Fhir.ValueSets.SearchParamType.Special,
                 url: VectorCanonical,
-                expression: "DocumentReference.content.attachment.url",
+                expression: expression,
                 baseResourceTypes: new[] { "DocumentReference" },
                 vectorConfig: new VectorSearchParameterConfig
                 {
@@ -179,16 +314,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 definitionStatus: "active");
         }
 
+        private static VectorTextSourceResolver CreateResolver(IVectorResourceReader resourceReader = null)
+        {
+            return new VectorTextSourceResolver(
+                resourceReader ?? Substitute.For<IVectorResourceReader>(),
+                Deserializers.ResourceDeserializer,
+                new[] { new PlainTextBinaryContentExtractor() });
+        }
+
         private static ResourceWrapper CreateBinary(string id, string version, string text)
         {
-            var binary = new Binary
-            {
-                Id = id,
-                ContentType = "text/plain; charset=utf-8",
-                Data = Encoding.UTF8.GetBytes(text),
-            };
+            return CreateBinary(id, version, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(text));
+        }
+
+        private static ResourceWrapper CreateBinary(string id, string version, string contentType, byte[] data)
+        {
+            var binary = new Binary { Id = id, ContentType = contentType, Data = data };
 
             return CreateResource("Binary", id, version, new FhirJsonSerializer().SerializeToString(binary));
+        }
+
+        private static byte[] CreatePdf(params string[] pageTexts)
+        {
+            var builder = new PdfDocumentBuilder();
+            PdfDocumentBuilder.AddedFont font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+            foreach (string pageText in pageTexts)
+            {
+                PdfPageBuilder page = builder.AddPage(PageSize.A4);
+                page.AddText(pageText, 12, new PdfPoint(25, 700), font);
+            }
+
+            return builder.Build();
         }
 
         private static ResourceWrapper CreateResource(
@@ -209,6 +366,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 searchIndices: searchIndices,
                 compartmentIndices: null,
                 lastModifiedClaims: Array.Empty<KeyValuePair<string, string>>());
+        }
+
+        private sealed class StubBinaryContentExtractor : IBinaryContentExtractor
+        {
+            private readonly IReadOnlyList<BinaryContentSegment> _segments;
+
+            public StubBinaryContentExtractor(params BinaryContentSegment[] segments)
+            {
+                _segments = segments;
+            }
+
+            public IReadOnlyCollection<string> SupportedContentTypes { get; } = new[] { "application/pdf" };
+
+            public int GetMaximumContentLength(int maximumTextLength)
+            {
+                return maximumTextLength;
+            }
+
+            public bool TryExtract(
+                byte[] content,
+                string contentType,
+                int maximumTextLength,
+                out IReadOnlyList<BinaryContentSegment> segments)
+            {
+                segments = _segments;
+                return true;
+            }
         }
     }
 }

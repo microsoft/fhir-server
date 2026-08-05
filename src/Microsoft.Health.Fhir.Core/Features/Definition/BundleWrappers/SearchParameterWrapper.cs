@@ -10,6 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -98,7 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
                 string url = nestedExtension.Scalar("url")?.ToString();
                 object value = nestedExtension.Scalar("value") ??
                     nestedExtension.Scalar("valueCode") ??
-                    nestedExtension.Scalar("valueInteger");
+                    nestedExtension.Scalar("valueInteger") ??
+                    nestedExtension.Scalar("valueDecimal");
 
                 if (string.Equals(url, VectorSearchParameterConfig.ExtractionPolicyExtensionUrl, StringComparison.Ordinal))
                 {
@@ -127,6 +129,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 
                     configuration.MaxInputTokens = maxInputTokens;
                 }
+                else if (string.Equals(url, VectorSearchParameterConfig.MinimumScoreExtensionUrl, StringComparison.Ordinal))
+                {
+                    if (!decimal.TryParse(value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out decimal minimumScore) || minimumScore < 0 || minimumScore > 1)
+                    {
+                        throw new InvalidDefinitionException("Vector SearchParameter minimumScore must be between zero and one.");
+                    }
+
+                    configuration.MinimumScore = minimumScore;
+                }
+                else if (string.Equals(url, VectorSearchParameterConfig.ChunkSizeTokensExtensionUrl, StringComparison.Ordinal))
+                {
+                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkSizeTokens) || chunkSizeTokens <= 0)
+                    {
+                        throw new InvalidDefinitionException("Vector SearchParameter chunkSizeTokens must be greater than zero.");
+                    }
+
+                    configuration.ChunkSizeTokens = chunkSizeTokens;
+                }
+                else if (string.Equals(url, VectorSearchParameterConfig.ChunkOverlapTokensExtensionUrl, StringComparison.Ordinal))
+                {
+                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkOverlapTokens) || chunkOverlapTokens < 0)
+                    {
+                        throw new InvalidDefinitionException("Vector SearchParameter chunkOverlapTokens must be non-negative.");
+                    }
+
+                    configuration.ChunkOverlapTokens = chunkOverlapTokens;
+                }
+                else if (string.Equals(url, VectorSearchParameterConfig.DistanceMetricExtensionUrl, StringComparison.Ordinal))
+                {
+                    string distanceMetric = value?.ToString();
+                    if (!string.Equals(distanceMetric, VectorSearchConfiguration.SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDefinitionException($"Vector SearchParameter distanceMetric must be '{VectorSearchConfiguration.SupportedDistanceMetric}'.");
+                    }
+
+                    configuration.DistanceMetric = distanceMetric.ToLowerInvariant();
+                }
+            }
+
+            if (configuration.ChunkSizeTokens.HasValue &&
+                configuration.ChunkOverlapTokens >= configuration.ChunkSizeTokens)
+            {
+                throw new InvalidDefinitionException("Vector SearchParameter chunkOverlapTokens must be smaller than chunkSizeTokens.");
             }
 
             return configuration;

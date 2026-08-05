@@ -3,9 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
@@ -19,11 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public VectorSearchIndexingMode Mode { get; set; } = VectorSearchIndexingMode.Synchronous;
 
         /// <summary>
-        /// Gets or sets the canonical URIs of the FHIR SearchParameters enabled for vector indexing.
-        /// </summary>
-        public IList<Uri> EnabledSearchParameters { get; } = new List<Uri>();
-
-        /// <summary>
         /// Gets or sets the maximum number of tokens in an embedding chunk.
         /// </summary>
         public int ChunkSizeTokens { get; set; } = 800;
@@ -32,5 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the number of tokens repeated between adjacent chunks.
         /// </summary>
         public int ChunkOverlapTokens { get; set; } = 100;
+
+        /// <summary>
+        /// Gets or sets PDF text extraction settings.
+        /// </summary>
+        public VectorSearchPdfConfiguration Pdf { get; set; } = new VectorSearchPdfConfiguration();
     }
 }

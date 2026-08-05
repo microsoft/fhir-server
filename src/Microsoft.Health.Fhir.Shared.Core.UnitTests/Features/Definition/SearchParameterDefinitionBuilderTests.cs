@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         public void GivenVectorSearchParameterExtension_WhenWrapped_ThenVectorConfigurationIsParsed()
         {
             // Arrange
-            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"sourceStrategy\",\"valueCode\":\"localBinaryReference\"},{\"url\":\"extractionPolicy\",\"valueCode\":\"perValueRow\"},{\"url\":\"maxInputTokens\",\"valueInteger\":1200}]}]}";
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"sourceStrategy\",\"valueCode\":\"localBinaryReference\"},{\"url\":\"extractionPolicy\",\"valueCode\":\"perValueRow\"},{\"url\":\"maxInputTokens\",\"valueInteger\":1200},{\"url\":\"minimumScore\",\"valueDecimal\":0.65},{\"url\":\"chunkSizeTokens\",\"valueInteger\":400},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":40},{\"url\":\"distanceMetric\",\"valueCode\":\"cosine\"}]}]}";
             SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
 
             // Act
@@ -115,6 +115,49 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Equal(VectorTextSourceStrategy.LocalBinaryReference, searchParameterInfo.VectorConfig.SourceStrategy);
             Assert.Equal(VectorTextExtractionPolicy.PerValueRow, searchParameterInfo.VectorConfig.ExtractionPolicy);
             Assert.Equal(1200, searchParameterInfo.VectorConfig.MaxInputTokens);
+            Assert.Equal(0.65m, searchParameterInfo.VectorConfig.MinimumScore);
+            Assert.Equal(400, searchParameterInfo.VectorConfig.ChunkSizeTokens);
+            Assert.Equal(40, searchParameterInfo.VectorConfig.ChunkOverlapTokens);
+            Assert.Equal("cosine", searchParameterInfo.VectorConfig.DistanceMetric);
+        }
+
+        [Theory]
+        [InlineData("chunkSizeTokens", "valueInteger", "0")]
+        [InlineData("chunkOverlapTokens", "valueInteger", "-1")]
+        [InlineData("distanceMetric", "valueCode", "euclidean")]
+        public void GivenInvalidVectorIndexSetting_WhenWrapped_ThenDefinitionIsRejected(string setting, string valueType, string value)
+        {
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"{setting}\",\"{valueType}\":{(valueType == "valueCode" ? $"\"{value}\"" : value)}}}]}}]}}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Fact]
+        public void GivenChunkOverlapNotSmallerThanChunkSize_WhenWrapped_ThenDefinitionIsRejected()
+        {
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"chunkSizeTokens\",\"valueInteger\":100},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":100}]}]}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Theory]
+        [InlineData("-0.01")]
+        [InlineData("1.01")]
+        public void GivenInvalidVectorMinimumScore_WhenWrapped_ThenDefinitionIsRejected(string minimumScore)
+        {
+            // Arrange
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"minimumScore\",\"valueDecimal\":{minimumScore}}}]}}]}}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
         }
 
         [Fact]

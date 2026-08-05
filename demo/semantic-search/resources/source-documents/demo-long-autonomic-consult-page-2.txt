@@ -1,0 +1,33 @@
+AUTONOMIC AND SYNCOPE CLINIC CONSULTATION
+Date of service: 2026-03-18
+Patient: Elena Marquez
+Page 2 of 2 - Trigger analysis, assessment, and plan
+
+MOST RECENT EVENT
+The most informative recent episode occurred immediately after a hot shower. Elena had taken lisinopril and hydrochlorothiazide that morning and had eaten only toast. The bathroom was warm and steamy. While standing to dry her hair, she noticed ringing in both ears, gray vision, nausea, and a rapid loss of strength in her legs. She sat on the closed toilet lid before falling. Her daughter brought water and helped her lie down with her legs elevated. Symptoms resolved over approximately four minutes. There was no room-spinning sensation, chest pain, sustained palpitation, loss of consciousness, injury, confusion, or focal weakness.
+
+TRIGGER INTERPRETATION
+Heat causes peripheral vasodilation, standing shifts blood toward the lower body, and limited morning intake reduces the volume available to maintain pressure. A thiazide diuretic can increase susceptibility in that setting. The event therefore fits the same orthostatic presyncope pattern observed during active stand testing. It does not resemble the brief right-sided positional vertigo documented in the neurology note, and it does not have the abrupt unheralded character expected from some malignant rhythm disorders.
+
+ASSESSMENT
+1. Symptomatic orthostatic hypotension with presyncope, demonstrated by a systolic blood-pressure decline from 138 mmHg supine to 104 mmHg after three minutes standing with reproduction of gray vision and bilateral leg heaviness.
+2. Heat, prolonged standing, low fluid intake, and morning diuretic exposure are modifiable amplifiers.
+3. No documented complete loss of consciousness. No current evidence of sustained arrhythmia, seizure, acute stroke, or a continuous central vestibular syndrome.
+4. Separately treated right posterior canal benign paroxysmal positional vertigo, clinically distinct from the upright presyncopal events.
+
+MEDICATION PLAN
+Hydrochlorothiazide will be stopped today after discussion with Elena and her primary-care clinician. Lisinopril will continue at the current dose for now. Elena will record seated and standing blood pressure each morning and whenever symptoms occur. The primary-care team will review the log within two weeks and decide whether additional antihypertensive adjustment is needed. She was instructed not to restart the diuretic on her own, even if a single seated reading is elevated.
+
+NONPHARMACOLOGIC PLAN
+Elena will aim for approximately two liters of nonalcoholic fluid daily unless another clinician identifies a contraindication. She will eat regular meals, avoid entering a hot shower when fasting, use warm rather than very hot water, and sit while drying or dressing if symptoms begin. Slow transitions, calf-pumping before standing, and brief counter-pressure maneuvers were demonstrated. Waist-high compression garments or the abdominal binder may be used for prolonged upright activity. A shower chair and nonslip surface were recommended to reduce injury risk.
+
+SAFETY AND FOLLOW-UP
+If warning symptoms begin, Elena should sit or lie down immediately rather than trying to walk to another room. Emergency evaluation is appropriate for actual loss of consciousness during exertion or while supine, a significant injury, chest pain, persistent rapid heartbeat, new neurologic deficit, black or bloody stool, or symptoms that do not improve promptly after lying down. Driving should be avoided if events occur without enough warning to stop safely.
+
+A nurse will call in one week to review symptoms and the blood-pressure log. Formal follow-up is planned in four weeks. If events continue despite removing hydrochlorothiazide and improving hydration, the next steps may include longer rhythm monitoring and standardized autonomic testing. Treatment decisions will be based on documented physiology and clinical response rather than on semantic-search score.
+
+PAGE 2 SUMMARY
+The decisive details are that the latest near-fainting episode followed a hot shower, involved gray vision without spinning or loss of consciousness, and led to a plan to stop hydrochlorothiazide. These details are intentionally located on page 2 so a successful PDF semantic search can demonstrate page-specific provenance as Binary.data#page=2.
+
+SYNTHETIC DEMO DOCUMENT
+This fictional consultation is intended only to test text extraction, chunking, semantic retrieval, and provenance from a two-page PDF Binary. It is not medical advice and does not describe a real person.

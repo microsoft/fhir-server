@@ -54,9 +54,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Score = r.Score,
                 };
 
-                if (r.Evidence != null)
+                foreach (SemanticSearchEvidence evidence in r.EvidenceItems)
                 {
-                    resource.Search.Extension.Add(CreateSemanticEvidenceExtension(r.Evidence));
+                    resource.Search.Extension.Add(CreateSemanticEvidenceExtension(evidence));
                 }
 
                 return resource;
@@ -72,6 +72,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             extension.Extension.Add(new Extension(SemanticSearchEvidence.TextExtensionUrl, new FhirString(evidence.Text)));
             extension.Extension.Add(new Extension(SemanticSearchEvidence.ChunkOrdinalExtensionUrl, new Integer(evidence.ChunkOrdinal)));
+            if (evidence.Rank.HasValue)
+            {
+                extension.Extension.Add(new Extension(SemanticSearchEvidence.RankExtensionUrl, new PositiveInt(evidence.Rank.Value)));
+            }
+
+            if (evidence.Score.HasValue)
+            {
+                extension.Extension.Add(new Extension(SemanticSearchEvidence.ScoreExtensionUrl, new FhirDecimal(evidence.Score.Value)));
+            }
+
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SearchParameterExtensionUrl, new FhirUri(evidence.SearchParameterCanonical)));
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SourceExtensionUrl, new ResourceReference(evidence.SourceReference)));
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SourcePathExtensionUrl, new FhirString(evidence.SourcePath)));

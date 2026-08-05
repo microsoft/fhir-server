@@ -32,10 +32,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelVersion"] = "1",
                 ["FhirServer:CoreFeatures:VectorSearch:Embedding:Dimensions"] = "1536",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:Mode"] = "Synchronous",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:EnabledSearchParameters:0"] = "http://hl7.org/fhir/SearchParameter/DocumentReference-content",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:EnabledSearchParameters:1"] = "http://hl7.org/fhir/SearchParameter/Observation-note",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:ChunkSizeTokens"] = "600",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:ChunkOverlapTokens"] = "50",
+                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumFileSizeBytes"] = "5242880",
+                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumPageCount"] = "100",
+                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumExtractedCharacters"] = "250000",
+                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:ExtractionTimeout"] = "00:00:15",
                 ["FhirServer:CoreFeatures:VectorSearch:Query:DefaultCount"] = "5",
                 ["FhirServer:CoreFeatures:VectorSearch:Query:MaxCount"] = "25",
                 ["FhirServer:CoreFeatures:VectorSearch:Query:CandidateCount"] = "125",
@@ -56,15 +58,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal("1", vectorSearch.Embedding.ModelVersion);
             Assert.Equal(1536, vectorSearch.Embedding.Dimensions);
             Assert.Equal(VectorSearchIndexingMode.Synchronous, vectorSearch.Indexing.Mode);
-            Assert.Equal(
-                new[]
-                {
-                    new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-content"),
-                    new Uri("http://hl7.org/fhir/SearchParameter/Observation-note"),
-                },
-                vectorSearch.Indexing.EnabledSearchParameters);
             Assert.Equal(600, vectorSearch.Indexing.ChunkSizeTokens);
             Assert.Equal(50, vectorSearch.Indexing.ChunkOverlapTokens);
+            Assert.Equal(5 * 1024 * 1024, vectorSearch.Indexing.Pdf.MaximumFileSizeBytes);
+            Assert.Equal(100, vectorSearch.Indexing.Pdf.MaximumPageCount);
+            Assert.Equal(250_000, vectorSearch.Indexing.Pdf.MaximumExtractedCharacters);
+            Assert.Equal(TimeSpan.FromSeconds(15), vectorSearch.Indexing.Pdf.ExtractionTimeout);
             Assert.Equal(5, vectorSearch.Query.DefaultCount);
             Assert.Equal(25, vectorSearch.Query.MaxCount);
             Assert.Equal(125, vectorSearch.Query.CandidateCount);

@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int CandidateCount { get; set; } = 100;
 
         /// <summary>
+        /// Gets or sets the maximum number of ranked evidence passages returned for each matched resource.
+        /// </summary>
+        public int EvidenceCount { get; set; } = 3;
+
+        /// <summary>
         /// Gets or sets the vector distance metric.
         /// </summary>
         public string DistanceMetric { get; set; } = VectorSearchConfiguration.SupportedDistanceMetric;

@@ -1,0 +1,53 @@
+{
+  "resourceType": "Observation",
+  "id": "demo-obs-glucose",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "2345-7",
+        "display": "Glucose [Mass/volume] in Serum or Plasma"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "encounter": {
+    "reference": "Encounter/demo-encounter-outpatient"
+  },
+  "effectiveDateTime": "2026-01-08T16:10:00Z",
+  "valueQuantity": {
+    "value": 118,
+    "unit": "mg/dL",
+    "system": "http://unitsofmeasure.org",
+    "code": "mg/dL"
+  },
+  "note": [
+    {
+      "time": "2026-01-08T16:10:00Z",
+      "text": "Fasting glucose remains within the individualized target range. Continue the current nutrition plan and repeat laboratory monitoring at the next routine visit."
+    }
+  ]
+}

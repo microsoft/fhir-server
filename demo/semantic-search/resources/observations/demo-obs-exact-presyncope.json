@@ -1,0 +1,62 @@
+{
+  "resourceType": "Observation",
+  "id": "demo-obs-exact-presyncope",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "exam",
+          "display": "Exam"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "427461000",
+        "display": "Presyncope"
+      }
+    ],
+    "text": "Presyncope symptom assessment"
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "encounter": {
+    "reference": "Encounter/demo-encounter-prior-ed"
+  },
+  "effectiveDateTime": "2025-11-14T09:05:00Z",
+  "performer": [
+    {
+      "reference": "Practitioner/demo-practitioner-emergency"
+    }
+  ],
+  "valueCodeableConcept": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "52101004",
+        "display": "Present"
+      }
+    ]
+  },
+  "note": [
+    {
+      "time": "2025-11-14T09:05:00Z",
+      "text": "Lightheaded when standing with a near-syncopal episode and no loss of consciousness."
+    }
+  ]
+}

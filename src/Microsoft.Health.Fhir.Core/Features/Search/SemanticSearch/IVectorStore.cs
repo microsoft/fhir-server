@@ -43,7 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// <param name="distanceMetric">The vector distance metric.</param>
         /// <param name="queryEmbedding">The embedding of the search string.</param>
         /// <param name="candidateResourceSurrogateIds">The surrogate ids that passed the structured filter.</param>
-        /// <param name="maxResults">The maximum number of passages to return, ordered by relevance.</param>
+        /// <param name="maxResults">The maximum number of resources to return, ordered by their best passage.</param>
+        /// <param name="evidenceCount">The maximum number of passages to return for each selected resource.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The closest passages, ordered from most to least relevant.</returns>
         Task<IReadOnlyList<VectorSearchHit>> SearchAsync(
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             IReadOnlyList<float> queryEmbedding,
             IReadOnlyList<long> candidateResourceSurrogateIds,
             int maxResults,
+            int evidenceCount,
             CancellationToken cancellationToken);
     }
 }

@@ -1,0 +1,30 @@
+@baseUrl = https://localhost:44348
+
+# @name bearer
+POST {{baseUrl}}/connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+
+# These definitions are built into the R4 Microsoft SearchParameter registry.
+# Each response should contain the requested canonical URL with a searchable status.
+GET {{baseUrl}}/SearchParameter/$status?url=https%3A%2F%2Fazurehealthcareapis.com%2Fsearch-parameters%2Fobservation-semantic-text
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+GET {{baseUrl}}/SearchParameter/$status?url=https%3A%2F%2Fazurehealthcareapis.com%2Fsearch-parameters%2Fdiagnostic-report-semantic-text
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+GET {{baseUrl}}/SearchParameter/$status?url=https%3A%2F%2Fazurehealthcareapis.com%2Fsearch-parameters%2Fdocument-reference-semantic-text
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}

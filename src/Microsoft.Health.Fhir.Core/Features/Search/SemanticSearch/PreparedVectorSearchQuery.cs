@@ -23,13 +23,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// <param name="searchParameter">The vector SearchParameter being queried.</param>
         /// <param name="embeddingModelId">The database-local embedding model identifier.</param>
         /// <param name="embedding">The query embedding.</param>
+        /// <param name="minimumScore">The minimum normalized relevance score required for a chunk to match.</param>
         public PreparedVectorSearchQuery(
             SearchParameterInfo searchParameter,
             short embeddingModelId,
-            IReadOnlyList<float> embedding)
+            IReadOnlyList<float> embedding,
+            decimal minimumScore = 0)
         {
             SearchParameter = EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNull(embedding, nameof(embedding));
+
+            if (minimumScore < 0 || minimumScore > 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minimumScore), minimumScore, "The minimum semantic relevance score must be between zero and one.");
+            }
 
             if (embedding.Count != VectorSearchConfiguration.SupportedDimensions)
             {
@@ -40,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 
             EmbeddingModelId = embeddingModelId;
             Embedding = Array.AsReadOnly(embedding.ToArray());
+            MinimumScore = minimumScore;
         }
 
         /// <summary>
@@ -56,5 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// Gets an immutable copy of the query embedding.
         /// </summary>
         public IReadOnlyList<float> Embedding { get; }
+
+        /// <summary>
+        /// Gets the minimum normalized relevance score required for a chunk to match.
+        /// </summary>
+        public decimal MinimumScore { get; }
     }
 }
