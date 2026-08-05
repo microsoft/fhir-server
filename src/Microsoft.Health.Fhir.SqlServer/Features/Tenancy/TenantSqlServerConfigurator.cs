@@ -41,6 +41,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Tenancy
     /// caps per-tenant fan-out across a shared pool. <c>Min Pool Size=0</c> lets an idle tenant release its
     /// connections back to SQL rather than pinning a warm pool for a tenant that receives no traffic.
     /// </para>
+    /// <para>
+    /// The value <c>20</c> is bounded by the deployment-level inequality
+    /// <c>MaxPoolSizePerTenant * (SkuCapacity / MinVcorePerDatabase) * R_max &lt;= 30,000</c>, where
+    /// <c>R_max</c> is the replica ceiling. At the current <c>MinVcorePerDatabase=0.25</c> and
+    /// <c>R_max=10</c>, 12-vCore and 32-vCore pools consume at most 9,600 and 25,600 sessions,
+    /// respectively, while a 64-vCore pool would consume 51,200 and violate the SQL session ceiling.
+    /// This configurator cannot observe pool capacity or replica count, so the application tier must
+    /// validate that envelope before admitting tenants or changing this constant.
+    /// </para>
     /// </remarks>
     public sealed class TenantSqlServerConfigurator : ITenantServiceConfigurator
     {
