@@ -42,13 +42,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Tenancy
     /// connections back to SQL rather than pinning a warm pool for a tenant that receives no traffic.
     /// </para>
     /// <para>
-    /// The value <c>20</c> is bounded by the deployment-level inequality
-    /// <c>MaxPoolSizePerTenant * (SkuCapacity / MinVcorePerDatabase) * R_max &lt;= 30,000</c>, where
-    /// <c>R_max</c> is the replica ceiling. At the current <c>MinVcorePerDatabase=0.25</c> and
-    /// <c>R_max=10</c>, 12-vCore and 32-vCore pools consume at most 9,600 and 25,600 sessions,
-    /// respectively, while a 64-vCore pool would consume 51,200 and violate the SQL session ceiling.
-    /// This configurator cannot observe pool capacity or replica count, so the application tier must
-    /// validate that envelope before admitting tenants or changing this constant.
+    /// The value <c>20</c> is bounded by <c>MaxPoolSizePerTenant * N * R &lt;= 30,000</c> per
+    /// elastic pool, where <c>N</c> is the pool's database count and <c>R</c> is the maximum replica
+    /// count. The SQL load balancer caps <c>N</c> at four databases per pool vCore, yielding 48
+    /// databases at 12 vCore and 128 at 32 vCore. At <c>R=10</c>, those pools consume at most 9,600
+    /// and 25,600 sessions, respectively; the next supported size, 40 vCore, would consume 32,000
+    /// and violate the SQL session ceiling. This configurator cannot observe pool identity or replica
+    /// count, so P3 must fail startup unless
+    /// <c>MaxPoolSizePerTenant * (4 * SkuCapacity) * R_max &lt;= 30,000</c>. If fixed-pool capacity
+    /// ever becomes dynamic, the same invariant must be checked before admitting tenants.
     /// </para>
     /// </remarks>
     public sealed class TenantSqlServerConfigurator : ITenantServiceConfigurator
