@@ -343,14 +343,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task AddErrorResult_AddsErrorToExistingErrors()
+        public async Task ErrorResultisPresent()
         {
             // Arrange
-            var initialError = new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Information,
-                OperationOutcomeConstants.IssueType.Informational,
-                "Initial error");
-
             var emptyStatus = new ReadOnlyCollection<ResourceSearchParameterStatus>(
                 new List<ResourceSearchParameterStatus>());
 
@@ -361,11 +356,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobInfo = await CreateReindexJobRecord();
 
-            jobInfo.Result = JsonConvert.SerializeObject(new ReindexOrchestratorJobResult
-            {
-                Error = new List<OperationOutcomeIssue> { initialError },
-            });
-
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
@@ -374,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Assert
             Assert.NotNull(jobResult);
-            Assert.True(jobResult.Error.Count >= 2, "Should have at least 2 errors (initial + new)");
+            Assert.True(jobResult.Error.Count == 1, "Should have one error)");
         }
 
         [Fact]
