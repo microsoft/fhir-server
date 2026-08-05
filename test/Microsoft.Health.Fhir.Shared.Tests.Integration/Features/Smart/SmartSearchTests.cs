@@ -779,6 +779,78 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenPatientScopeReadAll_WhenTypedWildcardInclude_ThenOnlyCompartmentResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // Arrange ─ same shape as the "_include=*" wildcard test, but using the typed wildcard form
+            // "Coverage:*". ExpressionParser.ParseInclude produces a THIRD distinct IncludeExpression for
+            // this form: "*" leaves SourceResourceType null, "*:*" sets it to "*", and "Coverage:*" sets it
+            // to the concrete type while still setting WildCard. Only the first two forms were covered, so
+            // this pins the compartment predicate to the typed-wildcard parse path as well.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-leak-coverage"));
+            query.Add(new Tuple<string, string>("_include", "Coverage:*"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Coverage", query, CancellationToken.None);
+
+            // Assert ─ the in-compartment Coverage and the compartment root are returned...
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Coverage" && x.Resource.ResourceId == "smart-leak-coverage");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-child");
+
+            // ...but the subscriber Patient outside the compartment is not.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-parent");
+        }
+
+        [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientScopeReadAll_WhenIncludingDeviceReferencedByInCompartmentResource_ThenOtherPatientsDeviceIsNotReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // Arrange ─ Device is the only resource type with CONDITIONAL compartment visibility
+            // (GetConditionalCompartmentRules): a Device is visible when it is unassigned, or when
+            // Device.patient references the compartment root. Every existing Device test approaches Device
+            // as a MATCH (searching /Device) or through _include=Device:patient. This one approaches it as
+            // an include CANDIDATE from a different resource type: Observation/smart-observation-A-outside-device
+            // is inside Patient A's compartment but its Observation.device points at smart-device-B2, which
+            // belongs to Patient B. Following that reference must not disclose Patient B's device.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-observation-A-outside-device"));
+            query.Add(new Tuple<string, string>("_include", "Observation:device"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert ─ the in-compartment Observation is still a match...
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-observation-A-outside-device");
+
+            // ...but the referenced Device assigned to another patient must not be included.
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == KnownResourceTypes.Device && x.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
         public async Task GivenPatientScopeReadAll_WhenWildcardInclude_ThenOnlyCompartmentResourcesReturned()
         {
             Skip.If(
