@@ -109,10 +109,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
-                    // Reject if a completely new resource ID is being PUT with a URL already owned by a different resource.
+                    // Reject if a completely new resource ID is being PUT with a URL already owned by an active resource.
                     // Two resources sharing a URL violates the 1-URL-per-resource invariant and causes SQL 2627 errors
                     // in bundle operations that derive SearchParameter URLs from resource IDs at runtime. Bug 187119.
-                    if (prevSearchParamResource == null && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
+                    // Allow the PUT when the existing holder is PendingDelete/PendingHardDelete (recreation after deletion).
+                    if (prevSearchParamResource == null
+                        && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var existingParam)
+                        && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                        && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
                     {
                         throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                     }
