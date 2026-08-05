@@ -1916,6 +1916,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SearchResult</returns>
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
+            if (searchOptions.CountOnly)
+            {
+                throw new NotSupportedException("CountOnly is not supported.");
+            }
+
             var resourceType = GetForceReindexResourceType(searchOptions);
             var startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
