@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly bool _isSurrogateIdRangingSupported;
+        private readonly bool _isSql;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly int _searchParameterCacheRefreshIntervalSeconds;
 
@@ -129,8 +129,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
-            _isSurrogateIdRangingSupported = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported;
-            _logger.LogInformation(_isSurrogateIdRangingSupported ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
+            _isSql = KnownDataStores.IsSqlServerDataStore(fhirRuntimeConfiguration.DataStore);
+            _logger.LogInformation(_isSql ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
 
                 var currentJobs = new List<JobInfo>();
-                if (!_isSurrogateIdRangingSupported) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
+                if (!_isSql) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
                 {
                     var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
                     currentJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // For SQL Server, always attempt job creation - we use Export-style resume logic
                 // to calculate remaining work from existing jobs, preventing duplicates.
                 // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
-                if (_isSurrogateIdRangingSupported || !currentJobs.Any())
+                if (_isSql || !currentJobs.Any())
                 {
                     await CreateReindexProcessingJobsAsync();
                 }
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null);
 
-            if (_isSurrogateIdRangingSupported)
+            if (_isSql)
             {
                 // SQL Server: Wait for all instances to update their cache. This prevents the
                 // orchestrator from creating reindex ranges while other instances still have
@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return new List<long>();
             }
 
-            if (!_isSurrogateIdRangingSupported) // only cosmos needs resource counts to support chunking
+            if (!_isSql) // only cosmos needs resource counts to support chunking
             {
                 await CalculateAndSetTotalAndResourceCounts(resourceTypes);
             }
@@ -379,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var totalRangesEnqueued = 0;
 
-                if (_isSurrogateIdRangingSupported)
+                if (_isSql)
                 {
                     // Use batched calls to GetSurrogateIdRanges to avoid timeout on large tables
                     // Enqueue each batch immediately so workers can start processing sooner
