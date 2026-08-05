@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string EndSurrogateId = "_endSurrogateId";
 
+        public const string GlobalEndSurrogateId = "_globalEndSurrogateId";
+
         public const string IgnoreSearchParamHash = "_ignoreSearchParamHash";
 
         public const string FeedRange = "_feedRange";

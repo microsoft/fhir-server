@@ -188,6 +188,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     [
                         Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
                         Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
+                        Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                     ]);
 
                     // SQL surrogate-range path uses server-selected ranges. OOM mitigation is handled by

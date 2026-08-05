@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 if (definition.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, definition.Type));
-                    queryParametersList.Add(Tuple.Create("_globalEndSurrogateId", definition.GlobalEndSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, definition.GlobalEndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, definition.EndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId));
 

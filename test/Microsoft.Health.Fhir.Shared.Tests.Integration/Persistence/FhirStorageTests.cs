@@ -210,6 +210,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Type, type),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
@@ -234,6 +235,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Type, type),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };

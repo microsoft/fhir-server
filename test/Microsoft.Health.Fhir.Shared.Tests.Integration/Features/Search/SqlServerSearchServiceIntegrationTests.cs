@@ -412,8 +412,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             var queryParameters = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, "0"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, "1"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
             };
 
             await Assert.ThrowsAsync<NotSupportedException>(async () =>
@@ -431,9 +433,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             var queryParameters = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
             };
 
             var result = await _searchService.SearchForReindexAsync(
