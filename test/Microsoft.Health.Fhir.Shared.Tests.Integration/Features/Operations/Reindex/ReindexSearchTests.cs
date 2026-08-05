@@ -63,7 +63,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in the same hash value
@@ -97,7 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in a different hash value
@@ -135,7 +133,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in a different hash value

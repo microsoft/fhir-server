@@ -583,7 +583,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, endId),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, startId),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 });
             }
 

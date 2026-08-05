@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
                 {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                    queryParametersList.Add(Tuple.Create("_globalEndSurrogateId", _exportJobRecord.GlobalEndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
                 }
@@ -586,7 +586,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
 
                         sharedQueryParametersList = sharedQueryParametersList
-                                .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                .Where(x => !string.Equals(x.Item1, "_globalEndSurrogateId", StringComparison.OrdinalIgnoreCase)
                                             && !string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase)
                                             && !string.Equals(x.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase))
                                 .ToList();
