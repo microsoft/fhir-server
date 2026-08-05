@@ -359,37 +359,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Tenancy
 
             using JsonDocument content = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             Assert.Equal(expectedTenant, content.RootElement.GetProperty("tenant").GetString());
-            await AssertGlobalFilterMaterializationOriginAsync(response, expectedTenant);
+            AssertGlobalFilterMaterializationOrigin(response);
 
             return content.RootElement.Clone();
         }
 
-        private async Task AssertGlobalFilterMaterializationOriginAsync(
-            HttpResponseMessage response,
-            string expectedTenant)
+        private void AssertGlobalFilterMaterializationOrigin(HttpResponseMessage response)
         {
             string executingIdentity = Assert.Single(
                 response.Headers.GetValues(TenantIsolationTestServerFixture.MvcGlobalFilterIdentityHeaderName));
 
-            MvcGlobalFilterMaterializationOrigin origin;
-            if (StringComparer.Ordinal.Equals(executingIdentity, _fixture.RootMvcGlobalFilterIdentity))
-            {
-                // The executing filter is exactly the instance the root service provider materialized.
-                Assert.Equal(_fixture.RootMvcGlobalFilterIdentity, executingIdentity);
-                origin = MvcGlobalFilterMaterializationOrigin.Root;
-            }
-            else
-            {
-                // Otherwise it must be exactly the instance the expected tenant's own container materializes.
-                // Any other identity (including an unknown one) fails this equality.
-                string tenantIdentity = await _fixture.GetTenantMvcGlobalFilterIdentityAsync(expectedTenant);
-                Assert.NotEqual(_fixture.RootMvcGlobalFilterIdentity, executingIdentity);
-                Assert.Equal(tenantIdentity, executingIdentity);
-                origin = MvcGlobalFilterMaterializationOrigin.Tenant;
-            }
+            Assert.Equal(_fixture.RootMvcGlobalFilterIdentity, executingIdentity);
 
             _output.WriteLine(
-                $"MVC global filter identity: {executingIdentity}; root identity: {_fixture.RootMvcGlobalFilterIdentity}; origin: {origin}.");
+                $"MVC global filter identity: {executingIdentity}; root identity: {_fixture.RootMvcGlobalFilterIdentity}; " +
+                $"origin: {MvcGlobalFilterMaterializationOrigin.Root}.");
         }
 
         private static string[] GetTypeNames<T>(IEnumerable<T> instances)
