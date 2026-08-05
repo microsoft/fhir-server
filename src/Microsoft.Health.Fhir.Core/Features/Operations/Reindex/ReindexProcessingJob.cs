@@ -184,13 +184,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
                     // When this function returns, it knows what the next starting value to use in
                     // searching for the next block of results and will use that as the queryStatus starting point
-                    queryParametersList.AddRange(new[]
-                    {
-                        // This EndResourceSurrogateId is only needed because of the way the sql is written. It is not accurate initially.
+                    queryParametersList.AddRange(
+                    [
                         Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
                         Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
                         Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                    });
+                    ]);
 
                     // SQL surrogate-range path uses server-selected ranges. OOM mitigation is handled by
                     // splitting ranges via GetSurrogateIdRanges instead of adding a _count hint.
@@ -212,22 +211,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, batchSize.ToString()));
             }
 
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using var searchService = _searchServiceFactory();
+            try
             {
-                try
-                {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, cancellationToken, true);
-                }
-                catch (OutOfMemoryException)
-                {
-                    // Let OutOfMemoryException bubble up so the top-level handler can soft-fail the job.
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
-                    throw;
-                }
+                // we always ingnore search param hash. to make it clear send empty string.
+                return await searchService.Value.SearchForReindexAsync(queryParametersList, string.Empty, false, cancellationToken, true);
+            }
+            catch (OutOfMemoryException)
+            {
+                // Let OutOfMemoryException bubble up so the top-level handler can soft-fail the job.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
+                throw;
             }
         }
 
