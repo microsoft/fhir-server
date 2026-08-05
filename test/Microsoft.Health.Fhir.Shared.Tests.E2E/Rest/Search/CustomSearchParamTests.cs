@@ -77,6 +77,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
+        {
+            SearchParameter sp1 = CreateUniqueUrlSearchParameter();
+
+            using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // Different auto-generated ID, same URL — must be rejected.
+                SearchParameter sp2 = CreateUniqueUrlSearchParameter();
+                sp2.Url = sp1.Url;
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(sp2));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            }
+            finally
+            {
+                await Client.DeleteAsync(sp1);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
+        {
+            SearchParameter sp1 = CreateUniqueUrlSearchParameter();
+
+            using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // Different resource ID, same URL — must be rejected to preserve the 1-URL-per-resource invariant.
+                SearchParameter sp2 = CreateUniqueUrlSearchParameter();
+                sp2.Url = sp1.Url;
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            }
+            finally
+            {
+                await Client.DeleteAsync(sp1);
+            }
+        }
+
+        [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
             SearchParameter searchParam = CreateCustomSearchParameter();
@@ -125,6 +171,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),
                 Code = $"customparam{suffix[..8]}",
+                Base = baseResourceTypes,
+                Type = SearchParamType.String,
+                Expression = "Person.name",
+            };
+        }
+
+        // Creates a SearchParameter whose URL includes a random suffix so runs never collide.
+        private static SearchParameter CreateUniqueUrlSearchParameter()
+        {
+            string suffix = Guid.NewGuid().ToString("N")[..8];
+            const string prefix = "http://example.org/fhir/SearchParameter/";
+
+#if R5
+            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
+#else
+            var baseResourceTypes = new List<ResourceType?> { ResourceType.Person };
+#endif
+
+            return new SearchParameter
+            {
+                Id = $"dup-url-test-{suffix}",
+                Url = $"{prefix}dup-url-test-{suffix}",
+                Name = $"DupUrlTest{suffix}",
+                Status = PublicationStatus.Draft,
+                Description = new Markdown("Duplicate-URL rejection test."),
+                Code = $"dupurltest{suffix}",
                 Base = baseResourceTypes,
                 Type = SearchParamType.String,
                 Expression = "Person.name",
