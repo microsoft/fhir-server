@@ -1919,17 +1919,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 throw new NotSupportedException("SearchParamHash filtering is not supported.");
             }
 
-            var resourceType = GetForceReindexResourceType(searchOptions);
+            var resourceType = searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.Type).Value;
             var startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
-            var results = await SearchBySurrogateIdRange(
-                resourceType,
-                startId,
-                endId,
-                null,
-                null,
-                cancellationToken);
+            var results = await SearchBySurrogateIdRange(resourceType, startId, endId, null, null, cancellationToken);
 
             _logger.LogInformation($"SearchForReindexInternalAsync: ResourceType={resourceType} StartId={startId} EndId={endId} Count={results.TotalCount}");
             return results;
@@ -1938,18 +1932,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private int GetSurrogateIdRangeCommandTimeout()
         {
             return Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 1200);
-        }
-
-        private static string GetForceReindexResourceType(SearchOptions searchOptions)
-        {
-            string resourceType = string.Empty;
-            var spe = searchOptions.Expression as SearchParameterExpression;
-            if (spe != null && spe.Parameter.Name == KnownQueryParameterNames.Type)
-            {
-                resourceType = (spe.Expression as StringExpression)?.Value;
-            }
-
-            return resourceType;
         }
 
         private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
