@@ -68,6 +68,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
+
+            // Default: no active resource owns any URL (tests that need a conflict override this).
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>()));
         }
 
         [Fact]

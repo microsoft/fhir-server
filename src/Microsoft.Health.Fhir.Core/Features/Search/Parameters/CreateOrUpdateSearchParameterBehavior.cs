@@ -62,10 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var url = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource already owns this URL.
-                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
-                if (existingByUrl.ContainsKey(url))
+                if (!string.IsNullOrWhiteSpace(url))
                 {
-                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
+                    if (existingByUrl.ContainsKey(url))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
+                    }
                 }
 
                 QueueStatus(url, SearchParameterStatus.Supported, lastUpdated);
@@ -107,10 +110,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
                         // Reject if an active resource already owns the new URL.
-                        var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
-                        if (existingByNewUrl.ContainsKey(newUrl))
+                        if (!string.IsNullOrWhiteSpace(newUrl))
                         {
-                            throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                            var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
+                            if (existingByNewUrl.ContainsKey(newUrl))
+                            {
+                                throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                            }
                         }
 
                         QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
@@ -123,10 +129,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                     // Reject if an active resource already owns this URL.
-                    var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
-                    if (existingByNewUrl.ContainsKey(newUrl))
+                    if (!string.IsNullOrWhiteSpace(newUrl))
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                        var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
+                        if (existingByNewUrl.ContainsKey(newUrl))
+                        {
+                            throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                        }
                     }
 
                     QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
