@@ -411,10 +411,13 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             Expression.SmartCompartmentSearch("Patient", "patient-a", "Condition"),
             rewriter);
 
-        // Assert
+        // Assert ─ the materialized subject equivalent is resolved, and the formal parameter is retained
+        // alongside it (harmless when unmaterialized; guarantees membership is never narrower than the
+        // formal compartment definition if an equivalent covers only part of the parameter's element union).
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
-        Assert.Equal(subject.Url, Assert.Single(rule.SearchParameterUrls));
-        Assert.DoesNotContain(clinicalPatient.Url, rule.SearchParameterUrls);
+        Assert.Equal(2, rule.SearchParameterUrls.Length);
+        Assert.Contains(subject.Url, rule.SearchParameterUrls);
+        Assert.Contains(clinicalPatient.Url, rule.SearchParameterUrls);
     }
 
     [Fact]
@@ -483,11 +486,14 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             Expression.SmartCompartmentSearch("Practitioner", "practitioner-a", "Encounter"),
             rewriter);
 
-        // Assert
+        // Assert ─ the materialized participant equivalent is resolved, and the formal parameter is
+        // retained alongside it (it matches no index rows while unmaterialized, so it cannot widen
+        // membership, but it keeps membership aligned with the formal compartment definition).
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
         Assert.Equal("Encounter", rule.ResourceType);
-        Assert.Equal(participant.Url, Assert.Single(rule.SearchParameterUrls));
-        Assert.DoesNotContain(practitioner.Url, rule.SearchParameterUrls);
+        Assert.Equal(2, rule.SearchParameterUrls.Length);
+        Assert.Contains(participant.Url, rule.SearchParameterUrls);
+        Assert.Contains(practitioner.Url, rule.SearchParameterUrls);
     }
 
     [Fact]

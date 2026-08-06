@@ -1113,9 +1113,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             AssertMaterializedMembershipCoversResolvableTypes(compartmentDefinitionManager, membership, Microsoft.Health.Fhir.ValueSets.CompartmentType.Practitioner);
 
             // Encounter-practitioner and Person-practitioner are resolve()-based (never materialized) and must
-            // resolve to the equivalents indexing the same elements.
+            // resolve to the equivalents indexing the same elements. The formal parameter is retained alongside
+            // the equivalent (it matches no index rows while unmaterialized, so it cannot widen membership).
             Assert.Contains(membership["Encounter"], parameter => parameter.Code == "participant");
-            Assert.DoesNotContain(membership["Encounter"], parameter => parameter.Code == "practitioner");
+            Assert.Contains(membership["Encounter"], parameter => parameter.Code == "practitioner");
             Assert.Contains(membership["Person"], parameter => parameter.Code == "link");
 
             // Known gap: EpisodeOfCare-care-manager is resolve()-based with no materialized equivalent; the
@@ -1125,6 +1126,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Observation is a member of the Practitioner compartment via `performer` only.
             Assert.Contains(membership["Observation"], parameter => parameter.Code == "performer");
             Assert.DoesNotContain(membership["Observation"], parameter => parameter.Code == "focus");
+        }
+
+        [SkippableFact]
+        public async Task GivenCompartmentDefinitions_WhenMembershipResolved_ThenUnmaterializedEnumerationGapsAreExactlyAsDocumented()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Guard for the known-gap list documented on MaterializedEquivalentSearchParameterCodes: a resource
+            // type whose membership rule consists ONLY of single-branch resolve()-based parameters (never
+            // materialized as ReferenceSearchParam rows) can never be enumerated as a SMART include candidate —
+            // its in-compartment resources are silently absent from _include/_revinclude results. That state is
+            // acceptable only while it is explicitly documented. If a compartment definition or search parameter
+            // change introduces a NEW such gap, this test fails so the map (or the documentation) is updated
+            // deliberately instead of shipping a silent data omission.
+            (_, IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> patientMembership) =
+                await ResolveMaterializedMembershipAsync("Patient");
+            (_, IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> practitionerMembership) =
+                await ResolveMaterializedMembershipAsync("Practitioner");
+
+            static bool IsUnmaterializedResolveParameter(SearchParameterInfo parameter) =>
+                !string.IsNullOrEmpty(parameter.Expression)
+                && !parameter.Expression.Contains('|', StringComparison.Ordinal)
+                && parameter.Expression.Contains("resolve(", StringComparison.Ordinal);
+
+            static List<string> GetGapTypes(IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> membership) =>
+                membership
+                    .Where(pair => pair.Value.All(IsUnmaterializedResolveParameter))
+                    .Select(pair => pair.Key)
+                    .OrderBy(resourceType => resourceType, StringComparer.Ordinal)
+                    .ToList();
+
+            // The Patient compartment has no enumeration gaps.
+            Assert.Empty(GetGapTypes(patientMembership));
+
+            // The Practitioner compartment has exactly one documented gap: EpisodeOfCare-care-manager.
+            Assert.Equal(new[] { "EpisodeOfCare" }, GetGapTypes(practitionerMembership));
         }
 
         [SkippableFact]
