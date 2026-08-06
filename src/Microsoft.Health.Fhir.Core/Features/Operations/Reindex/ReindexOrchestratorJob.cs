@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
-            _isSql = KnownDataStores.IsSqlServerDataStore(fhirRuntimeConfiguration.DataStore);
+            _isSql = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported; // TODO: replace.
             _logger.LogInformation(_isSql ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
         }
 
