@@ -35,19 +35,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
+        private readonly bool _isSQL;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
+            _isSQL = fixture.DataStore is SqlServer.Features.Storage.SqlServerFhirDataStore;
         }
 
         [Fact]
         public async Task GivenResourceWithMatchingHash_WhenPerformingReindexSearch_ThenResourceShouldNotBeReturned()
         {
+            if (_isSQL) // search param hash matching is supprted ony in cosmos.
+            {
+                return;
+            }
+
             ResourceWrapper testPatient = null;
 
             try
@@ -96,6 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
@@ -133,6 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
