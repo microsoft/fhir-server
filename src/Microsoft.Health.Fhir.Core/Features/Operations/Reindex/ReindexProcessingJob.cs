@@ -308,8 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     continue;
                 }
 
-                await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
+                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
                 _result.SucceededResourceCount += batchResourceCount;
                 _jobInfo.Data = _result.SucceededResourceCount;
@@ -372,8 +371,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     break;
                 }
 
-                await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
+                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
                 _result.SucceededResourceCount += batchResourceCount;
                 totalResourceCount += batchResourceCount;
@@ -436,39 +434,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(results, nameof(results));
 
             var updateSearchIndices = new List<ResourceWrapper>();
-
-            // This should never happen, but in case it does, we will set a low default to ensure we don't get stuck in loop
-            if (batchSize == 0)
-            {
-                batchSize = 500;
-            }
-
             foreach (var entry in results.Results)
             {
                 entry.Resource.SearchParameterHash = searchParameterHash;
                 _resourceWrapperFactory.Update(entry.Resource);
                 updateSearchIndices.Add(entry.Resource);
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
             }
 
             using var store = _fhirDataStoreFactory();
-            for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
+            for (var i = 0; i < updateSearchIndices.Count; i += batchSize)
             {
                 var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
-                try
-                {
-                    await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
-                }
-                catch (PreconditionFailedException ex)
-                {
-                    // Version conflicts can occur when resources are updated during reindex.
-                    // Log warning and continue - conflicting resources will be picked up in the next reindex cycle.
-                    _logger.LogWarning(ex, "Version conflict during reindex batch update. Some resources were modified during reindex and will be reprocessed in a subsequent cycle.");
-                }
+                await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
 
                 if (cancellationToken.IsCancellationRequested)
                 {
