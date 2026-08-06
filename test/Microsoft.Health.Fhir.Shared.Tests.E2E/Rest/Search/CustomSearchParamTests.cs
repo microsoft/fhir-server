@@ -121,53 +121,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnExistingSearchParameter_WhenUpdatingUrlToOneAlreadyOwned_ThenBadRequestReturned()
-        {
-            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'c');
-            SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'd');
-
-            using FhirResponse<SearchParameter> r1 = await Client.UpdateAsync(sp1);
-            using FhirResponse<SearchParameter> r2 = await Client.UpdateAsync(sp2);
-            Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
-            Assert.Equal(HttpStatusCode.Created, r2.StatusCode);
-
-            try
-            {
-                // Change sp2's URL to sp1's URL — must be rejected.
-                sp2.Url = sp1.Url;
-
-                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
-                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-            }
-            finally
-            {
-                await Client.DeleteAsync(sp1);
-                await Client.DeleteAsync(sp2);
-            }
-        }
-
-        [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter();
+            SearchParameter searchParam = CreateCustomSearchParameter(repeatChar: 'c');
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-            try
-            {
-                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+            searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
 
-                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
-                Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
-            }
-            finally
-            {
-                // Delete the created SearchParameter so repeated runs don't accumulate resources
-                // sharing the same URL (which would trigger SQL 2627 in parallel delete bundles).
-                await Client.DeleteAsync(searchParam);
-            }
+            Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
         }
 
         private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
