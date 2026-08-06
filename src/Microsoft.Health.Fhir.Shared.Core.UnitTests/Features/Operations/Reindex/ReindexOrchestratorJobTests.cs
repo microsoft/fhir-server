@@ -113,7 +113,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 _queueClient,
                 () => _searchService.CreateMockScope(),
                 _searchDefinitionManager,
-                ModelInfoProvider.Instance,
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 runtimeConfig,

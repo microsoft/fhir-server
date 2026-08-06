@@ -230,7 +230,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _queueClient,
                             () => _searchService,
                             _searchParameterDefinitionManager,
-                            ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
                             _fixture.FhirRuntimeConfiguration,
@@ -246,7 +245,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
                             _searchParameterOperations,
-                            _searchParameterStatusManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -1107,7 +1105,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     _queueClient,
                     () => _searchService,
                     _searchParameterDefinitionManager,
-                    ModelInfoProvider.Instance,
                     _searchParameterStatusManager,
                     _searchParameterOperations,
                     runtimeConfiguration,
@@ -1263,7 +1260,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 dataStoreScope,
                 _resourceWrapperFactory,
                 _searchParameterOperations,
-                _searchParameterStatusManager,
                 NullLogger<ReindexProcessingJob>.Instance);
 
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
