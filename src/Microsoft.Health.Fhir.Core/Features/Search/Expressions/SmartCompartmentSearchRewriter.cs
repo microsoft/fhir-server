@@ -79,17 +79,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             // it is consumed here to build the union legs and by SmartCompartmentMembershipContextFactory to build
             // the SQL include/revinclude candidate predicate, so the two paths cannot drift.
             IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules = GetConditionalCompartmentRules(compartmentType);
-            var conditionallyVisibleTypes = conditionalRules
-                .Select(rule => rule.ResourceType)
-                .ToHashSet(StringComparer.Ordinal);
 
             // Finally we add in the "universal" resources, which are resources that are not compartment specific.
             // Any type governed by a conditional rule is excluded here and contributed by the conditional legs below
-            // instead. UniversalResourceTypes remains the single source of truth for the base universal set (it still
-            // includes Device for consumers such as SmartCompartmentMembershipContextFactory).
-            var universalResourceTypes = UniversalResourceTypes
-                .Where(resourceType => !conditionallyVisibleTypes.Contains(resourceType))
-                .ToList();
+            // instead. GetSharedResourceTypes is the single source of truth for this subtraction; it is also
+            // consumed by SmartCompartmentMembershipContextFactory so the compartment union and the SQL
+            // include/revinclude candidate predicate cannot drift.
+            var universalResourceTypes = GetSharedResourceTypes(conditionalRules).ToList();
 
             // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
             bool hasResourceTypeFilter = expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal));
@@ -188,6 +184,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             return rules;
+        }
+
+        /// <summary>
+        /// Computes the resource types that are unconditionally shared within a SMART compartment:
+        /// <see cref="UniversalResourceTypes"/> minus any type governed by a conditional-visibility rule.
+        /// Single source of truth for this subtraction — consumed both by the compartment union
+        /// (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude candidate authorization
+        /// predicate (via SmartCompartmentMembershipContextFactory), so the two paths cannot drift.
+        /// </summary>
+        /// <param name="conditionalRules">The conditional-visibility rules in effect for the compartment.</param>
+        /// <returns>The unconditionally shared resource types.</returns>
+        public static IReadOnlyCollection<string> GetSharedResourceTypes(IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules)
+        {
+            if (conditionalRules == null || conditionalRules.Count == 0)
+            {
+                return UniversalResourceTypes;
+            }
+
+            var conditionallyVisibleTypes = conditionalRules
+                .Select(rule => rule.ResourceType)
+                .ToHashSet(StringComparer.Ordinal);
+
+            return UniversalResourceTypes
+                .Where(resourceType => !conditionallyVisibleTypes.Contains(resourceType))
+                .ToList();
         }
     }
 }

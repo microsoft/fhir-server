@@ -17,9 +17,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// </summary>
     internal static class SmartCompartmentMembershipContextFactory
     {
-        private static readonly ImmutableArray<string> SharedResourceTypes =
-            SmartCompartmentSearchRewriter.UniversalResourceTypes.ToImmutableArray();
-
         public static SmartCompartmentMembershipContext Create(
             Expression expression,
             SqlCompartmentSearchRewriter compartmentSearchRewriter,
@@ -65,15 +62,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                     rule.Visibility))
                 .ToImmutableArray();
 
-            var conditionallyVisibleTypes = conditionalRules
-                .Select(rule => rule.ResourceType)
-                .ToHashSet(StringComparer.Ordinal);
-
-            ImmutableArray<string> sharedResourceTypes = conditionallyVisibleTypes.Count == 0
-                ? SharedResourceTypes
-                : SharedResourceTypes
-                    .Where(resourceType => !conditionallyVisibleTypes.Contains(resourceType))
-                    .ToImmutableArray();
+            // Same single source of truth as the compartment union: universal types minus conditionally
+            // visible types (see SmartCompartmentSearchRewriter.GetSharedResourceTypes).
+            ImmutableArray<string> sharedResourceTypes =
+                SmartCompartmentSearchRewriter.GetSharedResourceTypes(conditionalRules).ToImmutableArray();
 
             return new SmartCompartmentMembershipContext(
                 smartCompartment.CompartmentType,

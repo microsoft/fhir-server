@@ -112,6 +112,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _rootExpression = expression;
 
+            // Fail-closed invariant: when a SMART compartment membership context was attached for this search
+            // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
+            // root expression that reaches SQL generation. SmartCompartmentMembership is carried outside the
+            // visitable expression tree, so a rewrite step that reconstructs SqlRootExpression after the attach
+            // would silently drop it — and the include CTEs would be generated without compartment
+            // authorization. Refuse to generate that SQL. This cannot affect non-SMART or system-scope
+            // searches: IsSmartCompartmentSearch is only set when a membership context was actually attached.
+            if (context is SqlSearchOptions { IsSmartCompartmentSearch: true }
+                && expression.SmartCompartmentMembership == null
+                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+            {
+                throw new InvalidOperationException(
+                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude SQL without compartment authorization.");
+            }
+
             var visitedInclude = false;
             if (expression.SearchParamTableExpressions.Count > 0)
             {
