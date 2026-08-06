@@ -433,6 +433,67 @@
                 "method": "PUT",
                 "url": "Observation/smart-leak-pract-obs"
             }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-leak-parent-device",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345679"
+                    }
+                ],
+                "patient": {
+                    "reference": "Patient/smart-leak-parent"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-leak-parent-device"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-leak-child-obs-outside-device",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8867-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-child"
+                },
+                "device": {
+                    "reference": "Device/smart-leak-parent-device"
+                },
+                "effectiveDateTime": "2021-08-02"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-leak-child-obs-outside-device"
+            }
         }
     ]
 }

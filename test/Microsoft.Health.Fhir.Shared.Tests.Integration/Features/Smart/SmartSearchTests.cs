@@ -827,27 +827,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // (GetConditionalCompartmentRules): a Device is visible when it is unassigned, or when
             // Device.patient references the compartment root. Every existing Device test approaches Device
             // as a MATCH (searching /Device) or through _include=Device:patient. This one approaches it as
-            // an include CANDIDATE from a different resource type: Observation/smart-observation-A-outside-device
-            // is inside Patient A's compartment but its Observation.device points at smart-device-B2, which
-            // belongs to Patient B. Following that reference must not disclose Patient B's device.
+            // an include CANDIDATE from a different resource type: Observation/smart-leak-child-obs-outside-device
+            // is inside the child's compartment but its Observation.device points at smart-leak-parent-device,
+            // which belongs to the parent. Following that reference must not disclose the parent's device.
             var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_id", "smart-observation-A-outside-device"));
+            query.Add(new Tuple<string, string>("_id", "smart-leak-child-obs-outside-device"));
             query.Add(new Tuple<string, string>("_include", "Observation:device"));
 
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             // Act
             var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
 
             // Assert ─ the in-compartment Observation is still a match...
-            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-observation-A-outside-device");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-child-obs-outside-device");
 
             // ...but the referenced Device assigned to another patient must not be included.
-            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == KnownResourceTypes.Device && x.Resource.ResourceId == "smart-device-B2");
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == KnownResourceTypes.Device && x.Resource.ResourceId == "smart-leak-parent-device");
         }
 
         [SkippableFact]

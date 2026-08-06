@@ -1265,29 +1265,6 @@
                 "method": "PUT",
                 "url": "Device/smart-device-A1"
             }
-        },
-        {
-            "resource": {
-                "resourceType": "Observation",
-                "id": "smart-observation-A-outside-device",
-                "status": "final",
-                "code": {
-                    "coding": [{
-                        "system": "http://loinc.org",
-                        "code": "8867-4"
-                    }]
-                },
-                "subject": {
-                    "reference": "Patient/smart-patient-A"
-                },
-                "device": {
-                    "reference": "Device/smart-device-B2"
-                }
-            },
-            "request": {
-                "method": "PUT",
-                "url": "Observation/smart-observation-A-outside-device"
-            }
         }
     ]
 }
