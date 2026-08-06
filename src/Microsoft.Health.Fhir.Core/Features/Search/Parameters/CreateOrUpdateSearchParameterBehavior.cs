@@ -61,10 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var url = request.Resource.Instance.GetStringScalar("url");
 
-                // Two different resources must not share a URL; allow recreation if the existing holder is being deleted.
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(url, out var existingParam)
-                    && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
-                    && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
+                // Reject if any resource already owns this URL; UrlLookup is fresh after ValidateSearchParameterAsync.
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(url, out _))
                 {
                     throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
                 }
@@ -107,10 +105,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        // URL is changing — reject if the new URL is already owned by a different active resource.
-                        if (_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var existingParam)
-                            && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
-                            && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
+                        // Reject if any resource already owns the new URL; UrlLookup is fresh after ValidateSearchParameterAsync.
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
                         {
                             throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                         }
@@ -124,11 +120,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
-                    // Two different resources must not share a URL; allow recreation if the existing holder is being deleted.
-                    if (prevSearchParamResource == null
-                        && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var existingParam)
-                        && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
-                        && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
+                    // Reject if any resource already owns this URL; UrlLookup is fresh after ValidateSearchParameterAsync.
+                    if (prevSearchParamResource == null && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
                     {
                         throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                     }
