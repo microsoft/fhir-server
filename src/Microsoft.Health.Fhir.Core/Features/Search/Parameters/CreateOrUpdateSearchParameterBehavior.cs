@@ -107,6 +107,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
+                        // URL is changing — reject if the new URL is already owned by a different active resource.
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var existingParam)
+                            && existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                            && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)
+                        {
+                            throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                        }
+
                         QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
                     }
 
