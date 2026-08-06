@@ -128,11 +128,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-            searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+            try
+            {
+                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
 
-            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
-            Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
+                Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
+            }
+            finally
+            {
+                await Client.DeleteAsync(searchParam);
+            }
         }
 
         private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')

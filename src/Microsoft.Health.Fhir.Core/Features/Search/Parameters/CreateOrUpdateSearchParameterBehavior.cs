@@ -61,8 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var url = request.Resource.Instance.GetStringScalar("url");
 
-                // Reject if any resource already owns this URL; UrlLookup is fresh after ValidateSearchParameterAsync.
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(url, out _))
+                // Reject if an active resource already owns this URL.
+                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
+                if (existingByUrl.ContainsKey(url))
                 {
                     throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
                 }
@@ -105,8 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
-                        // Reject if any resource already owns the new URL; UrlLookup is fresh after ValidateSearchParameterAsync.
-                        if (_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
+                        // Reject if an active resource already owns the new URL.
+                        var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
+                        if (existingByNewUrl.ContainsKey(newUrl))
                         {
                             throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                         }
@@ -120,10 +122,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     var newUrl = request.Resource.Instance.GetStringScalar("url");
 
-                    // Reject if any resource already owns this URL; UrlLookup is fresh after ValidateSearchParameterAsync.
-                    if (prevSearchParamResource == null && _searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out _))
+                    // Reject if an active resource already owns this URL.
+                    if (prevSearchParamResource == null)
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                        var existingByNewUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { newUrl }, cancellationToken);
+                        if (existingByNewUrl.ContainsKey(newUrl))
+                        {
+                            throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                        }
                     }
 
                     QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
