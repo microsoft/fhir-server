@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     await _timeoutRetries.ExecuteAsync(
-                        async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite));
+                        async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
                 }
                 catch (OutOfMemoryException oomEx)
                 {
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite));
+                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
                 _result.SucceededResourceCount += batchResourceCount;
                 totalResourceCount += batchResourceCount;
@@ -618,7 +618,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Then compare those to the old values to determine if an update is needed
         /// Needed updates will be committed in a batch
         /// </summary>
-        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParameterHash, int batchSize)
+        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParameterHash, int batchSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
 
@@ -636,7 +636,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _resourceWrapperFactory.Update(entry.Resource);
                 updateSearchIndices.Add(entry.Resource);
 
-                if (_cancellationToken.IsCancellationRequested)
+                if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
@@ -648,7 +648,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
                 try
                 {
-                    await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, _cancellationToken));
+                    await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
                 }
                 catch (PreconditionFailedException ex)
                 {
@@ -657,7 +657,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogWarning(ex, "Version conflict during reindex batch update. Some resources were modified during reindex and will be reprocessed in a subsequent cycle.");
                 }
 
-                if (_cancellationToken.IsCancellationRequested)
+                if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
