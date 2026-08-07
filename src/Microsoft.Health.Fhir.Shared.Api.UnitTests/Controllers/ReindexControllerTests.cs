@@ -128,7 +128,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
+
+            // Verify required status field
             Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
+
+            // Verify required metadata fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "id" && x.Value is FhirString);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "lastModified" && x.Value is FhirDateTime);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "queuedTime" && x.Value is FhirDateTime);
+
+            // Verify required count fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "totalResourcesToReindex" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "resourcesSuccessfullyReindexed" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "progress" && x.Value is FhirDecimal);
+
+            // Verify configuration fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "maximumNumberOfResourcesPerQuery" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "maximumNumberOfResourcesPerWrite" && x.Value is FhirDecimal);
+
+            // Verify excluded fields
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.Resources);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.SearchParams);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetResourceTypes);
