@@ -110,6 +110,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool activeOnly = false);
 
+        Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, bool includeHistory = false, bool includeDeleted = false);
+
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);

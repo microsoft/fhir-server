@@ -952,7 +952,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="includeHistory">Return historical records that match the other parameters.</param>
         /// <param name="includeDeleted">Return deleted records that match the other parameters.</param>
         /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
-        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, bool includeHistory = false, bool includeDeleted = false)
+        public async override Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, bool includeHistory = false, bool includeDeleted = false)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
@@ -1702,11 +1702,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return sqlDataReader.GetString(1);
         }
 
-        private static (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
-        {
-            return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt32(2));
-        }
-
         public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
@@ -1898,35 +1893,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine($"-- execution timeout = {sqlCommandWrapper.CommandTimeout} sec.");
             _sqlRetryService.TryLogEvent("Search", "Start", sb.ToString(), null, CancellationToken.None);
             _logger.LogInformation("{SqlQuery}", sb.ToString());
-        }
-
-        /// <summary>
-        /// Searches for resources by their type and surrogate id and optionally a searchParamHash. This can also just return a count of resources.
-        /// </summary>
-        /// <param name="searchOptions">The searchOptions</param>
-        /// <param name="searchParameterHash">A searchParamHash to filter results</param>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>SearchResult</returns>
-        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
-        {
-            if (searchOptions.CountOnly)
-            {
-                throw new NotSupportedException("CountOnly is not supported.");
-            }
-
-            if (!searchOptions.IgnoreSearchParamHash)
-            {
-                throw new NotSupportedException("SearchParamHash filtering is not supported.");
-            }
-
-            var resourceType = searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.Type).Value;
-            var startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            var endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-
-            var results = await SearchBySurrogateIdRange(resourceType, startId, endId, null, null, cancellationToken);
-
-            _logger.LogInformation($"SearchForReindexInternalAsync: ResourceType={resourceType} StartId={startId} EndId={endId} Count={results.TotalCount}");
-            return results;
         }
 
         private int GetSurrogateIdRangeCommandTimeout()

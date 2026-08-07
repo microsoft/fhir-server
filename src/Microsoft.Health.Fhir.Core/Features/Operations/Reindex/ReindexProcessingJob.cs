@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void SetJobError(string errorMessage)
         {
-            var totalResourceCount = _definition?.ResourceCount?.Count ?? 0;
+            var totalResourceCount = _definition.ResourceCount.Count;
             var failedResourceCount = totalResourceCount - _result.SucceededResourceCount;
             _result.Error = errorMessage;
             _result.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
@@ -252,17 +252,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var startId = _definition.ResourceCount.StartResourceSurrogateId;
             var endId = _definition.ResourceCount.EndResourceSurrogateId;
-            _logger.LogJobInformation(_jobInfo, "SQL reindex range start. StartId={StartId}, EndId={EndId}, BatchSize={BatchSize}", startId, endId, _definition.MaximumNumberOfResourcesPerQuery);
+            _logger.LogJobInformation(_jobInfo, "SQL reindex range start. Start={StartId}, End={EndId}, Size={BatchSize}", startId, endId, _definition.MaximumNumberOfResourcesPerQuery);
 
-            var query = new SearchResultReindex() { StartResourceSurrogateId = startId, EndResourceSurrogateId = endId };
-            var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
+            var result = await _timeoutRetries.ExecuteAsync(async () =>
+            {
+                using var searchService = _searchServiceFactory();
+                return await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, startId, endId, null, null, _cancellationToken);
+            });
             var resourceCount = result.Results?.Count() ?? 0;
 
             await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, null, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
             _result.SucceededResourceCount += resourceCount;
             _jobInfo.Data = _result.SucceededResourceCount;
-            _logger.LogJobInformation(_jobInfo, "SQL reindex range complete. Start={RangeStart}, End={RangeEnd}, Size={BatchSize}, Processed={TotalProcessed}", startId, endId, resourceCount, _result.SucceededResourceCount);
+            _logger.LogJobInformation(_jobInfo, "SQL reindex range complete. Start={StartId}, End={EndId}, Size={BatchSize}, Processed={TotalProcessed}", startId, endId, resourceCount, _result.SucceededResourceCount);
         }
 
         /// <summary>
@@ -270,31 +273,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync(string searchParameterHash)
         {
-            var totalResourceCount = 0L;
-
-            // Keep local query state so we do not mutate the original job definition during continuation paging.
-            var query = _definition.ResourceCount == null
-                      ? new SearchResultReindex(_definition.MaximumNumberOfResourcesPerQuery)
-                      : new SearchResultReindex(_definition.ResourceCount.Count)
-                        {
-                            StartResourceSurrogateId = _definition.ResourceCount.StartResourceSurrogateId,
-                            EndResourceSurrogateId = _definition.ResourceCount.EndResourceSurrogateId,
-                            ContinuationToken = _definition.ResourceCount.ContinuationToken,
-                        };
-
             _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", _definition.MaximumNumberOfResourcesPerQuery);
-
+            var totalResourceCount = 0L;
+            var query = new SearchResultReindex(_definition.ResourceCount.Count) { ContinuationToken = _definition.ResourceCount.ContinuationToken };
             var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
 
             // Process results in a loop to handle continuation tokens
             do
             {
-                var batchResourceCount = result.Results?.Count() ?? 0;
-
                 await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
-                _result.SucceededResourceCount += batchResourceCount;
+                var batchResourceCount = result.Results?.Count() ?? 0;
                 totalResourceCount += batchResourceCount;
+                _result.SucceededResourceCount += batchResourceCount;
                 _jobInfo.Data = _result.SucceededResourceCount;
 
                 _logger.LogJobInformation(_jobInfo, "Cosmos reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}", batchResourceCount, _result.SucceededResourceCount);
@@ -303,15 +294,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!string.IsNullOrEmpty(result.ContinuationToken) && !_cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogJobInformation(_jobInfo, "Cosmos continuation token found. Fetching next batch of resources for reindexing.");
-
-                    // Create a new SearchResultReindex with the continuation token for the next query
-                    var nextQuery = new SearchResultReindex(query.Count)
-                    {
-                        StartResourceSurrogateId = query.StartResourceSurrogateId,
-                        EndResourceSurrogateId = query.EndResourceSurrogateId,
-                        ContinuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken)),
-                    };
-
+                    //// Create a new SearchResultReindex with the continuation token for the next query
+                    var nextQuery = new SearchResultReindex(query.Count) { ContinuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken)) };
                     result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(nextQuery));
                 }
                 else
