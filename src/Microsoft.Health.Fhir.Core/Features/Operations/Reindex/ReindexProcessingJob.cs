@@ -304,9 +304,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     _logger.LogJobInformation(_jobInfo, "Cosmos continuation token found. Fetching next batch of resources for reindexing.");
 
-                    // Clear the previous continuation token first to avoid conflicts
-                    query.ContinuationToken = null;
-
                     // Create a new SearchResultReindex with the continuation token for the next query
                     var nextQuery = new SearchResultReindex(query.Count)
                     {
