@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _result;
         private ReindexProcessingJobDefinition _definition;
+        private bool _isSql;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
 
@@ -91,11 +92,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            _cancellationToken = cancellationToken;
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-
+            _cancellationToken = cancellationToken;
             _jobInfo = jobInfo;
             _definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
+            //// Determine if we're using SQL Server (surrogate ID range) or Cosmos DB (continuation tokens)
+            _isSql = _definition.ResourceCount != null && _definition.ResourceCount.StartResourceSurrogateId > 0 && _definition.ResourceCount.EndResourceSurrogateId > 0;
 
             await CheckDiscrepancies();
 
@@ -147,41 +149,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex)
+        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex query)
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Type, _definition.ResourceType),
             };
 
-            if (searchResultReindex != null)
+            // If we have SurrogateId range, it is SQL. We simply use those and ignore search parameter hash
+            if (query.StartResourceSurrogateId > 0 && query.EndResourceSurrogateId > 0)
             {
-                // If we have SurrogateId range, it is SQL. We simply use those and ignore search parameter hash
-                if (searchResultReindex.StartResourceSurrogateId > 0 && searchResultReindex.EndResourceSurrogateId > 0)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
 
-                    queryParametersList.AddRange(
-                    [
-                        Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
-                        Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
-                    ]);
-                }
-                else
-                {
-                    // Otherwise, it's cosmos DB and we must use it and ensure we pass MaximumNumberOfResourcesPerQuery so we get expected count returned.
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _definition.MaximumNumberOfResourcesPerQuery.ToString()));
-                }
-
-                if (searchResultReindex.ContinuationToken != null)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, searchResultReindex.ContinuationToken));
-                }
+                queryParametersList.AddRange(
+                [
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, query.StartResourceSurrogateId.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, query.EndResourceSurrogateId.ToString()),
+                ]);
             }
             else
             {
-                // Cosmos DB path with no query state provided still needs explicit _count to enforce configured paging.
+                // Otherwise, it's cosmos DB and we must use it and ensure we pass MaximumNumberOfResourcesPerQuery so we get expected count returned.
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _definition.MaximumNumberOfResourcesPerQuery.ToString()));
+            }
+
+            if (query.ContinuationToken != null)
+            {
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, query.ContinuationToken));
             }
 
             using var searchService = _searchServiceFactory();
@@ -206,11 +200,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task ProcessQueryAsync()
         {
-            if (_definition == null)
-            {
-                throw new InvalidOperationException("_reindexProcessingJobDefinition cannot be null during processing.");
-            }
-
             if (_cancellationToken.IsCancellationRequested)
             {
                 return;
@@ -218,19 +207,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // Determine if we're using SQL Server path (surrogate ID range) or Cosmos DB path (continuation tokens)
-                bool useSurrogateIdRange = _definition.ResourceCount != null
-                    && _definition.ResourceCount.StartResourceSurrogateId > 0
-                    && _definition.ResourceCount.EndResourceSurrogateId > 0;
-
-                if (useSurrogateIdRange)
+                if (_isSql)
                 {
-                    // SQL Server path: Fetch resources using surrogate ID ranges.
-                    await ProcessWithSurrogateIdBatchingAsync(_searchParameterHash);
+                    await ProcessWithSurrogateIdRangeAsync();
                 }
                 else
                 {
-                    // Cosmos DB path: Use continuation tokens for pagination
                     await ProcessWithContinuationTokensAsync(_searchParameterHash);
                 }
 
@@ -266,70 +248,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <summary>
         /// Processes resources using surrogate ID ranges for SQL Server.
         /// </summary>
-        private async Task ProcessWithSurrogateIdBatchingAsync(string searchParameterHash)
+        private async Task ProcessWithSurrogateIdRangeAsync()
         {
-            long initialStartId = _definition.ResourceCount.StartResourceSurrogateId;
-            long initialEndId = _definition.ResourceCount.EndResourceSurrogateId;
-            var rangeQueue = new Queue<(long StartId, long EndId, int Count)>();
-            int initialCount = (int)Math.Min(_definition.ResourceCount.Count, int.MaxValue);
-            rangeQueue.Enqueue((initialStartId, initialEndId, initialCount));
+            var startId = _definition.ResourceCount.StartResourceSurrogateId;
+            var endId = _definition.ResourceCount.EndResourceSurrogateId;
+            _logger.LogJobInformation(_jobInfo, "SQL reindex range start. StartId={StartId}, EndId={EndId}, BatchSize={BatchSize}", startId, endId, _definition.MaximumNumberOfResourcesPerQuery);
 
-            _logger.LogJobInformation(
-                _jobInfo,
-                "Starting reindex with surrogate ID range. StartId={StartId}, EndId={EndId}, BatchSize={BatchSize}",
-                initialStartId,
-                initialEndId,
-                _definition.MaximumNumberOfResourcesPerQuery);
+            var query = new SearchResultReindex() { StartResourceSurrogateId = startId, EndResourceSurrogateId = endId };
+            var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
+            var resourceCount = result.Results?.Count() ?? 0;
 
-            while (rangeQueue.Count > 0 && !_cancellationToken.IsCancellationRequested)
-            {
-                var workItem = rangeQueue.Dequeue();
+            await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, null, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
-                var batchSearchResult = new SearchResultReindex(workItem.Count)
-                {
-                    StartResourceSurrogateId = workItem.StartId,
-                    EndResourceSurrogateId = workItem.EndId,
-                };
-
-                int batchResourceCount;
-                SearchResult result;
-
-                result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(batchSearchResult));
-
-                if (result == null)
-                {
-                    throw new OperationFailedException("Search service returned null search result.", HttpStatusCode.InternalServerError);
-                }
-
-                batchResourceCount = result.Results?.Count() ?? 0;
-                if (batchResourceCount == 0)
-                {
-                    _logger.LogJobInformation(_jobInfo, "No resources found in surrogate ID range. StartId={StartId}, EndId={EndId}", workItem.StartId, workItem.EndId);
-                    continue;
-                }
-
-                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
-
-                _result.SucceededResourceCount += batchResourceCount;
-                _jobInfo.Data = _result.SucceededResourceCount;
-
-                _logger.LogJobInformation(
-                    _jobInfo,
-                    "Reindex range complete. RangeStart={RangeStart}, RangeEnd={RangeEnd}, BatchSize={BatchSize}, TotalProcessed={TotalProcessed}",
-                    workItem.StartId,
-                    workItem.EndId,
-                    batchResourceCount,
-                    _result.SucceededResourceCount);
-
-                // If the store returned a partial window for this surrogate range, enqueue the remaining tail.
-                // This preserves existing range-walk behavior when SQL limits the returned set.
-                if (result.MaxResourceSurrogateId > 0 && result.MaxResourceSurrogateId < workItem.EndId)
-                {
-                    long nextStartId = result.MaxResourceSurrogateId + 1;
-                    int remainingCount = Math.Max(0, workItem.Count - batchResourceCount);
-                    rangeQueue.Enqueue((nextStartId, workItem.EndId, remainingCount));
-                }
-            }
+            _result.SucceededResourceCount += resourceCount;
+            _jobInfo.Data = _result.SucceededResourceCount;
+            _logger.LogJobInformation(_jobInfo, "SQL reindex range complete. Start={RangeStart}, End={RangeEnd}, Size={BatchSize}, Processed={TotalProcessed}", startId, endId, resourceCount, _result.SucceededResourceCount);
         }
 
         /// <summary>
@@ -337,39 +270,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync(string searchParameterHash)
         {
-            long totalResourceCount = 0;
+            var totalResourceCount = 0L;
 
             // Keep local query state so we do not mutate the original job definition during continuation paging.
-            SearchResultReindex queryState = _definition.ResourceCount == null
-                ? new SearchResultReindex(_definition.MaximumNumberOfResourcesPerQuery)
-                : new SearchResultReindex(_definition.ResourceCount.Count)
-                {
-                    StartResourceSurrogateId = _definition.ResourceCount.StartResourceSurrogateId,
-                    EndResourceSurrogateId = _definition.ResourceCount.EndResourceSurrogateId,
-                    ContinuationToken = _definition.ResourceCount.ContinuationToken,
-                };
+            var query = _definition.ResourceCount == null
+                      ? new SearchResultReindex(_definition.MaximumNumberOfResourcesPerQuery)
+                      : new SearchResultReindex(_definition.ResourceCount.Count)
+                        {
+                            StartResourceSurrogateId = _definition.ResourceCount.StartResourceSurrogateId,
+                            EndResourceSurrogateId = _definition.ResourceCount.EndResourceSurrogateId,
+                            ContinuationToken = _definition.ResourceCount.ContinuationToken,
+                        };
 
-            _logger.LogJobInformation(
-                _jobInfo,
-                "Starting reindex with continuation tokens. BatchSize={BatchSize}",
-                _definition.MaximumNumberOfResourcesPerQuery);
+            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", _definition.MaximumNumberOfResourcesPerQuery);
 
-            SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(queryState));
-
-            if (result == null)
-            {
-                throw new OperationFailedException("Search service returned null search result.", HttpStatusCode.InternalServerError);
-            }
+            var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
 
             // Process results in a loop to handle continuation tokens
             do
             {
-                int batchResourceCount = result.Results?.Count() ?? 0;
-                if (batchResourceCount == 0)
-                {
-                    _logger.LogJobInformation(_jobInfo, "No more resources found in result set.");
-                    break;
-                }
+                var batchResourceCount = result.Results?.Count() ?? 0;
 
                 await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
 
@@ -377,34 +297,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 totalResourceCount += batchResourceCount;
                 _jobInfo.Data = _result.SucceededResourceCount;
 
-                _logger.LogJobInformation(
-                    _jobInfo,
-                    "Reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}",
-                    batchResourceCount,
-                    _result.SucceededResourceCount);
+                _logger.LogJobInformation(_jobInfo, "Cosmos reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}", batchResourceCount, _result.SucceededResourceCount);
 
                 // Check if there's a continuation token to fetch more results
                 if (!string.IsNullOrEmpty(result.ContinuationToken) && !_cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogJobInformation(_jobInfo, "Continuation token found. Fetching next batch of resources for reindexing.");
+                    _logger.LogJobInformation(_jobInfo, "Cosmos continuation token found. Fetching next batch of resources for reindexing.");
 
                     // Clear the previous continuation token first to avoid conflicts
-                    queryState.ContinuationToken = null;
+                    query.ContinuationToken = null;
 
                     // Create a new SearchResultReindex with the continuation token for the next query
-                    var nextSearchResultReindex = new SearchResultReindex(queryState.Count)
+                    var nextQuery = new SearchResultReindex(query.Count)
                     {
-                        StartResourceSurrogateId = queryState.StartResourceSurrogateId,
-                        EndResourceSurrogateId = queryState.EndResourceSurrogateId,
+                        StartResourceSurrogateId = query.StartResourceSurrogateId,
+                        EndResourceSurrogateId = query.EndResourceSurrogateId,
                         ContinuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken)),
                     };
 
-                    result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(nextSearchResultReindex));
-
-                    if (result == null)
-                    {
-                        throw new OperationFailedException("Search service returned null search result during continuation.", HttpStatusCode.InternalServerError);
-                    }
+                    result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(nextQuery));
                 }
                 else
                 {
@@ -416,11 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (totalResourceCount > _definition.MaximumNumberOfResourcesPerQuery)
             {
-                _logger.LogJobWarning(
-                    _jobInfo,
-                    "Reindex: number of resources processed is higher than the original limit. Total count: {TotalCount}. Original limit: {OriginalLimit}",
-                    totalResourceCount,
-                    _definition.MaximumNumberOfResourcesPerQuery);
+                _logger.LogJobWarning(_jobInfo, "Cosmos reindex: number of resources processed is higher than the original limit. Total count: {TotalCount}. Original limit: {OriginalLimit}", totalResourceCount, _definition.MaximumNumberOfResourcesPerQuery);
             }
         }
 

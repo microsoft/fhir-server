@@ -816,10 +816,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ExecuteAsync_WithLargeSurrogateIdRange_ProcessesAcrossPartialWindows()
+        public async Task ExecuteAsync_WithLargeSurrogateIdRange_ProcessesSingleBatch()
         {
-            // This test verifies that when processing a large surrogate ID range,
-            // the job advances the StartSurrogateId after each partial result window based on MaxResourceSurrogateId.
             var expectedResourceType = "Patient";
             var startId = 100L;
             var endId = 5000L;
@@ -830,7 +828,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()
                 {
-                    Count = 6, // 6 resources total across multiple batches
+                    Count = 6,
                     EndResourceSurrogateId = endId,
                     StartResourceSurrogateId = startId,
                     ContinuationToken = null,
@@ -852,13 +850,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
-            // First batch returns 3 resources with MaxResourceSurrogateId = 200
-            var firstBatchEntries = Enumerable.Range(1, 3)
-                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
-                .ToList();
-
-            // Second batch returns 3 more resources with MaxResourceSurrogateId = 400
-            var secondBatchEntries = Enumerable.Range(4, 3)
+            var searchResultEntries = Enumerable.Range(1, 6)
                 .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
                 .ToList();
 
@@ -869,57 +861,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 false,
                 Arg.Any<CancellationToken>(),
                 true)
-                .Returns(x =>
+                .Returns(_ =>
                 {
                     callCount++;
-                    if (callCount == 1)
+                    return new SearchResult(
+                        searchResultEntries,
+                        null,
+                        null,
+                        new List<Tuple<string, string>>())
                     {
-                        // First batch
-                        return new SearchResult(
-                            firstBatchEntries,
-                            null,
-                            null,
-                            new List<Tuple<string, string>>())
-                        {
-                            MaxResourceSurrogateId = 200, // Will cause next batch to start from 201
-                            TotalCount = 3,
-                        };
-                    }
-                    else if (callCount == 2)
-                    {
-                        // Second batch
-                        return new SearchResult(
-                            secondBatchEntries,
-                            null,
-                            null,
-                            new List<Tuple<string, string>>())
-                        {
-                            MaxResourceSurrogateId = 400,
-                            TotalCount = 3,
-                        };
-                    }
-                    else
-                    {
-                        // No more resources
-                        return new SearchResult(
-                            new List<SearchResultEntry>(),
-                            null,
-                            null,
-                            new List<Tuple<string, string>>())
-                        {
-                            TotalCount = 0,
-                        };
-                    }
+                        MaxResourceSurrogateId = endId,
+                        TotalCount = 6,
+                    };
                 });
 
             var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
-            // Verify all 6 resources were processed across multiple batches
             Assert.Equal(6, jobResult.SucceededResourceCount);
-
-            // Verify multiple batches were fetched (at least 2 for the resources + 1 that returns empty)
-            Assert.True(callCount >= 2, $"Expected at least 2 search calls for batch processing, but got {callCount}");
+            Assert.Equal(1, callCount);
         }
 
         [Fact]
