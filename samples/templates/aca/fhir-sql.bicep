@@ -31,6 +31,9 @@ param sqlServerName string
 @allowed(['auto', 'tool'])
 param sqlSchemaAutomaticUpdatesEnabled string = 'auto'
 
+@description('Name of the SQL database. Defaults to FHIR<version>. Override to host an isolated database (e.g. FHIR<version>Iso) on the same server.')
+param sqlDatabaseName string = 'FHIR${fhirVersion}'
+
 @description('Authority URL for AAD authentication.')
 param securityAuthenticationAuthority string = ''
 
@@ -73,7 +76,6 @@ param additionalEnvVars array = []
 
 var normalizedSqlServerName = toLower(sqlServerName)
 var sqlManagedIdentityName = '${normalizedSqlServerName}-uami'
-var sqlDatabaseName = 'FHIR${fhirVersion}'
 
 var sqlManagedIdentityResourceId = resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', sqlManagedIdentityName)
 
