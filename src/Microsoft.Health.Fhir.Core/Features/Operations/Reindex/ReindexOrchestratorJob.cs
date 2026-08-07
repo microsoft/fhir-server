@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
             _isSql = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported; // TODO: replace.
-            _logger.LogInformation(_isSql ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
+            _logger.LogInformation(_isSql ? "Using SQL Server search service with surrogate ID ranging support" : "Using CosmosDb search service without surrogate ID ranging support");
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _result = new ReindexOrchestratorJobResult();
             _definition = JsonConvert.DeserializeObject<ReindexOrchestratorJobDefinition>(_jobInfo.Definition);
-            _cancellationToken = cancellationToken; // TODO: Do we need cancel?
+            _cancellationToken = cancellationToken;
 
             try
             {
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _result.CreatedJobs = currentJobs.Count; // TODO: Move this logic inside create
 
-                await CheckForCompletionAsync(cancellationToken);
+                await CheckForCompletionAsync();
 
                 await RefreshSearchParameterCache(false);
             }
@@ -644,15 +644,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return hash;
         }
 
-        private async Task CheckForCompletionAsync(CancellationToken cancellationToken)
+        private async Task CheckForCompletionAsync()
         {
             do
             {
-                await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), _cancellationToken);
 
                 var batch = _transientProcessingJobIds.Any()
                           ? await _timeoutRetries.ExecuteAsync(async () =>
-                                await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken))
+                                await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, _cancellationToken))
                           : new List<JobInfo>();
 
                 var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
