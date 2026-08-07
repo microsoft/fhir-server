@@ -593,22 +593,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
             }
 
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using var searchService = _searchServiceFactory();
+            try
             {
-                try
-                {
-                    return await _retries.ExecuteAsync(
-                        async () => await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true));
-                }
-                catch (Exception ex)
-                {
-                    var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
-                    var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", queryStatus.ResourceType);
-                    queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
+                return await _retries.ExecuteAsync(
+                    async () => await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true));
+            }
+            catch (Exception ex)
+            {
+                var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
+                var reindexJobException = new ReindexJobException(message, ex);
+                _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", queryStatus.ResourceType);
+                queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
 
-                    throw reindexJobException;
-                }
+                throw reindexJobException;
             }
         }
 
