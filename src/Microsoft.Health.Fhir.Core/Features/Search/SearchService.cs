@@ -286,9 +286,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        protected abstract Task<SearchResult> SearchForReindexInternalAsync(
-            SearchOptions searchOptions,
-            string searchParameterHash,
-            CancellationToken cancellationToken);
+        public virtual Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, bool includeHistory = false, bool includeDeleted = false)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -88,6 +88,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
             // The job should be marked as running now since it's acquired.
             jobRecord.Status = OperationStatus.Running;
+            jobRecord.StartTime = jobs.Single().JobRecord.StartTime;
 
             Assert.NotNull(jobs);
             Assert.Collection(
@@ -116,18 +117,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreNotDisplayed()
         {
-            string queryListError = "An unhandled error has occurred.";
-            string resourceType = KnownResourceTypes.Device;
-            string errorResult = $"{resourceType}: {queryListError}";
-
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(jobRecord => jobRecord.Status = OperationStatus.Completed);
             ReindexJobWrapper job = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, default);
-
-            var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType, null)
-            {
-                Error = queryListError,
-            };
-            job.JobRecord.QueryList.TryAdd(reindexJobQueryStatus, 1);
 
             ResourceElement resp = job.ToParametersResourceElement();
             var parms = resp.ResourceInstance as Hl7.Fhir.Model.Parameters;
@@ -172,7 +163,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
             // Create a local job record with a random ID that doesn't exist in the database or queue
-            var nonExistentJobRecord = new ReindexJobRecord(new List<string>())
+            var nonExistentJobRecord = new ReindexJobRecord()
             {
                 Id = "999999", // Use a non-existent ID
             };
@@ -242,7 +233,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task<ReindexJobRecord> InsertNewReindexJobRecordAsync(Action<ReindexJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ReindexJobRecord(new List<string>());
+            var jobRecord = new ReindexJobRecord();
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
@@ -271,7 +262,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(expected.Id, actual.Id);
             Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
-            Assert.Equal(expected.StartTime, actual.StartTime);
+            if (expected.StartTime.HasValue)
+            {
+                Assert.True(actual.StartTime.HasValue);
+                Assert.True(actual.StartTime.Value >= expected.StartTime.Value);
+            }
+            else
+            {
+                Assert.Null(actual.StartTime);
+            }
+
             Assert.Equal(expected.Status, actual.Status);
             Assert.Equal(
                 expected.QueuedTime.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"),

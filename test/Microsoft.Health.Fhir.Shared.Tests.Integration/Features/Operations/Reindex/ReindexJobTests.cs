@@ -106,7 +106,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task InitializeAsync()
         {
-            _operationsConfig.Value.Returns(new OperationsConfiguration());
+            var reindexConfig = new ReindexJobConfiguration() { JobsPollingIntervalSec = 1 };
+            var opConfig = new OperationsConfiguration();
+            opConfig.Reindex = reindexConfig;
+            _operationsConfig.Value.Returns(opConfig);
+
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             // initialize operations data store to use true queue clients
@@ -226,7 +230,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _queueClient,
                             () => _searchService,
                             _searchParameterDefinitionManager,
-                            ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
                             _fixture.FhirRuntimeConfiguration,
@@ -242,7 +245,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
                             _searchParameterOperations,
-                            _searchParameterStatusManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
@@ -335,15 +337,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             },
             cancellationToken);
             _cacheUpdateTask.Start();
-        }
-
-        [Fact]
-        public Task GivenALegacyReindexJobRecord_WhenGettingJobStatus_ThenJobRecordShouldReturn()
-        {
-            string legacyJobRecord = Samples.GetJson("LegacyRawReindexJobRecord");
-            var reindexJobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(legacyJobRecord);
-            Assert.True(reindexJobRecord.ResourceCounts.Any());
-            return Task.CompletedTask;
         }
 
         [Fact]
@@ -475,7 +468,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var reindexJobWorker = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
                 Assert.True(reindexJobWorker.JobRecord.ResourceCounts.Count > 0);
-                Assert.True(reindexJobWorker.JobRecord.Progress > 0);
+                Assert.True(reindexJobWorker.JobRecord.Count > 0);
                 Assert.Contains(reindexJobWorker.JobRecord.ResourceList, "Patient");
             }
             finally
@@ -1031,7 +1024,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 // Create a ReindexJobRecord for the orchestrator
                 var orchestratorRecord = new ReindexJobRecord(
-                    targetResourceTypes: Array.Empty<string>(),
                     maxResourcesPerQuery: 3,
                     maxResourcesPerWrite: 3)
                 {
@@ -1049,7 +1041,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     TypeId = (int)JobType.ReindexProcessing,
                     ResourceType = "Person",
                     SearchParameterHash = "ABC123",
-                    SearchParameterUrls = new List<string> { "http://example.org/fhir/SearchParameter/custom-person-name" },
+                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/custom-person-name", SearchParameterStatus.Enabled) },
                     ResourceCount = new SearchResultReindex { Count = 5 },
                     MaximumNumberOfResourcesPerQuery = 3,
                     MaximumNumberOfResourcesPerWrite = 3,
@@ -1061,7 +1053,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     TypeId = (int)JobType.ReindexProcessing,
                     ResourceType = "SupplyDelivery",
                     SearchParameterHash = "DEF456",
-                    SearchParameterUrls = new List<string> { "http://example.org/fhir/SearchParameter/test-supply-delivery" },
+                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/test-supply-delivery", SearchParameterStatus.Enabled) },
                     ResourceCount = new SearchResultReindex { Count = 5 },
                     MaximumNumberOfResourcesPerQuery = 3,
                     MaximumNumberOfResourcesPerWrite = 3,
@@ -1073,7 +1065,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 2,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrls,
                 };
 
                 var personJob2Result = new ReindexProcessingJobResult
@@ -1081,7 +1072,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 3,
                     FailedResourceCount = 0,
                     Error = null,
-                    SearchParameterUrls = personJobDefinition.SearchParameterUrls,
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
@@ -1095,7 +1085,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 3,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrls,
                 };
 
                 var supplyJob2Result = new ReindexProcessingJobResult
@@ -1103,7 +1092,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     SucceededResourceCount = 0,
                     FailedResourceCount = 2,
                     Error = errorMessage,
-                    SearchParameterUrls = supplyDeliveryJobDefinition.SearchParameterUrls,
                 };
 
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
@@ -1117,7 +1105,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     _queueClient,
                     () => _searchService,
                     _searchParameterDefinitionManager,
-                    ModelInfoProvider.Instance,
                     _searchParameterStatusManager,
                     _searchParameterOperations,
                     runtimeConfiguration,
@@ -1172,129 +1159,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [SkippableFact]
-        public async Task GivenSurrogateRangeFetchOom_WhenProcessingJobRuns_ThenSplitUsesReducedBatchParameters()
-        {
-            Skip.IfNot(_fixture.FhirRuntimeConfiguration is AzureHealthDataServicesRuntimeConfiguration, "SQL Server only test.");
-
-            const string resourceType = "Patient";
-            int searchCallCount = 0;
-
-            var mockedSearchService = Substitute.For<ISearchService>();
-            _searchService = mockedSearchService.CreateMockScope();
-
-            var successfulEntries = new List<SearchResultEntry>
-            {
-                new SearchResultEntry(CreatePatientResourceWrapper("oom-test", "oom-test-1")),
-            };
-
-            mockedSearchService.SearchForReindexAsync(
-                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                    Arg.Any<string>(),
-                    false,
-                    Arg.Any<CancellationToken>(),
-                    true)
-                .Returns(_ =>
-                {
-                    searchCallCount++;
-
-                    if (searchCallCount == 1)
-                    {
-                        return Task.FromException<SearchResult>(new OutOfMemoryException("Simulated OOM during surrogate range fetch"));
-                    }
-
-                    if (searchCallCount == 2)
-                    {
-                        return Task.FromResult(new SearchResult(
-                            successfulEntries,
-                            null,
-                            null,
-                            new List<Tuple<string, string>>())
-                        {
-                            MaxResourceSurrogateId = 1,
-                            TotalCount = 1,
-                        });
-                    }
-
-                    return Task.FromResult(new SearchResult(
-                        new List<SearchResultEntry>(),
-                        null,
-                        null,
-                        new List<Tuple<string, string>>())
-                    {
-                        TotalCount = 0,
-                    });
-                });
-
-            mockedSearchService.GetSurrogateIdRanges(
-                    resourceType,
-                    1,
-                    1000,
-                    Arg.Any<int>(),
-                    Arg.Any<int>(),
-                    true,
-                    Arg.Any<CancellationToken>(),
-                    true)
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(new List<(long, long, int)>
-                {
-                    (1, 1000, 1),
-                }));
-
-            var jobDefinition = new ReindexProcessingJobDefinition
-            {
-                GroupId = 9999,
-                TypeId = (int)JobType.ReindexProcessing,
-                ResourceType = resourceType,
-                SearchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceType),
-                SearchParameterUrls = new List<string> { "http://hl7.org/fhir/SearchParameter/Patient-name" },
-                ResourceCount = new SearchResultReindex
-                {
-                    StartResourceSurrogateId = 1,
-                    EndResourceSurrogateId = 1000,
-                    Count = 1,
-                },
-                MaximumNumberOfResourcesPerQuery = 10000,
-                MaximumNumberOfResourcesPerWrite = 100,
-            };
-
-            var jobInfo = new JobInfo
-            {
-                Id = 9001,
-                GroupId = 9001,
-                QueueType = (byte)QueueType.Reindex,
-                Status = JobStatus.Created,
-                CreateDate = DateTime.UtcNow,
-                Definition = JsonConvert.SerializeObject(jobDefinition),
-            };
-
-            Func<IScoped<IFhirDataStore>> dataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
-            var processingJob = new ReindexProcessingJob(
-                () => _searchService,
-                dataStoreScope,
-                _resourceWrapperFactory,
-                _searchParameterOperations,
-                _searchParameterStatusManager,
-                NullLogger<ReindexProcessingJob>.Instance);
-
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
-            string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(resultJson);
-
-            Assert.Equal(1, result.SucceededResourceCount);
-            Assert.True(searchCallCount >= 2);
-
-            await mockedSearchService.Received(1).GetSurrogateIdRanges(
-                resourceType,
-                1,
-                1000,
-                1000,
-                10,
-                true,
-                Arg.Any<CancellationToken>(),
-                true);
-        }
-
         private async Task<JobInfo> SeedOrchestratorJobAsync(ReindexJobRecord jobRecord)
         {
             var definition = JsonConvert.SerializeObject(jobRecord);
@@ -1313,7 +1177,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Message = jobResult.Error,
                     jobResult.FailedResourceCount,
                     jobResult.SucceededResourceCount,
-                    jobResult.SearchParameterUrls,
                     jobResult.TimeoutCount,
                 })
                 : JsonConvert.SerializeObject(jobResult);

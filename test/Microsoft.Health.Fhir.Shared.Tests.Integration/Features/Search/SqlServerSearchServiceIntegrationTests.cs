@@ -121,7 +121,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: true,
                 includeDeleted: false);
 
@@ -407,32 +406,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public async Task SearchForReindex_WithCountOnly_ReturnsAccurateCount()
+        public async Task SearchForReindex_WithCountOnly_ReturnsNotSupported()
         {
-            // Arrange - Create test patients
-            var patients = await CreateTestPatients(10);
-            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
-
-            // Act - Search for reindex with count only
             var queryParameters = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
+                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, "0"),
+                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, "1"),
             };
 
-            var result = await _searchService.SearchForReindexAsync(
-                queryParameters,
-                searchParameterHash: string.Empty,
-                countOnly: true,
-                CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.True(result.TotalCount >= 10, $"Expected count to be >= 10, got {result.TotalCount}");
-            Assert.Empty(result.Results); // Count-only should not return resources
+            await Assert.ThrowsAsync<NotSupportedException>(async () =>
+                await _searchService.SearchForReindexAsync(queryParameters, searchParameterHash: string.Empty, countOnly: true, CancellationToken.None));
         }
 
         [Fact]
@@ -446,10 +430,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             var queryParameters = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
+                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
+                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
+                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
             };
 
             var result = await _searchService.SearchForReindexAsync(
@@ -727,42 +710,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public async Task SearchBySurrogateIdRange_WithSearchParamHashFilter_FiltersCorrectly()
-        {
-            // Arrange
-            var patients = await CreateTestPatients(5);
-            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
-
-            var sqlSearchService = _searchService as SqlServerSearchService;
-            Assert.NotNull(sqlSearchService);
-
-            // Act - Search with a hash filter (resources with different hash should be excluded)
-            var result = await sqlSearchService!.SearchBySurrogateIdRange(
-                "Patient",
-                surrogateIds.First(),
-                surrogateIds.Last(),
-                null,
-                null,
-                CancellationToken.None,
-                searchParamHashFilter: "non-matching-hash");
-
-            // Assert - Resources should be returned but filtered by hash
-            // Since we're using a non-matching hash, we expect resources with NULL or different hashes
-            Assert.NotNull(result);
-            Assert.NotNull(result.Results);
-
-            // All returned resources should either have NULL hash or a hash different from the filter
-            Assert.All(result.Results, r =>
-            {
-                // If the resource has a hash, it should not match our non-matching-hash filter
-                // This test verifies the hash filtering mechanism works correctly
-                Assert.True(
-                    string.IsNullOrEmpty(r.Resource.SearchParameterHash) || r.Resource.SearchParameterHash != "non-matching-hash",
-                    $"Resource {r.Resource.ResourceId} should not have the filtered hash value");
-            });
-        }
-
-        [Fact]
         public async Task Search_WithCountOnlyAndTotal_ReturnsAccurateCount()
         {
             // Arrange
@@ -862,7 +809,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: false,
                 includeDeleted: true);
 
@@ -874,7 +820,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: false,
                 includeDeleted: false);
 
