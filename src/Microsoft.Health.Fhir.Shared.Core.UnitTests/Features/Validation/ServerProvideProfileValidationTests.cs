@@ -112,6 +112,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         }
 
         [Fact]
+        public async Task GivenVersionedStructureDefinition_WhenGettingSupportedProfiles_ThenVersionedCanonicalIsReturned()
+        {
+            // Arrange
+            var patientProfile = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "3.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfile);
+
+            // Act
+            var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+
+            // Assert
+            Assert.Single(profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|3.0.0", profiles);
+        }
+
+        [Fact]
+        public async Task GivenVersionedStructureDefinition_WhenResolvingByCanonicalUriWithVersion_ThenMatchingProfileIsReturned()
+        {
+            // Arrange
+            var patientProfile = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "3.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfile);
+
+            // Act
+            var profile = await _serverProvideProfileValidation.ResolveByCanonicalUriAsync("http://example.org/fhir/StructureDefinition/custom-patient|3.0.0");
+
+            // Assert
+            Assert.NotNull(profile);
+            var structureDefinition = Assert.IsType<StructureDefinition>(profile);
+            Assert.Equal("http://example.org/fhir/StructureDefinition/custom-patient", structureDefinition.Url);
+            Assert.Equal("3.0.0", structureDefinition.Version);
+        }
+
+        [Fact]
         public async Task GivenANewStructureDefinition_WhenBackgroundLoopRuns_ThenSyncIsRequested()
         {
             // Arrange
@@ -353,12 +385,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             _serverProvideProfileValidation?.Dispose();
         }
 
-        private static StructureDefinition CreateStructureDefinition(string url, string type)
+        private static StructureDefinition CreateStructureDefinition(string url, string type, string version = null)
         {
             return new StructureDefinition
             {
                 Id = Guid.NewGuid().ToString("N").Substring(0, 16), // Generate valid FHIR ID
                 Url = url,
+                Version = version,
                 Name = $"{type}Profile",
                 Status = PublicationStatus.Active,
                 Kind = StructureDefinition.StructureDefinitionKind.Resource,
