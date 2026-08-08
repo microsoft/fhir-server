@@ -1744,12 +1744,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return;
             }
 
-            if (resourceVersionType.HasFlag(ResourceVersionType.Latest) && !resourceVersionType.HasFlag(ResourceVersionType.History))
+            if ((resourceVersionType.HasFlag(ResourceVersionType.Latest) ||
+                resourceVersionType.HasFlag(ResourceVersionType.SoftDeleted)) &&
+                !resourceVersionType.HasFlag(ResourceVersionType.History))
             {
                 delimited.BeginDelimitedElement();
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
             }
-            else if (resourceVersionType.HasFlag(ResourceVersionType.History) && !resourceVersionType.HasFlag(ResourceVersionType.Latest))
+            else if (resourceVersionType.HasFlag(ResourceVersionType.History) &&
+                !resourceVersionType.HasFlag(ResourceVersionType.Latest))
             {
                 delimited.BeginDelimitedElement();
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 1 ");

@@ -95,6 +95,7 @@ public class SqlQueryGeneratorTests
         var output = _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
 
         Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
+        Assert.Contains("IsHistory = 0", _strBuilder.ToString());
     }
 
     [Fact]
