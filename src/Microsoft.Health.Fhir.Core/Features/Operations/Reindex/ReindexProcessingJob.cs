@@ -169,8 +169,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             else
             {
-                // Otherwise, it's cosmos DB and we must use it and ensure we pass MaximumNumberOfResourcesPerQuery so we get expected count returned.
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _definition.MaximumNumberOfResourcesPerQuery.ToString()));
+                // Otherwise, it's cosmos DB and we must use it and ensure we pass the requested count so we get expected count returned.
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, query.Count.ToString()));
             }
 
             if (query.ContinuationToken != null)
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             });
             var resourceCount = result.Results?.Count() ?? 0;
 
-            await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, null, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
+            await ProcessSearchResultsAsync(result, null, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken);
 
             _result.SucceededResourceCount += resourceCount;
             _jobInfo.Data = _result.SucceededResourceCount;
@@ -270,45 +270,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         /// <summary>
         /// Processes resources using continuation tokens for Cosmos DB.
+        /// Resources are fetched one write batch at a time and written immediately,
+        /// continuing until there are no more results.
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync(string searchParameterHash)
         {
-            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", _definition.MaximumNumberOfResourcesPerQuery);
+            var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
+            var maxResourceCount = _definition.ResourceCount.Count;
+            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}, MaxCount={MaxCount}", batchSize, maxResourceCount);
+
+            using var store = _fhirDataStoreFactory();
             var totalResourceCount = 0L;
-            var query = new SearchResultReindex(_definition.ResourceCount.Count) { ContinuationToken = _definition.ResourceCount.ContinuationToken };
-            var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
+            var continuationToken = _definition.ResourceCount.ContinuationToken;
 
-            // Process results in a loop to handle continuation tokens
-            do
+            while (!_cancellationToken.IsCancellationRequested)
             {
-                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken));
-
-                var batchResourceCount = result.Results?.Count() ?? 0;
-                totalResourceCount += batchResourceCount;
-                _result.SucceededResourceCount += batchResourceCount;
-                _jobInfo.Data = _result.SucceededResourceCount;
-
-                _logger.LogJobInformation(_jobInfo, "Cosmos reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}", batchResourceCount, _result.SucceededResourceCount);
-
-                // Check if there's a continuation token to fetch more results
-                if (!string.IsNullOrEmpty(result.ContinuationToken) && !_cancellationToken.IsCancellationRequested)
+                var remaining = maxResourceCount - totalResourceCount;
+                if (remaining <= 0)
                 {
-                    _logger.LogJobInformation(_jobInfo, "Cosmos continuation token found. Fetching next batch of resources for reindexing.");
-                    //// Create a new SearchResultReindex with the continuation token for the next query
-                    var nextQuery = new SearchResultReindex(query.Count) { ContinuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken)) };
-                    result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(nextQuery));
+                    break;
                 }
-                else
+
+                var query = new SearchResultReindex((int)Math.Min(batchSize, remaining)) { ContinuationToken = continuationToken };
+                var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
+
+                var resources = result.Results?.Select(_ => _.Resource).ToList();
+                if (resources?.Count > 0)
                 {
-                    // No more continuation token, exit the loop
-                    result = null;
+                    await ComputeAndWrite(resources, searchParameterHash, store.Value, _cancellationToken);
+
+                    totalResourceCount += resources.Count;
+                    _result.SucceededResourceCount += resources.Count;
+                    _jobInfo.Data = _result.SucceededResourceCount;
+
+                    _logger.LogJobInformation(_jobInfo, "Cosmos reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}", resources.Count, _result.SucceededResourceCount);
                 }
+
+                if (string.IsNullOrEmpty(result.ContinuationToken))
+                {
+                    break;
+                }
+
+                continuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken));
             }
-            while (result != null && !_cancellationToken.IsCancellationRequested);
 
-            if (totalResourceCount > _definition.MaximumNumberOfResourcesPerQuery)
+            if (totalResourceCount > _definition.ResourceCount.Count)
             {
-                _logger.LogJobWarning(_jobInfo, "Cosmos reindex: number of resources processed is higher than the original limit. Total count: {TotalCount}. Original limit: {OriginalLimit}", totalResourceCount, _definition.MaximumNumberOfResourcesPerQuery);
+                _logger.LogJobWarning(_jobInfo, "Cosmos reindex: number of resources processed is higher than the original limit. Total count: {TotalCount}. Original limit: {OriginalLimit}", totalResourceCount, _definition.ResourceCount.Count);
             }
         }
 
@@ -321,25 +329,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(results, nameof(results));
 
-            var updateSearchIndices = new List<ResourceWrapper>();
-            foreach (var entry in results.Results)
-            {
-                entry.Resource.SearchParameterHash = searchParameterHash;
-                _resourceWrapperFactory.Update(entry.Resource);
-                updateSearchIndices.Add(entry.Resource);
-            }
-
+            var batches = results.Results.Select(_ => _.Resource).Chunk(batchSize).ToList();
             using var store = _fhirDataStoreFactory();
-            for (var i = 0; i < updateSearchIndices.Count; i += batchSize)
+
+            foreach (var resources in batches)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
 
-                var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
-                await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
+                await ComputeAndWrite(resources, searchParameterHash, store.Value, cancellationToken);
             }
+        }
+
+        private async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, string searchParameterHash, IFhirDataStore store, CancellationToken cancellationToken)
+        {
+            foreach (var resource in resources)
+            {
+                resource.SearchParameterHash = searchParameterHash;
+                _resourceWrapperFactory.Update(resource);
+            }
+
+            await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));
         }
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)
