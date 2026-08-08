@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Microsoft.Health.Fhir.Ignixa</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Ignixa.Abstractions" />
+    <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Ignixa.FhirPath" />
+    <PackageReference Include="Ignixa.Serialization" />
+    <PackageReference Include="Ignixa.Specification" />
+  </ItemGroup>
+</Project>
