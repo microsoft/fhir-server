@@ -407,15 +407,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 else
                 {
-                    // Create uniform-sized chunks based on resource count
+                    // Cosmos does not support surrogate ID ranges, so a single processing job is created per resource type.
+                    // That job drains all continuation tokens internally, fetching and writing one batch at a time.
                     var resourceCount = _resourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
-                    var numberOfChunks = Math.Max(1, (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob)); // create at least one chunk even if count is zero
-                    _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
-                    var processingRanges = new List<(long StartId, long EndId, int Count)>();
-                    for (var i = 0; i < numberOfChunks; i++)
-                    {
-                        processingRanges.Add((0, 0, 0));
-                    }
+                    _logger.LogJobInformation(_jobInfo, "Creating single processing job for resource type {ResourceType}. Total resource count: {Count}.", resourceType, resourceCount.Count);
+                    var processingRanges = new List<(long StartId, long EndId, int Count)>() { (0L, 0L, (int)resourceCount.Count) };
 
                     var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams);
 
