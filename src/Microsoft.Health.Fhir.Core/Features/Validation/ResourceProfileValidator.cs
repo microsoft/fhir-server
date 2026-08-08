@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             bool runProfileValidation = false)
-            : base(modelAttributeValidator)
+            : base(modelAttributeValidator, contextAccessor)
         {
             EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
             EnsureArg.IsNotNull(profileValidator, nameof(profileValidator));
