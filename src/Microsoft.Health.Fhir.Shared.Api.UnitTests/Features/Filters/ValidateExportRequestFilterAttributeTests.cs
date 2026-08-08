@@ -180,6 +180,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
+        [Theory]
+        [InlineData("application/fhir+json; charset=utf-8")]
+        [InlineData("application/fhir+json;charset=utf-8")]
+        [InlineData("application/fhir+json; charset=UTF-8")]
+        [InlineData("application/fhir+json; boundary=something")]
+        public void GivenARequestWithAcceptHeaderContainingParameters_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string acceptHeader)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = acceptHeader;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
+
+            _filter.OnActionExecuting(context);
+        }
+
         [Fact]
         public void GivenARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
