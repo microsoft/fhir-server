@@ -76,6 +76,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public async Task GivenSearchingWithQueryParameterExpander_WhenSearched_ThenExpandedQueryParametersAreUsed()
+        {
+            const string resourceType = "Medication";
+            var queryParameters = new[] { Tuple.Create("code:in", "http://example.org/fhir/ValueSet/medications") };
+            var expandedQueryParameters = new[] { Tuple.Create("code", "http://example.org/system|code") };
+            var queryParameterExpander = Substitute.For<ISearchParameterQueryParameterExpander>();
+            queryParameterExpander.ExpandAsync(resourceType, queryParameters, Arg.Any<CancellationToken>()).Returns(expandedQueryParameters);
+
+            var searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore, new[] { queryParameterExpander });
+            var expectedSearchOptions = new SearchOptions();
+            _searchOptionsFactory.Create(resourceType, expandedQueryParameters).Returns(expectedSearchOptions);
+
+            var expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
+            searchService.SearchImplementation = options =>
+            {
+                Assert.Same(expectedSearchOptions, options);
+                return expectedSearchResult;
+            };
+
+            SearchResult actual = await searchService.SearchAsync(resourceType, queryParameters, CancellationToken.None);
+
+            Assert.Same(expectedSearchResult, actual);
+        }
+
+        [Fact]
         public async Task GivenCompartmentSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
         {
             const string compartmentType = "Patient";
@@ -198,6 +223,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
                 : base(searchOptionsFactory, fhirDataStore, NullLogger.Instance)
+            {
+                SearchImplementation = options => null;
+            }
+
+            public TestSearchService(
+                ISearchOptionsFactory searchOptionsFactory,
+                IFhirDataStore fhirDataStore,
+                IEnumerable<ISearchParameterQueryParameterExpander> queryParameterExpanders)
+                : base(searchOptionsFactory, fhirDataStore, NullLogger.Instance, queryParameterExpanders)
             {
                 SearchImplementation = options => null;
             }

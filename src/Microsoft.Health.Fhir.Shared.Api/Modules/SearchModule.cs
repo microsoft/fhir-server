@@ -143,6 +143,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
+            services.AddSingleton<ISearchParameterQueryParameterExpander, SearchParameterValueSetExpander>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
             services.AddSingleton<IReferenceToElementResolver, LightweightReferenceToElementResolver>();
             services.AddTransient<ExpressionAccessControl>();

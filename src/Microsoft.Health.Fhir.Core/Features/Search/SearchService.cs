@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ILogger _logger;
+        private readonly IReadOnlyCollection<ISearchParameterQueryParameterExpander> _queryParameterExpanders;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
@@ -36,6 +37,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="fhirDataStore">The data store</param>
         /// <param name="logger">Logger</param>
         protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, ILogger logger)
+            : this(searchOptionsFactory, fhirDataStore, logger, Array.Empty<ISearchParameterQueryParameterExpander>())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchService"/> class.
+        /// </summary>
+        /// <param name="searchOptionsFactory">The search options factory.</param>
+        /// <param name="fhirDataStore">The data store</param>
+        /// <param name="logger">Logger</param>
+        /// <param name="queryParameterExpanders">Search query parameter expanders.</param>
+        protected SearchService(
+            ISearchOptionsFactory searchOptionsFactory,
+            IFhirDataStore fhirDataStore,
+            ILogger logger,
+            IEnumerable<ISearchParameterQueryParameterExpander> queryParameterExpanders)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -44,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _searchOptionsFactory = searchOptionsFactory;
             _fhirDataStore = fhirDataStore;
             _logger = logger;
+            _queryParameterExpanders = queryParameterExpanders?.ToArray() ?? Array.Empty<ISearchParameterQueryParameterExpander>();
         }
 
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -61,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool onlyIds = false,
             bool isIncludesOperation = false)
         {
+            queryParameters = await ExpandQueryParametersAsync(resourceType, queryParameters, cancellationToken);
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
 
             // Execute the actual search.
@@ -77,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false)
         {
+            queryParameters = await ExpandQueryParametersAsync(resourceType, queryParameters, cancellationToken);
             SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition);
 
             // Execute the actual search.
@@ -285,6 +305,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
+
+        private async Task<IReadOnlyList<Tuple<string, string>>> ExpandQueryParametersAsync(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellationToken)
+        {
+            foreach (ISearchParameterQueryParameterExpander expander in _queryParameterExpanders)
+            {
+                queryParameters = await expander.ExpandAsync(resourceType, queryParameters, cancellationToken);
+            }
+
+            return queryParameters;
+        }
 
         protected abstract Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
