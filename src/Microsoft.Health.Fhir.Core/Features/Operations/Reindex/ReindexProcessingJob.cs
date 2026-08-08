@@ -332,13 +332,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             using var store = _fhirDataStoreFactory();
             for (var i = 0; i < updateSearchIndices.Count; i += batchSize)
             {
-                var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
-                await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
+
+                var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
+                await _bulkUpdateRetries.ExecuteAsync(async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
             }
         }
 

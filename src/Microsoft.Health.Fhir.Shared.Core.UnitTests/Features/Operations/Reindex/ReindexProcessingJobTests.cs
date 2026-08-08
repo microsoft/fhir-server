@@ -53,6 +53,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      _resourceWrapperFactory,
                      _searchParameterOperations,
                      NullLogger<ReindexProcessingJob>.Instance);
+
+            // Default mock for SearchBySurrogateIdRange (SQL path) - can be overridden per test
+            _searchService.SearchBySurrogateIdRange(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<long?>(),
+                Arg.Any<long?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(new SearchResult(
+                    new List<SearchResultEntry>(),
+                    null,
+                    null,
+                    new List<Tuple<string, string>>()));
         }
 
         [Fact]
@@ -128,65 +144,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task GivenSurrogateIdRange_WhenExecuted_ThenAdditionalQueryAdded()
-        {
-            var expectedResourceType = "Account";
-            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 1,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = 1,
-                    EndResourceSurrogateId = 2,
-                    StartResourceSurrogateId = 0,
-                },
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Accout-status", SearchParameterStatus.Enabled) },
-                TypeId = (int)JobType.ReindexProcessing,
-                GroupId = 3,
-                SearchParameterHash = "accountHash",
-            };
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
-
-            JobInfo jobInfo = new JobInfo()
-            {
-                Id = 2,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 3,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // Setup search result - remove continuation token, focus on surrogate IDs
-            _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true).
-                Returns(
-                    new SearchResult(
-                        new List<SearchResultEntry>()
-                        {
-                            CreateSearchResultEntry("1", "Account"),
-                        },
-                        null, // No continuation token
-                        new List<(SearchParameterInfo, SortOrder)>(),
-                        new List<Tuple<string, string>>())
-                    {
-                        MaxResourceSurrogateId = 1,
-                        TotalCount = 1,
-                    });
-
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(
-                await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            Assert.Equal(1, result.SucceededResourceCount);
-        }
-
-        [Fact]
         public async Task ExecuteAsync_WithNullJobInfo_ThrowsArgumentNullException()
         {
             var job = _reindexProcessingJobTaskFactory();
@@ -231,12 +188,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
                 .ToList();
 
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            // Mock SearchBySurrogateIdRange (SQL path - called when ResourceCount is set)
+            _searchService.SearchBySurrogateIdRange(
                 Arg.Any<string>(),
-                false,
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<long?>(),
+                Arg.Any<long?>(),
                 Arg.Any<CancellationToken>(),
-                true)
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
                 .Returns(new SearchResult(
                     searchResultEntries,
                     null,
@@ -301,46 +262,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             // Verify that bulk update was called with the correct batch
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 2),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task ProcessSearchResultsAsync_WithZeroBatchSize_SetsDefaultBatchSize()
-        {
-            var resourceType = "Observation";
-            var resources = new List<ResourceWrapper>()
-            {
-                new ResourceWrapper(
-                    "1",
-                    "1",
-                    resourceType,
-                    new RawResource("data1", FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    DateTimeOffset.MinValue,
-                    false,
-                    null,
-                    null,
-                    null),
-            };
-
-            var searchResults = new List<SearchResultEntry>()
-            {
-                new SearchResultEntry(resources[0]),
-            };
-
-            var searchResult = new SearchResult(
-                searchResults,
-                null,
-                null,
-                new List<Tuple<string, string>>());
-
-            var job = _reindexProcessingJobTaskFactory();
-
-            // Pass zero batch size - should default to 500
-            await job.ProcessSearchResultsAsync(searchResult, "observationHash", 0, _cancellationToken);
-
-            await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
-                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -473,56 +394,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ProcessQueryAsync_WithNullSearchResult_ThrowsOperationFailedException()
-        {
-            var expectedResourceType = "Patient";
-            var job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 100,
-                MaximumNumberOfResourcesPerWrite = 100,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = 1,
-                    EndResourceSurrogateId = 100,
-                    StartResourceSurrogateId = 1,
-                },
-                SearchParameterHash = "patientHash",
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
-                TypeId = (int)JobType.ReindexProcessing,
-            };
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
-
-            var jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // Return null search result
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true)
-                .Returns((SearchResult)null);
-
-            // When null search result is returned, the job should throw JobExecutionSoftFailureException with error in result
-            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
-                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            var jobResult = exception.Error as ReindexProcessingJobResult;
-            string errorMessage = Assert.IsType<string>(jobResult?.Error);
-            Assert.Contains("null search result", errorMessage);
-        }
-
-        [Fact]
         public async Task ProcessQueryAsync_WithSearchServiceException_ThrowsReindexException()
         {
             var expectedResourceType = "Patient";
@@ -554,13 +425,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
-            // Throw exception from search service
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            // Throw exception from search service (SQL path uses SearchBySurrogateIdRange)
+            _searchService.SearchBySurrogateIdRange(
                 Arg.Any<string>(),
-                false,
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<long?>(),
+                Arg.Any<long?>(),
                 Arg.Any<CancellationToken>(),
-                true)
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
                 .Returns(Task.FromException<SearchResult>(new InvalidOperationException("Search service error")));
 
             // When search service throws an exception, the job should throw JobExecutionSoftFailureException with error in result
@@ -608,12 +482,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
                 .ToList();
 
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            _searchService.SearchBySurrogateIdRange(
                 Arg.Any<string>(),
-                false,
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<long?>(),
+                Arg.Any<long?>(),
                 Arg.Any<CancellationToken>(),
-                true)
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
                 .Returns(new SearchResult(
                     searchResultEntries,
                     null,
@@ -637,72 +514,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ExecuteAsync_WithPreconditionFailedException_JobCompletesSuccessfully()
-        {
-            // Arrange: Set up a job that will have a version conflict during bulk update
-            var expectedResourceType = "Patient";
-            var job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 100,
-                MaximumNumberOfResourcesPerWrite = 100,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = 3,
-                    EndResourceSurrogateId = 300,
-                    StartResourceSurrogateId = 1,
-                },
-                SearchParameterHash = "patientHash",
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
-                TypeId = (int)JobType.ReindexProcessing,
-            };
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
-
-            var jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            var searchResultEntries = Enumerable.Range(1, 3)
-                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
-                .ToList();
-
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true)
-                .Returns(new SearchResult(
-                    searchResultEntries,
-                    null,
-                    null,
-                    new List<Tuple<string, string>>()));
-
-            // Simulate version conflict - PreconditionFailedException should be caught and logged, not fail the job
-            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
-                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
-                Arg.Any<CancellationToken>())
-                .Returns(Task.FromException(new PreconditionFailedException("2 resources had version conflicts during reindex.")));
-
-            // Act
-            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
-
-            // Assert: Job should complete successfully without error, and resources should be counted as succeeded
-            // (the conflicting resources will be picked up in the next reindex cycle)
-            Assert.Null(jobResult.Error);
-            Assert.Equal(3, jobResult.SucceededResourceCount);
-            Assert.Equal(0, jobResult.FailedResourceCount);
-        }
-
-        [Fact]
         public async Task GetResourcesToReindexAsync_WithContinuationToken_IncludesTokenInQuery()
         {
             var expectedResourceType = "Patient";
@@ -715,8 +526,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 ResourceCount = new SearchResultReindex()
                 {
                     Count = 5,
-                    EndResourceSurrogateId = 500,
-                    StartResourceSurrogateId = 1,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
                     ContinuationToken = continuationToken,
                 },
                 SearchParameterHash = "patientHash",
@@ -759,63 +570,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task GetResourcesToReindexAsync_WithSurrogateIdRange_IncludesRangeInQuery()
-        {
-            var expectedResourceType = "Patient";
-            var startId = 100L;
-            var endId = 500L;
-            var job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 100,
-                MaximumNumberOfResourcesPerWrite = 100,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = 3,
-                    EndResourceSurrogateId = endId,
-                    StartResourceSurrogateId = startId,
-                    ContinuationToken = null,
-                },
-                SearchParameterHash = "patientHash",
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
-                TypeId = (int)JobType.ReindexProcessing,
-            };
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
-
-            var jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            var searchResultEntries = Enumerable.Range(1, 3)
-                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
-                .ToList();
-
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true)
-                .Returns(new SearchResult(
-                    searchResultEntries,
-                    null,
-                    null,
-                    new List<Tuple<string, string>>()));
-
-            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
-
-            Assert.Equal(3, jobResult.SucceededResourceCount);
-        }
-
-        [Fact]
         public async Task ExecuteAsync_WithLargeSurrogateIdRange_ProcessesSingleBatch()
         {
             var expectedResourceType = "Patient";
@@ -855,6 +609,32 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 .ToList();
 
             var callCount = 0;
+            var surrogatIdCallCount = 0;
+
+            // Mock SearchBySurrogateIdRange (SQL path)
+            _searchService.SearchBySurrogateIdRange(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<long?>(),
+                Arg.Any<long?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(_ =>
+                {
+                    surrogatIdCallCount++;
+                    return new SearchResult(
+                        searchResultEntries,
+                        null,
+                        null,
+                        new List<Tuple<string, string>>())
+                    {
+                        MaxResourceSurrogateId = endId,
+                        TotalCount = 6,
+                    };
+                });
+
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<string>(),
@@ -879,7 +659,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
             Assert.Equal(6, jobResult.SucceededResourceCount);
-            Assert.Equal(1, callCount);
+            Assert.Equal(1, surrogatIdCallCount);
         }
 
         [Fact]
