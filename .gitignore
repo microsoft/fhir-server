@@ -313,6 +313,3 @@ __*
 # For ignroing .local files from MultiInstanceRunner
 .local/
 
-# A/B and include performance benchmark output
-ab-test-results/
-include-perf-results/
