@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var resources = await _timeoutRetries.ExecuteAsync(async () =>
                 {
                     using var searchService = _searchServiceFactory();
-                    return (await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, range.StartId, range.EndId, null, null, _cancellationToken)).Results.Select(_ => _.Resource).ToList();
+                    return (await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, range.StartId, range.EndId, _cancellationToken)).Results.Select(_ => _.Resource).ToList();
                 });
 
                 await ComputeAndWrite(resources, null, store.Value, _cancellationToken);

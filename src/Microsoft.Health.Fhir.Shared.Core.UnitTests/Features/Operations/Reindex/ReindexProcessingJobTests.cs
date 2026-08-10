@@ -76,11 +76,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<string>(),
                 Arg.Any<long>(),
                 Arg.Any<long>(),
-                Arg.Any<long?>(),
-                Arg.Any<long?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
+                Arg.Any<CancellationToken>())
                 .Returns(new SearchResult(
                     new List<SearchResultEntry>(),
                     null,
@@ -210,11 +206,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<string>(),
                 Arg.Any<long>(),
                 Arg.Any<long>(),
-                Arg.Any<long?>(),
-                Arg.Any<long?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
+                Arg.Any<CancellationToken>())
                 .Returns(new SearchResult(
                     searchResultEntries,
                     null,
@@ -336,11 +328,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<string>(),
                 Arg.Any<long>(),
                 Arg.Any<long>(),
-                Arg.Any<long?>(),
-                Arg.Any<long?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
+                Arg.Any<CancellationToken>())
                 .Returns(Task.FromException<SearchResult>(new InvalidOperationException("Search service error")));
 
             // When search service throws an exception, the job should throw JobExecutionSoftFailureException with error in result
@@ -392,11 +380,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<string>(),
                 Arg.Any<long>(),
                 Arg.Any<long>(),
-                Arg.Any<long?>(),
-                Arg.Any<long?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
+                Arg.Any<CancellationToken>())
                 .Returns(new SearchResult(
                     searchResultEntries,
                     null,
@@ -610,11 +594,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<string>(),
                 Arg.Any<long>(),
                 Arg.Any<long>(),
-                Arg.Any<long?>(),
-                Arg.Any<long?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
-                Arg.Any<bool>())
+                Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     surrogatIdCallCount++;
