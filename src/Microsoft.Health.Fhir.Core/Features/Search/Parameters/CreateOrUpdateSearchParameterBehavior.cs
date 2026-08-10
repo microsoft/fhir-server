@@ -57,16 +57,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                // Before committing the SearchParameter resource to the data store, validate the parameter type
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                var url = request.Resource.Instance.GetStringScalar("url");
 
-                // Allow the resource to be updated with the normal handler
+                // Reject if an active resource already owns this URL.
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
+                    if (existingByUrl.ContainsKey(url))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
+                    }
+                }
+
+                QueueStatus(url, SearchParameterStatus.Supported, lastUpdated);
+
                 return await next();
             }
 
-            // Allow the resource to be updated with the normal handler
             return await next();
         }
 
@@ -93,23 +102,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
+                var newUrl = request.Resource.Instance.GetStringScalar("url");
+
+                // Reject if an active resource other than this one already owns the new URL.
+                if (!string.IsNullOrWhiteSpace(newUrl))
+                {
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
+                    if (existingByUrl.TryGetValue(newUrl, out var existingElement)
+                        && !string.Equals(existingElement.GetStringScalar("id"), request.Resource.Id, StringComparison.Ordinal))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                    }
+                }
+
                 if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
-                    var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                     if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
                     {
                         QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
                     }
+                }
 
-                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
-                }
-                else
-                {
-                    // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
-                }
+                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
 
                 // Now allow the resource to updated per the normal behavior
                 return await next();
