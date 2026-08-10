@@ -276,22 +276,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task ProcessWithContinuationTokensAsync(string searchParameterHash)
         {
             var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
-            var maxResourceCount = _definition.ResourceCount.Count;
-            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}, MaxCount={MaxCount}", batchSize, maxResourceCount);
+            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", batchSize);
 
             using var store = _fhirDataStoreFactory();
-            var totalResourceCount = 0L;
             var continuationToken = _definition.ResourceCount.ContinuationToken;
 
             while (!_cancellationToken.IsCancellationRequested)
             {
-                var remaining = maxResourceCount - totalResourceCount;
-                if (remaining <= 0)
-                {
-                    break;
-                }
-
-                var query = new SearchResultReindex((int)Math.Min(batchSize, remaining)) { ContinuationToken = continuationToken };
+                var query = new SearchResultReindex(batchSize) { ContinuationToken = continuationToken };
                 var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
 
                 var resources = result.Results?.Select(_ => _.Resource).ToList();
@@ -299,7 +291,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     await ComputeAndWrite(resources, searchParameterHash, store.Value, _cancellationToken);
 
-                    totalResourceCount += resources.Count;
                     _result.SucceededResourceCount += resources.Count;
                     _jobInfo.Data = _result.SucceededResourceCount;
 
@@ -312,11 +303,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 continuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken));
-            }
-
-            if (totalResourceCount > _definition.ResourceCount.Count)
-            {
-                _logger.LogJobWarning(_jobInfo, "Cosmos reindex: number of resources processed is higher than the original limit. Total count: {TotalCount}. Original limit: {OriginalLimit}", totalResourceCount, _definition.ResourceCount.Count);
             }
         }
 

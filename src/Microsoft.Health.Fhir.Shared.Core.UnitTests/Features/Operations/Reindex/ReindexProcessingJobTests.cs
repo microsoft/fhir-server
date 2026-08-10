@@ -572,7 +572,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ExecuteAsync_WithCosmosContinuationToken_ProcessesWriteBatchesUntilResourceCountReached()
+        public async Task ExecuteAsync_WithCosmosContinuationToken_ProcessesAllWriteBatches()
         {
             var expectedResourceType = "Patient";
             var job = new ReindexProcessingJobDefinition()
@@ -630,7 +630,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                             null,
                             new List<Tuple<string, string>>()),
                         3 => new SearchResult(
-                            new List<SearchResultEntry> { CreateSearchResultEntry("5", expectedResourceType) },
+                            new List<SearchResultEntry> { CreateSearchResultEntry("5", expectedResourceType), CreateSearchResultEntry("6", expectedResourceType) },
                             null,
                             null,
                             new List<Tuple<string, string>>()),
@@ -641,8 +641,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
-            Assert.Equal(5, jobResult.SucceededResourceCount);
-            Assert.Equal(new[] { 2, 2, 1 }, requestedCounts);
+            Assert.Equal(6, jobResult.SucceededResourceCount);
+            Assert.Equal(new[] { 2, 2, 2 }, requestedCounts);
 
             var expectedContinuationTokens = new[]
             {
@@ -654,11 +654,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             await _fhirDataStore.Received(3).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                 Arg.Any<CancellationToken>());
-            await _fhirDataStore.Received(2).BulkUpdateSearchParameterIndicesAsync(
+            await _fhirDataStore.Received(3).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 2),
-                Arg.Any<CancellationToken>());
-            await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
-                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1),
                 Arg.Any<CancellationToken>());
         }
 
