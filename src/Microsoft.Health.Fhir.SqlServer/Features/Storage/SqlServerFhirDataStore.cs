@@ -941,6 +941,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
+            if (resources.Count == 0)
+            {
+                return;
+            }
+
             int? failedResourceCount;
             try
             {

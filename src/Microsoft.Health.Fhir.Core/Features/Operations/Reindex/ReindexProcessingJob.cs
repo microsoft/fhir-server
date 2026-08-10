@@ -246,26 +246,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         }
 
         /// <summary>
-        /// Processes resources using surrogate ID ranges for SQL Server.
+        /// Processes resources using surrogate ID subRanges for SQL Server.
         /// </summary>
         private async Task ProcessWithSurrogateIdRangeAsync()
         {
             var startId = _definition.ResourceCount.StartResourceSurrogateId;
             var endId = _definition.ResourceCount.EndResourceSurrogateId;
-            _logger.LogJobInformation(_jobInfo, "SQL reindex range start. Start={StartId}, End={EndId}, Size={BatchSize}", startId, endId, _definition.MaximumNumberOfResourcesPerQuery);
+            var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
+            _logger.LogJobInformation(_jobInfo, $"SQL reindex: Range start. Start={startId}, End={endId}, BatchSize={batchSize}");
 
-            var result = await _timeoutRetries.ExecuteAsync(async () =>
+            var subRanges = await _timeoutRetries.ExecuteAsync(async () =>
             {
+                var numberOfSubRanges = (int)Math.Ceiling((double)_definition.MaximumNumberOfResourcesPerQuery / batchSize);
                 using var searchService = _searchServiceFactory();
-                return await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, startId, endId, null, null, _cancellationToken);
+                return await searchService.Value.GetSurrogateIdRanges(_definition.ResourceType, startId, endId, batchSize, numberOfSubRanges, true, _cancellationToken, true);
             });
-            var resourceCount = result.Results?.Count() ?? 0;
+            _logger.LogJobInformation(_jobInfo, $"SQL reindex: numberOfSubRanges={subRanges.Count}");
 
-            await ProcessSearchResultsAsync(result, null, (int)_definition.MaximumNumberOfResourcesPerWrite, _cancellationToken);
+            using var store = _fhirDataStoreFactory();
+            foreach (var range in subRanges)
+            {
+                if (_cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            _result.SucceededResourceCount += resourceCount;
-            _jobInfo.Data = _result.SucceededResourceCount;
-            _logger.LogJobInformation(_jobInfo, "SQL reindex range complete. Start={StartId}, End={EndId}, Size={BatchSize}, Processed={TotalProcessed}", startId, endId, resourceCount, _result.SucceededResourceCount);
+                var result = await _timeoutRetries.ExecuteAsync(async () =>
+                {
+                    using var searchService = _searchServiceFactory();
+                    return await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, range.StartId, range.EndId, null, null, _cancellationToken);
+                });
+
+                var resources = result.Results?.Select(_ => _.Resource).ToList();
+                await ComputeAndWrite(resources, null, store.Value, _cancellationToken);
+                _result.SucceededResourceCount += resources.Count;
+                _jobInfo.Data = _result.SucceededResourceCount;
+
+                _logger.LogJobInformation(_jobInfo, $"SQL reindex: Subrange complete. Start={range.StartId}, End={range.EndId}, Processed={resources.Count}, TotalProcessed={_result.SucceededResourceCount}");
+            }
         }
 
         /// <summary>
@@ -306,30 +324,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        /// <summary>
-        /// For each result in a batch of resources this will extract new search params
-        /// Then compare those to the old values to determine if an update is needed
-        /// Needed updates will be committed in a batch
-        /// </summary>
-        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParameterHash, int batchSize, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(results, nameof(results));
-
-            var batches = results.Results.Select(_ => _.Resource).Chunk(batchSize).ToList();
-            using var store = _fhirDataStoreFactory();
-
-            foreach (var resources in batches)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await ComputeAndWrite(resources, searchParameterHash, store.Value, cancellationToken);
-            }
-        }
-
-        private async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, string searchParameterHash, IFhirDataStore store, CancellationToken cancellationToken)
+        internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, string searchParameterHash, IFhirDataStore store, CancellationToken cancellationToken)
         {
             foreach (var resource in resources)
             {

@@ -56,6 +56,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      _searchParameterOperations,
                      NullLogger<ReindexProcessingJob>.Instance);
 
+            // Default range discovery mock for SQL path - can be overridden per test
+            _searchService.GetSurrogateIdRanges(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(callInfo => Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(new List<(long StartId, long EndId, int Count)>
+                {
+                    (callInfo.ArgAt<long>(1), callInfo.ArgAt<long>(2), 1),
+                }));
+
             // Default mock for SearchBySurrogateIdRange (SQL path) - can be overridden per test
             _searchService.SearchBySurrogateIdRange(
                 Arg.Any<string>(),
@@ -215,10 +230,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ProcessSearchResultsAsync_WithValidResults_UpdatesAllResources()
+        public async Task ComputeAndWrite_WithValidResults_UpdatesAllResources()
         {
             var resourceType = "Patient";
-            var batchSize = 2;
             var resources = new List<ResourceWrapper>()
             {
                 new ResourceWrapper(
@@ -245,21 +259,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     null),
             };
 
-            var searchResults = new List<SearchResultEntry>()
-            {
-                new SearchResultEntry(resources[0]),
-                new SearchResultEntry(resources[1]),
-            };
-
-            var searchResult = new SearchResult(
-                searchResults,
-                null,
-                null,
-                new List<Tuple<string, string>>());
-
             var job = _reindexProcessingJobTaskFactory();
 
-            await job.ProcessSearchResultsAsync(searchResult, "patientHash", batchSize, _cancellationToken);
+            await job.ComputeAndWrite(resources, "patientHash", _fhirDataStore, _cancellationToken);
 
             // Verify that bulk update was called with the correct batch
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
@@ -268,51 +270,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task ProcessSearchResultsAsync_WithMultipleBatches_ProcessesInBatches()
+        public async Task ComputeAndWrite_WithMissingHashMap_UsesEmptyString()
         {
             var resourceType = "Patient";
-            var batchSize = 2;
-
-            // Create 5 resources to test batching
-            var resources = new List<ResourceWrapper>();
-            for (int i = 1; i <= 5; i++)
-            {
-                resources.Add(new ResourceWrapper(
-                    i.ToString(),
-                    "1",
-                    resourceType,
-                    new RawResource($"data{i}", FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    DateTimeOffset.MinValue,
-                    false,
-                    null,
-                    null,
-                    null));
-            }
-
-            var searchResults = resources.Select(r => new SearchResultEntry(r)).ToList();
-
-            var searchResult = new SearchResult(
-                searchResults,
-                null,
-                null,
-                new List<Tuple<string, string>>());
-
-            var job = _reindexProcessingJobTaskFactory();
-
-            await job.ProcessSearchResultsAsync(searchResult, "patientHash", batchSize, _cancellationToken);
-
-            // Should be called 3 times: batch 1 (2 resources), batch 2 (2 resources), batch 3 (1 resource)
-            await _fhirDataStore.Received(3).BulkUpdateSearchParameterIndicesAsync(
-                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task ProcessSearchResultsAsync_WithMissingHashMap_UsesEmptyString()
-        {
-            var resourceType = "Patient";
-            var batchSize = 10;
 
             var resources = new List<ResourceWrapper>()
             {
@@ -329,69 +289,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     null),
             };
 
-            var searchResults = new List<SearchResultEntry>()
-            {
-                new SearchResultEntry(resources[0]),
-            };
-
-            var searchResult = new SearchResult(
-                searchResults,
-                null,
-                null,
-                new List<Tuple<string, string>>());
-
             var job = _reindexProcessingJobTaskFactory();
 
-            await job.ProcessSearchResultsAsync(searchResult, string.Empty, batchSize, _cancellationToken);
+            await job.ComputeAndWrite(resources, string.Empty, _fhirDataStore, _cancellationToken);
 
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r =>
                     r.First().SearchParameterHash == string.Empty),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task ProcessSearchResultsAsync_WithCancellationToken_StopsProcessing()
-        {
-            var resourceType = "Patient";
-            var batchSize = 10;
-
-            var resources = new List<ResourceWrapper>()
-            {
-                new ResourceWrapper(
-                    "1",
-                    "1",
-                    resourceType,
-                    new RawResource("data1", FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    DateTimeOffset.MinValue,
-                    false,
-                    null,
-                    null,
-                    null),
-            };
-
-            var searchResults = new List<SearchResultEntry>()
-            {
-                new SearchResultEntry(resources[0]),
-            };
-
-            var searchResult = new SearchResult(
-                searchResults,
-                null,
-                null,
-                new List<Tuple<string, string>>());
-
-            var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Cancel();
-
-            var job = _reindexProcessingJobTaskFactory();
-
-            await job.ProcessSearchResultsAsync(searchResult, "patientHash", batchSize, cancellationTokenSource.Token);
-
-            // Should not call bulk update when cancelled
-            await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(
-                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                 Arg.Any<CancellationToken>());
         }
 
