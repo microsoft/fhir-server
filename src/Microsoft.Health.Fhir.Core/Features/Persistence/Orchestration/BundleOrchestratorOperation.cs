@@ -149,11 +149,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 throw;
             }
 
+            // Add the HTTP Verb to the list of known HTTP Verbs in the operation.
+            // If the same HTTP Verb is already present, it will not be added again, as the value is a byte and the key is unique.
+            _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
+
             identifier = resource.GetIdentifier();
             if (_resources.TryAdd(identifier, resource))
             {
-                _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
-
                 // Await for the merge async task to complete merging all resources.
                 MergeOutcome mergeOutcome = await _mergeAsyncTask;
 

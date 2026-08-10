@@ -122,6 +122,10 @@ steps:
 
         if (-not [string]::IsNullOrEmpty($acrLoginServer) -and $acrLoginServer -ne "null") {
             Write-Host "ACA convert-data registry server: $acrLoginServer"
+            Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$acrLoginServer"
+        }
+        else {
+            Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]"
         }
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"

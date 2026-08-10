@@ -73,6 +73,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Checks that the processing job lists both resource types
             var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
             Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
+
+            // Confirms the default last updated search parameter was added
+            Assert.Single(actualDefinition.SearchParameters);
+            Assert.Equal("_lastUpdated", actualDefinition.SearchParameters.First().Item1);
+            Assert.StartsWith("lt", actualDefinition.SearchParameters.First().Item2);
         }
 
         [Fact]

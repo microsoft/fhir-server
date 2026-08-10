@@ -62,6 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public ResourceElement Metadata { get; set; }
 
+        /// <summary>
+        /// Gets the token endpoint used when tests acquire client-credential tokens directly.
+        /// </summary>
+        internal Uri ClientCredentialTokenUri => GetClientCredentialTokenEndpoint();
+
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);

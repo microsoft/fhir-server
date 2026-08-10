@@ -56,6 +56,7 @@ steps:
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)

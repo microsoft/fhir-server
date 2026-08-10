@@ -14,6 +14,7 @@ using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -24,14 +25,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
 
-        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
+        public GetExportRequestHandler(
+            IFhirOperationDataStore fhirOperationDataStore,
+            IAuthorizationService<DataActions> authorizationService,
+            IExportSmartScopeAuthorizer exportSmartScopeAuthorizer)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
         }
 
         public async Task<GetExportResponse> HandleAsync(GetExportRequest request, CancellationToken cancellationToken)
@@ -41,6 +48,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
 
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
+
+            // The authorizer applies SMART scope checks when applicable; otherwise this is a no-op.
+            try
+            {
+                _exportSmartScopeAuthorizer.AuthorizeJobAccess(outcome.JobRecord);
+            }
+            catch (UnauthorizedFhirActionException)
+            {
+                // Do not reveal whether the job exists to a caller lacking SMART access.
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+            }
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

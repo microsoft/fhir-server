@@ -160,5 +160,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
         /// </summary>
         public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the $member-match operation is rejected for SMART
+        /// requests whenever fine-grained access control applies to the request. When true (the default),
+        /// requests with an active SMART scope context are forbidden from calling $member-match, after
+        /// the usual RBAC read authorization check. When false, the pre-existing behavior is restored and
+        /// $member-match is allowed for SMART requests, matching non-SMART behavior.
+        /// </summary>
+        public bool EnableSmartMemberMatchRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.
+        /// </summary>
+        public bool EnableSmartExportScopeAuthorization { get; set; } = true;
     }
 }

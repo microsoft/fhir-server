@@ -163,8 +163,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
-        [MemberData(nameof(GetMixedTestScopes))]
-        public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        [MemberData(nameof(GetMixedSmartScopeVersions))]
+        public async Task GivenMixedSmartScopeVersions_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
             HttpContext httpContext = new DefaultHttpContext();
 
@@ -196,6 +196,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 await Assert.ThrowsAsync<BadHttpRequestException>(() =>
                     _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetMixedSmartScopeContexts))]
+        public async Task GivenMixedSmartScopeContexts_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+
+                Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
+                Assert.Equal(Api.Resources.MixedSMARTScopeContextsAreNotAllowed, exception.Message);
             }
         }
 
@@ -357,6 +397,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
         [Theory]
         [InlineData("patient/Observaton.rs")] // typo'd resource type
+        [InlineData("patient/observation.rs")] // resource type casing must match the FHIR specification
         [InlineData("patient/Foobar.read")] // non-existent resource type
         [InlineData("user/NotAResource.cruds")] // non-existent resource type
         public async Task GivenSmartScopeWithUnknownResourceType_WhenInvoked_ThenBadRequestIsThrown(string scopes)
@@ -468,6 +509,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Fact]
+        public async Task GivenOnlySystemScopes_WhenFhirUserNotProvided_ThenScopeRestrictionsAreApplied()
+        {
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+                var fhirRequestContext = new DefaultFhirRequestContext();
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                HttpContext httpContext = new DefaultHttpContext();
+                var scopesClaim = new Claim(singleClaim, "system/Patient.read");
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                Assert.Equal(
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "system"),
+                    Assert.Single(fhirRequestContext.AccessControlContext.AllowedResourceActions));
+            }
+        }
+
+        [Fact]
         public async Task GivenAllDataActionExceptSmart_WhenScopesProvided_ThenScopeRestrictionsNotApplied()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -489,7 +565,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -525,7 +601,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -563,7 +639,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim, extensionFhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -592,11 +668,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient.Patient.read",
+                "user.Patient.read",
                 "user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
                     new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Delete | DataActions.Update, "user"),
                 },
             };
@@ -634,10 +710,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient.Patient.read user.Observation.write",
+                "user.Patient.read user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
                     new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
                 },
             };
@@ -687,12 +763,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.* fhirUser",
+                "patient/Patient.read launch/patient patient/Observation.read offline_access openid patient/Encounter.* fhirUser",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
-                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -709,11 +785,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "user/*.rs", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById | DataActions.Search | DataActions.Export, "user") } };
             yield return new object[]
             {
-                "patient/Patient.rs user/Observation.cud",
+                "patient/Patient.rs patient/Observation.cud",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -733,11 +809,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Patient.write", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient") } };
             yield return new object[]
             {
-                "patient/Patient.c user/Observation.cu",
+                "patient/Patient.c patient/Observation.cu",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Create, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "user"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "patient"),
                 },
             };
 
@@ -877,14 +953,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-            // Mixed: some scopes with %2f, some with regular / separator
+            // Some scopes with %2f, some with regular / separator
             yield return new object[]
             {
-                "patient%2fPatient.read user/Observation.write",
+                "patient%2fPatient.read patient/Observation.write",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -902,11 +978,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // V2 granular with %2f
             yield return new object[]
             {
-                "user%2fPatient.cud patient%2fObservation.rs",
+                "user%2fPatient.cud user%2fObservation.rs",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient"),
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user"),
                 },
             };
 
@@ -922,24 +998,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
         }
 
-        public static IEnumerable<object[]> GetMixedTestScopes()
+        public static IEnumerable<object[]> GetMixedSmartScopeVersions()
         {
             yield return new object[] { "patient/Patient.read patient/Observation.r" };
-            yield return new object[] { "patient.Patient.read user.Observation.cr" };
+            yield return new object[] { "patient.Patient.read patient.Observation.cr" };
             yield return new object[] { "patient$Patient.rd patient/Observation.write" };
             yield return new object[] { "patient$Patient.read patient/Observation.cr" };
-            yield return new object[] { "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.r fhirUser" };
-            yield return new object[] { "patient/Patient.rs user/Observation.cud user/Encounter.write" };
-            yield return new object[] { "patient/Patient.read user/Observation.c" };
-            yield return new object[] { "patient/Patient.all user/Observation.r" };
-            yield return new object[] { "patient/Patient.write user/Observation.u" };
-            yield return new object[] { "patient/Patient.read user/Observation.d" };
+            yield return new object[] { "patient/Patient.read launch/patient patient/Observation.read offline_access openid patient/Encounter.r fhirUser" };
+            yield return new object[] { "patient/Patient.rs patient/Observation.cud patient/Encounter.write" };
+            yield return new object[] { "patient/Patient.read patient/Observation.c" };
+            yield return new object[] { "patient/Patient.all patient/Observation.r" };
+            yield return new object[] { "patient/Patient.write patient/Observation.u" };
+            yield return new object[] { "patient/Patient.read patient/Observation.d" };
             yield return new object[] { "patient/Patient.read patient/Patient.cruds" };
-            yield return new object[] { "system/Patient.write user/Patient.r" };
-            yield return new object[] { "patient/Patient.* user/Observation.d" };
+            yield return new object[] { "system/Patient.write system/Patient.r" };
+            yield return new object[] { "patient/Patient.* patient/Observation.d" };
             yield return new object[] { "patient/Patient.all patient/Patient.cruds" };
-            yield return new object[] { "system/Patient.all user/Patient.r" };
-            yield return new object[] { "system/Patient.* user/Patient.r" };
+            yield return new object[] { "system/Patient.all system/Patient.r" };
+            yield return new object[] { "system/Patient.* system/Patient.r" };
+        }
+
+        public static IEnumerable<object[]> GetMixedSmartScopeContexts()
+        {
+            yield return new object[] { "patient/Patient.read user/Observation.read" };
+            yield return new object[] { "user/Patient.read patient/Observation.read" };
+            yield return new object[] { "patient/Patient.read system/Observation.read" };
+            yield return new object[] { "system/Patient.read patient/Observation.read" };
+            yield return new object[] { "user/Patient.read system/Observation.read" };
+            yield return new object[] { "system/Patient.read user/Observation.read" };
+            yield return new object[] { "patient/Patient.read user/Observation.read system/Encounter.read" };
+            yield return new object[] { "patient%2fPatient.read system/Observation.read" };
         }
 
         public static IEnumerable<object[]> GetScopesWithModifiers()
