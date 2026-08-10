@@ -406,39 +406,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public async Task SearchForReindex_WithCountOnly_ReturnsNotSupported()
-        {
-            var queryParameters = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, "0"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, "1"),
-            };
-
-            await Assert.ThrowsAsync<NotSupportedException>(async () =>
-                await _searchService.SearchForReindexAsync(queryParameters, searchParameterHash: string.Empty, countOnly: true, CancellationToken.None));
-        }
-
-        [Fact]
-        public async Task SearchForReindex_WithSurrogateIdRange_ReturnsResourcesInRange()
+        public async Task SearchBySurrogateIdRange_WithValidRange_ReturnsResourcesInRange()
         {
             // Arrange - Create test patients
             var patients = await CreateTestPatients(5);
             var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
 
-            // Act - Search for reindex with surrogate ID range
-            var queryParameters = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
-            };
-
-            var result = await _searchService.SearchForReindexAsync(
-                queryParameters,
-                searchParameterHash: string.Empty,
-                countOnly: false,
+            // Act - Search by surrogate ID range directly (this is the path SQL reindex uses)
+            var result = await _searchService.SearchBySurrogateIdRange(
+                "Patient",
+                surrogateIds.First(),
+                surrogateIds.Last(),
                 CancellationToken.None);
 
             // Assert
