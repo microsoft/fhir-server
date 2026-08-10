@@ -6,10 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -567,6 +569,97 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
             Assert.Equal(5, jobResult.SucceededResourceCount);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithCosmosContinuationToken_ProcessesWriteBatchesUntilResourceCountReached()
+        {
+            var expectedResourceType = "Patient";
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 5,
+                MaximumNumberOfResourcesPerWrite = 2,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 5,
+                    StartResourceSurrogateId = 0,
+                    EndResourceSurrogateId = 0,
+                },
+                SearchParameterHash = "patientHash",
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var requestedCounts = new List<int>();
+            var requestedContinuationTokens = new List<string>();
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(callInfo =>
+                {
+                    var parameters = callInfo.ArgAt<IReadOnlyList<Tuple<string, string>>>(0);
+                    requestedCounts.Add(int.Parse(parameters.Single(parameter => parameter.Item1 == KnownQueryParameterNames.Count).Item2));
+                    requestedContinuationTokens.Add(parameters.SingleOrDefault(parameter => parameter.Item1 == KnownQueryParameterNames.ContinuationToken)?.Item2);
+
+                    return requestedCounts.Count switch
+                    {
+                        1 => new SearchResult(
+                            Enumerable.Range(1, 2).Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType)).ToList(),
+                            "continuation-1",
+                            null,
+                            new List<Tuple<string, string>>()),
+                        2 => new SearchResult(
+                            Enumerable.Range(3, 2).Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType)).ToList(),
+                            "continuation-2",
+                            null,
+                            new List<Tuple<string, string>>()),
+                        3 => new SearchResult(
+                            new List<SearchResultEntry> { CreateSearchResultEntry("5", expectedResourceType) },
+                            null,
+                            null,
+                            new List<Tuple<string, string>>()),
+                        _ => throw new InvalidOperationException("Unexpected query count."),
+                    };
+                });
+
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            Assert.Equal(5, jobResult.SucceededResourceCount);
+            Assert.Equal(new[] { 2, 2, 1 }, requestedCounts);
+
+            var expectedContinuationTokens = new[]
+            {
+                null,
+                Convert.ToBase64String(Encoding.UTF8.GetBytes("continuation-1")),
+                Convert.ToBase64String(Encoding.UTF8.GetBytes("continuation-2")),
+            };
+            Assert.Equal(expectedContinuationTokens, requestedContinuationTokens);
+            await _fhirDataStore.Received(3).BulkUpdateSearchParameterIndicesAsync(
+                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(2).BulkUpdateSearchParameterIndicesAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 2),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]

@@ -99,9 +99,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob()
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob(bool isSql = true)
         {
-            var runtimeConfig = new AzureHealthDataServicesRuntimeConfiguration();
+            IFhirRuntimeConfiguration runtimeConfig = isSql
+                ? new AzureHealthDataServicesRuntimeConfiguration()
+                : new AzureApiForFhirRuntimeConfiguration();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
@@ -672,6 +674,66 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Assert - Verify search parameter URLs are included
             Assert.NotNull(jobDef.SearchParameterUrlStatuses);
             Assert.Contains(searchParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
+        }
+
+        [Fact]
+        public async Task EnqueueQueryProcessingJobsAsync_WithCosmos_CreatesOneProcessingJobPerResourceType()
+        {
+            var searchParam = CreateSearchParameterInfo();
+            var searchParamStatus = new ResourceSearchParameterStatus
+            {
+                LastUpdated = DateTime.UtcNow,
+                Uri = new Uri(searchParam.Url.OriginalString),
+                Status = SearchParameterStatus.Supported,
+            };
+
+            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+                .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
+            _searchDefinitionManager.GetSearchParameters("Patient").Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString).Returns(searchParam);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string> { "Patient" });
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns("hash");
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(CreateSearchResult(resourceCount: 250));
+
+            var jobInfo = await CreateReindexJobRecord(maxResourcePerQuery: 100);
+            var orchestrator = CreateReindexOrchestratorJob(isSql: false);
+            var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(5), expectedMinimumJobs: 1);
+            Assert.Single(processingJobs);
+
+            var processingDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(processingJobs[0].Definition);
+            Assert.NotNull(processingDefinition);
+            Assert.Equal("Patient", processingDefinition.ResourceType);
+            Assert.Equal(250, processingDefinition.ResourceCount.Count);
+            Assert.Equal(0, processingDefinition.ResourceCount.StartResourceSurrogateId);
+            Assert.Equal(0, processingDefinition.ResourceCount.EndResourceSurrogateId);
+
+            processingJobs[0].Status = JobStatus.Completed;
+            processingJobs[0].Result = JsonConvert.SerializeObject(new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = processingDefinition.ResourceCount.Count,
+                FailedResourceCount = 0,
+            });
+            await _queueClient.CompleteJobAsync(processingJobs[0], false, _cancellationToken);
+
+            var result = await executeTask;
+            var orchestratorResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+            Assert.NotNull(orchestratorResult);
+            Assert.Equal(250, orchestratorResult.SucceededResources);
+            Assert.Equal(0, orchestratorResult.FailedResources);
         }
 
         [Fact]
