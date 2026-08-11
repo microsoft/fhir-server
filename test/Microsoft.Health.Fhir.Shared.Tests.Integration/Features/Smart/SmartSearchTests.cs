@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 "This test is only valid for R4 and R4B");
             SkipIfIncludeCompartmentEnforcementNotSupported();
 
-            // MSRC _include compartment leak reproduction.
+            // Compartment leak reproduction: _include must not cross the compartment boundary.
             // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
             // Coverage/smart-leak-coverage is inside the child's compartment (beneficiary = smart-leak-child),
             // but its subscriber references Patient/smart-leak-parent, a DIFFERENT patient that is outside the
@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 "This test is only valid for R4 and R4B");
             SkipIfIncludeCompartmentEnforcementNotSupported();
 
-            // MSRC _revinclude compartment leak reproduction.
+            // Compartment leak reproduction: _revinclude must not cross the compartment boundary.
             // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
             // Observation/smart-leak-child-obs is inside the child's compartment (subject = smart-leak-child).
             // DiagnosticReport/smart-leak-parent-report belongs to Patient/smart-leak-parent (subject = parent),
@@ -1068,7 +1068,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // Guard for the materialized-equivalence map in SqlCompartmentSearchRewriter: every Patient
+            // Guard for compartment membership resolution in SqlCompartmentSearchRewriter: every Patient
             // compartment resource type whose definition resolves to at least one supported reference search
             // parameter must yield a membership rule. A compartment definition or search parameter change that
             // silently drops a resource type from SMART compartment membership fails here instead of shipping.
@@ -1077,21 +1077,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             AssertMaterializedMembershipCoversResolvableTypes(compartmentDefinitionManager, membership, Microsoft.Health.Fhir.ValueSets.CompartmentType.Patient);
 
-            // Types mapped through the unmaterialized clinical-patient parameter must resolve to their
-            // materialized type-specific equivalents.
+            // Types mapped through the combined clinical-patient parameter resolve to that parameter, which the
+            // indexer materializes like any other reference parameter.
             foreach (string subjectMappedType in new[] { "Encounter", "Procedure", "ImagingStudy" })
             {
                 Assert.Contains(
                     membership[subjectMappedType],
-                    parameter => parameter.Url.AbsoluteUri.EndsWith($"/{subjectMappedType}-subject", StringComparison.Ordinal) || parameter.Code == "subject");
+                    parameter => parameter.Code == "patient");
             }
 
-            // Resource-specific resolve()-based parameters must resolve to the equivalents that index the
-            // same elements (see MaterializedEquivalentSearchParameterCodes).
-            Assert.Contains(membership["Provenance"], parameter => parameter.Code == "target");
-            Assert.Contains(membership["AuditEvent"], parameter => parameter.Code == "agent");
-            Assert.Contains(membership["AuditEvent"], parameter => parameter.Code == "entity");
-            Assert.Contains(membership["Person"], parameter => parameter.Code == "link");
+            // Resource-specific compartment parameters resolve to the formal parameter named by the
+            // CompartmentDefinition - never to sibling parameters that merely reference the compartment root.
+            Assert.Contains(membership["Provenance"], parameter => parameter.Code == "patient");
+            Assert.Contains(membership["AuditEvent"], parameter => parameter.Code == "patient");
+            Assert.Contains(membership["Person"], parameter => parameter.Code == "patient");
 
             // Membership must remain the FORMAL compartment definition: Observation is a member via
             // subject/performer only — `focus` merely references the patient and must never be membership.
@@ -1112,59 +1111,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             AssertMaterializedMembershipCoversResolvableTypes(compartmentDefinitionManager, membership, Microsoft.Health.Fhir.ValueSets.CompartmentType.Practitioner);
 
-            // Encounter-practitioner and Person-practitioner are resolve()-based (never materialized) and must
-            // resolve to the equivalents indexing the same elements. The formal parameter is retained alongside
-            // the equivalent (it matches no index rows while unmaterialized, so it cannot widen membership).
-            Assert.Contains(membership["Encounter"], parameter => parameter.Code == "participant");
+            // Practitioner compartment parameters resolve to the formal parameters named by the
+            // CompartmentDefinition. Encounter-practitioner and Person-practitioner are resolve()-based, which
+            // the indexer evaluates via LightweightReferenceToElementResolver, so they are materialized.
             Assert.Contains(membership["Encounter"], parameter => parameter.Code == "practitioner");
-            Assert.Contains(membership["Person"], parameter => parameter.Code == "link");
+            Assert.Contains(membership["Person"], parameter => parameter.Code == "practitioner");
 
-            // Known gap: EpisodeOfCare-care-manager is resolve()-based with no materialized equivalent; the
-            // formal parameter is retained so the rule exists but matches nothing until the parameter is indexable.
+            // EpisodeOfCare is a member via care-manager only.
             Assert.Contains(membership["EpisodeOfCare"], parameter => parameter.Code == "care-manager");
 
             // Observation is a member of the Practitioner compartment via `performer` only.
             Assert.Contains(membership["Observation"], parameter => parameter.Code == "performer");
             Assert.DoesNotContain(membership["Observation"], parameter => parameter.Code == "focus");
-        }
-
-        [SkippableFact]
-        public async Task GivenCompartmentDefinitions_WhenMembershipResolved_ThenUnmaterializedEnumerationGapsAreExactlyAsDocumented()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            // Guard for the known-gap list documented on MaterializedEquivalentSearchParameterCodes: a resource
-            // type whose membership rule consists ONLY of single-branch resolve()-based parameters (never
-            // materialized as ReferenceSearchParam rows) can never be enumerated as a SMART include candidate —
-            // its in-compartment resources are silently absent from _include/_revinclude results. That state is
-            // acceptable only while it is explicitly documented. If a compartment definition or search parameter
-            // change introduces a NEW such gap, this test fails so the map (or the documentation) is updated
-            // deliberately instead of shipping a silent data omission.
-            (_, IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> patientMembership) =
-                await ResolveMaterializedMembershipAsync("Patient");
-            (_, IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> practitionerMembership) =
-                await ResolveMaterializedMembershipAsync("Practitioner");
-
-            static bool IsUnmaterializedResolveParameter(SearchParameterInfo parameter) =>
-                !string.IsNullOrEmpty(parameter.Expression)
-                && !parameter.Expression.Contains('|', StringComparison.Ordinal)
-                && parameter.Expression.Contains("resolve(", StringComparison.Ordinal);
-
-            static List<string> GetGapTypes(IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> membership) =>
-                membership
-                    .Where(pair => pair.Value.All(IsUnmaterializedResolveParameter))
-                    .Select(pair => pair.Key)
-                    .OrderBy(resourceType => resourceType, StringComparer.Ordinal)
-                    .ToList();
-
-            // The Patient compartment has no enumeration gaps.
-            Assert.Empty(GetGapTypes(patientMembership));
-
-            // The Practitioner compartment has exactly one documented gap: EpisodeOfCare-care-manager.
-            Assert.Equal(new[] { "EpisodeOfCare" }, GetGapTypes(practitionerMembership));
         }
 
         [SkippableFact]
@@ -1277,7 +1235,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 new Lazy<ISearchParameterDefinitionManager>(() => _fixture.SearchParameterDefinitionManager));
 
             IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> membership =
-                rewriter.GetMaterializedCompartmentSearchParameters(compartmentType, filteredResourceTypes: null, includeMaterializedEquivalents: true);
+                rewriter.GetMaterializedCompartmentSearchParameters(compartmentType, filteredResourceTypes: null);
 
             return (compartmentDefinitionManager, membership);
         }
@@ -1667,16 +1625,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
 
-            // This test is SqlServer-only (see the DataStore.SqlServer fixture attribute above). Two independent
-            // changes shape the expected count:
-            //  - Device restriction (default on) yields the SMART "all resources" baseline of 40 on SQL.
-            //  - The SMART compartment fix additionally includes the patient's own Encounter, ImagingStudy and
-            //    Procedure. Those reference smart-patient-A via their `subject` element; the Patient compartment
-            //    definition maps them to the common `patient` search parameter (clinical-patient), whose FHIRPath
-            //    uses resolve() and is therefore not materialized as an index row, so before the fix these
-            //    in-compartment resources were silently dropped. SQL now also matches on the materialized
-            //    type-specific reference parameters, adding those three resources (40 -> 43).
-            Assert.Equal(43, results.Results.Count());
+            // This test is SqlServer-only (see the DataStore.SqlServer fixture attribute above). The expected
+            // count is the full set of resources a patient-scoped caller may see for smart-patient-A:
+            //  - 20 Patient compartment members, every one of which references Patient/smart-patient-A.
+            //  - 24 shared/conditional resources: 1 Location, 1 Medication, 7 Organization, 3 Practitioner and
+            //    12 Device. The Device restriction (default on) admits only the 9 unassigned devices, the two
+            //    other unassigned devices (smart-device-B1, smart-device-C1) and smart-patient-A's own
+            //    smart-device-A1 - smart-device-B2 and smart-leak-parent-device stay out of the compartment.
+            // Immunization is part of the 20: its Patient compartment parameter is the combined
+            // clinical-patient parameter, whose FHIRPath contains resolve()-filtered branches. The fixture
+            // indexes with the same resolve() support as the production server (see SmartSearchSharedFixture),
+            // so clinical-patient is materialized and the Immunization is correctly in compartment.
+            Assert.Equal(44, results.Results.Count());
         }
 
         [SkippableFact]

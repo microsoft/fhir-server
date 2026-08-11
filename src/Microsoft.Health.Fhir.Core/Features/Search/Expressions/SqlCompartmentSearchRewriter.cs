@@ -4,14 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -25,49 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SqlCompartmentSearchRewriter : CompartmentSearchRewriter
     {
-        private const string ClinicalPatientSearchParameterUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
-
-        // Compartment-definition search parameters whose FHIRPath expression filters a polymorphic reference with
-        // resolve() (e.g. "Encounter.participant.individual.where(resolve() is Practitioner)"). resolve() cannot be
-        // evaluated during indexing, so these parameters are never materialized as ReferenceSearchParam rows and a
-        // membership predicate keyed on them matches nothing. Each entry maps the unmaterialized parameter URL to
-        // the codes of materialized parameters that index the SAME elements; the equivalent is validated at
-        // resolution time (reference type, supported, targets the compartment type) and the membership predicate
-        // additionally constrains the reference to the compartment root's type and id, so an equivalent that
-        // indexes a broader element set cannot widen membership beyond the formal definition.
-        // Known gap: EpisodeOfCare-care-manager (Practitioner compartment) is resolve()-based and has NO
-        // materialized equivalent, so EpisodeOfCare membership in the Practitioner compartment cannot be
-        // enumerated until the parameter is indexable; the formal parameter is retained (matches nothing).
-        private static readonly Dictionary<string, IReadOnlyCollection<string>> MaterializedEquivalentSearchParameterCodes =
-            new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
-            {
-                // Patient compartment.
-                [ClinicalPatientSearchParameterUrl] = new[] { "patient", "subject" },
-                ["http://hl7.org/fhir/SearchParameter/AuditEvent-patient"] = new[] { "agent", "entity" },
-                ["http://hl7.org/fhir/SearchParameter/Basic-patient"] = new[] { "subject" },
-                ["http://hl7.org/fhir/SearchParameter/Invoice-patient"] = new[] { "subject" },
-                ["http://hl7.org/fhir/SearchParameter/MeasureReport-patient"] = new[] { "subject" },
-                ["http://hl7.org/fhir/SearchParameter/Person-patient"] = new[] { "link" },
-                ["http://hl7.org/fhir/SearchParameter/Provenance-patient"] = new[] { "target" },
-
-                // Practitioner compartment.
-                ["http://hl7.org/fhir/SearchParameter/Encounter-practitioner"] = new[] { "participant" },
-                ["http://hl7.org/fhir/SearchParameter/Person-practitioner"] = new[] { "link" },
-            };
-
-        // Log-once tracking for unmaterialized membership parameters without materialized equivalents, so the
-        // warning surfaces the enumeration gap without flooding the log on every search request.
-        private static readonly ConcurrentDictionary<string, byte> LoggedUnmaterializedGapParameters = new(StringComparer.Ordinal);
-
-        private readonly ILogger<SqlCompartmentSearchRewriter> _logger;
-
         public SqlCompartmentSearchRewriter(
             Lazy<ICompartmentDefinitionManager> compartmentDefinitionManager,
-            Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager,
-            ILogger<SqlCompartmentSearchRewriter> logger = null)
+            Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
             : base(compartmentDefinitionManager, searchParameterDefinitionManager)
         {
-            _logger = logger ?? NullLogger<SqlCompartmentSearchRewriter>.Instance;
         }
 
         public override List<Expression> BuildCompartmentSearchExpressionsGroup(CompartmentSearchExpression expression)
@@ -87,10 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 var searchParameterInfoList = new Dictionary<string, (SearchParameterInfo searchParameterInfo, HashSet<string> ResourceTypes)>();
 
                 IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> materializedParameters =
-                    GetMaterializedCompartmentSearchParameters(
-                        compartmentType,
-                        expression.FilteredResourceTypes,
-                        includeMaterializedEquivalents: expression is SmartCompartmentSearchExpression);
+                    GetMaterializedCompartmentSearchParameters(compartmentType, expression.FilteredResourceTypes);
 
                 foreach ((string compartmentResourceType, IReadOnlyCollection<SearchParameterInfo> searchParameters) in materializedParameters)
                 {
@@ -151,14 +107,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the supported, materialized reference parameters that formally establish compartment membership.
         /// </summary>
+        /// <remarks>
+        /// Membership is deliberately limited to the parameters nominated by the FHIR
+        /// <c>CompartmentDefinition</c>. It is not "every reference parameter that can target the compartment
+        /// type" — for example <c>Observation.focus</c> may point at a Patient but is not a Patient compartment
+        /// membership parameter, and treating it as one would widen the compartment beyond the specification.
+        /// Every parameter returned here must be materialized as <c>ReferenceSearchParam</c> rows by the search
+        /// indexer, otherwise the membership seek matches nothing and in-compartment resources are silently
+        /// dropped. <c>SmartCompartmentMembershipMaterializationTests</c> guards that invariant.
+        /// </remarks>
         /// <param name="compartmentType">The compartment resource type.</param>
         /// <param name="filteredResourceTypes">Optional resource types to include.</param>
-        /// <param name="includeMaterializedEquivalents">Whether unmaterialized combined parameters should resolve to validated materialized equivalents.</param>
         /// <returns>Materialized membership parameters grouped by resource type.</returns>
         public IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> GetMaterializedCompartmentSearchParameters(
             string compartmentType,
-            IEnumerable<string> filteredResourceTypes,
-            bool includeMaterializedEquivalents)
+            IEnumerable<string> filteredResourceTypes)
         {
             if (!Enum.TryParse(compartmentType, out ValueSets.CompartmentType parsedCompartmentType))
             {
@@ -189,47 +152,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         continue;
                     }
 
-                    if (includeMaterializedEquivalents
-                        && MaterializedEquivalentSearchParameterCodes.TryGetValue(parameter.Url.AbsoluteUri, out IReadOnlyCollection<string> equivalentCodes))
-                    {
-                        bool equivalentFound = false;
-                        foreach (string equivalentCode in equivalentCodes)
-                        {
-                            if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(resourceType, equivalentCode, out SearchParameterInfo equivalent)
-                                && !string.Equals(equivalent.Url.AbsoluteUri, parameter.Url.AbsoluteUri, StringComparison.Ordinal)
-                                && equivalent.Type == SearchParamType.Reference
-                                && equivalent.IsSupported
-                                && equivalent.TargetResourceTypes?.Contains(compartmentType, StringComparer.Ordinal) == true)
-                            {
-                                parameters[equivalent.Url.AbsoluteUri] = equivalent;
-                                equivalentFound = true;
-                            }
-                        }
-
-                        // Always retain the formal parameter alongside any resolved equivalents. It is harmless
-                        // when unmaterialized (it matches no ReferenceSearchParam rows) and it guarantees
-                        // membership is never narrower than the formal compartment definition when the resolved
-                        // equivalents cover only part of the formal parameter's element union (for example,
-                        // AuditEvent-patient spans agent.who and entity.what; if only the 'agent' equivalent
-                        // validated, entity-based membership would otherwise be silently lost).
-                        if (parameter.Type == SearchParamType.Reference && parameter.IsSupported)
-                        {
-                            parameters[parameter.Url.AbsoluteUri] = parameter;
-                        }
-
-                        if (!equivalentFound)
-                        {
-                            LogUnmaterializedMembershipGap(resourceType, parameter);
-                        }
-                    }
-                    else if (parameter.Type == SearchParamType.Reference && parameter.IsSupported)
+                    if (parameter.Type == SearchParamType.Reference && parameter.IsSupported)
                     {
                         parameters[parameter.Url.AbsoluteUri] = parameter;
-
-                        if (includeMaterializedEquivalents)
-                        {
-                            LogUnmaterializedMembershipGap(resourceType, parameter);
-                        }
                     }
                 }
 
@@ -240,37 +165,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Surfaces (once per resource type and parameter) the case where a compartment membership parameter is
-        /// resolve()-based — and therefore never materialized as ReferenceSearchParam rows — and no materialized
-        /// equivalent was resolved for the resource type. Membership keyed on such a parameter matches nothing,
-        /// so in-compartment resources of this type are silently absent from SMART include/revinclude results
-        /// (the documented example is EpisodeOfCare-care-manager in the Practitioner compartment).
-        /// </summary>
-        /// <param name="resourceType">The compartment member resource type.</param>
-        /// <param name="parameter">The membership search parameter that was retained without a materialized equivalent.</param>
-        private void LogUnmaterializedMembershipGap(string resourceType, SearchParameterInfo parameter)
-        {
-            // A parameter is only a true enumeration gap when its entire FHIRPath is a single resolve()-filtered
-            // branch. Multi-branch combined parameters (such as clinical-patient) contain directly indexable
-            // branches for many resource types and are not gaps.
-            string fhirPath = parameter.Expression;
-            if (string.IsNullOrEmpty(fhirPath)
-                || fhirPath.Contains('|', StringComparison.Ordinal)
-                || !fhirPath.Contains("resolve(", StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (LoggedUnmaterializedGapParameters.TryAdd(resourceType + "|" + parameter.Url.AbsoluteUri, 0))
-            {
-                _logger.LogWarning(
-                    "Compartment membership parameter {SearchParameterUrl} for resource type {ResourceType} is resolve()-based and never materialized, and no materialized equivalent is configured; SMART compartment membership for this resource type cannot match any indexed rows.",
-                    parameter.Url.AbsoluteUri,
-                    resourceType);
-            }
         }
     }
 }

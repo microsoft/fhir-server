@@ -378,9 +378,11 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
-    public void GivenUnmaterializedClinicalPatientParameter_WhenMembershipCreated_ThenSubjectEquivalentIsUsed()
+    public void GivenACompartmentParameterWithASiblingReferenceParameter_WhenMembershipCreated_ThenOnlyTheFormalParameterIsUsed()
     {
-        // Arrange
+        // Arrange - Condition-subject is a supported reference parameter targeting Patient, but the Patient
+        // CompartmentDefinition nominates only `patient` for Condition. Membership must follow the formal
+        // definition and must not absorb sibling parameters, which would widen the compartment.
         var clinicalPatient = new SearchParameterInfo(
             "patient",
             "patient",
@@ -411,17 +413,14 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             Expression.SmartCompartmentSearch("Patient", "patient-a", "Condition"),
             rewriter);
 
-        // Assert ─ the materialized subject equivalent is resolved, and the formal parameter is retained
-        // alongside it (harmless when unmaterialized; guarantees membership is never narrower than the
-        // formal compartment definition if an equivalent covers only part of the parameter's element union).
+        // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
-        Assert.Equal(2, rule.SearchParameterUrls.Length);
-        Assert.Contains(subject.Url, rule.SearchParameterUrls);
-        Assert.Contains(clinicalPatient.Url, rule.SearchParameterUrls);
+        Assert.Equal(clinicalPatient.Url, Assert.Single(rule.SearchParameterUrls));
+        Assert.DoesNotContain(subject.Url, rule.SearchParameterUrls);
     }
 
     [Fact]
-    public void GivenClinicalPatientParameterWithoutEquivalent_WhenMembershipCreated_ThenFormalParameterIsRetained()
+    public void GivenClinicalPatientParameter_WhenMembershipCreated_ThenFormalParameterIsUsed()
     {
         // Arrange
         var clinicalPatient = new SearchParameterInfo(
@@ -451,10 +450,11 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
-    public void GivenUnmaterializedEncounterPractitionerParameter_WhenPractitionerMembershipCreated_ThenParticipantEquivalentIsUsed()
+    public void GivenPractitionerCompartmentEncounter_WhenMembershipCreated_ThenOnlyTheFormalParameterIsUsed()
     {
-        // Arrange - Encounter-practitioner is resolve()-based (never materialized); Encounter-participant
-        // indexes the same element (Encounter.participant.individual) and must be used instead.
+        // Arrange - Encounter-participant is a supported reference parameter targeting Practitioner, but the
+        // Practitioner CompartmentDefinition nominates only `practitioner` for Encounter. Membership must
+        // follow the formal definition; absorbing `participant` would also admit RelatedPerson-keyed rows.
         var practitioner = new SearchParameterInfo(
             "practitioner",
             "practitioner",
@@ -486,22 +486,19 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             Expression.SmartCompartmentSearch("Practitioner", "practitioner-a", "Encounter"),
             rewriter);
 
-        // Assert ─ the materialized participant equivalent is resolved, and the formal parameter is
-        // retained alongside it (it matches no index rows while unmaterialized, so it cannot widen
-        // membership, but it keeps membership aligned with the formal compartment definition).
+        // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
         Assert.Equal("Encounter", rule.ResourceType);
-        Assert.Equal(2, rule.SearchParameterUrls.Length);
-        Assert.Contains(participant.Url, rule.SearchParameterUrls);
-        Assert.Contains(practitioner.Url, rule.SearchParameterUrls);
+        Assert.Equal(practitioner.Url, Assert.Single(rule.SearchParameterUrls));
+        Assert.DoesNotContain(participant.Url, rule.SearchParameterUrls);
     }
 
     [Fact]
-    public void GivenEpisodeOfCareCareManagerWithoutEquivalent_WhenPractitionerMembershipCreated_ThenFormalParameterIsRetained()
+    public void GivenEpisodeOfCareCareManager_WhenPractitionerMembershipCreated_ThenFormalParameterIsUsed()
     {
-        // Arrange - EpisodeOfCare-care-manager is resolve()-based and has NO materialized equivalent
-        // (a known gap; see SqlCompartmentSearchRewriter). The formal parameter must be retained so the
-        // resource type still yields a rule instead of silently disappearing from the compartment.
+        // Arrange - EpisodeOfCare-care-manager is the sole Practitioner compartment parameter for
+        // EpisodeOfCare. It is resolve()-based, which the indexer evaluates via
+        // LightweightReferenceToElementResolver, so it is materialized like any other reference parameter.
         var careManager = new SearchParameterInfo(
             "care-manager",
             "care-manager",

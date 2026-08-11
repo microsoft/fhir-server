@@ -31,8 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> parametersByResourceType =
                 compartmentSearchRewriter.GetMaterializedCompartmentSearchParameters(
                     smartCompartment.CompartmentType,
-                    filteredResourceTypes: null,
-                    includeMaterializedEquivalents: true);
+                    filteredResourceTypes: null);
 
             ImmutableArray<SmartCompartmentMembershipRule> rules = parametersByResourceType
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
