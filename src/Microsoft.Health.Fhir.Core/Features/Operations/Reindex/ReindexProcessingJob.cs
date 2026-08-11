@@ -130,33 +130,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterHash = searchParameterHash; // this is relevant for cosmos only
         }
 
-        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex query)
+        private async Task<SearchResult> GetResourcesToReindexAsync(long count, string continuationToken)
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Type, _definition.ResourceType),
+                Tuple.Create(KnownQueryParameterNames.Count, count.ToString()),
             };
 
-            // If we have SurrogateId range, it is SQL. We simply use those and ignore search parameter hash
-            if (query.StartResourceSurrogateId > 0 && query.EndResourceSurrogateId > 0)
+            if (continuationToken != null)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
-
-                queryParametersList.AddRange(
-                [
-                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, query.StartResourceSurrogateId.ToString()),
-                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, query.EndResourceSurrogateId.ToString()),
-                ]);
-            }
-            else
-            {
-                // Otherwise, it's cosmos DB and we must use it and ensure we pass the requested count so we get expected count returned.
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, query.Count.ToString()));
-            }
-
-            if (query.ContinuationToken != null)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, query.ContinuationToken));
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
             using var searchService = _searchServiceFactory();
@@ -277,12 +261,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", batchSize);
 
             using var store = _fhirDataStoreFactory();
-            var continuationToken = _definition.ResourceCount.ContinuationToken;
+            string continuationToken = null;
 
             while (!_cancellationToken.IsCancellationRequested)
             {
-                var query = new SearchResultReindex(batchSize) { ContinuationToken = continuationToken };
-                var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(query));
+                var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(batchSize, continuationToken));
 
                 var resources = result.Results?.Select(_ => _.Resource).ToList();
                 if (resources?.Count > 0)
