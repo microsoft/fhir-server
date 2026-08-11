@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
-            throw new NotImplementedException();
+            return _inner.GetDerivedResourceTypes(resourceTypes);
         }
     }
 }
