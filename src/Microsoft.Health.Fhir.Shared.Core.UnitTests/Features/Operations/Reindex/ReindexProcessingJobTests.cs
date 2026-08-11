@@ -253,41 +253,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             var job = _reindexProcessingJobTaskFactory();
 
-            await job.ComputeAndWrite(resources, "patientHash", _fhirDataStore, _cancellationToken);
+            await job.ComputeAndWrite(resources, _fhirDataStore, _cancellationToken);
 
-            // Verify that bulk update was called with the correct batch
+            _resourceWrapperFactory.Received(1).Update(resources[0]);
+            _resourceWrapperFactory.Received(1).Update(resources[1]);
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 2),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task ComputeAndWrite_WithMissingHashMap_UsesEmptyString()
-        {
-            var resourceType = "Patient";
-
-            var resources = new List<ResourceWrapper>()
-            {
-                new ResourceWrapper(
-                    "1",
-                    "1",
-                    resourceType,
-                    new RawResource("data1", FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    DateTimeOffset.MinValue,
-                    false,
-                    null,
-                    null,
-                    null),
-            };
-
-            var job = _reindexProcessingJobTaskFactory();
-
-            await job.ComputeAndWrite(resources, string.Empty, _fhirDataStore, _cancellationToken);
-
-            await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
-                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r =>
-                    r.First().SearchParameterHash == string.Empty),
                 Arg.Any<CancellationToken>());
         }
 

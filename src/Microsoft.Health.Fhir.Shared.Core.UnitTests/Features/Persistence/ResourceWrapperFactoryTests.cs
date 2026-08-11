@@ -141,5 +141,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 }
             }
         }
+
+        [Fact]
+        public void GivenCurrentSearchParameters_WhenUpdate_ThenSearchIndicesAndHashAreUpdated()
+        {
+            var initialSearchIndexEntry = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha"));
+            var updatedSearchIndexEntry = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("beta"));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { initialSearchIndexEntry });
+
+            ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { updatedSearchIndexEntry });
+            _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient").Returns("currentHash");
+
+            _resourceWrapperFactory.Update(resourceWrapper);
+
+            Assert.Same(updatedSearchIndexEntry, Assert.Single(resourceWrapper.SearchIndices));
+            Assert.Equal("currentHash", resourceWrapper.SearchParameterHash);
+        }
     }
 }

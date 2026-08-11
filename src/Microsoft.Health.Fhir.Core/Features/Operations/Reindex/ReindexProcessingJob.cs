@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 else
                 {
-                    await ProcessWithContinuationTokensAsync(_searchParameterHash);
+                    await ProcessWithContinuationTokensAsync();
                 }
 
                 if (!_cancellationToken.IsCancellationRequested)
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     return (await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, range.StartId, range.EndId, _cancellationToken)).Results.Select(_ => _.Resource).ToList();
                 });
 
-                await ComputeAndWrite(resources, null, store.Value, _cancellationToken);
+                await ComputeAndWrite(resources, store.Value, _cancellationToken);
                 _result.SucceededResourceCount += resources.Count;
                 _jobInfo.Data = _result.SucceededResourceCount;
 
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Resources are fetched one write batch at a time and written immediately,
         /// continuing until there are no more results.
         /// </summary>
-        private async Task ProcessWithContinuationTokensAsync(string searchParameterHash)
+        private async Task ProcessWithContinuationTokensAsync()
         {
             var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
             _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", batchSize);
@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var resources = result.Results?.Select(_ => _.Resource).ToList();
                 if (resources?.Count > 0)
                 {
-                    await ComputeAndWrite(resources, searchParameterHash, store.Value, _cancellationToken);
+                    await ComputeAndWrite(resources, store.Value, _cancellationToken);
 
                     _result.SucceededResourceCount += resources.Count;
                     _jobInfo.Data = _result.SucceededResourceCount;
@@ -323,11 +323,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, string searchParameterHash, IFhirDataStore store, CancellationToken cancellationToken)
+        internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, IFhirDataStore store, CancellationToken cancellationToken)
         {
             foreach (var resource in resources)
             {
-                resource.SearchParameterHash = searchParameterHash;
                 _resourceWrapperFactory.Update(resource);
             }
 
