@@ -27,6 +27,7 @@ jobs:
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
         $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
+        $appInsightsName = "AppInsights-$containerAppName"
 
         $currentImage = az containerapp show `
           --name $containerAppName `
@@ -35,10 +36,37 @@ jobs:
         Write-Host "Current image: $currentImage"
         Write-Host "New image: $newImage"
 
+        $appInsightsConnectionString = az resource show `
+          --name $appInsightsName `
+          --resource-group $rgName `
+          --resource-type "Microsoft.Insights/components" `
+          --query "properties.ConnectionString" `
+          --output tsv `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
+          throw "Failed to get the connection string for Application Insights resource '$appInsightsName'"
+        }
+
+        $appInsightsInstrumentationKey = az resource show `
+          --name $appInsightsName `
+          --resource-group $rgName `
+          --resource-type "Microsoft.Insights/components" `
+          --query "properties.InstrumentationKey" `
+          --output tsv `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appInsightsInstrumentationKey)) {
+          throw "Failed to get the instrumentation key for Application Insights resource '$appInsightsName'"
+        }
+
         az containerapp update `
           --name $containerAppName `
           --resource-group $rgName `
-          --image $newImage
+          --image $newImage `
+          --set-env-vars `
+            "Telemetry__Provider=ApplicationInsights" `
+            "Telemetry__InstrumentationKey=$appInsightsInstrumentationKey" `
+            "Telemetry__ConnectionString=$appInsightsConnectionString" `
+            "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString"
 
         if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
         Write-Host "Container app image updated successfully."
