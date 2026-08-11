@@ -41,6 +41,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         public PreparedVectorSearchQuery PreparedVectorQuery { get; set; }
 
+        internal double? SemanticContinuationDistance { get; set; }
+
+        internal short? SemanticContinuationResourceTypeId { get; set; }
+
+        internal long? SemanticContinuationResourceSurrogateId { get; set; }
+
         /// <summary>
         /// Performs a shallow clone of this instance
         /// </summary>

@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public static readonly SearchParameterInfo ResourceTypeSearchParameter = new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null);
 
+        public static readonly SearchParameterInfo ScoreSearchParameter = new SearchParameterInfo(SearchParameterNames.Score, SearchParameterNames.Score, SearchParamType.Special);
+
         public SearchParameterInfo(
             string name,
             string code,

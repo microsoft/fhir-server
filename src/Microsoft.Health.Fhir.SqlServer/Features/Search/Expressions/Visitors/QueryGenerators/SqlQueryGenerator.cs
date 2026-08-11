@@ -357,6 +357,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     AppendHistoryClause(delimitedClause, context.ResourceVersionTypes);
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
+
+                    if (isVectorSearch && sqlSearchOptions.SemanticContinuationDistance.HasValue)
+                    {
+                        object distanceParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationDistance.Value, includeInHash: false);
+                        object resourceTypeParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceTypeId.Value, includeInHash: false);
+                        object surrogateIdParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceSurrogateId.Value, includeInHash: false);
+
+                        delimitedClause.BeginDelimitedElement();
+                        StringBuilder
+                            .Append("(semantic.SemanticDistance > ").Append(distanceParameter)
+                            .Append(" OR (semantic.SemanticDistance = ").Append(distanceParameter).Append(" AND (")
+                            .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" > ").Append(resourceTypeParameter)
+                            .Append(" OR (").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(resourceTypeParameter)
+                            .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" > ").Append(surrogateIdParameter)
+                            .Append("))))");
+                    }
                 }
 
                 if (!searchOptions.CountOnly)
@@ -372,7 +388,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append("IsMatch DESC, ");
                     }
 
-                    if (isVectorSearch)
+                    if (isVectorSearch && (searchOptions.Sort.Count == 0 || IsScoreSort(searchOptions)))
                     {
                         StringBuilder
                             .Append("SemanticDistance ASC, ")
@@ -1896,9 +1912,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
+        private static bool IsScoreSort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.Count > 0 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.Score;
+        }
+
         internal bool IsSortValueNeeded(SearchOptions context)
         {
-            if (context.Sort.Count == 0)
+            if (context.Sort.Count == 0 || IsScoreSort(context))
             {
                 return false;
             }

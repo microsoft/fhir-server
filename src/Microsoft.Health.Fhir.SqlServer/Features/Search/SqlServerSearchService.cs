@@ -190,11 +190,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            if (sqlSearchOptions.Sort.Count > 0 && ContainsVectorSearch(sqlSearchOptions.Expression))
-            {
-                throw new SearchOperationNotSupportedException(Core.Resources.SortNotSupported);
-            }
-
             if (_vectorSearchQueryProcessor != null)
             {
                 sqlSearchOptions.PreparedVectorQuery = await _vectorSearchQueryProcessor.PrepareAsync(sqlSearchOptions.Expression, cancellationToken);
@@ -286,7 +281,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 resultCount <= sqlSearchOptions.MaxItemCount &&
                 sqlSearchOptions.Sort != null &&
                 sqlSearchOptions.Sort.Count > 0 &&
-                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated &&
+                !IsScoreSort(sqlSearchOptions))
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
@@ -473,7 +469,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
                 if (continuationToken != null)
                 {
-                    if (string.IsNullOrEmpty(continuationToken.SortValue))
+                    if (IsRelevanceSort(sqlSearchOptions))
+                    {
+                        if (!continuationToken.TryGetSemanticCursor(out double distance, out short resourceTypeId, out long resourceSurrogateId))
+                        {
+                            _logger.LogWarning("Bad Request (InvalidContinuationToken)");
+                            throw new BadRequestException(Resources.InvalidContinuationToken);
+                        }
+
+                        sqlSearchOptions.SemanticContinuationDistance = distance;
+                        sqlSearchOptions.SemanticContinuationResourceTypeId = resourceTypeId;
+                        sqlSearchOptions.SemanticContinuationResourceSurrogateId = resourceSurrogateId;
+                    }
+                    else if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
                         // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
                         bool optimize = true;
@@ -726,7 +734,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                                         // If sort value needed, that means we have an extra column tracking sort value.
                                         // Keep track of sort value if this is the last row.
-                                        if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
+                                        if (matchCount == clonedSearchOptions.MaxItemCount - 1 && IsScoreSort(clonedSearchOptions) && semanticDistance.HasValue)
+                                        {
+                                            sortValue = semanticDistance.Value.ToString("R", CultureInfo.InvariantCulture);
+                                        }
+                                        else if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
                                         {
                                             var tempSortValue = reader.GetValue(SortValueColumnName);
                                             sortValue = (tempSortValue as DateTime?) != null ? (tempSortValue as DateTime?).Value.ToString("o") : tempSortValue.ToString();
@@ -869,7 +881,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 // If this is a sort query, lets keep track of whether we actually searched for sort values.
                                 if (clonedSearchOptions.Sort != null &&
                                     clonedSearchOptions.Sort.Count > 0 &&
-                                    clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                                    clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated &&
+                                    !IsScoreSort(clonedSearchOptions))
                                 {
                                     // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
                                     sqlSearchOptions.DidWeSearchForSortValue = isSortValueNeeded;
@@ -1633,9 +1646,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="searchOptions">The input SearchOptions</param>
         /// <param name="searchExpression">The searchExpression</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression)
+        internal SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
+            if (IsRelevanceSort(searchOptions))
+            {
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
+                newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                {
+                    (SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending),
+                    (SearchParameterInfo.ResourceTypeSearchParameter, SortOrder.Ascending),
+                    (_fakeLastUpdate, SortOrder.Ascending),
+                };
+
+                return newSearchOptions;
+            }
+
             if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && searchOptions.Sort.Any())
             {
                 // history is always sorted by _lastUpdated (except for export).
@@ -1718,6 +1744,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             return newSearchOptions;
+        }
+
+        private static bool IsRelevanceSort(SqlSearchOptions searchOptions)
+        {
+            return searchOptions.PreparedVectorQuery != null &&
+                (searchOptions.Sort.Count == 0 || IsScoreSort(searchOptions));
+        }
+
+        private static bool IsScoreSort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.Count > 0 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.Score;
         }
 
         private void ReadWrapper(

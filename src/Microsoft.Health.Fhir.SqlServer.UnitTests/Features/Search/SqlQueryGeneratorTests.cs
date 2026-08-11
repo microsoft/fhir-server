@@ -221,6 +221,170 @@ public class SqlQueryGeneratorTests
     }
 
     [Fact]
+    public void GivenPreparedVectorQueryAndScoreSort_WhenSqlGenerated_ThenRanksByDistanceWithoutSortValueLookup()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "SemanticText",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = CreateVectorSearchOptions(
+            vectorSearchParameter,
+            [
+                (SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending),
+                (SearchParameterInfo.ResourceTypeSearchParameter, SortOrder.Ascending),
+                (new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+            ]);
+
+        // Act
+        Expression rewritten = new SortRewriter(_queryGeneratorFactory).VisitSqlRoot(sqlExpression, searchOptions);
+        _queryGenerator.VisitSqlRoot((SqlRootExpression)rewritten, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Same(sqlExpression, rewritten);
+        Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("SortValue", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenPreparedVectorQueryAndSemanticCursor_WhenSqlGenerated_ThenContinuesAfterDistanceAndStableKeys()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "SemanticText",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = CreateVectorSearchOptions(
+            vectorSearchParameter,
+            [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)]);
+        searchOptions.SemanticContinuationDistance = 0.125;
+        searchOptions.SemanticContinuationResourceTypeId = 103;
+        searchOptions.SemanticContinuationResourceSurrogateId = 12345;
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Contains("semantic.SemanticDistance >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance =", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ResourceTypeId >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ResourceSurrogateId >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenPreparedVectorQueryAndLastUpdatedSort_WhenSqlGenerated_ThenRequestedSortOverridesRelevanceOrder()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "SemanticText",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = CreateVectorSearchOptions(
+            vectorSearchParameter,
+            [(new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Descending)]);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Contains("ResourceSurrogateId DESC", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticEvidenceJson", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenPreparedVectorQueryAndDateSort_WhenSqlGenerated_ThenRequestedSortOverridesRelevanceOrder()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "SemanticText",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+        var dateSortParameter = new SearchParameterInfo(
+            name: "date",
+            code: "date",
+            searchParamType: SearchParamType.Date,
+            url: new Uri("https://example.org/fhir/SearchParameter/date"));
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        _fhirModel.GetSearchParamId(dateSortParameter.Url).Returns((short)72);
+
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = CreateVectorSearchOptions(vectorSearchParameter, [(dateSortParameter, SortOrder.Descending)]);
+        sqlExpression = (SqlRootExpression)new SortRewriter(_queryGeneratorFactory).VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Contains("SortValue DESC", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticEvidenceJson", generatedSql, StringComparison.Ordinal);
+    }
+
+    private static SqlSearchOptions CreateVectorSearchOptions(
+        SearchParameterInfo vectorSearchParameter,
+        IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sort)
+    {
+        return new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = sort,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                minimumScore: 0.65m),
+        };
+    }
+
+    [Fact]
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs

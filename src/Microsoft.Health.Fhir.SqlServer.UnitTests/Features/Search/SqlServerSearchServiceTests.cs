@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -305,7 +306,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public async Task GivenSemanticSearchWithExplicitSort_WhenSearching_ThenSortIsRejected()
+        public async Task GivenSemanticSearchWithExplicitSort_WhenSearching_ThenVectorQueryIsPrepared()
         {
             // Arrange
             var vectorSearchParameter = new SearchParameterInfo(
@@ -313,6 +314,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 code: "semantic-text",
                 searchParamType: SearchParamType.Special,
                 url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var expectedException = new InvalidOperationException("Stop after vector query preparation.");
+            _vectorSearchQueryProcessor
+                .PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<PreparedVectorSearchQuery>(expectedException));
             var searchOptions = new SearchOptions
             {
                 MaxItemCount = 10,
@@ -323,14 +328,47 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             };
 
             // Act
-            SearchOperationNotSupportedException exception = await Assert.ThrowsAsync<SearchOperationNotSupportedException>(
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
 
             // Assert
-            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
-            Assert.Equal(OperationOutcomeConstants.IssueType.NotSupported, issue.Code);
-            Assert.Equal(Core.Resources.SortNotSupported, issue.Diagnostics);
-            await _vectorSearchQueryProcessor.DidNotReceive().PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>());
+            Assert.Same(expectedException, exception);
+            await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenSemanticRelevanceSort_WhenSortUpdated_ThenDistanceAndStableKeysArePreserved(bool explicitScoreSort)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = explicitScoreSort
+                    ? [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)]
+                    : [],
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 3,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                    minimumScore: 0.65m),
+            };
+
+            SqlSearchOptions updated = _searchService.UpdateSort(searchOptions, searchExpression: null);
+
+            Assert.Equal(
+                [SearchParameterNames.Score, SearchParameterNames.ResourceType, SearchParameterNames.LastUpdated],
+                updated.Sort.Select(sort => sort.searchParameterInfo.Name));
+            Assert.All(updated.Sort, sort => Assert.Equal(SortOrder.Ascending, sort.sortOrder));
         }
 
         public static IEnumerable<object[]> SingleColumnTableData()
