@@ -109,8 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var newIndices = _searchIndexer.Extract(resourceElement);
             var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
             ExtractMinAndMaxValues(newIndices);
-            resourceWrapper.UpdateSearchIndices(newIndices);
-            resourceWrapper.SearchParameterHash = searchParameterHash;
+            resourceWrapper.UpdateSearchIndices(newIndices, searchParameterHash);
         }
 
         // A given search parameter can have multiple values. We want to keep track of which

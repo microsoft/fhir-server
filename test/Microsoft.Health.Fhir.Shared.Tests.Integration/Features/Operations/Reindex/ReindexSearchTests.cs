@@ -185,8 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
@@ -209,8 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
         }
