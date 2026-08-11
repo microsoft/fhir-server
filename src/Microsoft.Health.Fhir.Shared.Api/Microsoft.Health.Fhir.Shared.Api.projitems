@@ -87,6 +87,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirSdkProviderStartupLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
