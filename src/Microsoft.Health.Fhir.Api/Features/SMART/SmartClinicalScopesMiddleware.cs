@@ -198,8 +198,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    bool includeFhirUserClaim = true;
-
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
                     var scopeClaimsBuilder = new StringBuilder();
@@ -259,16 +257,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             scopeClaims));
                     }
 
-                    bool smartV1AccessLevelUsed = false;
-                    bool smartV2AccessLevelUsed = false;
+                    string clinicalScopeContext = null;
                     foreach (Match match in matches)
                     {
-                        var accessLevel = match.Groups["accessLevel"]?.Value;
-                        if (string.IsNullOrEmpty(accessLevel))
-                        {
-                            continue;
-                        }
-
                         // The regex finds clinical-scope substrings rather than matching whole tokens, so a
                         // malformed scope whose token is only partially valid (e.g. "patient/Observation.read-only",
                         // "patient/Observation.rs?active", "patient/Observation.rsXYZ") still produces a match for
@@ -281,6 +272,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             throw new BadHttpRequestException(string.Format(
                                 Api.Resources.SmartScopeInvalidSearchParameters,
                                 scopeClaims));
+                        }
+
+                        string currentClinicalScopeContext = match.Groups["id"].Value;
+                        if (clinicalScopeContext != null
+                            && !clinicalScopeContext.Equals(currentClinicalScopeContext, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new BadHttpRequestException(Api.Resources.MixedSMARTScopeContextsAreNotAllowed);
+                        }
+
+                        clinicalScopeContext = currentClinicalScopeContext;
+                    }
+
+                    bool includeFhirUserClaim = !string.Equals("system", clinicalScopeContext, StringComparison.OrdinalIgnoreCase);
+                    bool smartV1AccessLevelUsed = false;
+                    bool smartV2AccessLevelUsed = false;
+                    foreach (Match match in matches)
+                    {
+                        var accessLevel = match.Groups["accessLevel"]?.Value;
+                        if (string.IsNullOrEmpty(accessLevel))
+                        {
+                            continue;
                         }
 
                         // Detect v1 vs v2 based on the accessLevel value.
@@ -418,11 +430,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id, smartScopeSearchParameters.Parameters.Any() ? smartScopeSearchParameters : null));
 
                             scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
-
-                            if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
-                            {
-                                includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
-                            }
                         }
                     }
 

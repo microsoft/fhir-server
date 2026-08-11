@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -72,6 +73,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta, keepVersion);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
 
+            if (deleted && searchIndices.Any(x => x.SearchParameter.Code != KnownQueryParameterNames.LastUpdated && x.SearchParameter.Code != KnownQueryParameterNames.Id))
+            {
+                searchIndices = searchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
+            }
+
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
             ExtractMinAndMaxValues(searchIndices);
@@ -92,6 +98,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <inheritdoc />
         public void Update(ResourceWrapper resourceWrapper)
         {
+            if (resourceWrapper.IsDeleted)
+            {
+                var searchIndices = resourceWrapper.SearchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
+                resourceWrapper.UpdateSearchIndices(searchIndices);
+                return;
+            }
+
             var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
             var newIndices = _searchIndexer.Extract(resourceElement);
             var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
