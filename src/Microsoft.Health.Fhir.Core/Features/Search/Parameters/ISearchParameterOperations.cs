@@ -23,8 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken);
-
         /// <summary>
         /// This method should be called to get any updates to search param cache
         /// </summary>
