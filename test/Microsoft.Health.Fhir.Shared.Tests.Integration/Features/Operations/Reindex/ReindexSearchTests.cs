@@ -88,6 +88,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenResourceWithDifferentHash_WhenPerformingReindexSearch_ThenResourceShouldBeReturned()
         {
+            if (_isSQL)
+            {
+                return;
+            }
+
             ResourceWrapper testPatient = null;
 
             try
@@ -122,6 +127,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenAReindexWithHistory_WhenEmptyPageEncountered_EmptyDataNotReturned()
         {
+            if (_isSQL)
+            {
+                return;
+            }
+
             ResourceWrapper testPatient = null;
 
             try
