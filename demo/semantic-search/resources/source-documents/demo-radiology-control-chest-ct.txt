@@ -1,0 +1,22 @@
+RADIOLOGY REPORT
+Examination: CT chest without intravenous contrast
+Date: 2024-04-09
+Patient: David Chen
+
+Clinical indication:
+Evaluation of persistent cough.
+
+Comparison:
+No prior chest CT is available.
+
+Technique:
+Noncontrast images were acquired through the thorax with multiplanar reformations.
+
+Findings:
+An incidental 7 mm solid pulmonary nodule is present in the right upper lobe. No focal consolidation, pleural effusion, or pneumothorax is seen. No enlarged thoracic lymph nodes are identified.
+
+Impression:
+Incidental right upper lobe pulmonary nodule without an acute chest abnormality.
+
+Recommendation:
+A six-month follow-up low-dose chest CT is recommended to assess stability. The recommendation was included in the finalized report for communication to the ordering clinician.

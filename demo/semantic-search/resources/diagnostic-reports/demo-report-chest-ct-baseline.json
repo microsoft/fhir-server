@@ -1,0 +1,58 @@
+{
+  "resourceType": "DiagnosticReport",
+  "id": "demo-report-chest-ct-baseline",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+          "code": "RAD",
+          "display": "Radiology"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "24627-2",
+        "display": "CT Chest"
+      }
+    ],
+    "text": "CT chest without intravenous contrast"
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "effectiveDateTime": "2024-02-12T10:00:00Z",
+  "issued": "2024-02-12T11:05:00Z",
+  "performer": [
+    {
+      "reference": "Practitioner/demo-practitioner-radiology",
+      "display": "Leah Morgan, MD"
+    }
+  ],
+  "conclusion": "Incidental 7 mm solid pulmonary nodule in the right upper lobe. No prior chest CT is available for comparison. Follow-up low-dose chest CT is recommended in six months.",
+  "presentedForm": [
+    {
+      "contentType": "text/plain; charset=utf-8",
+      "language": "en-US",
+      "size": 1189,
+      "hash": "s/clTSNFNBHNuG9HktZ6OoVZ6mk=",
+      "url": "Binary/demo-binary-chest-ct-baseline",
+      "title": "CT chest report - 2024-02-12",
+      "creation": "2024-02-12T11:05:00Z"
+    }
+  ]
+}

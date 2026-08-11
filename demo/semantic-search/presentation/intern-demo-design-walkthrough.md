@@ -1,11 +1,16 @@
-# Semantic Search for FHIR: Design Walkthrough and Live Demo
+# FHIR Server Semantic Search: Implementation Walkthrough
 
+This optional walkthrough explains the FHIR server implementation and raw HTTP
+proofs. For the MCP-backed Physician and Radiology agent presentation, use
+`presentation/start-up-guide.md` as the operator guide. The agents dynamically
+create their FHIR requests; they do not execute the prepared REST Client files in
+this walkthrough.
 
 ## 1. Purpose and Scope
 
 Today I am demoing a FHIR-native semantic search implementation in the SQL Server FHIR backend. The goal is to show how standard FHIR search can keep its structured filters, patient scoping, and authorization boundaries, while adding meaning-based ranking over clinical narrative text.
 
-The core path is working end to end: FHIR resources are indexed from SearchParameter metadata, embeddings are generated during writes, vectors are stored in SQL, and semantic queries return ranked FHIR results with score and evidence. I will first explain the design, then show the live FHIR requests, the SQL vector storage, and the planned work.
+The core path is working end to end: FHIR resources are indexed from SearchParameter metadata, embeddings are generated during writes, vectors are stored in SQL, and semantic queries return ranked FHIR results with score and evidence. I will first explain the design, then show the live FHIR requests and SQL vector storage.
 
 The demo question is:
 
@@ -32,6 +37,11 @@ Her chart contains relevant evidence written in different clinical language:
 | Physical therapy note about guarded mobility and instability. | DocumentReference backed by Binary | Related but lower-ranked functional note. |
 
 David Chen is the isolation control patient. He has an Observation with the exact same calibration sentence as Elena. His result must not appear when the query is scoped to Elena.
+
+The expanded dataset also contains a three-study chest CT timeline for Elena and
+a highly similar David Chen control report. The radiology proof combines
+structured chronology with semantic retrieval across deliberately varied
+`nodule`, `focal opacity`, and `focal density` wording.
 
 ---
 
@@ -196,6 +206,8 @@ The request files live in `demo/semantic-search/requests`.
 | 5 | `03-standard-search.http` | Standard FHIR search still works; semantic search composes with filters. |
 | 6 | `04-semantic-search.http` | Patient-level semantic search ranks across supported resource types. |
 | 7 | `05-long-document-search.http` | Long text retrieval and page-specific PDF provenance work. |
+| 8 | `07-radiology-search.http` | Structured chronology and semantic radiology retrieval preserve patient isolation. |
+| 9 | `06-vector-reindex-proof.http` | Existing resources receive vectors through system `$reindex` without a resource-version change. |
 
 ### 4.2 Standard FHIR Search
 
@@ -389,12 +401,13 @@ Working now:
 - resource-level `?semantic-text=...` queries,
 - patient-level `$semantic-search`,
 - vector-aware `$reindex` for existing resources,
+- deterministic continuation tokens for relevance-ranked pages,
+- explicit `_score` ordering and ordinary FHIR sort override behavior,
 - score and passage evidence in results.
 
 Planned work:
 
 - automatic owner reindexing when linked Binary content changes,
-- continuation token semantics for vector-ranked pages,
 - hardened authorization and lifecycle handling for linked Binary content,
 - OCR and document extraction beyond UTF-8 text and text-based PDF Binary content,
 - asynchronous/background indexing for write-heavy deployments,

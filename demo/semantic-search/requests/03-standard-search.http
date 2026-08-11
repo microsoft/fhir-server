@@ -90,9 +90,16 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
-# Explicit sorting is not yet supported with semantic search. This request must
-# return a FHIR OperationOutcome with issue code not-supported instead of
-# silently replacing the requested sort with relevance order.
+# An explicit FHIR field sort overrides relevance order while every match still
+# includes its semantic score and evidence.
 GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=previous%20near-fainting%20episodes&_sort=-_lastUpdated&_count=10
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+# The FHIR relevance token makes semantic ordering explicit. This has the same
+# order as omitting _sort and supports stable continuation across pages.
+GET https://localhost:44348/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&semantic-text=previous%20near-fainting%20episodes&_sort=_score&_count=2
 Accept: application/fhir+json
 Authorization: Bearer {{bearer.response.body.access_token}}

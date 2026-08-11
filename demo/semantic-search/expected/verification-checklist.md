@@ -18,17 +18,22 @@ and provenance checks must not vary.
 
 ## 2. Ingest And Index
 
-- [ ] All 27 resource PUTs complete without an `OperationOutcome` error.
-- [ ] Primary-patient counts are exactly three Observations, three
-      DiagnosticReports, and five DocumentReferences.
+- [ ] All 40 resource PUTs complete without an `OperationOutcome` error.
+- [ ] The canonical primary-patient fixture set contains three Observations, six
+      DiagnosticReports, and eight DocumentReferences. Validate the fixture IDs,
+      not raw server totals, because the separate reindex proof can leave its
+      dedicated Observation in the same patient compartment.
 - [ ] `Binary/demo-binary-prior-ed-long` decodes as UTF-8 text and is 3,438
       characters long.
 - [ ] The long text Binary is 5,928 bytes and its DocumentReference attachment
       size and SHA-1 hash match the decoded bytes.
 - [ ] The PDF Binary opens as a two-page text PDF, is 8,497 bytes, and its
       DocumentReference attachment size and SHA-1 hash match the decoded bytes.
+- [ ] The fixture generator validates four radiology studies from
+      `radiology-fixture-manifest.json`, including source phrases, chronology,
+      references, decoded Binary bytes, attachment sizes, and hashes.
 - [ ] No embedding endpoint, dimension, PDF extraction, or SQL vector persistence
-      error appears in server logs during the 12 vectorized owner writes.
+      error appears in server logs during the 20 vectorized owner writes.
 
 ## 3. Standard Search
 
@@ -108,7 +113,33 @@ irrelevant records above all direct records, or absent direct records as failure
 - [ ] The skin-treatment control ranks `demo-doc-dermatology` above both long
       documents, showing that document length alone does not drive relevance.
 
-## 6. Vector Reindex Backfill
+## 6. Longitudinal Radiology
+
+- [ ] The structured chest CT search returns exactly Elena's three studies in
+      baseline, six-month, and eighteen-month chronological order.
+- [ ] The baseline report documents a 7 mm right upper lobe solid nodule and a
+      six-month low-dose chest CT recommendation.
+- [ ] The six-month report calls the finding a right-apical opacity, documents
+      no interval growth, and recommends another study in 12 months.
+- [ ] The eighteen-month report calls it a focal density, documents long-term
+      stability, and says no further dedicated follow-up is recommended.
+- [ ] Semantic retrieval connects the varied nodule, opacity, and density wording
+      without dropping patient, category, chest CT code, or date constraints.
+- [ ] Elena's head CT and mammography can appear as structured radiology
+      distractors but do not outrank all three directly relevant chest studies.
+- [ ] David's highly similar DiagnosticReport and DocumentReference are absent
+      from every Elena-scoped response.
+- [ ] DiagnosticReport evidence uses `DiagnosticReport.conclusion`.
+- [ ] DocumentReference evidence identifies the owner separately from its
+      versioned Binary source and uses `Binary.data`.
+- [ ] The answer distinguishes documented completion of follow-up from a claim
+      that all possible follow-up outside the searched records is complete.
+
+Do not require one rigid semantic order among the three directly relevant
+studies. Require all three timeline facts, correct patient isolation, and exact
+provenance.
+
+## 7. Vector Reindex Backfill
 
 - [ ] The proof Observation is written before its unique vector SearchParameter
       is created.
@@ -119,6 +150,47 @@ irrelevant records above all direct records, or absent direct records as failure
       evidence after reindex.
 - [ ] The Observation `meta.versionId` is unchanged, proving that search storage
       was rebuilt without rewriting the FHIR resource.
+
+## 8. MCP And Clinical Agents
+
+### MCP startup
+
+- [ ] `tools/FhirMcp/bin/Debug/net9.0/Microsoft.Health.Fhir.Mcp.dll` exists from
+      the current source build.
+- [ ] **MCP: List Servers** reports `fhir` as running and **Show Output** contains
+      no startup, configuration, or authentication error.
+- [ ] Exactly four read-only FHIR tools are available:
+      `patientSemanticSearch`, `searchFhirResources`, `readFhirResource`, and
+      `discoverVectorSearchParameters`.
+- [ ] A live discovery or read call succeeds against `https://localhost:44348`.
+- [ ] Each live call returns a sanitized request URL and capture directory. The
+      captures contain no authorization header, bearer token, client id, or
+      client secret.
+
+### Physician context agent
+
+- [ ] A fresh **Physician Context Demo** chat accepts the active patient session
+      context without searching or inferring a patient from a name.
+- [ ] The focused dizziness question executes live patient-scoped retrieval and
+      cites every factual clinical claim with version-aware owner and evidence
+      source references.
+- [ ] Search details include generated requests, exact passages, result counts,
+      scopes, and capture directories.
+- [ ] No resource belonging to the control patient appears.
+
+### Radiology context agent
+
+- [ ] A fresh **Radiology Context Demo** chat uses the confirmed active patient
+      and performs ordinary DiagnosticReport retrieval before describing the
+      study chronology.
+- [ ] The answer traces the baseline, six-month, and eighteen-month chest CT
+      reports using only documented report text and FHIR metadata.
+- [ ] Every completion, stability, change, and recommendation claim is explicit
+      in its cited report passage.
+- [ ] No control-patient report appears, and the response states that source
+      images were not reviewed.
+- [ ] If an MCP call fails, the agent reports the retrieval error without
+      substituting expected fixture results.
 
 ## Evidence Shape
 
@@ -149,6 +221,10 @@ After a successful rehearsal, retain redacted response captures for:
 2. Binary-backed DocumentReference search with expanded evidence.
 3. Mixed-resource patient search.
 4. DocumentReference-only type filter.
+5. Radiology chronology and patient-isolation checks.
+6. One successful Physician agent response and one successful Radiology agent
+      response with their MCP capture directories.
 
 Use captures only if the live environment fails; state clearly that they are from
-the completed rehearsal.
+the completed rehearsal. MCP captures omit authorization data but can contain
+clinical content and must remain outside source control.

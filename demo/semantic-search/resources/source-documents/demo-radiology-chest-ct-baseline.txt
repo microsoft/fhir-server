@@ -1,0 +1,23 @@
+RADIOLOGY REPORT
+Examination: CT chest without intravenous contrast
+Date: 2024-02-12
+Patient: Elena Marquez
+
+Clinical indication:
+Persistent cough after a respiratory infection. No known malignancy.
+
+Comparison:
+No prior chest CT is available for comparison.
+
+Technique:
+Noncontrast helical images were obtained through the thorax with multiplanar reformations. Dose-reduction techniques were used.
+
+Findings:
+There is a 7 mm solid pulmonary nodule in the right upper lobe, located peripherally near the minor fissure. No suspicious calcification or cavitation is present. The remaining lungs are clear without focal air-space opacity, pleural effusion, or pneumothorax. The central airways are patent. No enlarged mediastinal or hilar lymph nodes are identified. Heart size is within normal limits. There is no acute osseous abnormality in the included chest.
+
+Impression:
+1. Incidental 7 mm solid pulmonary nodule in the right upper lobe.
+2. No acute pulmonary process.
+
+Recommendation:
+Follow-up low-dose chest CT is recommended in six months to assess stability. The recommendation was included in the finalized report for communication to the ordering clinician.

@@ -1,0 +1,17 @@
+{
+  "resourceType": "Binary",
+  "id": "demo-binary-chest-ct-eighteen-month",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "contentType": "text/plain; charset=utf-8",
+  "securityContext": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747"
+  },
+  "data": "UkFESU9MT0dZIFJFUE9SVA0KRXhhbWluYXRpb246IExvdy1kb3NlIENUIGNoZXN0IHdpdGhvdXQgaW50cmF2ZW5vdXMgY29udHJhc3QNCkRhdGU6IDIwMjUtMDgtMjUNClBhdGllbnQ6IEVsZW5hIE1hcnF1ZXoNCg0KQ2xpbmljYWwgaW5kaWNhdGlvbjoNCkNvbnRpbnVlZCBzdXJ2ZWlsbGFuY2Ugb2YgYSByaWdodCBhcGljYWwgcHVsbW9uYXJ5IGZpbmRpbmcuDQoNCkNvbXBhcmlzb246DQpDVCBjaGVzdCBleGFtaW5hdGlvbnMgZGF0ZWQgMjAyNC0wOC0xOSBhbmQgMjAyNC0wMi0xMi4NCg0KVGVjaG5pcXVlOg0KTG93LWRvc2Ugbm9uY29udHJhc3QgaW1hZ2VzIHdlcmUgb2J0YWluZWQgdGhyb3VnaCB0aGUgdGhvcmF4IHdpdGggbXVsdGlwbGFuYXIgcmVmb3JtYXRpb25zLg0KDQpGaW5kaW5nczoNClRoZSBwcmV2aW91c2x5IGRlc2NyaWJlZCByaWdodCBhcGljYWwgZm9jYWwgZGVuc2l0eSByZW1haW5zIHVuY2hhbmdlZCBhdCA3IG1tIG92ZXIgMTggbW9udGhzLiBJdHMgc21vb3RoIGNvbnRvdXIgYW5kIHBvc2l0aW9uIGFyZSB1bmNoYW5nZWQuIE5vIG5ldyBvciBlbmxhcmdpbmcgcHVsbW9uYXJ5IG5vZHVsZSBpcyBwcmVzZW50LiBUaGVyZSBpcyBubyBmb2NhbCBhaXItc3BhY2UgZGlzZWFzZSwgcGxldXJhbCBlZmZ1c2lvbiwgb3IgcG5ldW1vdGhvcmF4LiBObyB0aG9yYWNpYyBseW1waGFkZW5vcGF0aHkgaXMgaWRlbnRpZmllZC4gVGhlIGNlbnRyYWwgYWlyd2F5cyBhcmUgY2xlYXIuDQoNCkltcHJlc3Npb246DQpMb25nLXRlcm0gc3RhYmlsaXR5IG9mIHRoZSA3IG1tIHJpZ2h0IGFwaWNhbCBmaW5kaW5nIGZhdm9ycyBhIGJlbmlnbiBwcm9jZXNzLiBObyBpbnRlcnZhbCBncm93dGggaGFzIG9jY3VycmVkIHNpbmNlIHRoZSBiYXNlbGluZSBleGFtaW5hdGlvbi4NCg0KUmVjb21tZW5kYXRpb246DQpUaGUgcmVjb21tZW5kZWQgMTItbW9udGggaW50ZXJ2YWwgZXhhbWluYXRpb24gaGFzIGJlZW4gY29tcGxldGVkLiBObyBmdXJ0aGVyIGRlZGljYXRlZCBpbWFnaW5nIGZvbGxvdy11cCBpcyByZWNvbW1lbmRlZCBmb3IgdGhpcyBmaW5kaW5nIGluIHRoaXMgc3ludGhldGljIHJlY29yZCB1bmxlc3MgY2xpbmljYWwgY2lyY3Vtc3RhbmNlcyBjaGFuZ2Uu"
+}

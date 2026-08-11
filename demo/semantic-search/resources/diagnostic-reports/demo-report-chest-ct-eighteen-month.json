@@ -1,0 +1,58 @@
+{
+  "resourceType": "DiagnosticReport",
+  "id": "demo-report-chest-ct-eighteen-month",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+          "code": "RAD",
+          "display": "Radiology"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "24627-2",
+        "display": "CT Chest"
+      }
+    ],
+    "text": "CT chest without intravenous contrast"
+  },
+  "subject": {
+    "reference": "Patient/8f789d0b-3145-4cf2-8504-13159edaa747",
+    "display": "Elena Marquez"
+  },
+  "effectiveDateTime": "2025-08-25T13:40:00Z",
+  "issued": "2025-08-25T14:35:00Z",
+  "performer": [
+    {
+      "reference": "Practitioner/demo-practitioner-radiology",
+      "display": "Leah Morgan, MD"
+    }
+  ],
+  "conclusion": "The previously described right apical focal density remains unchanged at 7 mm over 18 months. Long-term stability favors a benign process; no further dedicated imaging follow-up is recommended.",
+  "presentedForm": [
+    {
+      "contentType": "text/plain; charset=utf-8",
+      "language": "en-US",
+      "size": 1110,
+      "hash": "i2aetCMSxBKA1qBYKEmjzho\u002BS5g=",
+      "url": "Binary/demo-binary-chest-ct-eighteen-month",
+      "title": "CT chest follow-up report - 2025-08-25",
+      "creation": "2025-08-25T14:35:00Z"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "resourceType": "Binary",
+  "id": "demo-control-binary-chest-ct-nodule",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://example.org/fhir/CodeSystem/demo-data",
+        "code": "synthetic"
+      }
+    ]
+  },
+  "contentType": "text/plain; charset=utf-8",
+  "securityContext": {
+    "reference": "Patient/c27d6972-16be-4a01-8b9c-0d994c58d9bc"
+  },
+  "data": "UkFESU9MT0dZIFJFUE9SVA0KRXhhbWluYXRpb246IENUIGNoZXN0IHdpdGhvdXQgaW50cmF2ZW5vdXMgY29udHJhc3QNCkRhdGU6IDIwMjQtMDQtMDkNClBhdGllbnQ6IERhdmlkIENoZW4NCg0KQ2xpbmljYWwgaW5kaWNhdGlvbjoNCkV2YWx1YXRpb24gb2YgcGVyc2lzdGVudCBjb3VnaC4NCg0KQ29tcGFyaXNvbjoNCk5vIHByaW9yIGNoZXN0IENUIGlzIGF2YWlsYWJsZS4NCg0KVGVjaG5pcXVlOg0KTm9uY29udHJhc3QgaW1hZ2VzIHdlcmUgYWNxdWlyZWQgdGhyb3VnaCB0aGUgdGhvcmF4IHdpdGggbXVsdGlwbGFuYXIgcmVmb3JtYXRpb25zLg0KDQpGaW5kaW5nczoNCkFuIGluY2lkZW50YWwgNyBtbSBzb2xpZCBwdWxtb25hcnkgbm9kdWxlIGlzIHByZXNlbnQgaW4gdGhlIHJpZ2h0IHVwcGVyIGxvYmUuIE5vIGZvY2FsIGNvbnNvbGlkYXRpb24sIHBsZXVyYWwgZWZmdXNpb24sIG9yIHBuZXVtb3Rob3JheCBpcyBzZWVuLiBObyBlbmxhcmdlZCB0aG9yYWNpYyBseW1waCBub2RlcyBhcmUgaWRlbnRpZmllZC4NCg0KSW1wcmVzc2lvbjoNCkluY2lkZW50YWwgcmlnaHQgdXBwZXIgbG9iZSBwdWxtb25hcnkgbm9kdWxlIHdpdGhvdXQgYW4gYWN1dGUgY2hlc3QgYWJub3JtYWxpdHkuDQoNClJlY29tbWVuZGF0aW9uOg0KQSBzaXgtbW9udGggZm9sbG93LXVwIGxvdy1kb3NlIGNoZXN0IENUIGlzIHJlY29tbWVuZGVkIHRvIGFzc2VzcyBzdGFiaWxpdHkuIFRoZSByZWNvbW1lbmRhdGlvbiB3YXMgaW5jbHVkZWQgaW4gdGhlIGZpbmFsaXplZCByZXBvcnQgZm9yIGNvbW11bmljYXRpb24gdG8gdGhlIG9yZGVyaW5nIGNsaW5pY2lhbi4="
+}

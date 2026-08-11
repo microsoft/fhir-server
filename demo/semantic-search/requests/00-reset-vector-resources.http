@@ -52,6 +52,26 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
+DELETE {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-baseline?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-six-month?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-eighteen-month?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DiagnosticReport/demo-control-report-chest-ct-nodule?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
 DELETE {{baseUrl}}/DocumentReference/demo-doc-prior-ed?hardDelete=true
 Authorization: Bearer {{bearer.response.body.access_token}}
 
@@ -73,4 +93,24 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ###
 
 DELETE {{baseUrl}}/DocumentReference/demo-doc-long-autonomic-pdf?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DocumentReference/demo-doc-chest-ct-baseline?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DocumentReference/demo-doc-chest-ct-six-month?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DocumentReference/demo-doc-chest-ct-eighteen-month?hardDelete=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+
+DELETE {{baseUrl}}/DocumentReference/demo-control-doc-chest-ct-nodule?hardDelete=true
 Authorization: Bearer {{bearer.response.body.access_token}}

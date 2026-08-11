@@ -12,9 +12,9 @@ grant_type=client_credentials
 ###
 
 # Run from top to bottom. Every interaction is an idempotent PUT.
-# Vector indexing runs synchronously during twelve clinical-owner writes:
-# six Elena Observations/DiagnosticReports, five Elena DocumentReferences,
-# and one exact-match Observation for the control patient.
+# Vector indexing runs synchronously during twenty clinical-owner writes:
+# nine Elena Observations/DiagnosticReports, eight Elena DocumentReferences,
+# and three control-patient owners across the same supported resource types.
 
 PUT {{baseUrl}}/Practitioner/demo-practitioner-emergency
 Content-Type: application/fhir+json
@@ -58,6 +58,15 @@ Accept: application/fhir+json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 < ../resources/practitioners/demo-practitioner-neurology.json
+
+###
+
+PUT {{baseUrl}}/Practitioner/demo-practitioner-radiology
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/practitioners/demo-practitioner-radiology.json
 
 ###
 
@@ -154,6 +163,44 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
+# Radiology report sources must exist before their owners are indexed.
+PUT {{baseUrl}}/Binary/demo-binary-chest-ct-baseline
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/binaries/demo-binary-chest-ct-baseline.json
+
+###
+
+PUT {{baseUrl}}/Binary/demo-binary-chest-ct-six-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/binaries/demo-binary-chest-ct-six-month.json
+
+###
+
+PUT {{baseUrl}}/Binary/demo-binary-chest-ct-eighteen-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/binaries/demo-binary-chest-ct-eighteen-month.json
+
+###
+
+# Highly similar radiology evidence for the control patient.
+PUT {{baseUrl}}/Binary/demo-control-binary-chest-ct-nodule
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/binaries/demo-control-binary-chest-ct-nodule.json
+
+###
+
 # Exact calibration result for Elena.
 PUT {{baseUrl}}/Observation/demo-obs-exact-presyncope
 Content-Type: application/fhir+json
@@ -224,6 +271,46 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
+# Baseline nodule finding and six-month recommendation.
+PUT {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-baseline
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/diagnostic-reports/demo-report-chest-ct-baseline.json
+
+###
+
+# Same finding described as a stable right-apical opacity.
+PUT {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-six-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/diagnostic-reports/demo-report-chest-ct-six-month.json
+
+###
+
+# Long-term stability and completed follow-up.
+PUT {{baseUrl}}/DiagnosticReport/demo-report-chest-ct-eighteen-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/diagnostic-reports/demo-report-chest-ct-eighteen-month.json
+
+###
+
+# Near-match control that must never enter Elena's patient scope.
+PUT {{baseUrl}}/DiagnosticReport/demo-control-report-chest-ct-nodule
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/diagnostic-reports/demo-control-report-chest-ct-nodule.json
+
+###
+
 # Long Binary-backed ED note. Relevant evidence begins around character 1,288.
 PUT {{baseUrl}}/DocumentReference/demo-doc-prior-ed
 Content-Type: application/fhir+json
@@ -274,6 +361,46 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
+# Full Binary-backed baseline radiology report.
+PUT {{baseUrl}}/DocumentReference/demo-doc-chest-ct-baseline
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/document-references/demo-doc-chest-ct-baseline.json
+
+###
+
+# Full Binary-backed six-month radiology report.
+PUT {{baseUrl}}/DocumentReference/demo-doc-chest-ct-six-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/document-references/demo-doc-chest-ct-six-month.json
+
+###
+
+# Full Binary-backed eighteen-month radiology report.
+PUT {{baseUrl}}/DocumentReference/demo-doc-chest-ct-eighteen-month
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/document-references/demo-doc-chest-ct-eighteen-month.json
+
+###
+
+# Full Binary-backed control-patient report.
+PUT {{baseUrl}}/DocumentReference/demo-control-doc-chest-ct-nodule
+Content-Type: application/fhir+json
+Accept: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ../resources/document-references/demo-control-doc-chest-ct-nodule.json
+
+###
+
 # Expected: total 3 for Elena, proving deterministic patient filtering before ranking.
 GET {{baseUrl}}/Observation?patient=8f789d0b-3145-4cf2-8504-13159edaa747&_summary=count
 Accept: application/fhir+json
@@ -281,14 +408,14 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
-# Expected: total 3.
+# Expected: total 6.
 GET {{baseUrl}}/DiagnosticReport?patient=8f789d0b-3145-4cf2-8504-13159edaa747&_summary=count
 Accept: application/fhir+json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 
-# Expected: total 5.
+# Expected: total 8.
 GET {{baseUrl}}/DocumentReference?patient=8f789d0b-3145-4cf2-8504-13159edaa747&_summary=count
 Accept: application/fhir+json
 Authorization: Bearer {{bearer.response.body.access_token}}
