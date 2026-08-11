@@ -127,26 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null); // elevate in SQL to log w/o extra settings
             }
 
-            // use the same value as used in resource writes
-            _searchParameterHash = searchParameterHash;
-
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated;
-            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var requested = _definition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            isBad = _definition.SearchParamLastUpdated > currentDate;
-            msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
-            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            if (isBad)
-            {
-                _logger.LogJobError(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null); // elevate in SQL to log w/o extra settings
-                throw new ReindexJobException(msg);
-            }
-            else // normal
-            {
-                _logger.LogJobInformation(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null); // elevate in SQL to log w/o extra settings
-            }
+            _searchParameterHash = searchParameterHash; // this is relevant for cosmos only
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex query)
