@@ -81,6 +81,7 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetSdkPackageVersion)" />
@@ -88,6 +89,7 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.23.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.1.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />

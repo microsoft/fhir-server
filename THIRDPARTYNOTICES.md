@@ -805,6 +805,18 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+## ModelContextProtocol 2.1.0
+* Component Source:   https://github.com/modelcontextprotocol/csharp-sdk
+* Component Copyright and License:
+  > The project is undergoing a licensing transition. Relicensed and new code is
+  > licensed under the Apache License, Version 2.0. Contributions whose authors
+  > have not granted relicensing consent remain licensed under the MIT License.
+  >
+  > Copyright (c) 2024-2026 Model Context Protocol a Series of LF Projects, LLC.
+  >
+  > Apache-2.0: https://www.apache.org/licenses/LICENSE-2.0
+  > MIT: https://opensource.org/license/mit
+
 ## PdfPig 0.1.15
 * Component Source:   https://github.com/UglyToad/PdfPig
 * Component Copyright and License: Apache License 2.0
