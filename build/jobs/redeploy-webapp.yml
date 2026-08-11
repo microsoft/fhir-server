@@ -27,46 +27,104 @@ jobs:
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
         $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
-        $appInsightsName = "AppInsights-$containerAppName"
+        $environmentTemplate = "$(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep"
+        $monitoringTemplate = "$(System.DefaultWorkingDirectory)/samples/templates/aca/modules/monitoring.bicep"
 
-        $currentImage = az containerapp show `
+        $containerAppJson = az containerapp show `
           --name $containerAppName `
           --resource-group $rgName `
-          --query "properties.template.containers[0].image" -o tsv
-        Write-Host "Current image: $currentImage"
+          --query "{currentImage: properties.template.containers[0].image, managedEnvironmentId: properties.managedEnvironmentId, location: location}" `
+          --output json `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($containerAppJson)) {
+          throw "Failed to get container app '$containerAppName'"
+        }
+
+        $containerApp = $containerAppJson | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace($containerApp.managedEnvironmentId)) {
+          throw "Failed to resolve the managed environment for container app '$containerAppName'"
+        }
+        if ([string]::IsNullOrWhiteSpace($containerApp.location)) {
+          throw "Failed to resolve the location for container app '$containerAppName'"
+        }
+
+        $environmentName = $containerApp.managedEnvironmentId.TrimEnd('/').Split('/')[-1]
+        Write-Host "Current image: $($containerApp.currentImage)"
         Write-Host "New image: $newImage"
 
-        $appInsightsConnectionString = az resource show `
-          --name $appInsightsName `
+        # Derive the expected Log Analytics workspace name from the environment so we do not
+        # need an extra pipeline parameter. This mirrors the default used by the Bicep modules.
+        $expectedLawName = "$environmentName-law"
+
+        # Check whether the workspace already exists. We only care about the exit code here;
+        # a non-zero result means the workspace is missing and must be bootstrapped.
+        az monitor log-analytics workspace show `
+          --workspace-name $expectedLawName `
           --resource-group $rgName `
-          --resource-type "Microsoft.Insights/components" `
-          --query "properties.ConnectionString" `
-          --output tsv `
+          --output none `
           --only-show-errors
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
-          throw "Failed to get the connection string for Application Insights resource '$appInsightsName'"
+        $lawExists = ($LASTEXITCODE -eq 0)
+
+        if (-not $lawExists) {
+          # All five CI apps share one ACA environment, so this bootstrap may run concurrently
+          # for multiple apps. That is safe: az deployment group create with distinct --name
+          # values targeting the same LAW/environment resources is idempotent under Azure ARM.
+          $environmentOutputJson = az deployment group create `
+            --resource-group $rgName `
+            --name "fhir-redeploy-env-$containerAppName" `
+            --template-file $environmentTemplate `
+            --parameters `
+              environmentName=$environmentName `
+              location=$($containerApp.location) `
+              logAnalyticsWorkspaceName=$expectedLawName `
+            --query "properties.outputs" `
+            --output json `
+            --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($environmentOutputJson)) {
+            throw "Failed to bootstrap ACA environment logging for '$environmentName'"
+          }
+          # Do not print the deployment outputs; they may contain workspace keys.
+          Write-Host "Bootstrapped LAW '$expectedLawName' and attached to ACA environment '$environmentName'."
+        }
+        # When the LAW already exists this bootstrap is skipped, so the common steady-state
+        # path has no cross-app contention on the shared environment.
+
+        # The shared Bicep module idempotently creates or updates the Application Insights
+        # component backed by the environment's Log Analytics workspace.
+        $monitoringOutputJson = az deployment group create `
+          --resource-group $rgName `
+          --name "fhir-redeploy-monitoring-$containerAppName" `
+          --template-file $monitoringTemplate `
+          --parameters `
+            containerAppName=$containerAppName `
+            containerAppsEnvironmentName=$environmentName `
+            location=$($containerApp.location) `
+            logAnalyticsWorkspaceName=$expectedLawName `
+          --query "properties.outputs" `
+          --output json `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($monitoringOutputJson)) {
+          throw "Failed to provision monitoring resources for container app '$containerAppName'"
         }
 
-        $appInsightsInstrumentationKey = az resource show `
-          --name $appInsightsName `
-          --resource-group $rgName `
-          --resource-type "Microsoft.Insights/components" `
-          --query "properties.InstrumentationKey" `
-          --output tsv `
-          --only-show-errors
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appInsightsInstrumentationKey)) {
-          throw "Failed to get the instrumentation key for Application Insights resource '$appInsightsName'"
+        $monitoringOutputs = $monitoringOutputJson | ConvertFrom-Json
+        $appInsightsConnectionString = $monitoringOutputs.applicationInsightsConnectionString.value
+        if ([string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
+          throw "Failed to get the Application Insights connection string for container app '$containerAppName'"
         }
+        Write-Host "##vso[task.setsecret]$appInsightsConnectionString"
 
         az containerapp update `
           --name $containerAppName `
           --resource-group $rgName `
           --image $newImage `
+          --remove-env-vars Telemetry__InstrumentationKey `
           --set-env-vars `
             "Telemetry__Provider=ApplicationInsights" `
-            "Telemetry__InstrumentationKey=$appInsightsInstrumentationKey" `
             "Telemetry__ConnectionString=$appInsightsConnectionString" `
-            "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString"
+            "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString" `
+          --output none `
+          --only-show-errors
 
         if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
         Write-Host "Container app image updated successfully."

@@ -7,17 +7,12 @@ param logAnalyticsWorkspaceName string = '${environmentName}-law'
 @description('Retention period (in days) for Log Analytics data.')
 param logAnalyticsRetentionInDays int = 30
 
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: logAnalyticsWorkspaceName
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
+module logAnalytics 'modules/log-analytics.bicep' = {
+  name: '${environmentName}-log-analytics'
+  params: {
+    workspaceName: logAnalyticsWorkspaceName
+    location: location
     retentionInDays: logAnalyticsRetentionInDays
-    features: {
-      enableLogAccessUsingOnlyResourcePermissions: true
-    }
   }
 }
 
@@ -28,12 +23,12 @@ resource managedEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
-        customerId: logAnalyticsWorkspace.properties.customerId
-        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
+        customerId: logAnalytics.outputs.customerId
+        sharedKey: logAnalytics.outputs.primarySharedKey
       }
     }
   }
 }
 
-output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
-output logAnalyticsWorkspaceCustomerId string = logAnalyticsWorkspace.properties.customerId
+output logAnalyticsWorkspaceId string = logAnalytics.outputs.id
+output logAnalyticsWorkspaceCustomerId string = logAnalytics.outputs.customerId

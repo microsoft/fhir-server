@@ -73,8 +73,6 @@ param userAssignedIdentities object
 var normalizedAppName = toLower(containerAppName)
 var normalizedEnvName = toLower(containerAppsEnvironmentName)
 var normalizedKeyVaultName = toLower(keyVaultName)
-var applicationInsightsName = 'AppInsights-${normalizedAppName}'
-var logAnalyticsWorkspaceName = '${normalizedEnvName}-law'
 
 var isMAG = contains(resourceGroup().location, 'usgov') || contains(resourceGroup().location, 'usdod')
 
@@ -102,9 +100,8 @@ var acrUri = isMAG ? '.azurecr.us' : '.azurecr.io'
 var sharedEnvVars = [
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
   { name: 'Telemetry__Provider', value: 'ApplicationInsights' }
-  { name: 'Telemetry__InstrumentationKey', value: applicationInsights.properties.InstrumentationKey }
-  { name: 'Telemetry__ConnectionString', value: applicationInsights.properties.ConnectionString }
-  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
+  { name: 'Telemetry__ConnectionString', value: monitoring.outputs.applicationInsightsConnectionString }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
   { name: 'KeyVault__Endpoint', value: keyVaultEndpoint }
   { name: 'FhirServer__Security__Enabled', value: 'true' }
   { name: 'FhirServer__Security__EnableAadSmartOnFhirProxy', value: 'true' }
@@ -127,18 +124,11 @@ var allEnvVars = concat(sharedEnvVars, datastoreEnvVars, additionalEnvVars)
 // Resources
 // ──────────────────────────────────────────────
 
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
-  name: logAnalyticsWorkspaceName
-}
-
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: applicationInsightsName
-  location: resourceGroup().location
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logAnalyticsWorkspace.id
-    IngestionMode: 'LogAnalytics'
+module monitoring 'monitoring.bicep' = {
+  name: '${normalizedAppName}-monitoring'
+  params: {
+    containerAppName: containerAppName
+    containerAppsEnvironmentName: containerAppsEnvironmentName
   }
 }
 
