@@ -68,6 +68,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
+
+            // Default: no active resource owns any URL (tests that need a conflict override this).
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>()));
         }
 
         [Fact]
@@ -288,6 +292,58 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(pendingStatus);
             Assert.Equal("http://example.com/new-url", pendingStatus.Uri.OriginalString);
             Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlAlreadyOwnedBySameResource_ThenNoExceptionThrown()
+        {
+            const string url = "http://example.com/my-param";
+            var searchParameter = new SearchParameter() { Id = "SameId", Url = url };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "SameId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            // Same resource Id — must not throw even though URL is already "owned".
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>
+                {
+                    { url, new SearchParameter() { Id = "SameId", Url = url }.ToTypedElement() },
+                }));
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlAlreadyOwnedByDifferentResource_ThenBadRequestThrown()
+        {
+            const string url = "http://example.com/my-param";
+            var searchParameter = new SearchParameter() { Id = "NewId", Url = url };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "NewId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            // Different resource Id — must throw.
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>
+                {
+                    { url, new SearchParameter() { Id = "DifferentId", Url = url }.ToTypedElement() },
+                }));
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await Assert.ThrowsAsync<BadRequestException>(() => behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

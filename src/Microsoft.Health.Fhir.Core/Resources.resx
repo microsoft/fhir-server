@@ -500,7 +500,7 @@
     <value>The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL.</value>
   </data>
   <data name="ChangesToSearchParametersNotAllowedWhileReindexing" xml:space="preserve">
-    <value>Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
+    <value>Changes to search parameters are not allowed while a reindex job is in progress. Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
     <comment>{0} Id of currently active Reindex job.</comment>
   </data>
   <data name="ConvertDataFailed" xml:space="preserve">

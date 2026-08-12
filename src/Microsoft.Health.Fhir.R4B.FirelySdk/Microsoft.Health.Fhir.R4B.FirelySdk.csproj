@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Microsoft.Health.Fhir.FirelySdk</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>R4B</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.FirelySdk\Features\Operations\Import\FirelyImportResourceParser.cs" Link="Features\Operations\Import\FirelyImportResourceParser.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ensure.That" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.R4B.Core\Microsoft.Health.Fhir.R4B.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -148,7 +148,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
 
-            var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             var searchService = Substitute.For<ISearchService>();
             var fhirDataStore = Substitute.For<IFhirDataStore>();
 
@@ -158,10 +157,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
-                () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
                 fhirDataStore.CreateMockScopeProvider(),
-                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

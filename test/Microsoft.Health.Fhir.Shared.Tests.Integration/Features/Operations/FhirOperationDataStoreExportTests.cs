@@ -33,19 +33,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
+        private readonly TestQueueClient _testQueueClient;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
         public FhirOperationDataStoreExportTests(FhirStorageTestsFixture fixture)
         {
-            _operationDataStore = fixture.OperationDataStore;
+            _operationDataStore = fixture.TestSqlServerOperationDataStore ?? fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
+            _testQueueClient = (TestQueueClient)fixture.Service.GetService(typeof(TestQueueClient));
         }
 
         public async Task InitializeAsync()
         {
             await _testHelper.DeleteAllExportJobRecordsAsync();
-            GetTestQueueClient().ClearJobs();
+            _testQueueClient?.ClearJobs();
         }
 
         public Task DisposeAsync()
@@ -626,21 +628,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private TestQueueClient GetTestQueueClient()
         {
-            var operationDataStoreBase = _operationDataStore as FhirOperationDataStoreBase;
-            if (operationDataStoreBase == null)
-            {
-                throw new InvalidOperationException("Operation data store is not of type FhirOperationDataStoreBase");
-            }
-
-            var field = typeof(FhirOperationDataStoreBase).GetField("_queueClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var queueClient = field?.GetValue(operationDataStoreBase) as TestQueueClient;
-
-            if (queueClient == null)
-            {
-                throw new InvalidOperationException("Could not retrieve TestQueueClient from operation data store");
-            }
-
-            return queueClient;
+            return _testQueueClient;
         }
 
         private static void AddFailedChildJob(TestQueueClient queueClient, long parentJobId, long groupId, string definition, string result, int idOffset = 100)

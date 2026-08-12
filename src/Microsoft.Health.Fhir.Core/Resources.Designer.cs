@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
+        ///   Looks up a localized string similar to Changes to search parameters are not allowed while a reindex job is in progress. Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
             get {

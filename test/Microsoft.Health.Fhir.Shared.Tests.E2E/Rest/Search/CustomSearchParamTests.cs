@@ -77,21 +77,72 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
+        {
+            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'a');
+
+            using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // Different auto-generated ID, same URL — must be rejected.
+                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'a');
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(sp2));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            }
+            finally
+            {
+                await Client.DeleteAsync(createResponse.Resource);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
+        {
+            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'b');
+
+            using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // Different resource ID, same URL — must be rejected.
+                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'b');
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            }
+            finally
+            {
+                await Client.DeleteAsync(sp1);
+            }
+        }
+
+        [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter();
+            SearchParameter searchParam = CreateCustomSearchParameter(repeatChar: 'c');
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-            searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+            try
+            {
+                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
 
-            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
-            Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
+                Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
+            }
+            finally
+            {
+                await Client.DeleteAsync(searchParam);
+            }
         }
 
-        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength)
+        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
         {
             string suffix = Guid.NewGuid().ToString("N");
             const string prefix = "http://example.org/fhir/SearchParameter/";
@@ -111,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return new SearchParameter
             {
                 Id = $"custom-search-param-{suffix[..8]}",
-                Url = prefix + new string('a', urlLength - prefix.Length),
+                Url = prefix + new string(repeatChar, urlLength - prefix.Length),
                 Name = $"CustomSearchParam{suffix[..8]}",
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),

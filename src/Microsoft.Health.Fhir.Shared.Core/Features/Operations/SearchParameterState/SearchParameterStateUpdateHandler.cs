@@ -59,8 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             await _authorizationService.CheckAccess(DataActions.SearchParameter, true, cancellationToken);
 
-            await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
-
             _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
 
@@ -120,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             return searchParametersToUpdate;
         }
 
-        private SearchParameterStateUpdateResponse CreateBundleResponse(Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters, bool isReindexRunning = false)
+        private SearchParameterStateUpdateResponse CreateBundleResponse(Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -190,29 +188,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     new Bundle.EntryComponent
                     {
                         Resource = succeededResults,
-                    });
-            }
-
-            if (isReindexRunning)
-            {
-                bundle.Entry.Add(
-                    new Bundle.EntryComponent
-                    {
-                        Resource = new OperationOutcome
-                        {
-                            Issue = new List<OperationOutcome.IssueComponent>
-                            {
-                                    new OperationOutcome.IssueComponent
-                                    {
-                                        Severity = OperationOutcome.IssueSeverity.Error,
-                                        Code = OperationOutcome.IssueType.Conflict,
-                                        Details = new CodeableConcept
-                                        {
-                                            Text = Core.Resources.ReindexRunningException,
-                                        },
-                                    },
-                            },
-                        },
                     });
             }
 

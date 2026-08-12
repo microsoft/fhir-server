@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -168,6 +169,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
             cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
             Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
+        }
+
+        [Fact]
+        public async Task GivenAPatient_WhenSoftDeleted_ThenDeceasedFalseCountShouldNotChange()
+        {
+            // A tag filter would hide an invalid Patient-deceased row left on the tombstone.
+            var countBefore = await Client.SearchAsync("Patient?deceased=false&_summary=count");
+
+            var createResponse = await Client.CreateAsync(new Patient());
+            await Client.DeleteAsync(createResponse.Resource);
+
+            var countAfter = await Client.SearchAsync("Patient?deceased=false&_summary=count");
+
+            Assert.Equal(countBefore.Resource.Total, countAfter.Resource.Total);
         }
     }
 }
