@@ -27,18 +27,43 @@ jobs:
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
         $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
+        $appInsightsName = "AppInsights-$containerAppName"
 
         $currentImage = az containerapp show `
           --name $containerAppName `
           --resource-group $rgName `
-          --query "properties.template.containers[0].image" -o tsv
+          --query "properties.template.containers[0].image" `
+          --output tsv `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($currentImage)) {
+          throw "Failed to get container app '$containerAppName'"
+        }
         Write-Host "Current image: $currentImage"
         Write-Host "New image: $newImage"
+
+        $appInsightsConnectionString = az resource show `
+          --name $appInsightsName `
+          --resource-group $rgName `
+          --resource-type "Microsoft.Insights/components" `
+          --query "properties.ConnectionString" `
+          --output tsv `
+          --only-show-errors
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
+          throw "Application Insights resource '$appInsightsName' was not found or has no connection string"
+        }
+        Write-Host "##vso[task.setsecret]$appInsightsConnectionString"
 
         az containerapp update `
           --name $containerAppName `
           --resource-group $rgName `
-          --image $newImage
+          --image $newImage `
+          --remove-env-vars Telemetry__InstrumentationKey `
+          --set-env-vars `
+            "Telemetry__Provider=ApplicationInsights" `
+            "Telemetry__ConnectionString=$appInsightsConnectionString" `
+            "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString" `
+          --output none `
+          --only-show-errors
 
         if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
         Write-Host "Container app image updated successfully."
