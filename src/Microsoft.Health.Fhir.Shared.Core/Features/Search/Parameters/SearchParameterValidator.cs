@@ -73,8 +73,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
-            await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
-
             if (string.IsNullOrEmpty(searchParam.Url) && (method.Equals(HttpDeleteName, StringComparison.Ordinal) || method.Equals(HttpPatchName, StringComparison.Ordinal)))
             {
                 // Return out if this is delete OR patch call and no Url so FHIRController can move to next action

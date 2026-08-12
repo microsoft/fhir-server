@@ -37,19 +37,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
     public class FhirOperationDataStoreReindexTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
-        private readonly IFhirStorageTestHelper _testHelper;
 
         public FhirOperationDataStoreReindexTests(FhirStorageTestsFixture fixture)
         {
-            _operationDataStore = fixture.OperationDataStore;
-            _testHelper = fixture.TestHelper;
+            _operationDataStore = fixture.TestSqlServerOperationDataStore ?? fixture.OperationDataStore;
         }
 
         public async Task InitializeAsync()
         {
-            await _testHelper.DeleteAllReindexJobRecordsAsync();
-            await CancelActiveReindexJobIfExists();
-
             GetTestQueueClient().ClearJobs();
 
             await AssertNoReindexJobsExist();
