@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _result = new ReindexProcessingJobResult();
 
-            await _oomRetries.ExecuteAsync(() => ProcessQueryAsync());
+            await _oomRetries.ExecuteAsync(async () => await ProcessQueryAsync());
 
             return JsonConvert.SerializeObject(_result);
         }
