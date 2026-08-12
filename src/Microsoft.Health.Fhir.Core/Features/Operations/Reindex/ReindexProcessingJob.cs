@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             //// Determine if we're using SQL Server (surrogate ID range) or Cosmos DB (continuation tokens)
             _isSql = _definition.ResourceCount != null && _definition.ResourceCount.StartResourceSurrogateId > 0 && _definition.ResourceCount.EndResourceSurrogateId > 0;
 
-            await CheckDiscrepancies();
+            await CheckSearchParamHash();
 
             _result = new ReindexProcessingJobResult();
 
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_result);
         }
 
-        private async Task CheckDiscrepancies()
+        private async Task CheckSearchParamHash()
         {
             var resourceType = _definition.ResourceType;
             LogCacheDiag(resourceType);
@@ -130,13 +130,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (isBad)
             {
                 _logger.LogJobError(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null); // elevate in SQL to log w/o extra settings
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckSearchParamHash", "Error", msg, null);
                 throw new ReindexJobException(msg);
             }
             else
             {
                 _logger.LogJobInformation(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null); // elevate in SQL to log w/o extra settings
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckSearchParamHash", "Warn", msg, null);
             }
 
             _searchParameterHash = searchParameterHash; // this is relevant for cosmos only
