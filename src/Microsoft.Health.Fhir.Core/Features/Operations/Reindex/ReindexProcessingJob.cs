@@ -18,9 +18,12 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -49,6 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 },
                 (_, _, _, _) => Task.CompletedTask);
 
+        private static readonly AsyncPolicy _oomRetries = Policy
+            .Handle<OutOfMemoryException>()
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMinutes(RandomNumberGenerator.GetInt32(2, 5)));
+
         /// <summary>
         /// Combined retry policy for BulkUpdateSearchParameterIndicesAsync that handles both
         /// SQL Server timeouts and Cosmos DB 429 (TooManyRequests) errors.
@@ -60,6 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _result;
@@ -75,18 +83,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterOperations = searchParameterOperations;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
 
@@ -103,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _result = new ReindexProcessingJobResult();
 
-            await ProcessQueryAsync();
+            await _oomRetries.ExecuteAsync(() => ProcessQueryAsync());
 
             return JsonConvert.SerializeObject(_result);
         }
@@ -111,6 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckDiscrepancies()
         {
             var resourceType = _definition.ResourceType;
+            LogCacheDiag(resourceType);
             var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
             var requestedSearchParameterHash = _definition.SearchParameterHash;
             var isBad = requestedSearchParameterHash != searchParameterHash;
@@ -128,6 +140,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             _searchParameterHash = searchParameterHash; // this is relevant for cosmos only
+        }
+
+        public void LogCacheDiag(string resourceType)
+        {
+            var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType).Where(_ => _.SearchParameterStatus == SearchParameterStatus.Supported || _.SearchParameterStatus == SearchParameterStatus.Enabled).ToList();
+            var systemCount = searchParameters.Count(_ => _.IsSystemDefined);
+            var urls = searchParameters.Where(_ => !_.IsSystemDefined).Select(_ => _.Url.ToString()).OrderBy(_ => _).ToList();
+            _logger.LogJobInformation(_jobInfo, $"SearchParam Cache: System={systemCount}, Custom={urls.Count}, CustomUrls=[{string.Join(",", urls)}]");
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(long count, string continuationToken)

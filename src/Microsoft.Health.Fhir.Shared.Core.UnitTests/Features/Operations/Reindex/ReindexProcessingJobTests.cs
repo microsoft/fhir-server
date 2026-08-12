@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly CancellationToken _cancellationToken;
 
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,
+                     _searchParameterDefinitionManager,
                      NullLogger<ReindexProcessingJob>.Instance);
 
             // Default range discovery mock for SQL path - can be overridden per test
@@ -98,7 +101,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     Count = _mockedSearchCount,
                     EndResourceSurrogateId = 0,
                     StartResourceSurrogateId = 0,
-                    ContinuationToken = null,
                 },
                 SearchParameterHash = "accountHash",
                 SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Accout-status", SearchParameterStatus.Enabled) },
@@ -178,7 +180,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     Count = 2,
                     EndResourceSurrogateId = 100,
                     StartResourceSurrogateId = 1,
-                    ContinuationToken = null,
                 },
                 SearchParameterHash = "patientHash",
                 SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
@@ -378,7 +379,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         public async Task GetResourcesToReindexAsync_WithContinuationToken_IncludesTokenInQuery()
         {
             var expectedResourceType = "Patient";
-            var continuationToken = "test-continuation-token";
             var job = new ReindexProcessingJobDefinition()
             {
                 MaximumNumberOfResourcesPerQuery = 100,
@@ -389,7 +389,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     Count = 5,
                     EndResourceSurrogateId = 0,
                     StartResourceSurrogateId = 0,
-                    ContinuationToken = continuationToken,
                 },
                 SearchParameterHash = "patientHash",
                 SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
@@ -534,7 +533,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     Count = 6,
                     EndResourceSurrogateId = endId,
                     StartResourceSurrogateId = startId,
-                    ContinuationToken = null,
                 },
                 SearchParameterHash = "patientHash",
                 SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },

@@ -245,6 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
                             _searchParameterOperations,
+                            _searchParameterDefinitionManager,
                             NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
