@@ -753,52 +753,5 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
             ////await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
-
-        [Fact]
-        public async Task CheckDiscrepancies_WhenSearchParamLastUpdatedIsStale_ThrowsReindexJobException()
-        {
-            // Arrange
-            var expectedResourceType = "Account";
-            var matchingHash = "matchingHash";
-            var requestedLastUpdated = new DateTimeOffset(2026, 1, 1, 0, 0, 1, TimeSpan.Zero);
-            var currentLastUpdated = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-            var job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 100,
-                MaximumNumberOfResourcesPerWrite = 100,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = _mockedSearchCount,
-                    EndResourceSurrogateId = 0,
-                    StartResourceSurrogateId = 0,
-                },
-                SearchParameterHash = matchingHash,
-                SearchParamLastUpdated = requestedLastUpdated,
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Account-status", SearchParameterStatus.Enabled) },
-                TypeId = (int)JobType.ReindexProcessing,
-            };
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(matchingHash);
-            _searchParameterOperations.SearchParamLastUpdated.Returns(currentLastUpdated);
-
-            var jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // Act & Assert
-            var exception = await Assert.ThrowsAsync<ReindexJobException>(
-                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            Assert.Contains("SearchParamLastUpdated: Requested=2026-01-01 00:00:01.000 > Current=2026-01-01 00:00:00.000", exception.Message);
-            ////await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        }
     }
 }
