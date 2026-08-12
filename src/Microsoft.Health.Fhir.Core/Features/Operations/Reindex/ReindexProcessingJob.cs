@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _result = new ReindexProcessingJobResult();
 
-            await _oomRetries.ExecuteAsync(async () => await ProcessQueryAsync());
+            await ProcessAsync();
 
             return JsonConvert.SerializeObject(_result);
         }
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _result.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
         }
 
-        private async Task ProcessQueryAsync()
+        private async Task ProcessAsync()
         {
             if (_cancellationToken.IsCancellationRequested)
             {
@@ -192,40 +192,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                if (_isSql)
+                await _oomRetries.ExecuteAsync(async () =>
                 {
-                    await ProcessWithSurrogateIdRangeAsync();
-                }
-                else
-                {
-                    await ProcessWithContinuationTokensAsync();
-                }
-
-                if (!_cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogJobInformation(_jobInfo, "Reindex processing job complete. Total number of resources indexed by this job: {Progress}.", _result.SucceededResourceCount);
-                }
+                    if (_isSql)
+                    {
+                        await ProcessWithSurrogateIdRangeAsync();
+                    }
+                    else
+                    {
+                        await ProcessWithContinuationTokensAsync();
+                    }
+                });
             }
             catch (SqlException sqlEx)
             {
                 // For non-timeout SQL errors
                 _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
                 SetJobError($"SQL Error: {sqlEx.Message}");
-
                 throw new JobExecutionSoftFailureException($"SQL error occurred during reindex processing: {sqlEx.Message}", _result, sqlEx, isCustomerCaused: false);
             }
             catch (FhirException ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
                 SetJobError(ex.Message);
-
+                throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
+            }
+            catch (OutOfMemoryException ex)
+            {
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job exhausted its out-of-memory retries.");
+                SetJobError(ex.Message);
                 throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
                 SetJobError(ex.Message);
-
                 throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
             }
         }
