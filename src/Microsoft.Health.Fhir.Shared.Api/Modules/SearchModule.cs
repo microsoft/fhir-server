@@ -14,6 +14,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -138,6 +141,22 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            // Search indexing and reindex both resolve ISearchIndexer, so this single registration is what keeps
+            // them on the same FHIRPath engine. Splitting them would let the two drift and corrupt the index.
+            switch (_configuration.CoreFeatures.FhirSdkProvider)
+            {
+                case FhirSdkProvider.Firely:
+                    services.AddSingleton<IFhirPathEvaluator, FirelyFhirPathEvaluator>();
+                    break;
+
+                case FhirSdkProvider.Ignixa:
+                    services.AddSingleton<IFhirPathEvaluator, IgnixaFhirPathEvaluator>();
+                    break;
+
+                default:
+                    throw new InvalidOperationException($"Unsupported FHIR SDK provider: {_configuration.CoreFeatures.FhirSdkProvider}.");
+            }
 
             services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();
 

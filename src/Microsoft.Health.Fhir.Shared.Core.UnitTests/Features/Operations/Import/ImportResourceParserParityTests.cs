@@ -30,6 +30,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     /// Parity tests that assert the Firely and Ignixa <see cref="IImportResourceParser"/> implementations
     /// behave equivalently for the $import operation across all supported FHIR versions.
     /// </summary>
+    /// <remarks>
+    /// The <c>lastUpdated</c> values here are deliberately far in the past. Both parsers reject a
+    /// <c>lastUpdated</c> more than ten seconds ahead of <c>Clock.UtcNow</c>, and other tests in this assembly
+    /// temporarily install a fake <see cref="Microsoft.Health.Core.ClockResolver.TimeProvider"/> - one of them
+    /// rewinds it to 2018 - through a static property that is visible to tests running in parallel. A date that
+    /// predates any clock the suite installs keeps these tests deterministic regardless of interleaving.
+    /// </remarks>
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class ImportResourceParserParityTests
@@ -67,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                   "id": "patient-1",
                   "meta": {
                     "versionId": "7",
-                    "lastUpdated": "2026-01-02T03:04:05.123Z"
+                    "lastUpdated": "1990-01-02T03:04:05.123Z"
                   },
                   "active": true
                 }
@@ -126,7 +133,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 {
                   "resourceType":"Patient",
                   "id":"patient-1",
-                  "meta":{"versionId":"9","lastUpdated":"2020-01-01T00:00:00Z"}
+                  "meta":{"versionId":"9","lastUpdated":"1990-01-01T00:00:00Z"}
                 }
                 """;
 
@@ -173,7 +180,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 {
                   "resourceType":"Patient",
                   "id":"patient-1",
-                  "meta":{"versionId":"not-a-number","lastUpdated":"2020-01-01T00:00:00Z"}
+                  "meta":{"versionId":"not-a-number","lastUpdated":"1990-01-01T00:00:00Z"}
                 }
                 """;
 

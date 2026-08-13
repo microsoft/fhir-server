@@ -107,13 +107,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 element = resource.ToElement(_schemaContext.Schema);
             }
 
-            // Phase-2a flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
-            // RawResourceFactory can't see the native ResourceJsonNode and falls through to a full ToPoco<T>()
-            // rebuild plus Firely's FhirJsonSerializer - the same cost Firely mode pays, on top of the Ignixa
-            // parse above. The next phase should carry the node through via the two-arg ResourceElement ctor
-            // and add a native-serialize IRawResourceFactory decorator that uses it when present; that's the
-            // biggest single perf win per the sdk-migration import-performance-analysis doc. Don't just swap
-            // the ctor here without adding that decorator in the same change, or nothing downstream will use it.
+            // ToTypedElement() returns an adapter that keeps the native element underneath, and Ignixa's
+            // ToIgnixaElement() recognises that adapter and hands the same instance back. Both the Ignixa
+            // FHIRPath evaluator used for search indexing and IgnixaRawResourceFactory rely on that round trip,
+            // so an imported resource is parsed once and never rebuilt as a Firely POCO. Do not replace this
+            // with a conversion that loses the adapter, or both fall back to Firely and the import path pays for
+            // a full POCO rebuild plus a Firely serialize on every resource.
             var resourceElement = new ResourceElement(element.ToTypedElement());
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 

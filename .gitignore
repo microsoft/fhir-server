@@ -315,3 +315,6 @@ __*
 
 # For ignroing .local files from MultiInstanceRunner
 .local/
+
+# BenchmarkDotNet run output
+BenchmarkDotNet.Artifacts/

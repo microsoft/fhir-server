@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import.",
+                "FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import, FHIRPath search indexing, raw resource serialization.",
                 _provider);
             return Task.CompletedTask;
         }
