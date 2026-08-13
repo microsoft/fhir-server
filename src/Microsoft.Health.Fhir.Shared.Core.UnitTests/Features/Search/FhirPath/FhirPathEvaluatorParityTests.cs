@@ -234,6 +234,76 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.FhirPath
                 .ToArray();
         }
 
+        [Fact]
+        public void GivenAResolveExpression_WhenEvaluatedByBothEngines_ThenTheResolverIsInvokedAndResultsMatch()
+        {
+            // resolve() underpins a whole class of reference search parameters. IgnixaCompiledFhirPath has to
+            // translate Firely's Func<string, ITypedElement> resolver into Ignixa's Func<string, IElement> and
+            // wrap the resolved element back again. Nothing else covers that: the coverage test only *compiles*
+            // these expressions, and the documented failure mode is that they silently yield nothing rather than
+            // throwing - which would mean reference parameters indexing nothing, with no error anywhere.
+            const string Expression = "Patient.managingOrganization.where(resolve() is Organization)";
+
+            ITypedElement element = Parse(PatientJson);
+
+            var firelyCalls = new List<string>();
+            var ignixaCalls = new List<string>();
+
+            IReadOnlyList<ITypedElement> firely = FirelyEvaluator.Compile(Expression)
+                .Evaluate(element, CreateResolvingContext(element, firelyCalls))
+                .ToList();
+
+            IReadOnlyList<ITypedElement> ignixa = IgnixaEvaluator.Compile(Expression)
+                .Evaluate(element, CreateResolvingContext(element, ignixaCalls))
+                .ToList();
+
+            // Asserted so an empty-but-equal result cannot pass vacuously.
+            Assert.NotEmpty(firelyCalls);
+            Assert.NotEmpty(ignixaCalls);
+            Assert.Equal(firelyCalls, ignixaCalls);
+
+            Assert.Single(firely);
+            Assert.Equal(firely.Count, ignixa.Count);
+            Assert.Equal(Describe(firely[0]), Describe(ignixa[0]));
+        }
+
+        [Fact]
+        public void GivenAResolverThatReturnsNull_WhenEvaluatedByBothEngines_ThenBothYieldNothingWithoutThrowing()
+        {
+            // An unresolvable reference is normal - the lightweight resolver returns null for anything it cannot
+            // parse. Both engines must treat that as an empty result rather than throwing out of the indexer.
+            const string Expression = "Patient.managingOrganization.where(resolve() is Organization)";
+
+            ITypedElement element = Parse(PatientJson);
+
+            var context = new FhirEvaluationContext
+            {
+                Resource = element,
+                RootResource = element,
+                ElementResolver = _ => null,
+            };
+
+            Assert.Empty(FirelyEvaluator.Compile(Expression).Evaluate(element, context));
+            Assert.Empty(IgnixaEvaluator.Compile(Expression).Evaluate(element, context));
+        }
+
+        private static EvaluationContext CreateResolvingContext(ITypedElement element, List<string> calls)
+        {
+            return new FhirEvaluationContext
+            {
+                Resource = element,
+                RootResource = element,
+                ElementResolver = reference =>
+                {
+                    calls.Add(reference);
+
+                    // A minimal stand-in for the referenced resource; the lightweight resolver the indexer uses
+                    // likewise synthesises an element rather than reading storage.
+                    return Parse("""{"resourceType":"Organization","id":"1","active":true}""");
+                },
+            };
+        }
+
         private static ITypedElement Parse(string json)
         {
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
