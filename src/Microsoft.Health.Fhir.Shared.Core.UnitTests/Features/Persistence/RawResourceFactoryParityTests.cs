@@ -108,6 +108,117 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence
             },
         };
 
+        [Fact]
+        public void GivenAnIgnixaParsedResource_WhenSerialized_ThenTheFirelyFactoryIsNotUsed()
+        {
+            // The native path is the entire point of this factory, and nothing else in the suite proves it is
+            // taken: every other assertion compares output, and the fallback produces identical output by
+            // construction. If the ToTypedElement()/ToIgnixaElement() round trip were broken, the factory would
+            // silently degrade to rebuilding a Firely POCO per resource - correct, but with the performance win
+            // gone and no test failing. Counting inner calls is what makes that regression visible.
+            var counting = new CountingRawResourceFactory(_firelyRawResourceFactory);
+            var factory = new IgnixaRawResourceFactory(counting);
+
+            const string Json = """{"resourceType":"Patient","id":"a","meta":{"versionId":"7","lastUpdated":"1990-01-02T03:04:05.678+00:00"},"active":true}""";
+
+            RawResource result = factory.Create(ParseWithIgnixa(Json), keepMeta: true, keepVersion: true);
+
+            Assert.Equal(0, counting.CallCount);
+            Assert.Contains("\"resourceType\":\"Patient\"", result.Data, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public void GivenAFirelyBackedResource_WhenSerialized_ThenTheFirelyFactoryIsUsed(bool keepMeta, bool keepVersion)
+        {
+            // The mirror of the above: a resource that never went through Ignixa's parser has no JSON document
+            // to reuse, so the inner factory must actually be invoked rather than the factory inventing output.
+            var counting = new CountingRawResourceFactory(_firelyRawResourceFactory);
+            var factory = new IgnixaRawResourceFactory(counting);
+
+            RawResource ignixa = factory.Create(Samples.GetDefaultPatient(), keepMeta, keepVersion);
+            RawResource firely = _firelyRawResourceFactory.Create(Samples.GetDefaultPatient(), keepMeta, keepVersion);
+
+            Assert.Equal(1, counting.CallCount);
+            Assert.Equal(firely.Data, ignixa.Data);
+        }
+
+        [Fact]
+        public void GivenASoftDeletedResource_WhenSerializedNatively_ThenTheSoftDeleteExtensionIsNotPersisted()
+        {
+            // The parser strips the soft-delete marker by mutating the JSON and calling InvalidateCaches(). That
+            // this factory then sees the POST-mutation document is an assumption, not something the import parity
+            // tests can check - they wire the Firely serializer for both arms. If it saw a stale node the resource
+            // would be stored as deleted AND still carrying the marker.
+            const string Json = """
+                {"resourceType":"Patient","id":"a","meta":{"versionId":"7","lastUpdated":"1990-01-02T03:04:05.678+00:00","extension":[{"url":"http://azurehealthcareapis.com/data-extensions/deleted-state","valueString":"soft-deleted"}]},"active":true}
+                """;
+
+            ResourceElement resource = ParseWithIgnixa(Json);
+
+            RawResource firely = _firelyRawResourceFactory.Create(resource, keepMeta: true, keepVersion: true);
+            RawResource ignixa = _ignixaRawResourceFactory.Create(resource, keepMeta: true, keepVersion: true);
+
+            Assert.DoesNotContain("deleted-state", ignixa.Data, StringComparison.Ordinal);
+            Assert.True(
+                string.Equals(firely.Data, ignixa.Data, StringComparison.Ordinal),
+                FormatMismatch("soft deleted", firely.Data, ignixa.Data));
+        }
+
+        [Fact]
+        public void GivenContainedBeforeMeta_WhenSerialized_ThenRootMetadataStillLeadsTheDocument()
+        {
+            // SqlServerFhirDataStore manipulates the stored JSON as a string on the $import write path:
+            // GetJsonValue takes the FIRST "versionId":" in the payload and SyncVersionIdInMeta then runs a
+            // global string.Replace on it. A contained resource carrying its own meta.versionId ahead of the
+            // root meta would therefore have the CONTAINED version rewritten - silent corruption of stored data.
+            // The Firely factory cannot hit this because re-serializing a POCO always emits root meta before
+            // contained; this factory echoes the source document, so it hoists the root metadata explicitly.
+            const string Json = """
+                {"resourceType":"Patient","contained":[{"resourceType":"Organization","id":"org","meta":{"versionId":"99"}}],"id":"a","meta":{"versionId":"7","lastUpdated":"1990-01-02T03:04:05.678+00:00"},"active":true}
+                """;
+
+            RawResource ignixa = _ignixaRawResourceFactory.Create(ParseWithIgnixa(Json), keepMeta: true, keepVersion: true);
+
+            int rootVersion = ignixa.Data.IndexOf("\"versionId\":\"7\"", StringComparison.Ordinal);
+            int containedVersion = ignixa.Data.IndexOf("\"versionId\":\"99\"", StringComparison.Ordinal);
+
+            Assert.True(rootVersion >= 0, $"root versionId missing: {ignixa.Data}");
+            Assert.True(containedVersion >= 0, $"contained versionId missing: {ignixa.Data}");
+            Assert.True(
+                rootVersion < containedVersion,
+                $"root versionId must precede the contained one or SQL rewrites the wrong node: {ignixa.Data}");
+
+            // The same invariant ChangesAreOnlyInMetadata depends on.
+            Assert.True(
+                ignixa.Data.IndexOf("\"meta\":", StringComparison.Ordinal) <
+                ignixa.Data.IndexOf("\"contained\":", StringComparison.Ordinal),
+                $"root meta must precede contained: {ignixa.Data}");
+        }
+
+        [Fact]
+        public void GivenShuffledRootProperties_WhenSerializedByBothFactories_ThenTheDocumentsAreEquivalentAndMetadataLeads()
+        {
+            // Real NDJSON does not arrive in canonical order. Firely re-serializes a POCO and so normalises the
+            // order; this factory preserves the source order apart from the hoisted metadata. The documents are
+            // therefore equivalent but not byte-identical, which this pins deliberately rather than avoiding.
+            const string Json = """
+                {"active":true,"birthDate":"1974-12-25","resourceType":"Patient","meta":{"versionId":"7","lastUpdated":"1990-01-02T03:04:05.678+00:00"},"id":"a"}
+                """;
+
+            RawResource firely = _firelyRawResourceFactory.Create(ParseWithIgnixa(Json), keepMeta: true, keepVersion: true);
+            RawResource ignixa = _ignixaRawResourceFactory.Create(ParseWithIgnixa(Json), keepMeta: true, keepVersion: true);
+
+            Assert.True(
+                JsonNode.DeepEquals(JsonNode.Parse(firely.Data), JsonNode.Parse(ignixa.Data)),
+                FormatMismatch("shuffled", firely.Data, ignixa.Data));
+
+            Assert.StartsWith("{\"resourceType\":\"Patient\",\"id\":\"a\",\"meta\":", ignixa.Data, StringComparison.Ordinal);
+        }
+
         [Theory]
         [MemberData(nameof(Corpus))]
         public void GivenAnImportedResource_WhenSerializedByBothFactories_ThenTheRawResourceBytesMatch(string name, string json)
@@ -191,6 +302,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence
         {
             _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
             return _capturingRawResourceFactory.LastResource;
+        }
+
+        private sealed class CountingRawResourceFactory : IRawResourceFactory
+        {
+            private readonly IRawResourceFactory _inner;
+
+            public CountingRawResourceFactory(IRawResourceFactory inner)
+            {
+                _inner = inner;
+            }
+
+            public int CallCount { get; private set; }
+
+            public RawResource Create(ResourceElement resource, bool keepMeta, bool keepVersion = false)
+            {
+                CallCount++;
+                return _inner.Create(resource, keepMeta, keepVersion);
+            }
         }
 
         private sealed class CapturingRawResourceFactory : IRawResourceFactory

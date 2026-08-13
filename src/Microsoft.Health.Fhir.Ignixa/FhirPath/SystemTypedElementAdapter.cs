@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Specification;
+using Hl7.Fhir.Utility;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 
@@ -33,16 +35,19 @@ namespace Microsoft.Health.Fhir.Ignixa.FhirPath
     /// equality directly instead of asserting the weaker "both names happen to resolve to the same converter".
     /// </para>
     /// <para>
-    /// The map is therefore restricted to the system type names the converters actually recognise. Speculative
-    /// entries are deliberately omitted: mapping a primitive to a system name Firely does not itself produce
-    /// would create the very divergence this type exists to prevent.
+    /// The map is therefore restricted to the system type names the converters actually recognise, and to
+    /// computed <em>primitives</em>. Speculative entries are deliberately omitted: mapping a primitive to a
+    /// system name Firely does not itself produce would create the very divergence this type exists to prevent.
+    /// A computed <c>Quantity</c> is the one case left unmapped - it carries no primitive value, arises only
+    /// from unit arithmetic that no generated search parameter expression uses, and both spellings resolve to
+    /// <c>QuantityToQuantitySearchValueConverter</c> in any case.
     /// </para>
     /// <para>
     /// Computed values are identified by carrying no schema type: <see cref="IElement.Type"/> is populated for
     /// elements navigated out of a resource and null for values produced by evaluation.
     /// </para>
     /// </remarks>
-    internal sealed class SystemTypedElementAdapter : ITypedElement
+    internal sealed class SystemTypedElementAdapter : ITypedElement, IAnnotated
     {
         /// <summary>
         /// Maps a FHIR primitive type name to the FHIRPath system type Firely reports for a computed value of
@@ -57,7 +62,6 @@ namespace Microsoft.Health.Fhir.Ignixa.FhirPath
             ["string"] = "System.String",
             ["date"] = "System.Date",
             ["dateTime"] = "System.DateTime",
-            ["Quantity"] = "System.Quantity",
         };
 
         private readonly ITypedElement _inner;
@@ -83,6 +87,18 @@ namespace Microsoft.Health.Fhir.Ignixa.FhirPath
         /// <inheritdoc />
         public IElementDefinitionSummary Definition => _inner.Definition;
 
+        /// <inheritdoc />
+        /// <remarks>
+        /// Forwarded conditionally so wrapping cannot hide an interface the inner element implements. Firely
+        /// nodes such as <c>ScopedNode</c> and <c>PocoElementNode</c> implement <see cref="IAnnotated"/>, and
+        /// <c>ITypedElement.Annotation&lt;T&gt;()</c> silently returns null rather than throwing when the source
+        /// does not, so a hidden implementation would fail quietly.
+        /// </remarks>
+        public IEnumerable<object> Annotations(Type type)
+        {
+            return _inner is IAnnotated annotated ? annotated.Annotations(type) : Array.Empty<object>();
+        }
+
         /// <summary>
         /// Converts an Ignixa element to <see cref="ITypedElement"/>, correcting the reported type when the
         /// element is a computed value whose FHIR primitive name maps to a FHIRPath system type.
@@ -91,9 +107,16 @@ namespace Microsoft.Health.Fhir.Ignixa.FhirPath
         /// <returns>The Firely-shaped element.</returns>
         public static ITypedElement Create(IElement element)
         {
+            EnsureArg.IsNotNull(element, nameof(element));
+
             ITypedElement typedElement = element.ToTypedElement();
 
+            // HasPrimitiveValue narrows this to computed *primitives*, which is what the map describes. Without
+            // it the predicate would also match a complex element that happens to carry no schema type - a real
+            // FHIR Quantity, say - and relabel it as System.Quantity while wrapping away any interface its
+            // underlying Firely node implements.
             if (element.Type == null &&
+                element.HasPrimitiveValue &&
                 element.InstanceType != null &&
                 SystemTypeNames.TryGetValue(element.InstanceType, out string systemTypeName))
             {

@@ -150,6 +150,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.FhirPath
         [InlineData("Patient.deceased.exists()", "System.Boolean")]
         [InlineData("Patient.name.family.first() + 'x'", "System.String")]
         [InlineData("Patient.telecom.count() + 1", "System.Integer")]
+        [InlineData("today()", "System.Date")]
+        [InlineData("now()", "System.DateTime")]
+        [InlineData("1.5 + 1", "System.Decimal")]
         public void GivenAComputedValue_WhenEvaluatedByIgnixa_ThenItReportsTheSameSystemTypeAsFirely(
             string expression,
             string expectedInstanceType)

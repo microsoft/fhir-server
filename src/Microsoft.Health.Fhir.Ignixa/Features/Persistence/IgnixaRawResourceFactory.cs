@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -30,9 +33,33 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
     /// </remarks>
     public sealed class IgnixaRawResourceFactory : IRawResourceFactory
     {
+        private const string ResourceTypeProperty = "resourceType";
+        private const string IdProperty = "id";
         private const string MetaProperty = "meta";
         private const string MetaVersionId = "versionId";
         private const string MetaLastUpdated = "lastUpdated";
+
+        /// <summary>
+        /// Properties written first, in this order, regardless of where they appeared in the source document.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is not cosmetic. <c>SqlServerFhirDataStore</c> manipulates the stored JSON as a string rather
+        /// than as a document: <c>GetJsonValue</c> takes the <em>first</em> <c>"versionId":"</c> in the payload,
+        /// <c>ReplaceVersionId</c>/<c>SyncVersionIdInMeta</c> then run a <em>global</em> <c>string.Replace</c> on
+        /// it, and <c>ChangesAreOnlyInMetadata</c> slices from the first <c>"meta":</c>. All of those are on the
+        /// $import write path via <c>MergeResourcesAsync</c>.
+        /// </para>
+        /// <para>
+        /// The Firely factory re-serializes a POCO, so root <c>meta</c> is always emitted in canonical position -
+        /// before <c>contained</c> - and those string operations always find the root values. This factory echoes
+        /// the source document, so a resource whose NDJSON puts <c>contained</c> (carrying its own
+        /// <c>meta.versionId</c>) ahead of the root <c>meta</c> would otherwise have the <em>contained</em>
+        /// resource's version rewritten, silently corrupting what is stored. Hoisting these three keeps the root
+        /// metadata first and preserves that invariant.
+        /// </para>
+        /// </remarks>
+        private static readonly string[] LeadingProperties = { ResourceTypeProperty, IdProperty, MetaProperty };
 
         /// <summary>
         /// Firely writes JSON with a relaxed escaper. <c>System.Text.Json</c>'s default escapes <c>+</c>, <c>&amp;</c>,
@@ -44,6 +71,13 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+
+        private static readonly JsonWriterOptions WriterOptions = new()
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Indented = false,
+            SkipValidation = true,
         };
 
         private readonly IRawResourceFactory _firelyRawResourceFactory;
@@ -97,7 +131,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     meta[MetaVersionId] = JsonValue.Create("1");
                 }
 
-                return new RawResource(json.ToJsonString(SerializerOptions), FhirResourceFormat.Json, keepMeta);
+                return new RawResource(Serialize(json), FhirResourceFormat.Json, keepMeta);
             }
             finally
             {
@@ -112,6 +146,61 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         meta[MetaVersionId] = JsonValue.Create(originalVersionId);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Writes the document, emitting <see cref="LeadingProperties"/> first and everything else in source
+        /// order.
+        /// </summary>
+        /// <remarks>
+        /// Written through <see cref="Utf8JsonWriter"/> rather than <c>JsonObject.ToJsonString</c> because the
+        /// latter cannot reorder, and reordering by rebuilding the <see cref="JsonObject"/> would have to detach
+        /// nodes from the live document this factory must not disturb.
+        /// </remarks>
+        private static string Serialize(JsonObject json)
+        {
+            using var buffer = new MemoryStream();
+
+            using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
+            {
+                writer.WriteStartObject();
+
+                foreach (string name in LeadingProperties)
+                {
+                    if (json.TryGetPropertyValue(name, out JsonNode value))
+                    {
+                        WriteProperty(writer, name, value);
+                    }
+                }
+
+                foreach (KeyValuePair<string, JsonNode> property in json)
+                {
+                    if (Array.IndexOf(LeadingProperties, property.Key) >= 0)
+                    {
+                        continue;
+                    }
+
+                    WriteProperty(writer, property.Key, property.Value);
+                }
+
+                writer.WriteEndObject();
+            }
+
+            return Encoding.UTF8.GetString(buffer.ToArray());
+        }
+
+        private static void WriteProperty(Utf8JsonWriter writer, string name, JsonNode value)
+        {
+            writer.WritePropertyName(name);
+
+            if (value == null)
+            {
+                writer.WriteNullValue();
+            }
+            else
+            {
+                value.WriteTo(writer, SerializerOptions);
             }
         }
 

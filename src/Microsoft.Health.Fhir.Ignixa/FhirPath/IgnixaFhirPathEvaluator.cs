@@ -98,7 +98,19 @@ namespace Microsoft.Health.Fhir.Ignixa.FhirPath
                     ? _compiledDelegate(native, ignixaContext)
                     : _evaluator.Evaluate(native, _ast, ignixaContext);
 
-                return results.Select(SystemTypedElementAdapter.Create);
+                // Materialised deliberately. Both Ignixa evaluation paths are lazy, and the caller
+                // (TypedElementSearchIndexer.ExtractSearchValues) wraps only the *call* in a try/catch before
+                // enumerating the result outside it. Returning a lazy sequence would let an evaluation failure
+                // escape that catch and fail the whole import item, where the Firely engine yields a logged
+                // warning. Forcing evaluation here keeps the failure at the point the caller guards.
+                var materialised = new List<ITypedElement>();
+
+                foreach (IElement result in results)
+                {
+                    materialised.Add(SystemTypedElementAdapter.Create(result));
+                }
+
+                return materialised;
             }
 
             private static IgnixaEvaluationContext Translate(FirelyEvaluationContext context, IElement fallbackResource)
