@@ -20,6 +20,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// Exercises the SQL Server Query Store diagnostic procedures against captured FHIR database activity.
     /// </summary>
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerQueryStoreDiagnosticsTests : IClassFixture<FhirStorageTestsFixture>
     {
         private const int QueryExecutionCount = 4;
@@ -41,8 +43,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// </summary>
         /// <returns>A task that represents the asynchronous test operation.</returns>
         [Fact]
-        [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-        [Trait(Traits.Category, Categories.DataSourceValidation)]
         public async Task GivenAQueryStoreCapturedFhirQuery_WhenDiagnosticsProceduresAreCalled_ThenReturnSanitizedPlanAndStatisticsMetadata()
         {
             using SqlConnection connection = await _fixture.SqlHelper.GetSqlConnectionAsync();
