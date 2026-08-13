@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (request.Resource.InstanceType == KnownResourceTypes.SearchParameter)
             {
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Reject if an active resource already owns this URL.
                 if (!string.IsNullOrWhiteSpace(url))
                 {
-                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([url], cancellationToken);
                     if (existingByUrl.ContainsKey(url))
                     {
                         throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (request.Resource.InstanceType == KnownResourceTypes.SearchParameter)
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 ResourceWrapper prevSearchParamResource = null;
@@ -97,7 +97,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     // Resource doesn't exist yet, which is valid for PUT operations (upsert behavior)
                     // We'll treat this as a create operation
-                    prevSearchParamResource = null;
                 }
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
@@ -115,17 +114,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
                 }
 
-                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
+                string previousUrl = null;
+                if (prevSearchParamResource?.IsDeleted == false)
                 {
-                    var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
-
-                    if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
-                    {
-                        QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
-                    }
+                    previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
                 }
 
-                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
+                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated, previousUrl);
 
                 // Now allow the resource to updated per the normal behavior
                 return await next();
@@ -135,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return await next();
         }
 
-        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)
+        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, string previousUrl)
         {
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -157,6 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 LastUpdated = lastUpdated,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
+                PreviousUri = previousUrl == null ? null : new Uri(previousUrl),
             };
 
             context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
