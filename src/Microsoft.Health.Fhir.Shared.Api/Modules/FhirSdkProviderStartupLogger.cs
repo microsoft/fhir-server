@@ -13,11 +13,17 @@ using Microsoft.Health.Fhir.Core.Configs;
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     /// <summary>
-    /// Logs the configured FHIR SDK provider and the seams controlled by it.
+    /// Logs the FHIR SDK provider resolved for each migrated feature seam.
     /// </summary>
+    /// <remarks>
+    /// Every migrated seam is listed with the provider it actually resolved to, rather than just the configured
+    /// default. That keeps the per-seam overrides visible, and it is also the signal that a configuration written
+    /// against the earlier scalar <c>FhirSdkProvider</c> setting has not bound - such a value leaves every seam on
+    /// Firely, which would otherwise be silent.
+    /// </remarks>
     public sealed class FhirSdkProviderStartupLogger : IHostedService
     {
-        private readonly FhirSdkProvider _provider;
+        private readonly FhirSdkProviderConfiguration _configuration;
         private readonly ILogger<FhirSdkProviderStartupLogger> _logger;
 
         /// <summary>
@@ -29,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             IOptions<CoreFeatureConfiguration> configuration,
             ILogger<FhirSdkProviderStartupLogger> logger)
         {
-            _provider = configuration.Value.FhirSdkProvider;
+            _configuration = configuration.Value.FhirSdkProvider;
             _logger = logger;
         }
 
@@ -37,8 +43,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import, FHIRPath search indexing, raw resource serialization.",
-                _provider);
+                "FHIR SDK provider default: {FhirSdkProviderDefault}. Migrated seams: Import={ImportProvider}, FhirPath={FhirPathProvider}, Serialization={SerializationProvider}. All other seams remain Firely-backed.",
+                _configuration.Default,
+                _configuration.EffectiveImport,
+                _configuration.EffectiveFhirPath,
+                _configuration.EffectiveSerialization);
             return Task.CompletedTask;
         }
 

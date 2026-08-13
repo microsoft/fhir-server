@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         public void GivenIgnixaConfiguration_WhenModuleLoads_ThenIgnixaParserIsRegistered()
         {
             var configuration = new FhirServerConfiguration();
-            configuration.CoreFeatures.FhirSdkProvider = FhirSdkProvider.Ignixa;
+            configuration.CoreFeatures.FhirSdkProvider.Default = FhirSdkProvider.Ignixa;
             var services = new ServiceCollection();
 
             new OperationsModule(configuration).Load(services);
@@ -52,10 +52,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         }
 
         [Fact]
+        public void GivenAnImportOverride_WhenModuleLoads_ThenTheOverrideWinsOverTheDefault()
+        {
+            // Import can be moved on its own, and can equally be held back while the default moves.
+            var configuration = new FhirServerConfiguration();
+            configuration.CoreFeatures.FhirSdkProvider.Default = FhirSdkProvider.Ignixa;
+            configuration.CoreFeatures.FhirSdkProvider.Import = FhirSdkProvider.Firely;
+            var services = new ServiceCollection();
+
+            new OperationsModule(configuration).Load(services);
+
+            ServiceDescriptor descriptor = Assert.Single(
+                services, x => x.ServiceType == typeof(IImportResourceParser));
+            Assert.Equal("FirelyImportResourceParser", descriptor.ImplementationType.Name);
+        }
+
+        [Fact]
         public void GivenUnknownProvider_WhenModuleLoads_ThenStartupFails()
         {
             var configuration = new FhirServerConfiguration();
-            configuration.CoreFeatures.FhirSdkProvider = (FhirSdkProvider)999;
+            configuration.CoreFeatures.FhirSdkProvider.Default = (FhirSdkProvider)999;
 
             Assert.Throws<InvalidOperationException>(
                 () => new OperationsModule(configuration).Load(new ServiceCollection()));

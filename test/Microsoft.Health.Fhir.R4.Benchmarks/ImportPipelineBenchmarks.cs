@@ -55,11 +55,15 @@ namespace Microsoft.Health.Fhir.Benchmarks
         /// generated project inherits this repository's <c>Directory.Build.props</c> and central package
         /// management, which it cannot restore on its own.
         /// </summary>
+        /// <remarks>
+        /// The default job, not <c>ShortRun</c>: these numbers are quoted in ADR 2607 as the justification for
+        /// the migration, and three iterations produced a confidence interval wider than the mean itself.
+        /// </remarks>
         private sealed class Config : ManualConfig
         {
             public Config()
             {
-                AddJob(Job.ShortRun.WithToolchain(InProcessEmitToolchain.Instance));
+                AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
             }
         }
         private static readonly string[] Expressions =

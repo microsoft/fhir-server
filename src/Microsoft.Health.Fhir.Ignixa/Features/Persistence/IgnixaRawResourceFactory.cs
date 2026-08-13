@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -38,6 +38,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
         private const string MetaProperty = "meta";
         private const string MetaVersionId = "versionId";
         private const string MetaLastUpdated = "lastUpdated";
+
+        /// <summary>
+        /// Starting size of the write buffer. Sized to cover a typical imported resource without regrowing;
+        /// larger documents simply grow the buffer.
+        /// </summary>
+        private const int InitialBufferSizeInBytes = 4096;
 
         /// <summary>
         /// Properties written first, in this order, regardless of where they appeared in the source document.
@@ -160,7 +166,9 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
         /// </remarks>
         private static string Serialize(JsonObject json)
         {
-            using var buffer = new MemoryStream();
+            // ArrayBufferWriter rather than MemoryStream + ToArray: the latter copies the payload twice before
+            // it is decoded, which showed up as roughly four times the allocation of this method's output.
+            var buffer = new ArrayBufferWriter<byte>(InitialBufferSizeInBytes);
 
             using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
             {
@@ -187,7 +195,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 writer.WriteEndObject();
             }
 
-            return Encoding.UTF8.GetString(buffer.ToArray());
+            return Encoding.UTF8.GetString(buffer.WrittenSpan);
         }
 
         private static void WriteProperty(Utf8JsonWriter writer, string name, JsonNode value)

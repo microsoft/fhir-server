@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Search indexing and reindex both resolve ISearchIndexer, so this single registration is what keeps
             // them on the same FHIRPath engine. Splitting them would let the two drift and corrupt the index.
-            switch (_configuration.CoreFeatures.FhirSdkProvider)
+            switch (_configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath)
             {
                 case FhirSdkProvider.Firely:
                     services.AddSingleton<IFhirPathEvaluator, FirelyFhirPathEvaluator>();
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     break;
 
                 default:
-                    throw new InvalidOperationException($"Unsupported FHIR SDK provider: {_configuration.CoreFeatures.FhirSdkProvider}.");
+                    throw new InvalidOperationException($"Unsupported FHIR SDK provider: {_configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath}.");
             }
 
             services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();

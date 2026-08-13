@@ -8,7 +8,7 @@ We need a migration strategy that lands real, mergeable progress in small increm
 
 ## Decision
 
-Integrate Ignixa one feature seam at a time behind a global two-state provider setting:
+Integrate Ignixa one feature seam at a time behind a per-seam provider setting with a single global default:
 
 ```csharp
 public enum FhirSdkProvider
@@ -16,11 +16,23 @@ public enum FhirSdkProvider
     Firely = 0,
     Ignixa = 1,
 }
+
+public class FhirSdkProviderConfiguration
+{
+    public FhirSdkProvider Default { get; set; } = FhirSdkProvider.Firely;
+
+    public FhirSdkProvider? Import { get; set; }
+
+    public FhirSdkProvider? FhirPath { get; set; }
+
+    public FhirSdkProvider? Serialization { get; set; }
+}
 ```
 
-- `CoreFeatureConfiguration.FhirSdkProvider` defaults to `Firely`. There is no `Hybrid` mode and no runtime fallback from Ignixa to Firely — shadow comparison is a testing technique, not a production mode.
-- Selecting `Ignixa` means every feature seam already migrated uses its Ignixa implementation; every other seam keeps using Firely until that seam is migrated in its own PR.
-- Startup logs the configured provider and the seams it currently controls (`FhirSdkProviderStartupLogger`: `"FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import."`), so the global setting never creates a false impression that the whole server has moved.
+- `CoreFeatureConfiguration.FhirSdkProvider.Default` is `Firely`. There is no `Hybrid` mode and no runtime fallback from Ignixa to Firely — shadow comparison is a testing technique, not a production mode.
+- `Default` applies to every seam without an explicit override, so adopting or abandoning the whole migrated surface stays a one-line change. Per-seam overrides exist because the seams do not have to move together: an operator can take the fast `$import` path while leaving search indexing on Firely, or roll a single seam back after a problem without giving up the others. A single global switch made both impossible.
+- Seams that have not been migrated yet are unaffected by any of these settings.
+- Startup logs the resolved provider for every migrated seam, not just the default (`FhirSdkProviderStartupLogger`: `"FHIR SDK provider default: {Default}. Migrated seams: Import={...}, FhirPath={...}, Serialization={...}. All other seams remain Firely-backed."`), so the setting never creates a false impression that the whole server has moved. This is also what surfaces a configuration written against the earlier scalar `FhirSdkProvider` value, which no longer binds and would otherwise silently leave every seam on Firely.
 - We do not introduce an `IFhirSdkProvider` facade — it would accumulate unrelated serialization, validation, FHIRPath, and persistence responsibilities. Each migrated feature keeps its existing narrow contract (Phase 0 reuses `IImportResourceParser` unchanged) or introduces one narrow contract if none exists.
 
 **Phase 0 migrates only `$import` parsing.**
@@ -63,15 +75,21 @@ The first delivery target is a demonstrable `$import` performance win reachable 
 
 Phase 2a is therefore scheduled ahead of both Phase 1 and Phase 2b, followed by a benchmark gate comparing Ignixa and Firely modes on one binary with only configuration differing. If that gate does not reproduce the `feature/ignixa-sdk` delta, the bottleneck is identified and written up before the ladder resumes. Phase 1 and Phase 2b follow the gate.
 
-The gate has since been met. `test/Microsoft.Health.Fhir.R4.Benchmarks` measures the three per-resource costs on one binary (ShortRun, in-process toolchain, R4 `Patient` with three names, two telecoms, four identifiers and two references):
+The gate has since been met. `test/Microsoft.Health.Fhir.R4.Benchmarks` measures the three per-resource costs on one binary (default job, in-process toolchain, R4 `Patient` with three names, two telecoms, four identifiers and two references).
 
-| Stage | Firely | Ignixa | Speedup | Allocated (Firely → Ignixa) |
-|---|---|---|---|---|
-| Parse | 107.3 µs | 10.7 µs | 10.0× | 171.7 KB → 6.3 KB |
-| Serialize raw resource | 72.5 µs | 3.5 µs | 20.7× | 107.7 KB → 2.2 KB |
-| Evaluate search expressions | 54.2 µs | 36.3 µs | 1.5× | 89.8 KB → 65.1 KB |
+**Allocation is the reliable measure here and is quoted exactly** — it reproduced byte-for-byte across every run:
 
-Together that is roughly 234 µs and 369 KB per resource under Firely against 51 µs and 74 KB under Ignixa. Serialization gains the most because the Firely path rebuilds a POCO before writing, while the Ignixa path writes the document it already parsed; FHIRPath gains least because the search value converters that consume the results still run on Firely.
+| Stage | Allocated, Firely | Allocated, Ignixa | Reduction |
+|---|---|---|---|
+| Parse | 171.7 KB | 6.3 KB | 27× |
+| Serialize raw resource | 107.7 KB | 6.4 KB | 17× |
+| Evaluate search expressions | 89.8 KB | 66.4 KB | 1.4× |
+
+Per resource that is 369 KB under Firely against 79 KB under Ignixa.
+
+Wall-clock timings from the same runs are consistent in *direction and order of magnitude* but not to three significant figures, and are deliberately not quoted precisely: the measurements were taken on a Hyper-V VM, where repeated runs of the same unchanged code varied by up to a factor of two on the Firely arm (the serialize row was observed anywhere between 72 µs and 144 µs). Approximately, parse is ~10× faster, raw-resource serialization is well over an order of magnitude faster, and FHIRPath evaluation is ~1.3–1.5× faster. Anyone quoting a specific speedup should re-measure on dedicated hardware first.
+
+Serialization gains most because the Firely path rebuilds a POCO before writing while the Ignixa path writes the document it already parsed. FHIRPath gains least because the search value converters that consume the results still run on Firely, and because Ignixa results are wrapped (`SystemTypedElementAdapter`) and materialised before returning — both deliberate correctness costs.
 
 Phase numbering stays fixed regardless of execution order — the backlog references these numbers, so they are identifiers, not a schedule.
 

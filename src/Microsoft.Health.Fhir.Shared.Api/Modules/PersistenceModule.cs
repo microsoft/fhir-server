@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
 
-            _fhirSdkProvider = fhirServerConfiguration.CoreFeatures.FhirSdkProvider;
+            _fhirSdkProvider = fhirServerConfiguration.CoreFeatures.FhirSdkProvider.EffectiveSerialization;
         }
 
         /// <inheritdoc />

@@ -35,10 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
 
         /// <summary>
-        /// Gets or sets the preferred FHIR SDK at feature seams that support provider selection.
+        /// Gets or sets the preferred FHIR SDK at each feature seam that supports provider selection.
         /// Firely remains the default until the final migration cutover.
         /// </summary>
-        public FhirSdkProvider FhirSdkProvider { get; set; } = FhirSdkProvider.Firely;
+        public FhirSdkProviderConfiguration FhirSdkProvider { get; set; } = new FhirSdkProviderConfiguration();
 
         /// <summary>
         /// Gets or sets the maximum value for _count in search.
