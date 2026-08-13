@@ -2,7 +2,7 @@
 
 ## Status
 
-Agreed baseline for implementation. This document defines the SQL contract, security boundary, operational limits, and validation requirements. It does not select a Geneva action, PaaS API, or direct-SQL caller.
+Agreed baseline for implementation. This document defines the SQL contract, security boundary, operational limits, validation requirements, and repository ownership split. It does not select a Geneva action, PaaS API, or direct-SQL caller.
 
 ## Problem
 
@@ -14,6 +14,8 @@ FHIR Azure SQL performance investigations currently require privileged, manual a
 - inspect statistics freshness, sampling, and cardinality metadata.
 
 The baseline is a self-contained, read-only SQL interface. Filtering, validation, redaction, paging, permissions, and auditing must live in SQL so the procedures can be used by an authorized direct SQL connection or wrapped by future operational tooling.
+
+The canonical database objects belong to the OSS `fhir-server` schema because that repository owns the versioned SQL migration chain consumed by FHIR PaaS. PaaS owns how authorized operators invoke the contract and handle its results.
 
 Related internal guidance:
 
@@ -67,6 +69,49 @@ Query text, statement text, scalar expressions, non-parameter constants, object 
 This intentionally accepts that ad hoc or non-parameterized query text and plan constants may contain literal values. The protected content is parameter-value metadata contained in Showplan `ParameterList` elements, including compiled and runtime parameter values.
 
 Statistics histogram values remain excluded because `range_high_key` contains actual indexed-column values.
+
+## Repository ownership
+
+### OSS `fhir-server`
+
+The OSS repository owns the persistent database contract:
+
+- stored procedure definitions;
+- `FhirDiagnosticsReader`;
+- individual procedure grants;
+- schema version and migration scripts;
+- SQL aggregation, sanitization, permission, and compatibility tests; and
+- the canonical SQL interface documentation.
+
+These objects must be part of the normal `Microsoft.Health.Fhir.SqlServer` schema artifacts and applied by `Microsoft.Health.Fhir.SchemaManager`. A database at the corresponding schema version must not depend on a separate PaaS rollout to acquire them.
+
+Although the supported operational scenario is FHIR PaaS on Azure SQL Database, the OSS migration must remain safe for databases that consume the OSS SQL schema. PaaS-specific identities, storage accounts, APIs, and rollout mechanisms must not be embedded in the OSS procedures.
+
+### `fhir-paas`
+
+The PaaS repository owns the operational integration:
+
+- selecting the initial caller surface, such as direct support tooling, Script Runner, Geneva, or a PaaS administrative operation;
+- mapping an approved managed identity or support principal to `FhirDiagnosticsReader`;
+- caller authentication and authorization;
+- operation-level concurrency control, circuit breaking, and command timeout;
+- invoking the OSS stored procedures without caller-supplied SQL;
+- formatting, transporting, retaining, and auditing downloaded result artifacts; and
+- coordinating deployment after the required OSS package/schema version is available.
+
+PaaS must consume the procedures through the OSS `Microsoft.Health.Fhir.SqlServer` and `Microsoft.Health.Fhir.SchemaManager` packages. It must not maintain a second PaaS-only schema version or duplicate production `CREATE OR ALTER PROCEDURE` definitions.
+
+The PaaS Script Runner may be used for a temporary read-only prototype or to invoke the deployed stored procedures. It must not be the production installation mechanism for these persistent objects. Otherwise a database could report the current OSS schema version while silently lacking the diagnostic procedures or role.
+
+### Rollout dependency
+
+The rollout order is:
+
+1. merge and release the OSS schema change;
+2. update `fhir-paas` to consume the OSS package containing that schema version;
+3. allow the existing PaaS schema manager flow to apply the migration;
+4. provision approved role membership; and
+5. enable the PaaS invocation and artifact-handling workflow.
 
 ## Stored procedures
 
@@ -369,6 +414,8 @@ The initial caller remains undecided. A direct SQL connection, PaaS administrati
 
 Caller authentication, authorization, concurrency control, circuit breaking, command timeout, result retention, and download policy are caller responsibilities. Returned query text and sanitized Showplan are treated as operational metadata, but full artifacts must not be written to general logs, metrics dimensions, or `dbo.LogEvent`.
 
+For the managed PaaS service, these caller responsibilities are implemented in `fhir-paas`; they are not added to the OSS schema migration.
+
 ## Resource controls
 
 SQL enforces:
@@ -460,16 +507,29 @@ If Start, End, or Error logging fails, the diagnostic call fails. Callers do not
 3. Start, End, and Error audit behavior is verified, including fail-closed logging failures.
 4. Procedures remain read-only except for required audit events.
 5. Deterministic fixture tests are supplemented by Azure SQL integration tests for live catalog compatibility.
+6. OSS tests verify the persistent SQL contract without depending on PaaS assemblies or infrastructure.
+7. PaaS tests verify package/schema-version synchronization, role provisioning, stored-procedure invocation, and artifact handling without duplicating the SQL implementation.
 
 ## Schema and rollout
 
+### OSS schema change
+
 - Add all three procedures under `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Sprocs`.
 - Add an idempotent role and individual permission migration.
-- Introduce all three procedures and the role in one Azure SQL database schema version and migration diff.
-- Deploy the schema objects consistently across supported environments; control role membership per environment.
+- Introduce all three procedures and the role in one database schema version and migration diff.
+- Include the objects in the generated full schema and packaged SchemaManager resources.
+- Keep the migration additive and compatible with the previous application release.
 - Use normal repository code review and automated/manual validation. No separate security-review gate is required.
-- Do not add self-hosted/on-premises SQL Server support in this baseline.
 - Keep actual-plan diagnostics as a documented future feature only.
+
+### PaaS integration change
+
+- Update the OSS FHIR package versions and synchronized target schema version through the existing `fhir-paas` dependency flow.
+- Do not copy the stored procedure or role DDL into PaaS Script Runner scripts.
+- Add role membership only for the approved operational identity.
+- Implement the selected caller, result transport, artifact storage, and operational authorization in `fhir-paas`.
+- Deploy schema/package consumption before enabling the caller.
+- Control caller rollout and role membership independently in each environment.
 
 ## References
 
