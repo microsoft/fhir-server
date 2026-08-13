@@ -620,11 +620,27 @@ stages:
   - testR4Sql
   - testR5Sql
   jobs:
-  - job: AggregateCoverage
-    displayName: 'Aggregate coverage from all test types and versions'
+  - job: AggregateCoverageArtifact
+    displayName: 'Publish aggregated coverage artifact'
     pool:
       name: '$(InternalPool)'
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml
+      parameters:
+        publishArtifact: true
+        publishCoverageResults: false
+        uploadToCodecov: false
+  - job: AggregateCoverageResults
+    displayName: 'Publish aggregated code coverage and Codecov report'
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - template: ./jobs/aggregate-coverage.yml
+      parameters:
+        publishArtifact: false
+        publishCoverageResults: true
+        uploadToCodecov: true
