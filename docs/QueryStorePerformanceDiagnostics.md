@@ -62,6 +62,11 @@ dbo.GetLastActualQueryPlanDiagnostics
 
 This is documentation only. No stub procedure, shared output contract, permission grant, Query Store text execution, `LAST_QUERY_PLAN_STATS` enablement, or plan-cache lookup is included.
 
+## Implementation simplifications
+
+- Plan-type and Parameter Sensitive Plan dispatcher/query-variant metadata are intentionally not read. Those Azure SQL catalog fields are not stable across the supported deployment fleet, so both Query Store procedures omit them rather than returning speculative NULL/status fields or attempting version-specific fallback logic.
+- `GetStatisticsHealth` reports database-level `sys.dm_db_stats_properties` metadata for each statistics object. It does not expand incremental statistics into partition-level property rows; unavailable properties remain `NULL` and are explicitly marked `PropertiesUnavailable`. Its table-name input is materialized as `nvarchar(128)`, rather than the type-equivalent `sysname` alias, because the existing schema C# model generator interprets `sysname` as a table-valued parameter.
+
 ### Accepted query and plan content
 
 Query text, statement text, scalar expressions, non-parameter constants, object names, missing-index recommendations, warnings, memory grants, and optimizer statistics usage are permitted diagnostic output.
@@ -241,7 +246,7 @@ The single result set includes:
 - first and last execution time in UTC
 - query-level compile count and last compile time
 - forced-plan state and available force-failure metadata
-- plan type and other universally available diagnostic plan metadata
+- other universally available diagnostic plan metadata; plan-type, dispatcher, and query-variant metadata are omitted
 - total and average wait milliseconds
 - `WaitStatsStatus`
 - `WaitStatsXml`
@@ -260,20 +265,21 @@ An unknown or evicted plan ID fails explicitly with a stable "plan not found or 
 
 The result includes:
 
-- `plan_id`
-- `query_id`
-- `query_hash`
-- `query_plan_hash`
-- full `query_sql_text`
+- `PlanId`
+- `QueryId`
+- `QueryHash`
+- `QueryPlanHash`
+- full `QuerySqlText`
 - engine and compatibility versions
 - compile metadata
-- trivial, parallel, forced-plan, force-failure, plan-type, dispatcher, and query-variant metadata when available through universally supported Azure SQL columns
+- trivial, parallel, forced-plan, and force-failure metadata
 - first and last execution metadata when available
 - `SanitizationStatus`
 - `SanitizationErrorCode`
 - `SanitizedShowPlanXml`
 
 The entire multi-statement Showplan document is preserved. There is no separate allowlisted `PlanDiagnosticsXml`.
+Plan-type, dispatcher, and query-variant metadata are unavailable on the baseline catalog and are omitted.
 
 #### Showplan sanitization
 
@@ -314,7 +320,7 @@ Returns one row per statistics object for user tables.
 
 | Parameter | Behavior |
 |---|---|
-| `@TableName sysname = NULL` | Optional exact table-name filter under the database collation. |
+| `@TableName nvarchar(128) = NULL` | Optional exact table-name filter under the database collation. |
 | `@Top int = 20` | Must be between 1 and 100. |
 | `@Offset int = 0` | Must be between 0 and 10,000. |
 | `@OrderBy varchar(32) = 'ModificationPercent'` | Case-insensitive allowlist described below. |
@@ -464,6 +470,8 @@ Audit records must not contain:
 If Start, End, or Error logging fails, the diagnostic call fails. Callers do not receive direct permission to invoke `dbo.LogEvent`.
 
 ## Testing requirements
+
+**Deferred prototype validation:** The prototype has one representative SQL-backed end-to-end path. Exhaustive matrix validation remains future work, including negative validation, fail-closed audit behavior, permissions, a malformed-fixture corpus, and wait-disabled cases.
 
 ### Slow-query aggregation
 

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>116</LatestSchemaVersion>
+    <LatestSchemaVersion>117</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
@@ -46,6 +46,7 @@
   <ItemGroup>
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
     <SqlScript Include="Features\Schema\Sql\Views\*.sql" />
+    <SqlScript Include="Features\Schema\Sql\Scripts\DiagnosticsRole.sql" />
   </ItemGroup>
 
   <ItemGroup>
