@@ -36,6 +36,9 @@ parameters:
   default: ''
 - name: keyVaultName
   type: string
+- name: reindexCacheRefreshWaitMultiplier
+  type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -43,6 +46,12 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
+  variables:
+  - name: effectiveReindexCacheRefreshWaitMultiplier
+    ${{ if ne(parameters.reindexCacheRefreshWaitMultiplier, '') }}:
+      value: ${{ parameters.reindexCacheRefreshWaitMultiplier }}
+    ${{ else }}:
+      value: $(reindexCacheRefreshWaitMultiplier)
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -86,4 +95,4 @@ jobs:
         -TaskHostingMaxRunningTaskCount $(taskHostingMaxRunningTaskCount)
         -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
         -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
-        -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
+        -ReindexCacheRefreshWaitMultiplier "$(effectiveReindexCacheRefreshWaitMultiplier)"
