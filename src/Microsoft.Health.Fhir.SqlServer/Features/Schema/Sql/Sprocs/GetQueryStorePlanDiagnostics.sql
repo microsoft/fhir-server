@@ -222,8 +222,8 @@ BEGIN
             N';ErrorNumber=', CONVERT(nvarchar(11), @CaughtErrorNumber),
             N';ErrorState=', CONVERT(nvarchar(11), @CaughtErrorState))
 
-        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@Start,@Text=@AuditText
-        THROW
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@Start,@Text=@AuditText;
+        THROW;
     END CATCH
 END
 GO
