@@ -288,6 +288,9 @@
   <data name="MultipleProfilesProvided" xml:space="preserve">
     <value>Only one profile can be provided between a Parameters resource and the URL</value>
   </data>
+  <data name="ValidateResourceRequired" xml:space="preserve">
+    <value>A resource to validate must be provided.</value>
+  </data>
   <data name="ReindexParameterNotValid" xml:space="preserve">
     <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
     <comment>{0} = the parameter name which was invalid, {1} is the operation type, POST or PATCH</comment>
@@ -408,6 +411,9 @@
   </data>
   <data name="MixedSMARTV1AndV2ScopesAreNotAllowed" xml:space="preserve">
     <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
+  </data>
+  <data name="MixedSMARTScopeContextsAreNotAllowed" xml:space="preserve">
+    <value>SMART clinical scopes must use a single context. Patient, user, and system scopes cannot be mixed.</value>
   </data>
   <data name="SmartScopeSearchParameterModifiersNotSupported" xml:space="preserve">
     <value>Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier in parameter '{1}'.</value>

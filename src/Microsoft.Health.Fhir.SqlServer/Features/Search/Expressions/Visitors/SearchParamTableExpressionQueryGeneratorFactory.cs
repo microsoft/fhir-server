@@ -202,6 +202,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return NotReferencedQueryGenerator.Instance;
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitNotReferencing(NotReferencingExpression expression, object context)
+        {
+            // NotReferencedQueryGenerator's Table is dbo.Resource, which is what we want:
+            // the union CTE selects from Resource and filters with a NOT EXISTS anti-join.
+            return NotReferencedQueryGenerator.Instance;
+        }
+
         private SearchParamTableExpressionQueryGenerator VisitExpressionsContainer(IExpressionsContainer expression, object context)
         {
             foreach (var childExpression in expression.Expressions)

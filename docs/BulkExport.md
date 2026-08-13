@@ -2,6 +2,10 @@
 
 This feature allows data from the FHIR server to be exported. More details can be found in the [spec](https://hl7.org/fhir/uv/bulkdata/export/index.html). The feature is currently turned on by default. To disable the feature, update the `FhirServer:Operations:Export:Enabled` setting to be false.
 
+## SMART scope authorization
+
+SMART system scopes are authorized for export creation, status, and cancellation by default. To temporarily restore the prior behavior without SMART export scope authorization, set `FhirServer:CoreFeatures:EnableSmartExportScopeAuthorization` to `false`. For containerized deployments, use `FhirServer__CoreFeatures__EnableSmartExportScopeAuthorization=false`.
+
 ## Specifying destination
 
 There are two ways by which one can set the destination storage account to export data to. One way would be to use the connection string for the storage account and update the `FhirServer:Operations:Export:StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and export data.

@@ -1,19 +1,15 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>11.0.123</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>11.0.135</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>10.0.9</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>10.0.10</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
+    <IgnixaPackageVersion>0.0.163</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>8.0.26</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
     <When Condition="'$(TargetFramework)' == 'net9.0'">
       <PropertyGroup>
         <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
@@ -21,7 +17,7 @@
     </When>
     <When Condition="'$(TargetFramework)' == 'net10.0'">
       <PropertyGroup>
-        <AspNetPackageVersion>10.0.9</AspNetPackageVersion>
+        <AspNetPackageVersion>10.0.10</AspNetPackageVersion>
       </PropertyGroup>
     </When>
   </Choose>
@@ -43,7 +39,8 @@
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
   <ItemGroup>
-    <PackageVersion Include="AngleSharp" Version="1.2.0" />
+    <PackageVersion Include="AngleSharp" Version="1.5.0" />
+    <PackageVersion Include="Azure.Containers.ContainerRegistry" Version="1.3.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
@@ -71,6 +68,11 @@
     <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Ignixa.Abstractions" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.FhirPath" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
@@ -122,7 +124,7 @@
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.64.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />

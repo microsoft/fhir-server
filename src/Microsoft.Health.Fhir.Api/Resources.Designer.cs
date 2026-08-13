@@ -653,6 +653,15 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to SMART clinical scopes must use a single context. Patient, user, and system scopes cannot be mixed..
+        /// </summary>
+        public static string MixedSMARTScopeContextsAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTScopeContextsAreNotAllowed", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
@@ -705,6 +714,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A resource to validate must be provided..
+        /// </summary>
+        public static string ValidateResourceRequired {
+            get {
+                return ResourceManager.GetString("ValidateResourceRequired", resourceCulture);
             }
         }
         

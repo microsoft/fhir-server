@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
             }
 
-            // Validate if template has been configured.
+            // Validate custom template configuration before access so configuration errors retain their specific response.
             bool isDefaultTemplateReference = ImageInfo.IsDefaultTemplateImageReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
             if (isDefaultTemplateReference)
@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                _containerRegistryAccessValidator.CheckContainerRegistryAccess();
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
+                _containerRegistryAccessValidator.CheckContainerRegistryAccess();
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);

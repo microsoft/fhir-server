@@ -703,6 +703,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
         {
             Skip.If(
@@ -725,7 +726,268 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(39, results.Results.Count());
+            Assert.Equal(40, results.Results.Count());
+        }
+
+        [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenFhirUserClaimPatient_WhenDevicesRequested_ThenOnlyOwnAndUnassignedDevicesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Device assigned to this patient: visible.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+
+            // Device with no patient reference: visible (universal).
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Device assigned to a different patient: hidden.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenFhirUserClaimPatient_WhenIncludingDevicePatient_ThenOtherPatientDemographicsAreNotLeaked()
+        {
+            // Security regression guard for the reported Device compartment bypass. The attack was:
+            // GET /Device?_include=Device:patient with a Patient A SMART token. Because a Device assigned
+            // to Patient B (smart-device-B2) leaked into the Device match set, _include=Device:patient
+            // followed its Device.patient reference and amplified the leak to Patient B's demographics.
+            // With the restriction, smart-device-B2 is excluded from the match set, so its patient
+            // reference is never followed and Patient B is never included.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_include", "Device:patient"),
+                new Tuple<string, string>("_count", "100"),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Device assigned to this patient: still a match, and its patient reference resolves to
+            // the compartment patient.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1" && r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+
+            // Device with no patient reference: still a match (universal), nothing to include.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1" && r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+
+            // Device assigned to a different patient must never be a match, so it can never be used to
+            // pivot into another patient's data through _include.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+
+            // The compartment patient may be included via the own device's patient reference.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == KnownResourceTypes.Patient);
+
+            // The other patient's demographics must NOT leak in through _include=Device:patient.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-B");
+        }
+
+        [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenFhirUserClaimPractitioner_WhenDevicesRequested_ThenOnlyUnassignedDevicesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Devices with no patient reference remain visible in any compartment.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Devices assigned to any patient are hidden in non-Patient compartments.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenRevIncludingAllResourcesAndADeviceReferencesThePatient_ThenTheAssignedDeviceIsRevIncluded()
+        {
+            // Regression guard for the SMART Device restriction interacting with _revinclude.
+            // A Device assigned to the compartment patient must still surface as a rev-included
+            // resource (leg A must ADMIT it, not filter it out), while a Device assigned to a
+            // different patient must never appear.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_revinclude", "*:*"),
+                new Tuple<string, string>("_id", "smart-patient-A"),
+                new Tuple<string, string>("_count", "100"),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // The compartment patient is the match result.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == KnownResourceTypes.Patient);
+
+            // A Device assigned to this patient references the patient, so it must be rev-included
+            // and must not be dropped by the Device restriction.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1" && r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+
+            // A Device assigned to a different patient must never leak in.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenSearchingDevicesWithPatientMissingModifier_ThenOnlyUnassignedDevicesReturned()
+        {
+            // Regression guard for the :missing modifier coexisting with the Device restriction. A real
+            // patient:missing=true expression is rewritten by MissingSearchParamVisitor into a NotExists table
+            // expression, while the SMART compartment union in the same query contains the look-alike
+            // NotReferencingExpression (leg B). The visitor's Scout must NOT mistake leg B for a :missing
+            // expression and corrupt the compartment union - if it did, results would be wrong or the query
+            // would fail to generate.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("patient:missing", "true"));
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Unassigned device: no patient reference, so it matches patient:missing=true and passes leg B.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Device assigned to this patient: has a patient reference, so patient:missing=true excludes it.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+
+            // Device assigned to a different patient: excluded by both the modifier and the restriction.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+
+            // Every returned Device must have no patient reference (modifier honored across the union).
+            Assert.All(results.Results, r => Assert.Equal(KnownResourceTypes.Device, r.Resource.ResourceTypeName));
+        }
+
+        [SkippableFact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSmartV2GranularDeviceScopeWithSearchParameter_WhenSearchingDevices_ThenOnlyOwnAndUnassignedDevicesReturned()
+        {
+            // Exercises the SMART v2 granular-scope union path (AppendSmartNewSetOfUnionAllTableExpressions)
+            // coexisting with the Device restriction legs in the compartment union. The granular scope permits
+            // all three seed devices by identifier, so smart-device-B2 being hidden is attributable solely to
+            // the Device restriction (not the scope filter) - and both leg A (own device) and leg B (unassigned
+            // device) must still return their devices while the smart v2 scope union is joined into the query.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction(
+                "Device",
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("identifier", "http://goodcare.org/devices/id|345677,http://goodcare.org/devices/id|345675,http://goodcare.org/devices/id|345678")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var results = await _searchService.Value.SearchAsync("Device", query, CancellationToken.None);
+
+            // Device assigned to this patient: visible (leg A) and permitted by the scope.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+
+            // Device with no patient reference: visible (leg B) and permitted by the scope.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+
+            // Device assigned to a different patient: hidden by the restriction even though the scope permits it.
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [SkippableFact]
+        public async Task GivenSmartV2GranularPatientScopeOnName_WhenSearchingWithAddressMissingModifier_ThenModifierAndScopeAreBothHonored()
+        {
+            // Generic double-check: a :missing modifier on one optional property (address, which
+            // smart-patient-A lacks) combined with a SMART v2 granular scope on a DIFFERENT property
+            // (name). This exercises MissingSearchParamVisitor (address:missing -> NotExists) coexisting
+            // with the smart v2 scope union (AppendSmartNewSetOfUnionAllTableExpressions) and the
+            // compartment union - all ANDed together - independent of the Device restriction.
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeRestriction = new ScopeRestriction(
+                "Patient",
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("name", "SMARTGivenName1")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // smart-patient-A has no address, so address:missing=true matches, and its name matches the scope.
+            var missingTrueQuery = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("address:missing", "true"),
+            };
+            var missingTrueResults = await _searchService.Value.SearchAsync("Patient", missingTrueQuery, CancellationToken.None);
+            Assert.Contains(missingTrueResults.Results, r => r.Resource.ResourceId == "smart-patient-A");
+
+            // Inverse: address:missing=false must not match smart-patient-A (it has no address).
+            var missingFalseQuery = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("address:missing", "false"),
+            };
+            var missingFalseResults = await _searchService.Value.SearchAsync("Patient", missingFalseQuery, CancellationToken.None);
+            Assert.DoesNotContain(missingFalseResults.Results, r => r.Resource.ResourceId == "smart-patient-A");
         }
 
         [SkippableFact]
