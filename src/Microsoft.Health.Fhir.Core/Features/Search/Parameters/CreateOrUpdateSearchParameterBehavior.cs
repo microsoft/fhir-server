@@ -132,8 +132,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 PreviousUri = previousUrl == null || previousUrl == url ? null : new Uri(previousUrl),
             };
 
-            // there is no way context is null here.
-            _requestContextAccessor.RequestContext.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
+            var context = _requestContextAccessor.RequestContext ?? throw new InvalidOperationException("Request context is required for search param status updates.");
+            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }
