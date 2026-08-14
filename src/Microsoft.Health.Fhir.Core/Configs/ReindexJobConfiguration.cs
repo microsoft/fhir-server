@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls how many resources will be batched to reindex within a job (e.g. Job of 10k will batch 1k at a time to database to reindex)
         /// </summary>
-        public uint MaximumNumberOfResourcesPerWrite { get; set; } = 1000;
+        public uint MaximumNumberOfResourcesPerWrite { get; set; } = 200;
 
         /// <summary>
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
