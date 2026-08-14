@@ -103,8 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 // Reject if an active resource other than this one already owns the new URL.
                 var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
-                if (existingByUrl.TryGetValue(newUrl, out var existingElement)
-                    && !string.Equals(existingElement.GetStringScalar("id"), request.Resource.Id, StringComparison.Ordinal))
+                if (existingByUrl.TryGetValue(newUrl, out var existingElement) && existingElement.GetStringScalar("id") != request.Resource.Id)
                 {
                     throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                 }
@@ -130,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 LastUpdated = lastUpdated,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
-                PreviousUri = previousUrl == null ? null : new Uri(previousUrl),
+                PreviousUri = previousUrl == null || previousUrl == url ? null : new Uri(previousUrl),
             };
 
             // there is no way context is null here.
