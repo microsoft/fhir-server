@@ -99,6 +99,9 @@ var acrUri = isMAG ? '.azurecr.us' : '.azurecr.io'
 
 var sharedEnvVars = [
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
+  { name: 'Telemetry__Provider', value: 'ApplicationInsights' }
+  { name: 'Telemetry__ConnectionString', value: monitoring.outputs.applicationInsightsConnectionString }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
   { name: 'KeyVault__Endpoint', value: keyVaultEndpoint }
   { name: 'FhirServer__Security__Enabled', value: 'true' }
   { name: 'FhirServer__Security__EnableAadSmartOnFhirProxy', value: 'true' }
@@ -120,6 +123,14 @@ var allEnvVars = concat(sharedEnvVars, datastoreEnvVars, additionalEnvVars)
 // ──────────────────────────────────────────────
 // Resources
 // ──────────────────────────────────────────────
+
+module monitoring 'monitoring.bicep' = {
+  name: '${normalizedAppName}-monitoring'
+  params: {
+    containerAppName: containerAppName
+    containerAppsEnvironmentName: containerAppsEnvironmentName
+  }
+}
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: normalizedAppName
