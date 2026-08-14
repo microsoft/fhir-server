@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenValidateSearchParameterIsCalled()
         {
-            var searchParameter = new SearchParameter() { Id = "Id" };
+            var searchParameter = new SearchParameter() { Id = "Id", Url = "http://test" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var request = new CreateResourceRequest(resource, bundleResourceContext: null);
