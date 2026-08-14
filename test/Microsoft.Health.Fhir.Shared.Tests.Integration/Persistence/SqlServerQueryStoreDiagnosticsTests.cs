@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await AssertPlanDiagnosticsAsync(connection, planId, queryMarker, CancellationToken.None);
             await AssertResourceStatisticsHealthAsync(connection, CancellationToken.None);
+            await AssertTotalWaitOrderingIsRejectedAsync(connection, CancellationToken.None);
         }
 
         private static async Task EnableAndVerifyQueryStoreAsync(SqlConnection connection, CancellationToken cancellationToken)
@@ -160,10 +161,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Contains(queryMarker, reader.GetString(reader.GetOrdinal("QuerySqlText")));
             Assert.False(reader.IsDBNull(reader.GetOrdinal("FirstExecutionTimeUtc")));
             Assert.False(reader.IsDBNull(reader.GetOrdinal("LastExecutionTimeUtc")));
+            AssertWaitColumnsAreNotReturned(reader);
             Assert.False(await reader.ReadAsync(cancellationToken), "The unique query-text filter returned more than one Query Store plan.");
             Assert.False(await reader.NextResultAsync(cancellationToken), "dbo.GetQueryStoreSlowQueries returned more than one result set.");
 
             return planId;
+        }
+
+        private static void AssertWaitColumnsAreNotReturned(SqlDataReader reader)
+        {
+            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("TotalWaitMilliseconds"));
+            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("AverageWaitMilliseconds"));
+            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("WaitStatsStatus"));
+            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("WaitStatsXml"));
+        }
+
+        private static async Task AssertTotalWaitOrderingIsRejectedAsync(SqlConnection connection, CancellationToken cancellationToken)
+        {
+            using SqlCommand command = connection.CreateCommand();
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandText = "dbo.GetQueryStoreSlowQueries";
+            command.Parameters.Add("@OrderBy", SqlDbType.VarChar, 32).Value = "TotalWait";
+
+            SqlException exception = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync(cancellationToken));
+
+            Assert.Contains("@OrderBy is not supported.", exception.Message);
         }
 
         private static async Task AssertPlanDiagnosticsAsync(

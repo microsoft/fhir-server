@@ -11,7 +11,6 @@ BEGIN
            ,@Start datetime = GETUTCDATE()
            ,@Rows int = 0
            ,@QueryStoreState nvarchar(60)
-           ,@QueryStoreReadonlyReason bigint
            ,@AuditText nvarchar(3500)
            ,@FoundPlanId bigint
            ,@QueryId bigint
@@ -41,8 +40,6 @@ BEGIN
            ,@LocalPlanXml xml
            ,@SanitizedShowPlanXml xml
            ,@SerializedPlanXml nvarchar(max)
-           ,@ParameterListCount bigint
-           ,@ParameterListRemoved bigint = 0
            ,@RemainingParameterListCount bigint
            ,@ForbiddenAttributeCount bigint
            ,@SanitizationStatus varchar(32)
@@ -63,15 +60,7 @@ BEGIN
             THROW 50001, 'Plan ID must be a positive bigint.', 1
 
         SELECT @QueryStoreState = actual_state_desc
-              ,@QueryStoreReadonlyReason = readonly_reason
         FROM sys.database_query_store_options
-
-        SET @AuditText = CONCAT(
-            @AuditText,
-            N';QueryStoreState=', ISNULL(CONVERT(nvarchar(60), @QueryStoreState), N'Unknown'),
-            N';QueryStoreReadonlyReason=', ISNULL(CONVERT(nvarchar(20), @QueryStoreReadonlyReason), N'NULL'))
-
-        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Text=@AuditText
 
         IF @QueryStoreState IS NULL OR @QueryStoreState NOT IN ('READ_WRITE', 'READ_ONLY')
             THROW 50002, 'Query Store is not readable.', 1
@@ -132,13 +121,7 @@ BEGIN
             BEGIN
                 BEGIN TRY
                     SET @SanitizedShowPlanXml = @LocalPlanXml
-                    SET @ParameterListCount = @SanitizedShowPlanXml.value('count(//*[local-name(.) = "ParameterList"])', 'bigint')
-
-                    WHILE @ParameterListRemoved < @ParameterListCount
-                    BEGIN
-                        SET @SanitizedShowPlanXml.modify('delete (//*[local-name(.) = "ParameterList"])[1]')
-                        SET @ParameterListRemoved = @ParameterListRemoved + 1
-                    END
+                    SET @SanitizedShowPlanXml.modify('delete //*[local-name(.) = "ParameterList"]')
 
                     SET @RemainingParameterListCount = @SanitizedShowPlanXml.value('count(//*[local-name(.) = "ParameterList"])', 'bigint')
                     SET @ForbiddenAttributeCount = @SanitizedShowPlanXml.value('count(//@*[local-name(.) = "ParameterCompiledValue" or local-name(.) = "ParameterRuntimeValue"])', 'bigint')

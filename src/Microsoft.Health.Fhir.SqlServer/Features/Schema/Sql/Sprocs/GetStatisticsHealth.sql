@@ -29,25 +29,25 @@ BEGIN
 
         IF @Top IS NULL OR @Top < 1 OR @Top > 100
         BEGIN
-            RAISERROR('@Top must be between 1 and 100.', 18, 127);
+            THROW 50000, '@Top must be between 1 and 100.', 127;
         END
 
         IF @Offset IS NULL OR @Offset < 0 OR @Offset > 10000
         BEGIN
-            RAISERROR('@Offset must be between 0 and 10000.', 18, 127);
+            THROW 50000, '@Offset must be between 0 and 10000.', 127;
         END
 
         IF @NormalizedOrderBy IS NULL
             OR @NormalizedOrderBy NOT IN ('MODIFICATIONCOUNT', 'MODIFICATIONPERCENT', 'LASTUPDATED', 'SAMPLINGPERCENT', 'ROWS')
         BEGIN
-            RAISERROR('@OrderBy must be ModificationCount, ModificationPercent, LastUpdated, SamplingPercent, or Rows.', 18, 127);
+            THROW 50000, '@OrderBy must be ModificationCount, ModificationPercent, LastUpdated, SamplingPercent, or Rows.', 127;
         END
 
         IF @TableName IS NOT NULL
         BEGIN
             IF LEN(LTRIM(RTRIM(@TableName))) = 0
             BEGIN
-                RAISERROR('@TableName must be nonblank when supplied.', 18, 127);
+                THROW 50000, '@TableName must be nonblank when supplied.', 127;
             END
 
             SELECT
@@ -59,12 +59,12 @@ BEGIN
 
             IF @TableCount = 0
             BEGIN
-                RAISERROR('@TableName does not resolve to a user table.', 18, 127);
+                THROW 50000, '@TableName does not resolve to a user table.', 127;
             END
 
             IF @TableCount > 1
             BEGIN
-                RAISERROR('@TableName must resolve to exactly one user table.', 18, 127);
+                THROW 50000, '@TableName must resolve to exactly one user table.', 127;
             END
         END
 

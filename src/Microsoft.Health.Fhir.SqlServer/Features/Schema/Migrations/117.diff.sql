@@ -45,8 +45,6 @@ BEGIN
     DECLARE @QueryTextFilterLength int;
     DECLARE @QueryStoreState nvarchar(60);
     DECLARE @QueryStoreReadOnlyReason bigint;
-    DECLARE @WaitStatsCaptureMode nvarchar(60);
-    DECLARE @WaitStatsStatus varchar(32);
     DECLARE @SlowQueriesProcedureObjectId int = OBJECT_ID(N'dbo.GetQueryStoreSlowQueries');
     DECLARE @PlanDiagnosticsProcedureObjectId int = OBJECT_ID(N'dbo.GetQueryStorePlanDiagnostics');
     DECLARE @StatisticsHealthProcedureObjectId int = OBJECT_ID(N'dbo.GetStatisticsHealth');
@@ -70,16 +68,9 @@ BEGIN
 
     SELECT
         @QueryStoreState = actual_state_desc,
-        @QueryStoreReadOnlyReason = readonly_reason,
-        @WaitStatsCaptureMode = wait_stats_capture_mode_desc
+        @QueryStoreReadOnlyReason = readonly_reason
     FROM sys.database_query_store_options;
 
-    SET @WaitStatsStatus =
-        CASE @WaitStatsCaptureMode
-            WHEN N'ON' THEN 'Available'
-            WHEN N'OFF' THEN 'Disabled'
-            ELSE 'Unavailable'
-        END;
     SET @AuditText = CONCAT(
         @AuditText,
         N';StartTimeUtc=', CONVERT(nvarchar(33), @ResolvedStartTime, 127),
@@ -91,8 +82,7 @@ BEGIN
         N';QueryTextFilterPresent=', CASE WHEN @QueryTextContains IS NULL THEN N'0' ELSE N'1' END,
         N';QueryTextFilterLength=', @QueryTextFilterLength,
         N';QueryStoreState=', ISNULL(@QueryStoreState, N'Unknown'),
-        N';QueryStoreReadOnlyReason=', ISNULL(CONVERT(nvarchar(20), @QueryStoreReadOnlyReason), N'Unknown'),
-        N';WaitStatsCaptureMode=', ISNULL(@WaitStatsCaptureMode, N'Unknown'));
+        N';QueryStoreReadOnlyReason=', ISNULL(CONVERT(nvarchar(20), @QueryStoreReadOnlyReason), N'Unknown'));
 
         EXECUTE dbo.LogEvent
             @Process = @ProcedureName,
@@ -132,7 +122,6 @@ BEGIN
                 WHEN @OrderBy COLLATE Latin1_General_100_CI_AS = 'AverageCpu' THEN 'AverageCpu'
                 WHEN @OrderBy COLLATE Latin1_General_100_CI_AS = 'LogicalReads' THEN 'LogicalReads'
                 WHEN @OrderBy COLLATE Latin1_General_100_CI_AS = 'Executions' THEN 'Executions'
-                WHEN @OrderBy COLLATE Latin1_General_100_CI_AS = 'TotalWait' THEN 'TotalWait'
             END;
 
         IF @OrderByNormalized IS NULL
@@ -248,63 +237,6 @@ BEGIN
             FROM RankedCollapsedRuntimeStats AS rs
             GROUP BY rs.PlanId
             HAVING SUM(rs.RegularExecutionCount) >= @MinExecutions
-        ),
-        WaitStatsRows AS
-        (
-            SELECT
-                ws.plan_id AS PlanId,
-                ws.wait_category_desc AS WaitCategoryDescription,
-                CONVERT(decimal(38, 0), ws.total_query_wait_time_ms) AS TotalWaitMilliseconds,
-                CONVERT(decimal(38, 0), ws.max_query_wait_time_ms) AS MaximumWaitMilliseconds
-            FROM sys.query_store_wait_stats AS ws
-            INNER JOIN sys.query_store_runtime_stats_interval AS rsi
-                ON rsi.runtime_stats_interval_id = ws.runtime_stats_interval_id
-            WHERE @WaitStatsStatus = 'Available'
-              AND ws.execution_type = 0
-              AND rsi.start_time < @ResolvedEndTime
-              AND rsi.end_time > @ResolvedStartTime
-        ),
-        WaitCategories AS
-        (
-            SELECT
-                ws.PlanId,
-                ws.WaitCategoryDescription,
-                CONVERT(decimal(38, 0), SUM(ws.TotalWaitMilliseconds)) AS TotalWaitMilliseconds,
-                MAX(ws.MaximumWaitMilliseconds) AS MaximumWaitMilliseconds
-            FROM WaitStatsRows AS ws
-            GROUP BY
-                ws.PlanId,
-                ws.WaitCategoryDescription
-        ),
-        AggregatedWaitStats AS
-        (
-            SELECT
-                ws.PlanId,
-                CONVERT(decimal(38, 0), SUM(ws.TotalWaitMilliseconds)) AS TotalWaitMilliseconds
-            FROM WaitCategories AS ws
-            GROUP BY ws.PlanId
-        ),
-        WaitStatsXml AS
-        (
-            SELECT
-                wp.PlanId,
-                (
-                    SELECT
-                        wc.WaitCategoryDescription AS [@Category],
-                        wc.TotalWaitMilliseconds AS [@TotalWaitMilliseconds],
-                        CONVERT(decimal(38, 4), wc.TotalWaitMilliseconds / NULLIF(CONVERT(decimal(38, 4), ars.RegularExecutionCount), CONVERT(decimal(38, 4), 0))) AS [@AverageWaitMilliseconds],
-                        wc.MaximumWaitMilliseconds AS [@MaximumWaitMilliseconds]
-                    FROM WaitCategories AS wc
-                    WHERE wc.PlanId = wp.PlanId
-                      AND wc.TotalWaitMilliseconds > 0
-                    ORDER BY
-                        wc.TotalWaitMilliseconds DESC,
-                        wc.WaitCategoryDescription ASC
-                    FOR XML PATH(N'WaitCategory'), ROOT(N'WaitStats'), TYPE
-                ) AS WaitStatsXml
-            FROM (SELECT DISTINCT PlanId FROM WaitCategories) AS wp
-            INNER JOIN AggregatedRuntimeStats AS ars
-                ON ars.PlanId = wp.PlanId
         )
         SELECT
             q.query_id AS QueryId,
@@ -343,17 +275,7 @@ BEGIN
             p.compatibility_level AS CompatibilityLevel,
             p.is_online_index_plan AS IsOnlineIndexPlan,
             p.is_trivial_plan AS IsTrivialPlan,
-            p.is_parallel_plan AS IsParallelPlan,
-            CASE
-                WHEN @WaitStatsStatus = 'Available' THEN ISNULL(aws.TotalWaitMilliseconds, CONVERT(decimal(38, 0), 0))
-            END AS TotalWaitMilliseconds,
-            CASE
-                WHEN @WaitStatsStatus = 'Available' THEN CONVERT(decimal(38, 4), ISNULL(aws.TotalWaitMilliseconds, CONVERT(decimal(38, 0), 0)) / NULLIF(CONVERT(decimal(38, 4), ars.RegularExecutionCount), CONVERT(decimal(38, 4), 0)))
-            END AS AverageWaitMilliseconds,
-            @WaitStatsStatus AS WaitStatsStatus,
-            CASE
-                WHEN @WaitStatsStatus = 'Available' THEN ISNULL(wsx.WaitStatsXml, CONVERT(xml, N'<WaitStats />'))
-            END AS WaitStatsXml
+            p.is_parallel_plan AS IsParallelPlan
         FROM AggregatedRuntimeStats AS ars
         INNER JOIN sys.query_store_plan AS p
             ON p.plan_id = ars.PlanId
@@ -361,16 +283,11 @@ BEGIN
             ON q.query_id = p.query_id
         INNER JOIN sys.query_store_query_text AS qt
             ON qt.query_text_id = q.query_text_id
-        LEFT JOIN AggregatedWaitStats AS aws
-            ON aws.PlanId = ars.PlanId
-        LEFT JOIN WaitStatsXml AS wsx
-            ON wsx.PlanId = ars.PlanId
         WHERE ISNULL(q.object_id, -1) <> ISNULL(@SlowQueriesProcedureObjectId, -2)
           AND ISNULL(q.object_id, -1) <> ISNULL(@PlanDiagnosticsProcedureObjectId, -2)
           AND ISNULL(q.object_id, -1) <> ISNULL(@StatisticsHealthProcedureObjectId, -2)
           AND (@QueryTextContains IS NULL OR qt.query_sql_text LIKE @QueryTextPattern ESCAPE N'~')
         ORDER BY
-            CASE WHEN @OrderByNormalized = 'TotalWait' AND @WaitStatsStatus = 'Available' AND aws.TotalWaitMilliseconds IS NULL THEN 1 ELSE 0 END ASC,
             CASE WHEN @OrderByNormalized = 'TotalDuration' THEN ars.TotalDurationMicroseconds END DESC,
             CASE WHEN @OrderByNormalized = 'AverageDuration' THEN ars.AverageDurationMicroseconds END DESC,
             CASE WHEN @OrderByNormalized = 'MaximumDuration' THEN ars.MaximumDurationMicroseconds END DESC,
@@ -378,7 +295,6 @@ BEGIN
             CASE WHEN @OrderByNormalized = 'AverageCpu' THEN ars.AverageCpuMicroseconds END DESC,
             CASE WHEN @OrderByNormalized = 'LogicalReads' THEN ars.TotalLogicalReads END DESC,
             CASE WHEN @OrderByNormalized = 'Executions' THEN ars.RegularExecutionCount END DESC,
-            CASE WHEN @OrderByNormalized = 'TotalWait' AND @WaitStatsStatus = 'Available' THEN ISNULL(aws.TotalWaitMilliseconds, CONVERT(decimal(38, 0), 0)) END DESC,
             q.query_id ASC,
             p.plan_id ASC
         OFFSET @Offset ROWS FETCH NEXT @Top ROWS ONLY;
@@ -422,7 +338,6 @@ BEGIN
            ,@Start datetime = GETUTCDATE()
            ,@Rows int = 0
            ,@QueryStoreState nvarchar(60)
-           ,@QueryStoreReadonlyReason bigint
            ,@AuditText nvarchar(3500)
            ,@FoundPlanId bigint
            ,@QueryId bigint
@@ -452,8 +367,6 @@ BEGIN
            ,@LocalPlanXml xml
            ,@SanitizedShowPlanXml xml
            ,@SerializedPlanXml nvarchar(max)
-           ,@ParameterListCount bigint
-           ,@ParameterListRemoved bigint = 0
            ,@RemainingParameterListCount bigint
            ,@ForbiddenAttributeCount bigint
            ,@SanitizationStatus varchar(32)
@@ -474,15 +387,7 @@ BEGIN
             THROW 50001, 'Plan ID must be a positive bigint.', 1
 
         SELECT @QueryStoreState = actual_state_desc
-              ,@QueryStoreReadonlyReason = readonly_reason
         FROM sys.database_query_store_options
-
-        SET @AuditText = CONCAT(
-            @AuditText,
-            N';QueryStoreState=', ISNULL(CONVERT(nvarchar(60), @QueryStoreState), N'Unknown'),
-            N';QueryStoreReadonlyReason=', ISNULL(CONVERT(nvarchar(20), @QueryStoreReadonlyReason), N'NULL'))
-
-        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Text=@AuditText
 
         IF @QueryStoreState IS NULL OR @QueryStoreState NOT IN ('READ_WRITE', 'READ_ONLY')
             THROW 50002, 'Query Store is not readable.', 1
@@ -543,13 +448,7 @@ BEGIN
             BEGIN
                 BEGIN TRY
                     SET @SanitizedShowPlanXml = @LocalPlanXml
-                    SET @ParameterListCount = @SanitizedShowPlanXml.value('count(//*[local-name(.) = "ParameterList"])', 'bigint')
-
-                    WHILE @ParameterListRemoved < @ParameterListCount
-                    BEGIN
-                        SET @SanitizedShowPlanXml.modify('delete (//*[local-name(.) = "ParameterList"])[1]')
-                        SET @ParameterListRemoved = @ParameterListRemoved + 1
-                    END
+                    SET @SanitizedShowPlanXml.modify('delete //*[local-name(.) = "ParameterList"]')
 
                     SET @RemainingParameterListCount = @SanitizedShowPlanXml.value('count(//*[local-name(.) = "ParameterList"])', 'bigint')
                     SET @ForbiddenAttributeCount = @SanitizedShowPlanXml.value('count(//@*[local-name(.) = "ParameterCompiledValue" or local-name(.) = "ParameterRuntimeValue"])', 'bigint')
@@ -670,25 +569,25 @@ BEGIN
 
         IF @Top IS NULL OR @Top < 1 OR @Top > 100
         BEGIN
-            RAISERROR('@Top must be between 1 and 100.', 18, 127);
+            THROW 50000, '@Top must be between 1 and 100.', 127;
         END
 
         IF @Offset IS NULL OR @Offset < 0 OR @Offset > 10000
         BEGIN
-            RAISERROR('@Offset must be between 0 and 10000.', 18, 127);
+            THROW 50000, '@Offset must be between 0 and 10000.', 127;
         END
 
         IF @NormalizedOrderBy IS NULL
             OR @NormalizedOrderBy NOT IN ('MODIFICATIONCOUNT', 'MODIFICATIONPERCENT', 'LASTUPDATED', 'SAMPLINGPERCENT', 'ROWS')
         BEGIN
-            RAISERROR('@OrderBy must be ModificationCount, ModificationPercent, LastUpdated, SamplingPercent, or Rows.', 18, 127);
+            THROW 50000, '@OrderBy must be ModificationCount, ModificationPercent, LastUpdated, SamplingPercent, or Rows.', 127;
         END
 
         IF @TableName IS NOT NULL
         BEGIN
             IF LEN(LTRIM(RTRIM(@TableName))) = 0
             BEGIN
-                RAISERROR('@TableName must be nonblank when supplied.', 18, 127);
+                THROW 50000, '@TableName must be nonblank when supplied.', 127;
             END
 
             SELECT
@@ -700,12 +599,12 @@ BEGIN
 
             IF @TableCount = 0
             BEGIN
-                RAISERROR('@TableName does not resolve to a user table.', 18, 127);
+                THROW 50000, '@TableName does not resolve to a user table.', 127;
             END
 
             IF @TableCount > 1
             BEGIN
-                RAISERROR('@TableName must resolve to exactly one user table.', 18, 127);
+                THROW 50000, '@TableName must resolve to exactly one user table.', 127;
             END
         END
 
