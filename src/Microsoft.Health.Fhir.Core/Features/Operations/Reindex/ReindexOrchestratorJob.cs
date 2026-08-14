@@ -148,9 +148,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     currentJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
                 }
 
-                // For SQL Server, always attempt job creation - we use Export-style resume logic
-                // to calculate remaining work from existing jobs, preventing duplicates.
-                // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
+                // For SQL Server, always attempt job creation. Duplicate definitions are discarded in SQL.
+                // For Cosmos, use existence check.
                 if (_isSql || !currentJobs.Any())
                 {
                     await CreateReindexProcessingJobsAsync();
@@ -163,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                _result.CreatedJobs = currentJobs.Count; // TODO: Move this logic inside create
+                _result.CreatedJobs = _transientProcessingJobIds.Count;
 
                 await CheckForCompletionAsync();
 
