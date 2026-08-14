@@ -458,10 +458,14 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault();
         if (subJob != null)
         {
-            var urls = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(subJob.Definition).SearchParameterUrlStatuses.Select(x => x.Url).ToList();
-            foreach (var url in urls)
+            var statuses = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(subJob.Definition).SearchParameterUrlStatuses;
+            if (statuses != null) // skip urls for old jobs
             {
-                record.SearchParams.Add(url);
+                var urls = statuses.Select(x => x.Url).ToList();
+                foreach (var url in urls)
+                {
+                    record.SearchParams.Add(url);
+                }
             }
         }
 
