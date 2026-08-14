@@ -1142,7 +1142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
-        public async Task GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlPendingDeleteNewUrlSupported()
+        public async Task GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlDeletedNewUrlSupported()
         {
             var oldUrl = "http://my.org/old";
             var param = CreatePersonSearchParam("diff-url-test", oldUrl);
