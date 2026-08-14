@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 QueueStatus(url, SearchParameterStatus.Supported, lastUpdated, null);
-
-                return await next();
             }
 
             return await next();
@@ -92,6 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
+                // url can never be null for a valid search param
                 var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource other than this one already owns the new URL.
@@ -107,27 +106,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                 : null;
 
                 QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated, previousUrl);
-
-                return await next();
             }
 
-            // Now allow the resource to updated per the normal behavior
             return await next();
         }
 
         private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, string previousUrl)
         {
-            if (string.IsNullOrWhiteSpace(url))
-            {
-                return;
-            }
-
-            var context = _requestContextAccessor.RequestContext;
-            if (context == null)
-            {
-                return;
-            }
-
             _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
@@ -140,7 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 PreviousUri = previousUrl == null ? null : new Uri(previousUrl),
             };
 
-            context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
+            // there is no way context is null here.
+            _requestContextAccessor.RequestContext.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }
 }

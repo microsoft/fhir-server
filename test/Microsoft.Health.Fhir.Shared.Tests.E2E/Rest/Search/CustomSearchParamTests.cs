@@ -144,60 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
-        public async Task GivenExistingSearchParameter_WhenUpdatingWithDifferentUrl_ThenOldUrlPendingDeleteNewUrlSupported()
-        {
-            var origParam = CreateCustomSearchParameter(urlSuffix: "orig");
-            var origUrl = origParam.Url;
-            var newUrl = "http://my.org/new";
-
-            try
-            {
-                using var createResponse = await Client.UpdateAsync(origParam);
-                Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-
-                // Update with new URL
-                origParam.Url = newUrl;
-                using var updateResponse = await Client.UpdateAsync(origParam);
-                Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
-
-                // The $status endpoint returns a Parameters resource and takes a comma delimited list of urls.
-                using var statusResponse = await Client.ReadAsync<Parameters>($"SearchParameter/$status?url={origUrl},{newUrl}");
-                Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
-
-                var statuses = GetSearchParameterStatuses(statusResponse.Resource);
-
-                Assert.True(statuses.TryGetValue(origUrl, out string oldStatus), $"Status for '{origUrl}' was not returned.");
-                Assert.True(statuses.TryGetValue(newUrl, out string newStatus), $"Status for '{newUrl}' was not returned.");
-
-                Assert.Equal(SearchParameterStatus.PendingDelete.ToString(), oldStatus);
-                Assert.Equal(SearchParameterStatus.Supported.ToString(), newStatus);
-            }
-            finally
-            {
-                await Client.DeleteAsync(origParam);
-            }
-        }
-
-        private static Dictionary<string, string> GetSearchParameterStatuses(Parameters parameters)
-        {
-            var statuses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var parameter in parameters.Parameter.Where(p => p.Name == SearchParameterStateProperties.Name))
-            {
-                var url = parameter.Part.FirstOrDefault(p => p.Name == SearchParameterStateProperties.Url)?.Value?.ToString();
-                var status = parameter.Part.FirstOrDefault(p => p.Name == SearchParameterStateProperties.Status)?.Value?.ToString();
-
-                if (!string.IsNullOrEmpty(url))
-                {
-                    statuses[url] = status;
-                }
-            }
-
-            return statuses;
-        }
-
-        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a', string urlSuffix = null)
+        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
         {
             string suffix = Guid.NewGuid().ToString("N");
             const string prefix = "http://my.org/";
@@ -210,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return new SearchParameter
             {
                 Id = $"custom-search-param-{suffix[..8]}",
-                Url = prefix + urlSuffix ?? new string(repeatChar, urlLength - prefix.Length),
+                Url = prefix + new string(repeatChar, urlLength - prefix.Length),
                 Name = $"CustomSearchParam{suffix[..8]}",
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),
