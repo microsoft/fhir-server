@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await AssertPlanDiagnosticsAsync(connection, planId, queryMarker, CancellationToken.None);
             await AssertResourceStatisticsHealthAsync(connection, CancellationToken.None);
-            await AssertTotalWaitOrderingIsRejectedAsync(connection, CancellationToken.None);
         }
 
         private static async Task EnableAndVerifyQueryStoreAsync(SqlConnection connection, CancellationToken cancellationToken)
@@ -147,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             command.Parameters.Add("@EndTime", SqlDbType.DateTimeOffset).Value = windowEnd;
             command.Parameters.Add("@Top", SqlDbType.Int).Value = 10;
             command.Parameters.Add("@Offset", SqlDbType.Int).Value = 0;
-            command.Parameters.Add("@OrderBy", SqlDbType.VarChar, 32).Value = "Executions";
+            command.Parameters.Add("@OrderBy", SqlDbType.VarChar, 32).Value = "TotalWait";
             command.Parameters.Add("@MinExecutions", SqlDbType.BigInt).Value = QueryExecutionCount;
             command.Parameters.Add("@QueryTextContains", SqlDbType.NVarChar, 256).Value = queryMarker;
 
@@ -161,31 +160,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Contains(queryMarker, reader.GetString(reader.GetOrdinal("QuerySqlText")));
             Assert.False(reader.IsDBNull(reader.GetOrdinal("FirstExecutionTimeUtc")));
             Assert.False(reader.IsDBNull(reader.GetOrdinal("LastExecutionTimeUtc")));
-            AssertWaitColumnsAreNotReturned(reader);
+            AssertWaitStatisticsAvailability(reader);
             Assert.False(await reader.ReadAsync(cancellationToken), "The unique query-text filter returned more than one Query Store plan.");
             Assert.False(await reader.NextResultAsync(cancellationToken), "dbo.GetQueryStoreSlowQueries returned more than one result set.");
 
             return planId;
         }
 
-        private static void AssertWaitColumnsAreNotReturned(SqlDataReader reader)
+        private static void AssertWaitStatisticsAvailability(SqlDataReader reader)
         {
-            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("TotalWaitMilliseconds"));
-            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("AverageWaitMilliseconds"));
-            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("WaitStatsStatus"));
-            Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("WaitStatsXml"));
-        }
+            int totalWaitMillisecondsOrdinal = reader.GetOrdinal("TotalWaitMilliseconds");
+            int averageWaitMillisecondsOrdinal = reader.GetOrdinal("AverageWaitMilliseconds");
+            int waitStatsStatusOrdinal = reader.GetOrdinal("WaitStatsStatus");
+            int waitStatsXmlOrdinal = reader.GetOrdinal("WaitStatsXml");
+            string waitStatsStatus = reader.GetString(waitStatsStatusOrdinal);
 
-        private static async Task AssertTotalWaitOrderingIsRejectedAsync(SqlConnection connection, CancellationToken cancellationToken)
-        {
-            using SqlCommand command = connection.CreateCommand();
-            command.CommandType = CommandType.StoredProcedure;
-            command.CommandText = "dbo.GetQueryStoreSlowQueries";
-            command.Parameters.Add("@OrderBy", SqlDbType.VarChar, 32).Value = "TotalWait";
+            Assert.Contains(waitStatsStatus, new[] { "Available", "Disabled", "Unavailable" });
 
-            SqlException exception = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync(cancellationToken));
-
-            Assert.Contains("@OrderBy is not supported.", exception.Message);
+            if (string.Equals(waitStatsStatus, "Available", StringComparison.Ordinal))
+            {
+                Assert.False(reader.IsDBNull(totalWaitMillisecondsOrdinal));
+                Assert.False(reader.IsDBNull(averageWaitMillisecondsOrdinal));
+                Assert.False(reader.IsDBNull(waitStatsXmlOrdinal));
+            }
+            else
+            {
+                Assert.True(reader.IsDBNull(totalWaitMillisecondsOrdinal));
+                Assert.True(reader.IsDBNull(averageWaitMillisecondsOrdinal));
+                Assert.True(reader.IsDBNull(waitStatsXmlOrdinal));
+            }
         }
 
         private static async Task AssertPlanDiagnosticsAsync(

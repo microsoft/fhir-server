@@ -6,11 +6,11 @@ Agreed baseline for implementation. This document defines the SQL contract, secu
 
 ## Problem
 
-FHIR Azure SQL performance investigations currently require privileged, manual access to Query Store plans, runtime metrics, and statistics metadata. Query Store wait statistics are supplied separately through the Azure SQL `QueryStoreWaitStatistics` diagnostic setting in Log Analytics. That diagnostic stream does not provide query text or Showplan XML. Support engineers still need a bounded way to:
+FHIR Azure SQL performance investigations currently require privileged, manual access to Query Store plans, runtime metrics, wait statistics, and statistics metadata. Although Azure SQL can export `QueryStoreWaitStatistics` to Log Analytics, the SQL diagnostics intentionally include plan-level waits so direct SQL and future Geneva callers receive one self-contained slow-query result with runtime metrics, waits, query text, and plan IDs without joining Log Analytics. Support engineers still need a bounded way to:
 
 - identify expensive or regressed query plans;
 - retrieve an SSMS-viewable Query Store Showplan;
-- inspect runtime metrics; and
+- compare runtime and wait metrics; and
 - inspect statistics freshness, sampling, and cardinality metadata.
 
 The baseline is a self-contained, read-only SQL interface. Filtering, validation, redaction, paging, permissions, and auditing must live in SQL so the procedures can be used by an authorized direct SQL connection or wrapped by future operational tooling.
@@ -29,15 +29,15 @@ Related internal guidance:
 1. Identify slow or resource-intensive query plans over a bounded time range.
 2. Return full Query Store query text to authorized diagnostic callers.
 3. Return an SSMS-viewable Query Store Showplan after removing parameter-value metadata.
-4. Report statistics freshness, sampling, and filter metadata without returning histogram values.
-5. Provide an execute-only database role for least-privilege callers.
-6. Keep the SQL contract independent of any API, Geneva action, or other caller implementation.
+4. Include Query Store wait statistics in slow-query results when capture is available.
+5. Report statistics freshness, sampling, and filter metadata without returning histogram values.
+6. Provide an execute-only database role for least-privilege callers.
+7. Keep the SQL contract independent of any API, Geneva action, or other caller implementation.
 
 ## Non-goals
 
 - Retrieving or capturing an actual execution plan.
 - Reconstructing or executing SQL from Query Store.
-- Returning plan-level wait statistics or duplicating the Azure SQL `QueryStoreWaitStatistics` Log Analytics stream.
 - Returning statistics histograms, density vectors, or sampled column values.
 - Clearing the procedure cache, updating statistics, forcing plans, or changing Query Store configuration.
 - Providing caller concurrency control, circuit breaking, command timeouts, artifact retention, or download policy.
@@ -52,9 +52,9 @@ The baseline targets Azure SQL Database and uses only Query Store catalog column
 
 ### Query Store wait-stat observability
 
-Query Store wait statistics come from the Azure SQL `QueryStoreWaitStatistics` diagnostic setting in Log Analytics and are intentionally not duplicated by this SQL interface. Log Analytics does not supply the query text or Showplan XML returned by the diagnostic procedures.
+When `sys.database_query_store_options.wait_stats_capture_mode_desc` is `ON`, the slow-query procedure reads `sys.query_store_wait_stats` directly. `WaitStatsStatus` is `Available` for `ON`, `Disabled` for `OFF`, and `Unavailable` for any other value. This lets authorized direct SQL and future Geneva callers retrieve the complete slow-query diagnostic payload—runtime metrics, waits, query text, and plan IDs—from one interface. Azure SQL may also export `QueryStoreWaitStatistics` to Log Analytics, but that stream does not provide the query text or Showplan XML returned by these procedures.
 
-`DatabaseWaitStatistics`, when enabled, is a separate database-level diagnostic stream. It is not plan-level data and is not a substitute for `QueryStoreWaitStatistics`.
+`DatabaseWaitStatistics`, when enabled, remains separate database-level telemetry. It is not plan-level data and is not a substitute for the Query Store wait statistics returned with each slow-query plan.
 
 ### Query Store plans are estimated plans
 
@@ -71,7 +71,6 @@ This is documentation only. No stub procedure, shared output contract, permissio
 ## Implementation simplifications
 
 - Plan-type and Parameter Sensitive Plan dispatcher/query-variant metadata are intentionally not read. Those Azure SQL catalog fields are not stable across the supported deployment fleet, so both Query Store procedures omit them rather than returning speculative NULL/status fields or attempting version-specific fallback logic.
-- `GetQueryStoreSlowQueries` aggregates runtime data only. Wait analysis remains in the Azure SQL `QueryStoreWaitStatistics` Log Analytics stream; the procedure neither queries nor returns plan-level wait data. `DatabaseWaitStatistics` remains separate database-level telemetry.
 - `GetStatisticsHealth` reports database-level `sys.dm_db_stats_properties` metadata for each statistics object. It does not expand incremental statistics into partition-level property rows; unavailable properties remain `NULL` and are explicitly marked `PropertiesUnavailable`. Its table-name input is materialized as `nvarchar(128)`, rather than the type-equivalent `sysname` alias, because the existing schema C# model generator interprets `sysname` as a table-valued parameter.
 
 ### Accepted query and plan content
@@ -125,8 +124,6 @@ The rollout order is:
 4. provision approved role membership; and
 5. enable the PaaS invocation and artifact-handling workflow.
 
-Provisioning and retaining the Azure SQL `QueryStoreWaitStatistics` diagnostic setting and its Log Analytics destination is a separate observability rollout. It is not a schema prerequisite or a source for query text or Showplan XML.
-
 ## Stored procedures
 
 All procedures:
@@ -177,10 +174,11 @@ The `@OrderBy` allowlist is:
 - `AverageCpu`
 - `LogicalReads`
 - `Executions`
+- `TotalWait`
 
-Unknown order values fail explicitly. Ordering uses a static `CASE` expression rather than dynamic SQL. Diagnostic metrics sort descending, and `query_id ASC, plan_id ASC` are deterministic tie-breakers.
+Unknown order values fail explicitly. Ordering uses a static `CASE` expression rather than dynamic SQL. Diagnostic metrics sort descending, NULL wait totals sort last, and `query_id ASC, plan_id ASC` are deterministic tie-breakers.
 
-There is no execution-type input in the baseline. Runtime metrics include regular executions only. The implementation should contain a focused comment identifying where execution-type support could be added later.
+There is no execution-type input in the baseline. Runtime and wait metrics include regular executions only. The implementation should contain a focused comment identifying where execution-type support could be added later.
 
 #### Time-window semantics
 
@@ -211,6 +209,28 @@ Query-level compile count and last compile time are repeated on each plan row an
 
 Plans with fewer than `@MinExecutions` regular executions in the selected window are excluded. The diagnostic procedures' own Query Store entries are also excluded. All other object-bound and ad hoc Query Store entries are eligible.
 
+#### Wait statistics
+
+Wait statistics are aggregated for the same regular-execution population and overlapping intervals as runtime metrics.
+
+Each result row contains:
+
+- `TotalWaitMilliseconds`
+- `AverageWaitMilliseconds`
+- `WaitStatsStatus`
+- `WaitStatsXml`
+
+`WaitStatsXml` contains one element per wait category, ordered by total wait descending, with:
+
+- category name;
+- total wait milliseconds;
+- average wait milliseconds; and
+- maximum wait milliseconds.
+
+Zero-wait categories are omitted. When wait capture is available but a plan has no waits, the value is an empty typed root such as `<WaitStats />`. When wait capture is disabled or unavailable, `WaitStatsXml` and scalar wait metrics are NULL and `WaitStatsStatus` explains the condition. Other runtime results still return.
+
+If `@OrderBy = 'TotalWait'` while wait capture is disabled or unavailable, rows still return. NULL wait totals sort last.
+
 #### Output
 
 The single result set includes:
@@ -233,6 +253,9 @@ The single result set includes:
 - query-level compile count and last compile time
 - forced-plan state and available force-failure metadata
 - other universally available diagnostic plan metadata; plan-type, dispatcher, and query-variant metadata are omitted
+- total and average wait milliseconds
+- `WaitStatsStatus`
+- `WaitStatsXml`
 
 Physical reads and writes are output metrics but are not ordering options. Query context/handle metadata and execution type are omitted.
 
@@ -416,7 +439,7 @@ SQL enforces:
 - a 3-256-character literal query-text substring;
 - one plan per plan-diagnostics call;
 - static SQL only;
-- regular-execution-only runtime aggregation; and
+- regular-execution-only runtime and wait aggregation; and
 - exclusion of the diagnostic procedures' own Query Store entries.
 
 Limits are hard-coded in the procedures. There is no `dbo.Parameters` kill switch, SQL concurrency gate, plan-size cap, total-count query, continuation token, or `HasMoreRows` result.
@@ -435,7 +458,7 @@ Audit records include:
 - returned row count; and
 - sanitized XML size for successful plan retrieval.
 
-Slow-query audit metadata includes resolved UTC window, ordering mode, `@Top`, `@Offset`, `@MinExecutions`, and query-text filter presence/length, but never the filter text.
+Slow-query audit metadata includes resolved UTC window, ordering mode, `@Top`, `@Offset`, `@MinExecutions`, Query Store state/read-only reason, wait-statistics capture mode, and query-text filter presence/length, but never the filter text or wait payload.
 
 Plan audit metadata includes `plan_id`, sanitization status, stable error code, and result size, but never query text or XML.
 
@@ -454,20 +477,21 @@ If Start, End, or Error logging fails, the diagnostic call fails. Callers do not
 
 ## Testing requirements
 
-**Deferred prototype validation:** The prototype has one representative SQL-backed end-to-end path. Exhaustive matrix validation remains future work, including negative validation, fail-closed audit behavior, permissions, and a malformed-fixture corpus.
+**Deferred prototype validation:** The prototype has one representative SQL-backed end-to-end path. Exhaustive matrix validation remains future work, including negative validation, fail-closed audit behavior, permissions, a malformed-fixture corpus, and wait-disabled cases.
 
 ### Slow-query aggregation
 
 1. Duplicate active-interval in-memory/persisted rows are collapsed before rollup.
 2. Weighted totals and averages use the agreed decimal precision.
 3. Minimum, maximum, and deterministic last-value calculations are correct.
-4. Only regular executions contribute to runtime metrics.
+4. Only regular executions contribute to runtime and wait metrics.
 5. Overlapping Query Store interval semantics are verified at both window boundaries.
 6. Time, row, offset, minimum-execution, query-text, and order allowlists cannot be bypassed.
 7. Literal query-text matching correctly escapes `~`, `%`, `_`, and `[`.
 8. Query Store `READ_WRITE` and readable `READ_ONLY` states return data.
 9. Query Store `OFF`, `ERROR`, and unreadable states fail with actionable errors.
-10. Diagnostic procedures exclude their own Query Store entries.
+10. Wait capture available, disabled, unavailable, empty, and `TotalWait` ordering cases are covered.
+11. Diagnostic procedures exclude their own Query Store entries.
 
 ### Showplan sanitization
 
@@ -517,7 +541,6 @@ If Start, End, or Error logging fails, the diagnostic call fails. Callers do not
 - Update the OSS FHIR package versions and synchronized target schema version through the existing `fhir-paas` dependency flow.
 - Do not copy the stored procedure or role DDL into PaaS Script Runner scripts.
 - Add role membership only for the approved operational identity.
-- Configure and operate `QueryStoreWaitStatistics` through the Azure SQL diagnostic setting and Log Analytics independently of stored-procedure deployment.
 - Implement the selected caller, result transport, artifact storage, and operational authorization in `fhir-paas`.
 - Deploy schema/package consumption before enabling the caller.
 - Control caller rollout and role membership independently in each environment.
@@ -527,6 +550,7 @@ If Start, End, or Error logging fails, the diagnostic call fails. Callers do not
 - [Monitor performance by using Query Store](https://learn.microsoft.com/sql/relational-databases/performance/monitoring-performance-by-using-the-query-store)
 - [How Query Store collects data](https://learn.microsoft.com/sql/relational-databases/performance/how-query-store-collects-data)
 - [`sys.query_store_runtime_stats`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-runtime-stats-transact-sql)
+- [`sys.query_store_wait_stats`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-wait-stats-transact-sql)
 - [`sys.query_store_plan`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-plan-transact-sql)
 - [`sys.query_store_query`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-query-transact-sql)
 - [`sys.query_store_query_text`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-query-text-transact-sql)
