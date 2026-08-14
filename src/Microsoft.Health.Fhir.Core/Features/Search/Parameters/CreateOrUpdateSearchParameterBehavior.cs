@@ -86,7 +86,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
 
-                var prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                ResourceWrapper prevSearchParamResource = null;
+                try
+                {
+                    prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                }
+                catch (ResourceNotFoundException)
+                {
+                    // Resource doesn't exist yet, which is valid for PUT operations. We'll treat this as create.
+                }
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
