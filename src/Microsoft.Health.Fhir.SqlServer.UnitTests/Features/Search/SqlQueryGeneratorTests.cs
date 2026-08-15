@@ -296,6 +296,184 @@ public class SqlQueryGeneratorTests
         Assert.Contains(" AS SortValue", generatedSql);
     }
 
+    [Fact]
+    public void GivenTargetFirstChainedSearchWithTop_WhenSqlGenerated_ThenOptimizedShapeIsPreserved()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        tableExpressions.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("INNER HASH JOIN cte1 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1", generatedSql);
+        Assert.Contains("SELECT DISTINCT TOP (", generatedSql);
+    }
+
+    [Fact]
+    public void GivenCountOnlyTargetFirstChainedSearch_WhenSqlGenerated_ThenOptimizedShapeIsPreserved()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            CountOnly = true,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("SELECT count_big(DISTINCT Sid1)", generatedSql);
+        Assert.Contains("FROM cte2", generatedSql);
+        Assert.DoesNotContain("SELECT DISTINCT TOP (", generatedSql);
+    }
+
+    [Fact]
+    public void GivenTargetFirstChainedSearchWithInclude_WhenSqlGenerated_ThenOptimizedFilterIsPersisted()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        var includeParam = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+        var includeExpression = new IncludeExpression(
+            ["Observation"],
+            includeParam,
+            "Observation",
+            "Patient",
+            null,
+            wildCard: false,
+            reversed: false,
+            iterate: false);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)71);
+        _fhirModel.GetSearchParamId(includeParam.Url).Returns((short)1279);
+        tableExpressions.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top));
+        tableExpressions.Add(new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 100,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("SELECT DISTINCT TOP (", generatedSql);
+        Assert.Contains("INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte3", generatedSql);
+        Assert.Contains(";WITH cte3 AS (SELECT * FROM @FilteredData)", generatedSql);
+    }
+
+    [Fact]
+    public void GivenInterveningSourcePredicateInChainedSearch_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        var sourceFilterParam = new SearchParameterInfo(
+            "status",
+            "status",
+            SearchParamType.Token,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
+        Expression sourceFilter = Expression.SearchParameter(
+            sourceFilterParam,
+            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
+        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
+        tableExpressions.Insert(2, new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("chainTarget", generatedSql);
+        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
+        Assert.Contains("FROM dbo.TokenSearchParam", generatedSql);
+        Assert.Contains("FROM dbo.DateTimeSearchParam", generatedSql);
+        Assert.Equal<short>([(short)1242, (short)1273, (short)1277, (short)1278], _queryGenerator.SearchParamIds.Order());
+    }
+
+    [Fact]
+    public void GivenMultipleTargetPredicatesInChainedSearch_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        var targetFilterParam = new SearchParameterInfo(
+            "identifier",
+            "identifier",
+            SearchParamType.Token,
+            new Uri("http://hl7.org/fhir/SearchParameter/Encounter-identifier"));
+        Expression targetFilter = Expression.SearchParameter(
+            targetFilterParam,
+            Expression.StringEquals(FieldName.TokenCode, null, "abc", false));
+        _fhirModel.GetSearchParamId(targetFilterParam.Url).Returns((short)1280);
+        tableExpressions.Insert(2, new SearchParamTableExpression(TokenQueryGenerator.Instance, targetFilter, SearchParamTableExpressionKind.Normal, chainLevel: 1));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("chainTarget", generatedSql);
+        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
+        Assert.Contains("FROM dbo.TokenSearchParam", generatedSql);
+        Assert.Contains("FROM dbo.DateTimeSearchParam", generatedSql);
+        Assert.Equal<short>([(short)1242, (short)1273, (short)1277, (short)1280], _queryGenerator.SearchParamIds.Order());
+    }
+
+    [Fact]
+    public void GivenChainedTokenTargetWithoutSourceDate_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        var targetFilterParam = new SearchParameterInfo(
+            "identifier",
+            "identifier",
+            SearchParamType.Token,
+            new Uri("http://hl7.org/fhir/SearchParameter/Encounter-identifier"));
+        Expression targetFilter = Expression.SearchParameter(
+            targetFilterParam,
+            Expression.StringEquals(FieldName.TokenCode, null, "organization-id", false));
+        _fhirModel.GetSearchParamId(targetFilterParam.Url).Returns((short)1281);
+        tableExpressions[1] = new SearchParamTableExpression(
+            TokenQueryGenerator.Instance,
+            targetFilter,
+            SearchParamTableExpressionKind.Normal,
+            chainLevel: 1);
+        tableExpressions.RemoveAt(2);
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("chainTarget", generatedSql);
+        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
+        Assert.Contains("FROM dbo.TokenSearchParam", generatedSql);
+        Assert.DoesNotContain("FROM dbo.DateTimeSearchParam", generatedSql);
+        Assert.Equal<short>([(short)1273, (short)1281], _queryGenerator.SearchParamIds.Order());
+    }
+
     private (List<SearchParamTableExpression> TableExpressions, SearchParameterInfo DateParam) CreateTargetFirstChainedSearchExpressions()
     {
         var sourceReferenceParam = new SearchParameterInfo(
