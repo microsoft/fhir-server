@@ -14,6 +14,8 @@ using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -145,18 +147,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
         {
             string suffix = Guid.NewGuid().ToString("N");
-            const string prefix = "http://example.org/fhir/SearchParameter/";
-
+            const string prefix = "http://my.org/";
 #if R5
-            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?>
-            {
-                VersionIndependentResourceTypesAll.Person,
-            };
+            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
 #else
-            var baseResourceTypes = new List<ResourceType?>
-            {
-                ResourceType.Person,
-            };
+            var baseResourceTypes = new List<ResourceType?> { ResourceType.Person };
 #endif
 
             return new SearchParameter

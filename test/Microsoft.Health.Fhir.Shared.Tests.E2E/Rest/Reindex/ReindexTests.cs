@@ -14,12 +14,15 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.CodeAnalysis;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -1136,6 +1139,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
             Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
             Assert.Equal(code, create.Resource.Id);
+        }
+
+        [Fact]
+        public async Task GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlDeletedNewUrlSupported()
+        {
+            var oldUrl = "http://my.org/old";
+            var param = CreatePersonSearchParam("diff-url-test", oldUrl);
+            var create = await _fixture.TestFhirClient.UpdateAsync(param);
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+
+            var newUrl = "http://my.org/new";
+            param.Url = newUrl;
+            var update = await _fixture.TestFhirClient.UpdateAsync(param);
+            Assert.True(update.StatusCode == HttpStatusCode.OK);
+
+            if (!_isSql) // status works only for SQL
+            {
+                return;
+            }
+
+            // wait for cache update
+            await Task.Delay(TimeSpan.FromSeconds(3));
+
+            var oldUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={oldUrl}");
+            Assert.Equal(HttpStatusCode.OK, oldUrlResponse.StatusCode);
+            Assert.True(oldUrlResponse.Resource.Parameter.Count == 0, "Expected Deleted not found");
+
+            var newUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={newUrl}");
+            Assert.Equal(HttpStatusCode.OK, newUrlResponse.StatusCode);
+            Assert.True(newUrlResponse.Resource.Parameter.Count == 1, "Expected supported param found");
+            var actualStatus = newUrlResponse.Resource.Parameter[0].Part[1].Value.ToString();
+            Assert.True(actualStatus == SearchParameterStatus.Supported.ToString(), $"Expected Supported but found {actualStatus}");
         }
 
         [Theory]
