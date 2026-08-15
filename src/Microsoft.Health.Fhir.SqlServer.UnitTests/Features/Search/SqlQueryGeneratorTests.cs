@@ -217,6 +217,87 @@ public class SqlQueryGeneratorTests
     [Fact]
     public void GivenChainedReferenceSearchWithSelectiveTargetPredicate_WhenSqlGenerated_ThenTargetPredicateIsEvaluatedFirst()
     {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("INNER LOOP JOIN dbo.Resource refTarget ON chainTarget.ResourceTypeId = refTarget.ResourceTypeId AND chainTarget.ResourceSurrogateId = refTarget.ResourceSurrogateId", generatedSql);
+        Assert.Contains("refTarget.IsHistory = 0", generatedSql);
+        Assert.Contains("refTarget.IsDeleted = 0", generatedSql);
+        Assert.Contains("FROM cte0", generatedSql);
+        Assert.Contains("INNER LOOP JOIN dbo.ReferenceSearchParam refSource ON refSource.ReferenceResourceTypeId = T2 AND refSource.ReferenceResourceId = Id2", generatedSql);
+        Assert.Contains("FROM dbo.DateTimeSearchParam", generatedSql);
+        Assert.Contains("INNER HASH JOIN cte1 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1", generatedSql);
+        Assert.DoesNotContain("refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId", generatedSql);
+        Assert.True(
+            generatedSql.IndexOf("FROM dbo.ReferenceSearchParam chainTarget", StringComparison.Ordinal) <
+            generatedSql.IndexOf("INNER LOOP JOIN dbo.ReferenceSearchParam refSource", StringComparison.Ordinal));
+        Assert.Equal<short>([(short)1242, (short)1273, (short)1277], _queryGenerator.SearchParamIds.Order());
+    }
+
+    [Fact]
+    public void GivenChainedReferenceSearchWithPrecedingSourceFilter_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        var sourceFilterParam = new SearchParameterInfo(
+            "status",
+            "status",
+            SearchParamType.Token,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
+        Expression sourceFilter = Expression.SearchParameter(
+            sourceFilterParam,
+            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
+        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
+        tableExpressions.Insert(0, new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("chainTarget", generatedSql);
+        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
+        Assert.Contains("JOIN dbo.Resource refTarget", generatedSql);
+    }
+
+    [Fact]
+    public void GivenSortedChainedReferenceSearch_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
+    {
+        (List<SearchParamTableExpression> tableExpressions, SearchParameterInfo dateParam) = CreateTargetFirstChainedSearchExpressions();
+        tableExpressions.Add(
+            new SearchParamTableExpression(
+                DateTimeQueryGenerator.Instance,
+                new SortExpression(dateParam),
+                SearchParamTableExpressionKind.Sort));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [(dateParam, SortOrder.Ascending)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("chainTarget", generatedSql);
+        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
+        Assert.Contains(" AS SortValue", generatedSql);
+    }
+
+    private (List<SearchParamTableExpression> TableExpressions, SearchParameterInfo DateParam) CreateTargetFirstChainedSearchExpressions()
+    {
         var sourceReferenceParam = new SearchParameterInfo(
             "subject",
             "subject",
@@ -260,34 +341,13 @@ public class SqlQueryGeneratorTests
             Expression.And(
                 Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, new DateTimeOffset(2026, 9, 5, 17, 0, 0, TimeSpan.Zero)),
                 Expression.LessThan(FieldName.DateTimeStart, null, new DateTimeOffset(2026, 9, 5, 18, 0, 0, TimeSpan.Zero))));
-        SqlRootExpression sqlExpression = new(
+
+        return (
             [
                 new SearchParamTableExpression(ChainLinkQueryGenerator.Instance, chainExpression, SearchParamTableExpressionKind.Chain, chainLevel: 1),
                 new SearchParamTableExpression(ReferenceQueryGenerator.Instance, targetPredicate, SearchParamTableExpressionKind.Normal, chainLevel: 1),
                 new SearchParamTableExpression(DateTimeQueryGenerator.Instance, datePredicate, SearchParamTableExpressionKind.Normal),
             ],
-            []);
-        SearchOptions searchOptions = new()
-        {
-            Sort = [],
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        };
-
-        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
-
-        string generatedSql = _strBuilder.ToString();
-        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
-        Assert.Contains("INNER LOOP JOIN dbo.Resource refTarget ON chainTarget.ResourceTypeId = refTarget.ResourceTypeId AND chainTarget.ResourceSurrogateId = refTarget.ResourceSurrogateId", generatedSql);
-        Assert.Contains("refTarget.IsHistory = 0", generatedSql);
-        Assert.Contains("refTarget.IsDeleted = 0", generatedSql);
-        Assert.Contains("FROM cte0", generatedSql);
-        Assert.Contains("INNER LOOP JOIN dbo.ReferenceSearchParam refSource ON refSource.ReferenceResourceTypeId = T2 AND refSource.ReferenceResourceId = Id2", generatedSql);
-        Assert.Contains("FROM dbo.DateTimeSearchParam", generatedSql);
-        Assert.Contains("INNER HASH JOIN cte1 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1", generatedSql);
-        Assert.DoesNotContain("refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId", generatedSql);
-        Assert.True(
-            generatedSql.IndexOf("FROM dbo.ReferenceSearchParam chainTarget", StringComparison.Ordinal) <
-            generatedSql.IndexOf("INNER LOOP JOIN dbo.ReferenceSearchParam refSource", StringComparison.Ordinal));
-        Assert.Equal<short>([(short)1242, (short)1273, (short)1277], _queryGenerator.SearchParamIds.Order());
+            dateParam);
     }
 }

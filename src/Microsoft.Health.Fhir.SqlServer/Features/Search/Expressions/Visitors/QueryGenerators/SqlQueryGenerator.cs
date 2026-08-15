@@ -28,7 +28,10 @@ using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
+    /// <summary>
+    /// Generates SQL for rewritten search expressions.
+    /// </summary>
+    internal partial class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
     {
         // In the case of input search parameter being too complex, there is a possibility of a stack overflow.
         // Stack overflow exceptions cannot be caught in .NET and will abort the process. For that reason, we enforce this stack depth limit.
@@ -64,9 +67,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
-        private SqlChainLinkExpression _selectFirstChainExpression;
-        private SearchParamTableExpression _selectFirstChainTargetExpression;
-        private int _selectFirstChainSourceCteId = -1;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -639,26 +639,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            if (ReferenceEquals(searchParamTableExpression, _selectFirstChainTargetExpression))
+            if (TryHandleTargetFirstChainedSearchNormalExpression(searchParamTableExpression, context))
             {
-                HandleSelectFirstChainSource(_selectFirstChainExpression);
-                _selectFirstChainSourceCteId = _tableExpressionCounter;
-                _selectFirstChainExpression = null;
-                _selectFirstChainTargetExpression = null;
                 return;
             }
 
-            if (_selectFirstChainSourceCteId == _tableExpressionCounter - 1 &&
-                searchParamTableExpression.ChainLevel == 0 &&
-                ReferenceEquals(searchParamTableExpression.QueryGenerator, DateTimeQueryGenerator.Instance) &&
-                !IsInSortMode(context))
-            {
-                HandleSelectFirstChainSourceDateFilter(searchParamTableExpression, context);
-                _selectFirstChainSourceCteId = -1;
-                return;
-            }
-
-            _selectFirstChainSourceCteId = -1;
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -894,11 +879,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             string referenceTargetResourceTableAlias)
         {
             var chainedExpression = (SqlChainLinkExpression)searchParamTableExpression.Predicate;
-            if (TryGetSelectFirstChainTargetExpression(searchParamTableExpression, chainedExpression, out SearchParamTableExpression targetExpression))
+            if (TryHandleTargetFirstChainedSearchChainExpression(searchParamTableExpression, chainedExpression, context))
             {
-                _selectFirstChainExpression = chainedExpression;
-                _selectFirstChainTargetExpression = targetExpression;
-                HandleSelectFirstChainTarget(targetExpression, chainedExpression, context);
                 return;
             }
 
@@ -984,126 +966,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
                 }
             }
-        }
-
-        private bool TryGetSelectFirstChainTargetExpression(
-            SearchParamTableExpression chainExpression,
-            SqlChainLinkExpression chainedExpression,
-            out SearchParamTableExpression targetExpression)
-        {
-            targetExpression = null;
-
-            if (chainExpression.ChainLevel != 1 ||
-                chainedExpression.Reversed ||
-                chainedExpression.ExpressionOnTarget != null ||
-                _rootExpression.SearchParamTableExpressions.Any(x => x.HasUnionAllExpression()))
-            {
-                return false;
-            }
-
-            int targetExpressionIndex = _tableExpressionCounter + 1;
-            int sourceDateExpressionIndex = targetExpressionIndex + 1;
-            if (sourceDateExpressionIndex >= _rootExpression.SearchParamTableExpressions.Count)
-            {
-                return false;
-            }
-
-            SearchParamTableExpression candidate = _rootExpression.SearchParamTableExpressions[targetExpressionIndex];
-            SearchParamTableExpression sourceDateCandidate = _rootExpression.SearchParamTableExpressions[sourceDateExpressionIndex];
-            if (candidate.Kind != SearchParamTableExpressionKind.Normal ||
-                candidate.ChainLevel != chainExpression.ChainLevel ||
-                !ReferenceEquals(candidate.QueryGenerator, ReferenceQueryGenerator.Instance) ||
-                sourceDateCandidate.Kind != SearchParamTableExpressionKind.Normal ||
-                sourceDateCandidate.ChainLevel != 0 ||
-                !ReferenceEquals(sourceDateCandidate.QueryGenerator, DateTimeQueryGenerator.Instance))
-            {
-                return false;
-            }
-
-            targetExpression = candidate;
-            return true;
-        }
-
-        private void HandleSelectFirstChainTarget(
-            SearchParamTableExpression targetExpression,
-            SqlChainLinkExpression chainedExpression,
-            SearchOptions context)
-        {
-            const string chainTargetTableAlias = "chainTarget";
-            const string referenceTargetResourceTableAlias = "refTarget";
-
-            StringBuilder.Append("SELECT ")
-                .Append(VLatest.Resource.ResourceTypeId, chainTargetTableAlias).Append(" AS T2, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, chainTargetTableAlias).Append(" AS Sid2, ")
-                .Append(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias).AppendLine(" AS Id2")
-                .Append("FROM ").Append(targetExpression.QueryGenerator.Table).Append(' ').AppendLine(chainTargetTableAlias)
-                .Append(_joinShift).Append("INNER LOOP JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
-                .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainTargetTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
-                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainTargetTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias);
-
-            using var delimited = StringBuilder.BeginDelimitedWhereClause();
-            AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
-            AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
-
-            delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, chainTargetTableAlias)
-                .Append(" IN (")
-                .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.Resource.ResourceTypeId, Model.GetResourceTypeId(x), true))))
-                .Append(")");
-
-            delimited.BeginDelimitedElement();
-            CheckForIdentifierSearchParams(targetExpression.Predicate);
-            targetExpression.Predicate.AcceptVisitor(targetExpression.QueryGenerator, GetContext(chainTargetTableAlias));
-        }
-
-        private void HandleSelectFirstChainSource(SqlChainLinkExpression chainedExpression)
-        {
-            const string referenceSourceTableAlias = "refSource";
-
-            StringBuilder.Append("SELECT ")
-                .Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(" AS T1, ")
-                .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).AppendLine(" AS Sid1, T2, Sid2")
-                .Append("FROM ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
-                .Append(_joinShift).Append("INNER LOOP JOIN ").Append(VLatest.ReferenceSearchParam).Append(' ').Append(referenceSourceTableAlias)
-                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = T2")
-                .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).AppendLine(" = Id2");
-
-            using var delimited = StringBuilder.BeginDelimitedWhereClause();
-            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
-                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url), true));
-
-            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                .Append(" IN (")
-                .Append(string.Join(", ", chainedExpression.ResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
-                .Append(")");
-
-            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                .Append(" IN (")
-                .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
-                .Append(")");
-
-            if (chainedExpression.ExpressionOnSource != null)
-            {
-                delimited.BeginDelimitedElement();
-                chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(referenceSourceTableAlias));
-            }
-        }
-
-        private void HandleSelectFirstChainSourceDateFilter(SearchParamTableExpression dateExpression, SearchOptions context)
-        {
-            StringBuilder.Append("SELECT ")
-                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                .Append("FROM ").AppendLine(dateExpression.QueryGenerator.Table)
-                .Append(_joinShift).Append("INNER HASH JOIN ").Append(TableExpressionName(_selectFirstChainSourceCteId))
-                .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = T1")
-                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" = Sid1");
-
-            using var delimited = StringBuilder.BeginDelimitedWhereClause();
-            AppendHistoryClause(delimited, context.ResourceVersionTypes, dateExpression, null, dateExpression.QueryGenerator.Table);
-
-            delimited.BeginDelimitedElement();
-            CheckForIdentifierSearchParams(dateExpression.Predicate);
-            dateExpression.Predicate.AcceptVisitor(dateExpression.QueryGenerator, GetContext());
         }
 
         private void HandleTableKindInclude(
