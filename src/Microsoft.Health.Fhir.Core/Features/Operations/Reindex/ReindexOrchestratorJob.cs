@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(HashSet<string> resourceTypes)
         {
-            var resourcesPerJob = (int)_definition.MaximumNumberOfResourcesPerQuery;
+            var resourcesPerJob = _definition.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
             foreach (var resourceType in resourceTypes)

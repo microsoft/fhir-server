@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public SearchResultReindex ResourceCount { get; set; }
 
-        public uint MaximumNumberOfResourcesPerQuery { get; set; }
+        public int MaximumNumberOfResourcesPerQuery { get; set; }
 
-        public uint MaximumNumberOfResourcesPerWrite { get; set; }
+        public int MaximumNumberOfResourcesPerWrite { get; set; }
 
         [JsonConverter(typeof(ReindexSearchParameterUrlStatusesConverter))]
         public IReadOnlyCollection<(string Url, SearchParameterStatus Status)> SearchParameterUrlStatuses { get; set; }

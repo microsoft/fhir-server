@@ -242,8 +242,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var def = new ReindexOrchestratorJobDefinition()
         {
             TypeId = (int)JobType.ReindexOrchestrator,
-            MaximumNumberOfResourcesPerQuery = jobRecord.MaximumNumberOfResourcesPerQuery,
-            MaximumNumberOfResourcesPerWrite = jobRecord.MaximumNumberOfResourcesPerWrite,
+            MaximumNumberOfResourcesPerQuery = (int)jobRecord.MaximumNumberOfResourcesPerQuery,
+            MaximumNumberOfResourcesPerWrite = (int)jobRecord.MaximumNumberOfResourcesPerWrite,
             Id = jobRecord.Id,
         };
 

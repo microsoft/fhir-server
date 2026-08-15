@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 operationsConfig);
         }
 
-        private async Task<JobInfo> CreateReindexJobRecord(uint maxResourcePerQuery = 100)
+        private async Task<JobInfo> CreateReindexJobRecord(int maxResourcePerQuery = 100)
         {
             var jobRecord = new ReindexJobRecord(maxResourcePerQuery);
 

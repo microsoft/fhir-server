@@ -24,15 +24,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord, IJobData
     {
-        public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
-        public const uint MinMaximumNumberOfResourcesPerQuery = 1;
+        public const int MaxMaximumNumberOfResourcesPerQuery = 10000;
+        public const int MinMaximumNumberOfResourcesPerQuery = 1;
 
-        public const uint MaxMaximumNumberOfResourcesPerWrite = 1000;
-        public const uint MinMaximumNumberOfResourcesPerWrite = 1;
+        public const int MaxMaximumNumberOfResourcesPerWrite = 1000;
+        public const int MinMaximumNumberOfResourcesPerWrite = 1;
 
         public ReindexJobRecord(
-            uint maxResourcesPerQuery = MaxMaximumNumberOfResourcesPerQuery,
-            uint maxResourcesPerWrite = MaxMaximumNumberOfResourcesPerWrite,
+            int maxResourcesPerQuery = MaxMaximumNumberOfResourcesPerQuery,
+            int maxResourcesPerWrite = MaxMaximumNumberOfResourcesPerWrite,
             int typeId = (int)JobType.ReindexOrchestrator)
         {
             TypeId = typeId;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             }
             else
             {
-                MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+                MaximumNumberOfResourcesPerQuery = (uint)maxResourcesPerQuery;
             }
 
             if (maxResourcesPerWrite < MinMaximumNumberOfResourcesPerWrite || maxResourcesPerWrite > MaxMaximumNumberOfResourcesPerWrite)
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             }
             else
             {
-                MaximumNumberOfResourcesPerWrite = maxResourcesPerWrite;
+                MaximumNumberOfResourcesPerWrite = (uint)maxResourcesPerWrite;
             }
         }
 

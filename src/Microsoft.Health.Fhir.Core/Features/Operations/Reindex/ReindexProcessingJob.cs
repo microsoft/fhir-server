@@ -52,14 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 },
                 (_, _, _, _) => Task.CompletedTask);
 
-        private static readonly AsyncPolicy _oomRetries = Policy
-            .Handle<OutOfMemoryException>()
-            .WaitAndRetryAsync(3, _ => TimeSpan.FromMinutes(RandomNumberGenerator.GetInt32(2, 5)));
-
-        /// <summary>
-        /// Combined retry policy for BulkUpdateSearchParameterIndicesAsync that handles both
-        /// SQL Server timeouts and Cosmos DB 429 (TooManyRequests) errors.
-        /// </summary>
         private static readonly AsyncPolicy _bulkUpdateRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
@@ -72,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _result;
         private ReindexProcessingJobDefinition _definition;
+        private int _batchSize;
         private bool _isSql;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
@@ -101,13 +94,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger = logger;
         }
 
+        private AsyncPolicy OomRetries => Policy
+            .Handle<OutOfMemoryException>()
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: _ => TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(120, 300)),
+                onRetry: (exception, delay, retryCount, context) => { _batchSize = Math.Max(1, _batchSize / 10); });
+
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             _cancellationToken = cancellationToken;
             _jobInfo = jobInfo;
             _definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
-            //// Determine if we're using SQL Server (surrogate ID range) or Cosmos DB (continuation tokens)
+
+            // code will change batch size on OOM retries. Do not reference MaximumNumberOfResourcesPerWrite down below.
+            _batchSize = _definition.MaximumNumberOfResourcesPerWrite;
+
+            // Determine if we're using SQL Server (surrogate ID range) or Cosmos DB (continuation tokens)
             _isSql = _definition.ResourceCount != null && _definition.ResourceCount.StartResourceSurrogateId > 0 && _definition.ResourceCount.EndResourceSurrogateId > 0;
 
             await CheckSearchParamHash();
@@ -192,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                await _oomRetries.ExecuteAsync(async () =>
+                await OomRetries.ExecuteAsync(async () =>
                 {
                     if (_isSql)
                     {
@@ -238,14 +242,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var startId = _definition.ResourceCount.StartResourceSurrogateId;
             var endId = _definition.ResourceCount.EndResourceSurrogateId;
-            var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
-            _logger.LogJobInformation(_jobInfo, $"SQL reindex: Range start. Start={startId}, End={endId}, BatchSize={batchSize}");
+            _logger.LogJobInformation(_jobInfo, $"SQL reindex: Range start. Start={startId}, End={endId}, BatchSize={_batchSize}");
 
             var subRanges = await _timeoutRetries.ExecuteAsync(async () =>
             {
-                var numberOfSubRanges = (int)Math.Ceiling((double)_definition.MaximumNumberOfResourcesPerQuery / batchSize);
+                var numberOfSubRanges = (int)Math.Ceiling((double)_definition.MaximumNumberOfResourcesPerQuery / _batchSize);
                 using var searchService = _searchServiceFactory();
-                return await searchService.Value.GetSurrogateIdRanges(_definition.ResourceType, startId, endId, batchSize, numberOfSubRanges, true, _cancellationToken, true);
+                return await searchService.Value.GetSurrogateIdRanges(_definition.ResourceType, startId, endId, _batchSize, numberOfSubRanges, true, _cancellationToken, true);
             });
             _logger.LogJobInformation(_jobInfo, $"SQL reindex: numberOfSubRanges={subRanges.Count}");
 
@@ -278,15 +281,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync()
         {
-            var batchSize = (int)_definition.MaximumNumberOfResourcesPerWrite;
-            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", batchSize);
+            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", _batchSize);
 
             using var store = _fhirDataStoreFactory();
             string continuationToken = null;
 
             while (!_cancellationToken.IsCancellationRequested)
             {
-                var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(batchSize, continuationToken));
+                var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_batchSize, continuationToken));
 
                 var resources = result.Results?.Select(_ => _.Resource).ToList();
                 if (resources?.Count > 0)
