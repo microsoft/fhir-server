@@ -25,6 +25,14 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET {{hostname}}/MedicationRequest?_include=MedicationRequest:patient
 Authorization: Bearer {{bearer.response.body.access_token}}
 
+### Include
+GET {{hostname}}/DiagnosticReport?subject=Patient/123
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Include
+GET {{hostname}}/Observation?encounter=Encounter/456
+Authorization: Bearer {{bearer.response.body.access_token}}
+
 ### Revinclude
 GET {{hostname}}/Patient?_revinclude=Encounter:subject
 Authorization: Bearer {{bearer.response.body.access_token}}

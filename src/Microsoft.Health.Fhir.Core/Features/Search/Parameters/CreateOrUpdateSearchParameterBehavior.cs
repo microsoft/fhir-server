@@ -62,10 +62,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var url = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource already owns this URL.
+                // SP deletes are lazy: dbo.Resource stays IsDeleted=0 until reindex, so also allow if the owner is PendingDelete.
                 if (!string.IsNullOrWhiteSpace(url))
                 {
-                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([url], cancellationToken);
-                    if (existingByUrl.ContainsKey(url))
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync(new[] { url }, cancellationToken);
+                    if (existingByUrl.ContainsKey(url)
+                        && (!_searchParameterDefinitionManager.TryGetSearchParameter(url, out var existingParam)
+                            || (existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                                && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)))
                     {
                         throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
                     }
@@ -102,10 +106,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource other than this one already owns the new URL.
-                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
-                if (existingByUrl.TryGetValue(newUrl, out var existingElement) && existingElement.GetStringScalar("id") != request.Resource.Id)
+                // SP deletes are lazy: dbo.Resource stays IsDeleted=0 until reindex, so also allow if the owner is PendingDelete.
+                if (!string.IsNullOrWhiteSpace(newUrl))
                 {
-                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
+                    if (existingByUrl.TryGetValue(newUrl, out var existingElement)
+                        && !string.Equals(existingElement.GetStringScalar("id"), request.Resource.Id, StringComparison.Ordinal)
+                        && (!_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var existingParam)
+                            || (existingParam.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                                && existingParam.SearchParameterStatus != SearchParameterStatus.PendingHardDelete)))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
+                    }
                 }
 
                 var previousUrl = prevSearchParamResource?.IsDeleted == false
