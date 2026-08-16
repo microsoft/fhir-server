@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
@@ -56,16 +57,7 @@ public partial class SqlQueryGeneratorTests
     public void GivenChainedReferenceSearchWithPrecedingSourceFilter_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
     {
         (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
-        var sourceFilterParam = new SearchParameterInfo(
-            "status",
-            "status",
-            SearchParamType.Token,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
-        Expression sourceFilter = Expression.SearchParameter(
-            sourceFilterParam,
-            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
-        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
-        tableExpressions.Insert(0, new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        tableExpressions.Insert(0, CreateSourceStatusFilterExpression());
         SqlRootExpression sqlExpression = new(tableExpressions, []);
         SearchOptions searchOptions = new()
         {
@@ -112,6 +104,64 @@ public partial class SqlQueryGeneratorTests
     }
 
     [Theory]
+    [InlineData(SortOrder.Ascending, "IsMin = 1", "SortValue  ASC")]
+    [InlineData(SortOrder.Descending, "IsMax = 1", "SortValue  DESC")]
+    public void GivenPlainSortedChainedReferenceSearch_WhenSqlGenerated_ThenMultiValuedRowsAreCollapsedAndOrdered(
+        SortOrder sortOrder,
+        string minOrMaxPredicate,
+        string orderBy)
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        SearchParameterInfo sortParam = CreateSortDateParameter();
+        AddSortExpression(tableExpressions, sortParam, SearchParamTableExpressionKind.Sort);
+        tableExpressions.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top));
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            Sort = [(sortParam, sortOrder)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("cte3 AS", generatedSql);
+        Assert.Contains("StartDateTime AS SortValue", generatedSql);
+        Assert.Contains(minOrMaxPredicate, generatedSql);
+        Assert.Contains("SELECT DISTINCT TOP (", generatedSql);
+        Assert.Contains(orderBy, generatedSql);
+        Assert.Contains(", Sid1 ASC", generatedSql);
+    }
+
+    [Theory]
+    [InlineData(SortOrder.Ascending, " OR StartDateTime > ")]
+    [InlineData(SortOrder.Descending, " OR StartDateTime < ")]
+    public void GivenPlainSortedChainedReferenceSearchWithContinuationToken_WhenSqlGenerated_ThenSortAndSurrogateBoundariesArePreserved(
+        SortOrder sortOrder,
+        string sortComparison)
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        SearchParameterInfo sortParam = CreateSortDateParameter();
+        AddSortExpression(tableExpressions, sortParam, SearchParamTableExpressionKind.Sort);
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        SearchOptions searchOptions = new()
+        {
+            ContinuationToken = new ContinuationToken(["2026-09-05T17:00:00.0000000Z", (short)125, 42L]).ToString(),
+            Sort = [(sortParam, sortOrder)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("FROM dbo.ReferenceSearchParam chainTarget", generatedSql);
+        Assert.Contains("StartDateTime =", generatedSql);
+        Assert.Contains("ResourceSurrogateId >", generatedSql);
+        Assert.Contains(sortComparison, generatedSql);
+    }
+
+    [Theory]
     [InlineData(SortOrder.Ascending, " OR StartDateTime > ")]
     [InlineData(SortOrder.Descending, " OR StartDateTime < ")]
     public void GivenSortedChainedReferenceSearchWithContinuationToken_WhenSqlGenerated_ThenTargetFirstShapePreservesPagingSemantics(
@@ -143,16 +193,7 @@ public partial class SqlQueryGeneratorTests
     public void GivenSortedChainedReferenceSearchWithPrecedingSourceFilter_WhenSqlGenerated_ThenGenericShapeIsUsed(SortOrder sortOrder)
     {
         (List<SearchParamTableExpression> tableExpressions, SearchParameterInfo dateParam) = CreateTargetFirstChainedSearchExpressions();
-        var sourceFilterParam = new SearchParameterInfo(
-            "status",
-            "status",
-            SearchParamType.Token,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
-        Expression sourceFilter = Expression.SearchParameter(
-            sourceFilterParam,
-            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
-        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
-        tableExpressions.Insert(0, new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        tableExpressions.Insert(0, CreateSourceStatusFilterExpression());
         AddSortExpression(tableExpressions, dateParam);
         SqlRootExpression sqlExpression = new(tableExpressions, []);
         SearchOptions searchOptions = new()
@@ -320,16 +361,7 @@ public partial class SqlQueryGeneratorTests
     public void GivenTargetFirstChainedSearchWithFollowingSourcePredicate_WhenSqlGenerated_ThenOptimizedShapeFeedsFollowingPredicate()
     {
         (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
-        var sourceFilterParam = new SearchParameterInfo(
-            "status",
-            "status",
-            SearchParamType.Token,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
-        Expression sourceFilter = Expression.SearchParameter(
-            sourceFilterParam,
-            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
-        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
-        tableExpressions.Add(new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        tableExpressions.Add(CreateSourceStatusFilterExpression());
         SqlRootExpression sqlExpression = new(tableExpressions, []);
         SearchOptions searchOptions = new()
         {
@@ -350,19 +382,10 @@ public partial class SqlQueryGeneratorTests
     [Theory]
     [InlineData(SortOrder.Ascending)]
     [InlineData(SortOrder.Descending)]
-    public void GivenSortedTargetFirstChainedSearchWithFollowingSourcePredicate_WhenSqlGenerated_ThenSortValueIsProjectedAfterFollowingPredicate(SortOrder sortOrder)
+    public void GivenSortedTargetFirstChainedSearchWithFollowingSourcePredicate_WhenSqlGenerated_ThenGenericSortIsAppliedAfterFollowingPredicate(SortOrder sortOrder)
     {
         (List<SearchParamTableExpression> tableExpressions, SearchParameterInfo dateParam) = CreateTargetFirstChainedSearchExpressions();
-        var sourceFilterParam = new SearchParameterInfo(
-            "status",
-            "status",
-            SearchParamType.Token,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
-        Expression sourceFilter = Expression.SearchParameter(
-            sourceFilterParam,
-            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
-        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
-        tableExpressions.Add(new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        tableExpressions.Add(CreateSourceStatusFilterExpression());
         AddSortExpression(tableExpressions, dateParam);
         SqlRootExpression sqlExpression = new(tableExpressions, []);
         SearchOptions searchOptions = new()
@@ -381,20 +404,53 @@ public partial class SqlQueryGeneratorTests
         Assert.Contains(sortOrder == SortOrder.Ascending ? "SortValue ASC" : "SortValue DESC", generatedSql);
     }
 
+    [Theory]
+    [InlineData(SortOrder.Ascending, false, true)]
+    [InlineData(SortOrder.Ascending, true, false)]
+    [InlineData(SortOrder.Descending, false, false)]
+    [InlineData(SortOrder.Descending, true, true)]
+    public void GivenPlainSortedTargetFirstChainedSearch_WhenSortRewritten_ThenMissingAndValuedPhasesArePreserved(
+        SortOrder sortOrder,
+        bool secondPhase,
+        bool expectMissingPhase)
+    {
+        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
+        SearchParameterInfo sortParam = CreateSortDateParameter();
+        SqlRootExpression sqlExpression = new(tableExpressions, []);
+        var searchOptions = new SqlSearchOptions(
+            new SearchOptions
+            {
+                SearchParameters = [],
+                Sort = [(sortParam, sortOrder)],
+                UnsupportedSearchParams = [],
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            })
+        {
+            SortQuerySecondPhase = secondPhase,
+        };
+        var rewriter = new SortRewriter(_queryGeneratorFactory);
+
+        SqlRootExpression rewrittenExpression = (SqlRootExpression)rewriter.VisitSqlRoot(sqlExpression, searchOptions);
+
+        Assert.Equal(4, rewrittenExpression.SearchParamTableExpressions.Count);
+        SearchParamTableExpression phaseExpression = rewrittenExpression.SearchParamTableExpressions[^1];
+        if (expectMissingPhase)
+        {
+            Assert.Equal(SearchParamTableExpressionKind.NotExists, phaseExpression.Kind);
+            Assert.True(Assert.IsType<MissingSearchParameterExpression>(phaseExpression.Predicate).IsMissing);
+        }
+        else
+        {
+            Assert.Equal(SearchParamTableExpressionKind.Sort, phaseExpression.Kind);
+            Assert.IsType<SortExpression>(phaseExpression.Predicate);
+        }
+    }
+
     [Fact]
     public void GivenInterveningSourcePredicateInChainedSearch_WhenSqlGenerated_ThenExistingQueryShapeIsUsed()
     {
         (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
-        var sourceFilterParam = new SearchParameterInfo(
-            "status",
-            "status",
-            SearchParamType.Token,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
-        Expression sourceFilter = Expression.SearchParameter(
-            sourceFilterParam,
-            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
-        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
-        tableExpressions.Insert(2, new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal));
+        tableExpressions.Insert(2, CreateSourceStatusFilterExpression());
         SqlRootExpression sqlExpression = new(tableExpressions, []);
         SearchOptions searchOptions = new()
         {
@@ -534,12 +590,42 @@ public partial class SqlQueryGeneratorTests
             dateParam);
     }
 
-    private static void AddSortExpression(List<SearchParamTableExpression> tableExpressions, SearchParameterInfo dateParam)
+    private SearchParamTableExpression CreateSourceStatusFilterExpression()
+    {
+        var sourceFilterParam = new SearchParameterInfo(
+            "status",
+            "status",
+            SearchParamType.Token,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-status"));
+        Expression sourceFilter = Expression.SearchParameter(
+            sourceFilterParam,
+            Expression.StringEquals(FieldName.TokenCode, null, "final", false));
+        _fhirModel.GetSearchParamId(sourceFilterParam.Url).Returns((short)1278);
+
+        return new SearchParamTableExpression(TokenQueryGenerator.Instance, sourceFilter, SearchParamTableExpressionKind.Normal);
+    }
+
+    private SearchParameterInfo CreateSortDateParameter()
+    {
+        var sortParam = new SearchParameterInfo(
+            "issued",
+            "issued",
+            SearchParamType.Date,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-issued"));
+        _fhirModel.GetSearchParamId(sortParam.Url).Returns((short)1282);
+
+        return sortParam;
+    }
+
+    private static void AddSortExpression(
+        List<SearchParamTableExpression> tableExpressions,
+        SearchParameterInfo dateParam,
+        SearchParamTableExpressionKind kind = SearchParamTableExpressionKind.SortWithFilter)
     {
         tableExpressions.Add(
             new SearchParamTableExpression(
                 DateTimeQueryGenerator.Instance,
                 new SortExpression(dateParam),
-                SearchParamTableExpressionKind.SortWithFilter));
+                kind));
     }
 }
