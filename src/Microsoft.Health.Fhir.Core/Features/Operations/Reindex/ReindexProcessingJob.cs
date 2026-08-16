@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Media;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private bool _isSql;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
+        private const int OomRetryDelayBaseSec = 120;
 
         private CancellationToken _cancellationToken;
 
@@ -98,8 +100,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             .Handle<OutOfMemoryException>()
             .WaitAndRetryAsync(
                 retryCount: 3,
-                sleepDurationProvider: _ => TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(120, 300)),
-                onRetry: (exception, delay, retryCount, context) => { _batchSize = Math.Max(1, _batchSize / 10); });
+                sleepDurationProvider: _ => TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(OomRetryDelayBaseSec, OomRetryDelayBaseSec * 3)),
+                onRetry: (exception, delay, retryCount, context) =>
+                {
+                    _batchSize = Math.Max(1, _batchSize / 10);
+                    _logger.LogJobWarning(_jobInfo, $"Reindex OutOfMemoryException. Reduced batch size={_batchSize}");
+                });
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
