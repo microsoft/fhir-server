@@ -150,7 +150,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 UnionExpression smartV2UnionExpression = null;
                 SearchParamTableExpressionQueryGenerator smartV2QueryGenerator = null;
                 StringBuilder.AppendLine(";WITH");
-                StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
+                IReadOnlyList<SearchParamTableExpression> orderedTableExpressions = expression.SearchParamTableExpressions.SortExpressionsByQueryLogic();
+                int consumedTableExpressionCount = TryAppendTargetFirstChainedSearchCtes(orderedTableExpressions, context);
+                List<SearchParamTableExpression> remainingTableExpressions = orderedTableExpressions.Skip(consumedTableExpressionCount).ToList();
+                if (consumedTableExpressionCount > 0 && remainingTableExpressions.Count > 0)
+                {
+                    StringBuilder.AppendLine().Append(",");
+                }
+
+                StringBuilder.AppendDelimited($"{Environment.NewLine},", remainingTableExpressions, (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
                     {
@@ -639,11 +647,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            if (TryHandleTargetFirstChainedSearchNormalExpression(searchParamTableExpression, context))
-            {
-                return;
-            }
-
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -879,11 +882,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             string referenceTargetResourceTableAlias)
         {
             var chainedExpression = (SqlChainLinkExpression)searchParamTableExpression.Predicate;
-            if (TryHandleTargetFirstChainedSearchChainExpression(searchParamTableExpression, chainedExpression, context))
-            {
-                return;
-            }
-
             StringBuilder.Append("SELECT ");
             if (searchParamTableExpression.ChainLevel == 1)
             {
@@ -1360,16 +1358,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                     }
 
-                    // if continuation token exists, add it to the query
-                    if (sortContext.ContinuationToken != null)
-                    {
-                        var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
-
-                        delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append(" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
-                    }
+                    AppendSortContinuationPredicate(delimited, sortContext);
 
                     if (!UseAppendWithJoin())
                     {
@@ -1409,16 +1398,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                     }
 
-                    // if continuation token exists, add it to the query
-                    if (sortContext.ContinuationToken != null)
-                    {
-                        var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
-
-                        delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append(" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
-                    }
+                    AppendSortContinuationPredicate(delimited, sortContext);
 
                     if (!UseAppendWithJoin())
                     {
@@ -1428,6 +1408,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             _sortVisited = true;
+        }
+
+        private void AppendSortContinuationPredicate(
+            in IndentedStringBuilder.DelimitedScope delimited,
+            SortContext sortContext)
+        {
+            if (sortContext.ContinuationToken == null)
+            {
+                return;
+            }
+
+            string sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
+            delimited.BeginDelimitedElement();
+            StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append(" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false))
+                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")")
+                .Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
         }
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)

@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -15,93 +17,115 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     /// </summary>
     internal partial class SqlQueryGenerator
     {
-        private TargetFirstChainedSearchState _targetFirstChainedSearchState;
-
-        private bool TryHandleTargetFirstChainedSearchChainExpression(
-            SearchParamTableExpression tableExpression,
-            SqlChainLinkExpression chainExpression,
+        private int TryAppendTargetFirstChainedSearchCtes(
+            IReadOnlyList<SearchParamTableExpression> tableExpressions,
             SearchOptions context)
         {
-            if (!TryMatchTargetFirstChainedSearch(tableExpression, chainExpression, out SearchParamTableExpression targetExpression, out SearchParamTableExpression sourceDateExpression))
+            TargetFirstChainedSearchMatch match = MatchTargetFirstChainedSearch(tableExpressions, context);
+            if (match == null)
             {
-                return false;
+                return 0;
             }
 
-            _targetFirstChainedSearchState = new TargetFirstChainedSearchState(chainExpression, targetExpression, sourceDateExpression);
-            AppendTargetFirstChainedSearchTarget(targetExpression, chainExpression, context);
-            return true;
+            int targetCteId = AppendTargetFirstChainedSearchCte(
+                () => AppendTargetFirstChainedSearchTarget(match.TargetExpression, match.ChainExpression, context));
+            int sourceCteId = AppendTargetFirstChainedSearchCte(
+                () => AppendTargetFirstChainedSearchSource(match.ChainExpression, targetCteId));
+            int filteredSourceCteId = AppendTargetFirstChainedSearchCte(
+                () => AppendTargetFirstChainedSearchSourceDateFilter(match.SourceDateExpression, context, sourceCteId));
+
+            if (match.SortExpression != null)
+            {
+                AppendTargetFirstChainedSearchCte(
+                    () => AppendTargetFirstChainedSearchSort(match.SortExpression, context, filteredSourceCteId));
+                _sortVisited = true;
+            }
+
+            return match.ConsumedTableExpressionCount;
         }
 
-        private bool TryHandleTargetFirstChainedSearchNormalExpression(SearchParamTableExpression tableExpression, SearchOptions context)
+        private TargetFirstChainedSearchMatch MatchTargetFirstChainedSearch(
+            IReadOnlyList<SearchParamTableExpression> tableExpressions,
+            SearchOptions context)
         {
-            TargetFirstChainedSearchState state = _targetFirstChainedSearchState;
-            if (state == null)
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(tableExpression, state.TargetExpression))
-            {
-                AppendTargetFirstChainedSearchSource(state.ChainExpression);
-                state.SourceCteId = _tableExpressionCounter;
-                return true;
-            }
-
-            if (ReferenceEquals(tableExpression, state.SourceDateExpression) &&
-                state.SourceCteId == _tableExpressionCounter - 1)
-            {
-                AppendTargetFirstChainedSearchSourceDateFilter(tableExpression, context, state.SourceCteId);
-                _targetFirstChainedSearchState = null;
-                return true;
-            }
-
-            _targetFirstChainedSearchState = null;
-            return false;
-        }
-
-        private bool TryMatchTargetFirstChainedSearch(
-            SearchParamTableExpression tableExpression,
-            SqlChainLinkExpression chainExpression,
-            out SearchParamTableExpression targetExpression,
-            out SearchParamTableExpression sourceDateExpression)
-        {
-            targetExpression = null;
-            sourceDateExpression = null;
-
-            if (_tableExpressionCounter != 0 ||
-                tableExpression.ChainLevel != 1 ||
-                chainExpression.Reversed ||
-                chainExpression.ExpressionOnTarget != null ||
-                _rootExpression.SearchParamTableExpressions.Any(x =>
-                    x.HasUnionAllExpression() ||
-                    x.Kind == SearchParamTableExpressionKind.Sort ||
-                    x.Kind == SearchParamTableExpressionKind.SortWithFilter))
-            {
-                return false;
-            }
-
+            const int chainExpressionIndex = 0;
             const int targetExpressionIndex = 1;
             const int sourceDateExpressionIndex = 2;
-            if (_rootExpression.SearchParamTableExpressions.Count <= sourceDateExpressionIndex)
+            const int sortExpressionIndex = 3;
+            if (_tableExpressionCounter != -1 ||
+                tableExpressions.Count <= sourceDateExpressionIndex ||
+                tableExpressions.Any(x => x.HasUnionAllExpression()))
             {
-                return false;
+                return null;
             }
 
-            SearchParamTableExpression targetCandidate = _rootExpression.SearchParamTableExpressions[targetExpressionIndex];
-            SearchParamTableExpression sourceDateCandidate = _rootExpression.SearchParamTableExpressions[sourceDateExpressionIndex];
+            SearchParamTableExpression chainCandidate = tableExpressions[chainExpressionIndex];
+            if (chainCandidate.Kind != SearchParamTableExpressionKind.Chain ||
+                chainCandidate.ChainLevel != 1 ||
+                chainCandidate.Predicate is not SqlChainLinkExpression chainCandidateExpression ||
+                chainCandidateExpression.Reversed ||
+                chainCandidateExpression.ExpressionOnTarget != null)
+            {
+                return null;
+            }
+
+            SearchParamTableExpression targetCandidate = tableExpressions[targetExpressionIndex];
+            SearchParamTableExpression sourceDateCandidate = tableExpressions[sourceDateExpressionIndex];
             if (targetCandidate.Kind != SearchParamTableExpressionKind.Normal ||
-                targetCandidate.ChainLevel != tableExpression.ChainLevel ||
+                targetCandidate.ChainLevel != chainCandidate.ChainLevel ||
                 !ReferenceEquals(targetCandidate.QueryGenerator, ReferenceQueryGenerator.Instance) ||
                 sourceDateCandidate.Kind != SearchParamTableExpressionKind.Normal ||
                 sourceDateCandidate.ChainLevel != 0 ||
                 !ReferenceEquals(sourceDateCandidate.QueryGenerator, DateTimeQueryGenerator.Instance))
             {
-                return false;
+                return null;
             }
 
-            targetExpression = targetCandidate;
-            sourceDateExpression = sourceDateCandidate;
-            return true;
+            SearchParamTableExpression sortExpression = null;
+            int consumedTableExpressionCount = 3;
+
+            // Only consume a sort that immediately follows the optimized predicates. A later sort must
+            // remain in the generic pipeline so any intervening source predicates are applied first.
+            if (tableExpressions.Count > sortExpressionIndex &&
+                tableExpressions[sortExpressionIndex].Kind is SearchParamTableExpressionKind.Sort or SearchParamTableExpressionKind.SortWithFilter)
+            {
+                SearchParamTableExpression sortCandidate = tableExpressions[sortExpressionIndex];
+                SortContext sortContext = GetSortRelatedDetails(context);
+                if (sortCandidate.ChainLevel != 0 ||
+                    sortCandidate.QueryGenerator == null ||
+                    string.IsNullOrEmpty(sortContext.SortColumnName))
+                {
+                    return null;
+                }
+
+                sortExpression = sortCandidate;
+                consumedTableExpressionCount++;
+            }
+
+            return new TargetFirstChainedSearchMatch(
+                chainCandidateExpression,
+                targetCandidate,
+                sourceDateCandidate,
+                sortExpression,
+                consumedTableExpressionCount);
+        }
+
+        private int AppendTargetFirstChainedSearchCte(Action appendBody)
+        {
+            if (_tableExpressionCounter >= 0)
+            {
+                StringBuilder.AppendLine().Append(",");
+            }
+
+            int cteId = ++_tableExpressionCounter;
+            StringBuilder.Append(TableExpressionName(cteId)).AppendLine(" AS").AppendLine("(");
+            using (StringBuilder.Indent())
+            {
+                appendBody();
+            }
+
+            StringBuilder.Append(")");
+            return cteId;
         }
 
         private void AppendTargetFirstChainedSearchTarget(
@@ -135,14 +159,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             targetExpression.Predicate.AcceptVisitor(targetExpression.QueryGenerator, GetContext(chainTargetTableAlias));
         }
 
-        private void AppendTargetFirstChainedSearchSource(SqlChainLinkExpression chainExpression)
+        private void AppendTargetFirstChainedSearchSource(SqlChainLinkExpression chainExpression, int targetCteId)
         {
             const string referenceSourceTableAlias = "refSource";
 
             StringBuilder.Append("SELECT ")
                 .Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(" AS T1, ")
                 .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).AppendLine(" AS Sid1, T2, Sid2")
-                .Append("FROM ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                .Append("FROM ").AppendLine(TableExpressionName(targetCteId))
                 .Append(_joinShift).Append("INNER LOOP JOIN ").Append(VLatest.ReferenceSearchParam).Append(' ').Append(referenceSourceTableAlias)
                 .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = T2")
                 .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).AppendLine(" = Id2");
@@ -189,16 +213,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             dateExpression.Predicate.AcceptVisitor(dateExpression.QueryGenerator, GetContext());
         }
 
-        private sealed class TargetFirstChainedSearchState
+        private void AppendTargetFirstChainedSearchSort(
+            SearchParamTableExpression sortExpression,
+            SearchOptions context,
+            int filteredSourceCteId)
         {
-            public TargetFirstChainedSearchState(
+            SortContext sortContext = GetSortRelatedDetails(context);
+            string filteredSourceCte = TableExpressionName(filteredSourceCteId);
+            StringBuilder.Append("SELECT ")
+                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
+                .Append(sortContext.SortColumnName, null).AppendLine(" AS SortValue")
+                .Append("FROM ").AppendLine(sortExpression.QueryGenerator.Table)
+                .Append(_joinShift).Append("JOIN ").Append(filteredSourceCte)
+                .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(filteredSourceCte).Append(".T1")
+                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(filteredSourceCte).AppendLine(".Sid1");
+
+            using var delimited = StringBuilder.BeginDelimitedWhereClause();
+            AppendHistoryClause(delimited, context.ResourceVersionTypes, sortExpression);
+            AppendMinOrMax(delimited, context);
+
+            if (sortExpression.Predicate != null)
+            {
+                delimited.BeginDelimitedElement();
+                sortExpression.Predicate.AcceptVisitor(sortExpression.QueryGenerator, GetContext());
+            }
+
+            AppendSortContinuationPredicate(delimited, sortContext);
+        }
+
+        private sealed class TargetFirstChainedSearchMatch
+        {
+            public TargetFirstChainedSearchMatch(
                 SqlChainLinkExpression chainExpression,
                 SearchParamTableExpression targetExpression,
-                SearchParamTableExpression sourceDateExpression)
+                SearchParamTableExpression sourceDateExpression,
+                SearchParamTableExpression sortExpression,
+                int consumedTableExpressionCount)
             {
                 ChainExpression = chainExpression;
                 TargetExpression = targetExpression;
                 SourceDateExpression = sourceDateExpression;
+                SortExpression = sortExpression;
+                ConsumedTableExpressionCount = consumedTableExpressionCount;
             }
 
             public SqlChainLinkExpression ChainExpression { get; }
@@ -207,7 +264,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             public SearchParamTableExpression SourceDateExpression { get; }
 
-            public int SourceCteId { get; set; } = -1;
+            public SearchParamTableExpression SortExpression { get; }
+
+            public int ConsumedTableExpressionCount { get; }
         }
     }
 }
