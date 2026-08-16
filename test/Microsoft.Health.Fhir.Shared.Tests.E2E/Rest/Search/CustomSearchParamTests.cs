@@ -81,7 +81,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
         {
-            string sharedUrl = $"http://my.org/{Guid.NewGuid():N}/" + new string('a', MaxAllowedUrlLength);
+            string guidPrefix = $"http://my.org/{Guid.NewGuid():N}/";
+            string sharedUrl = guidPrefix + new string('a', MaxAllowedUrlLength - guidPrefix.Length);
             SearchParameter sp1 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
@@ -104,7 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
         {
-            string sharedUrl = $"http://my.org/{Guid.NewGuid():N}/" + new string('b', MaxAllowedUrlLength);
+            string guidPrefix = $"http://my.org/{Guid.NewGuid():N}/";
+            string sharedUrl = guidPrefix + new string('b', MaxAllowedUrlLength - guidPrefix.Length);
             SearchParameter sp1 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
