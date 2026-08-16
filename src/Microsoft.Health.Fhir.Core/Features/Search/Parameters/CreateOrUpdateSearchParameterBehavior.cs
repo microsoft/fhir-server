@@ -96,7 +96,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                // url can never be null for a valid search param
                 var newUrl = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource other than this one already owns the new URL.
