@@ -130,15 +130,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 var isSortValueNeeded = IsSortValueNeeded(context);
                 if (isSortValueNeeded)
                 {
-                    var sortContext = GetGenericSortRelatedDetails(context);
+                    var sortContext = GetSortRelatedDetails(context);
                     var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
                     var typeStr = dbType.ToString().ToLowerInvariant();
                     StringBuilder.Append($", SortValue {typeStr}");
-                    if (dbType == System.Data.SqlDbType.Decimal)
-                    {
-                        StringBuilder.Append("(36, 18)");
-                    }
-                    else if (dbType != System.Data.SqlDbType.DateTime2 && dbType != System.Data.SqlDbType.DateTime)
+                    if (dbType != System.Data.SqlDbType.DateTime2 && dbType != System.Data.SqlDbType.DateTime) // we support only date time and short string
                     {
                         StringBuilder.Append($"({sortContext.SortColumnName.Metadata.MaxLength})");
                     }
@@ -1336,7 +1332,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException("Multiple chain level is not possible.");
             }
 
-            SortContext sortContext = GetGenericSortRelatedDetails(context);
+            SortContext sortContext = GetSortRelatedDetails(context);
 
             if (!string.IsNullOrEmpty(sortContext.SortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
@@ -1376,7 +1372,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindSortWithFilter(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            SortContext sortContext = GetGenericSortRelatedDetails(context);
+            SortContext sortContext = GetSortRelatedDetails(context);
 
             if (!string.IsNullOrEmpty(sortContext.SortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
@@ -1771,8 +1767,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendMinOrMax(in IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
         {
-            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion ||
-                context.Sort[0].searchParameterInfo.Type is not (ValueSets.SearchParamType.Date or ValueSets.SearchParamType.String))
+            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
             {
                 return;
             }
@@ -1904,25 +1899,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     break;
-            }
-
-            return sortContext;
-        }
-
-        private static SortContext GetGenericSortRelatedDetails(SearchOptions context)
-        {
-            SortContext sortContext = GetSortRelatedDetails(context);
-            if (!ReferenceEquals(sortContext.SortColumnName, null) ||
-                context.Sort?[0].searchParameterInfo.Type != ValueSets.SearchParamType.Number)
-            {
-                return sortContext;
-            }
-
-            sortContext.SortColumnName = VLatest.NumberSearchParam.SingleValue;
-            if (sortContext.ContinuationToken != null &&
-                decimal.TryParse(sortContext.ContinuationToken.SortValue, out decimal numberSortValue))
-            {
-                sortContext.SortValue = numberSortValue;
             }
 
             return sortContext;

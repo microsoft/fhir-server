@@ -211,54 +211,6 @@ public partial class SqlQueryGeneratorTests
         Assert.Contains(sortOrder == SortOrder.Ascending ? "SortValue ASC" : "SortValue DESC", generatedSql);
     }
 
-    [Theory]
-    [InlineData(SortOrder.Ascending, "ORDER BY t.SortValue ASC")]
-    [InlineData(SortOrder.Descending, "ORDER BY t.SortValue DESC")]
-    public void GivenAdjacentUnsupportedNumberSortOnTargetFirstChainedSearch_WhenSqlGenerated_ThenEntireOptimizationIsRejected(
-        SortOrder sortOrder,
-        string orderBy)
-    {
-        (List<SearchParamTableExpression> tableExpressions, _) = CreateTargetFirstChainedSearchExpressions();
-        var sortParam = new SearchParameterInfo(
-            "value",
-            "value",
-            SearchParamType.Number,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-value"));
-        _fhirModel.GetSearchParamId(sortParam.Url).Returns((short)1283);
-        tableExpressions.Add(
-            new SearchParamTableExpression(
-                NumberQueryGenerator.Instance,
-                new SortExpression(sortParam),
-                SearchParamTableExpressionKind.Sort));
-        SqlRootExpression sqlExpression = new(tableExpressions, []);
-        SearchOptions searchOptions = new()
-        {
-            Sort = [(sortParam, sortOrder)],
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        };
-
-        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
-
-        string generatedSql = _strBuilder.ToString();
-        Assert.DoesNotContain("chainTarget", generatedSql);
-        Assert.Contains("FROM dbo.ReferenceSearchParam refSource", generatedSql);
-        Assert.Contains("FROM dbo.ReferenceSearchParam", generatedSql);
-        Assert.Contains("FROM dbo.DateTimeSearchParam", generatedSql);
-        Assert.Contains("SingleValue AS SortValue", generatedSql);
-        Assert.Contains("FROM dbo.NumberSearchParam", generatedSql);
-        Assert.Contains("cte3.SortValue", generatedSql);
-        Assert.Contains(orderBy, generatedSql);
-        Assert.True(
-            generatedSql.IndexOf("FROM dbo.ReferenceSearchParam refSource", StringComparison.Ordinal) <
-            generatedSql.LastIndexOf("FROM dbo.ReferenceSearchParam", StringComparison.Ordinal));
-        Assert.True(
-            generatedSql.LastIndexOf("FROM dbo.ReferenceSearchParam", StringComparison.Ordinal) <
-            generatedSql.IndexOf("FROM dbo.DateTimeSearchParam", StringComparison.Ordinal));
-        Assert.True(
-            generatedSql.IndexOf("FROM dbo.DateTimeSearchParam", StringComparison.Ordinal) <
-            generatedSql.IndexOf("FROM dbo.NumberSearchParam", StringComparison.Ordinal));
-    }
-
     [Fact]
     public void GivenTargetFirstChainedSearchWithTop_WhenSqlGenerated_ThenOptimizedShapeIsPreserved()
     {

@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 SortContext sortContext = GetSortRelatedDetails(context);
                 if (sortCandidate.ChainLevel != 0 ||
                     sortCandidate.QueryGenerator == null ||
-                    ReferenceEquals(sortContext.SortColumnName, null))
+                    string.IsNullOrEmpty(sortContext.SortColumnName))
                 {
                     return null;
                 }
