@@ -127,14 +127,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter(repeatChar: 'c');
+            string prefix = $"http://my.org/{Guid.NewGuid():N}/";
+            string validUrl = prefix + new string('c', MaxAllowedUrlLength - prefix.Length);
+            SearchParameter searchParam = CreateCustomSearchParameter(urlOverride: validUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             try
             {
-                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+                // One char over the limit — server must reject with a validation error.
+                searchParam.Url = validUrl + "c";
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
