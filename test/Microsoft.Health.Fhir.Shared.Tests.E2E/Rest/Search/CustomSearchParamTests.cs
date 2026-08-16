@@ -36,9 +36,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private const int MaxAllowedUrlLength = 128;
         private const string UrlLengthValidationMessage = "exceeds the maximum length limit of 128";
 
-        // Unique per test-class instance so each xUnit test run gets URLs that never conflict across pipeline runs.
-        private readonly string _urlPrefix = $"http://my.org/{Guid.NewGuid():N}/";
-
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
@@ -84,7 +81,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter();
+            string sharedUrl = $"http://my.org/{Guid.NewGuid():N}/" + new string('a', MaxAllowedUrlLength);
+            SearchParameter sp1 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -92,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different auto-generated ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter();
+                SearchParameter sp2 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -106,7 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter();
+            string sharedUrl = $"http://my.org/{Guid.NewGuid():N}/" + new string('b', MaxAllowedUrlLength);
+            SearchParameter sp1 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -114,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different resource ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter();
+                SearchParameter sp2 = CreateCustomSearchParameter(urlOverride: sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -147,9 +146,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
+        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a', string urlOverride = null)
         {
             string suffix = Guid.NewGuid().ToString("N");
+            const string prefix = "http://my.org/";
 #if R5
             var baseResourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
 #else
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return new SearchParameter
             {
                 Id = $"custom-search-param-{suffix[..8]}",
-                Url = _urlPrefix + new string(repeatChar, urlLength - _urlPrefix.Length),
+                Url = urlOverride ?? prefix + new string(repeatChar, urlLength - prefix.Length),
                 Name = $"CustomSearchParam{suffix[..8]}",
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),
