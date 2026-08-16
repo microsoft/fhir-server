@@ -605,6 +605,100 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(1, surrogatIdCallCount);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task WhenOutOfMemoryException_ThenRetriesWorkCorrectly(bool throwOnRead)
+        {
+            ReindexProcessingJob.OomRetryDelayBaseSec = 1;
+
+            var expectedResourceType = "Patient";
+            var initialBatchSize = 1000;
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = initialBatchSize,
+                MaximumNumberOfResourcesPerWrite = initialBatchSize,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 1,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
+                },
+                SearchParameterHash = "patientHash",
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>() { ("http://hl7.org/fhir/SearchParam/Patient-name", SearchParameterStatus.Enabled) },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var requestedCounts = new List<int>();
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(callInfo =>
+                {
+                    var parameters = callInfo.ArgAt<IReadOnlyList<Tuple<string, string>>>(0);
+                    requestedCounts.Add(int.Parse(parameters.Single(parameter => parameter.Item1 == KnownQueryParameterNames.Count).Item2));
+
+                    if (throwOnRead)
+                    {
+                        return Task.FromException<SearchResult>(new OutOfMemoryException("Simulated OOM"));
+                    }
+
+                    return Task.FromResult(new SearchResult(
+                        new List<SearchResultEntry> { CreateSearchResultEntry("1", expectedResourceType) },
+                        null,
+                        null,
+                        new List<Tuple<string, string>>()));
+                });
+
+            if (!throwOnRead)
+            {
+                _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
+                    Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                    Arg.Any<CancellationToken>())
+                    .Returns(_ => Task.FromException(new OutOfMemoryException("Simulated OOM")));
+            }
+
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            var jobResult = Assert.IsType<ReindexProcessingJobResult>(exception.Error);
+            var errorMessage = Assert.IsType<string>(jobResult.Error);
+
+            Assert.Equal(new[] { 1000, 100, 10, 1 }, requestedCounts);
+            Assert.Equal("Simulated OOM", errorMessage);
+            Assert.Equal(1, jobResult.FailedResourceCount);
+            Assert.IsType<OutOfMemoryException>(exception.InnerException);
+
+            if (throwOnRead)
+            {
+                await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(
+                    Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                    Arg.Any<CancellationToken>());
+            }
+            else
+            {
+                await _fhirDataStore.Received(4).BulkUpdateSearchParameterIndicesAsync(
+                    Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                    Arg.Any<CancellationToken>());
+            }
+        }
+
         [Fact]
         public async Task CheckDiscrepancies_WhenHashMismatch_ThrowsReindexJobException()
         {

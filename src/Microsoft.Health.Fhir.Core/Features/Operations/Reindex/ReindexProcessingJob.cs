@@ -69,8 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private bool _isSql;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
-        private const int OomRetryDelayBaseSec = 120;
-
         private CancellationToken _cancellationToken;
 
         public ReindexProcessingJob(
@@ -95,6 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
+
+        public static int OomRetryDelayBaseSec { get; set; } = 120;
 
         private AsyncPolicy OomRetries => Policy
             .Handle<OutOfMemoryException>()
