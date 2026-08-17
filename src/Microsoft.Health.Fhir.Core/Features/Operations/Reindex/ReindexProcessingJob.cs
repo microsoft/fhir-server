@@ -119,8 +119,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             await CheckSearchParamHash();
 
-            _result = new ReindexProcessingJobResult();
-
             await ProcessAsync();
 
             return JsonConvert.SerializeObject(_result);
@@ -201,6 +199,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 await OomRetries.ExecuteAsync(async () =>
                 {
+                    _result = new ReindexProcessingJobResult();
+
                     if (_isSql)
                     {
                         await ProcessWithSurrogateIdRangeAsync();
