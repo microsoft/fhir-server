@@ -1969,13 +1969,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Assert
             Assert.NotNull(jobResult);
+            Assert.NotNull(jobResult.SearchParameterUrls);
+            Assert.Contains(searchParamLowercase.Url.ToString(), jobResult.SearchParameterUrls);
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParamLowercase.Url.ToString())),
                         SearchParameterStatus.Enabled,
                         Arg.Any<CancellationToken>(),
                         false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
-
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParamMixedCase.Url.ToString())),
                         SearchParameterStatus.Deleted,

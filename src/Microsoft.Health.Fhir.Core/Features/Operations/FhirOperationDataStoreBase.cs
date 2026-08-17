@@ -457,9 +457,12 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         if (jobInfo.Result != null)
         {
             var urls = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(jobInfo.Result).SearchParameterUrls;
-            foreach (var url in urls)
+            if (urls != null) // TODO: Remove this after 1 month from deployment.
             {
-                record.SearchParams.Add(url);
+                foreach (var url in urls)
+                {
+                    record.SearchParams.Add(url);
+                }
             }
         }
 

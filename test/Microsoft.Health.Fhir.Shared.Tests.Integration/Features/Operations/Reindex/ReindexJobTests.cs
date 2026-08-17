@@ -1134,6 +1134,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Deserialize the orchestrator result to verify error array is populated
             var deserializedResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(orchestratorResult);
             Assert.NotNull(deserializedResult);
+            Assert.NotNull(deserializedResult.SearchParameterUrls);
+            Assert.Contains(personSearchParam.Url, deserializedResult.SearchParameterUrls);
+            Assert.Contains(supplySearchParam.Url, deserializedResult.SearchParameterUrls);
             Assert.NotEmpty(deserializedResult.Error);
             Assert.True(deserializedResult.Error.Count >= 1);
 
@@ -1153,6 +1156,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var wrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(orchestratorJobInfo.Id.ToString(), CancellationToken.None);
             Assert.NotNull(wrapper);
             var record = wrapper.JobRecord;
+            Assert.NotNull(record.SearchParams);
+            Assert.Contains(personSearchParam.Url, record.SearchParams);
+            Assert.Contains(supplySearchParam.Url, record.SearchParams);
 
             // Verify failureDetails are set with error messages
             Assert.NotNull(record.FailureDetails);
