@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
-        private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = [];
+        private readonly Dictionary<string, (HashSet<long> JobIds, Failed Failed)> _transientResourceTypeJobs = [];
         private readonly Dictionary<string, (HashSet<string> ResourceTypes, SearchParameterStatus Status)> _transientSearchParamResouceTypes = [];
         //// populated with holds enqueued job ids. job is removed after it is finished (terminal state, completed or failed).
         private readonly SortedSet<long> _transientProcessingJobIds = [];
@@ -428,7 +428,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             if (!_transientResourceTypeJobs.TryGetValue(resourceType, out var jobs))
             {
-                _transientResourceTypeJobs.Add(resourceType, (new HashSet<long>(jobIds), new Counts()));
+                _transientResourceTypeJobs.Add(resourceType, (new HashSet<long>(jobIds), new Failed()));
             }
             else
             {
@@ -670,14 +670,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                         _result.SucceededResources += result.SucceededResourceCount;
                         _result.FailedResources += result.FailedResourceCount;
-                        resourceTypeJobs.Value.Counts.Succeeded += result.SucceededResourceCount;
-                        resourceTypeJobs.Value.Counts.Failed += result.FailedResourceCount;
+                        resourceTypeJobs.Value.Failed.Count += result.FailedResourceCount;
                     }
                     else
                     {
                         var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
                         _result.FailedResources += def.ResourceCount.Count;
-                        resourceTypeJobs.Value.Counts.Failed += def.ResourceCount.Count;
+                        resourceTypeJobs.Value.Failed.Count += def.ResourceCount.Count;
                         var result = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                         var msg = $"Processing job failed for resource type {def.ResourceType}.{(result == null ? string.Empty : ": " + result.Error)}";
                         _logger.LogJobWarning(_jobInfo, msg);
@@ -691,7 +690,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _result.CompletedJobs += finishedJobs.Count(j => j.Status == JobStatus.Completed);
 
             // remove processed resource types from _transientSearchParamResouceTypes
-            foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.Counts.Failed == 0).Select(_ => _.Key))
+            foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.Failed.Count == 0).Select(_ => _.Key))
             {
                 foreach (var searchParamResourceType in _transientSearchParamResouceTypes.Values)
                 {
@@ -720,11 +719,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await _searchParameterStatusManager.TryLogEvent(process, status, text, startDate, _cancellationToken);
         }
 
-        private class Counts
+        private class Failed
         {
-            public long Succeeded { get; set; }
-
-            public long Failed { get; set; }
+            public long Count { get; set; }
         }
     }
 }
