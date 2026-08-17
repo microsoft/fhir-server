@@ -6,8 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Media;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -24,7 +22,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;

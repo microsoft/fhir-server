@@ -21,10 +21,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Critical error during data processing.
         /// </summary>
         public string Error { get; set; }
-
-        /// <summary>
-        /// Timeout count during data processing.
-        /// </summary>
-        public int? TimeoutCount { get; set; }
     }
 }

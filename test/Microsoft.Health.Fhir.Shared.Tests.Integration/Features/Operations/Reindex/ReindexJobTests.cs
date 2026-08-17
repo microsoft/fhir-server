@@ -1248,7 +1248,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Message = jobResult.Error,
                     jobResult.FailedResourceCount,
                     jobResult.SucceededResourceCount,
-                    jobResult.TimeoutCount,
                 })
                 : JsonConvert.SerializeObject(jobResult);
 

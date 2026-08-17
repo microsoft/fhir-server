@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
