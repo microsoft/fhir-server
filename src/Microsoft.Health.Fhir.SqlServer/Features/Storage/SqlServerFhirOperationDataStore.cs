@@ -27,33 +27,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlServerFhirOperationDataStore : FhirOperationDataStoreBase
     {
-        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
-        private readonly JsonSerializerSettings _jsonSerializerSettings;
-        private readonly IQueueClient _queueClient;
-
-        public SqlServerFhirOperationDataStore(
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            IQueueClient queueClient,
-            ILogger<SqlServerFhirOperationDataStore> logger,
-            ILoggerFactory loggerFactory)
+        public SqlServerFhirOperationDataStore(IQueueClient queueClient, ILoggerFactory loggerFactory)
             : base(queueClient, loggerFactory)
         {
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _queueClient = queueClient;
-            _logger = logger;
-
-            _jsonSerializerSettings = new JsonSerializerSettings
-            {
-                Converters = new List<JsonConverter>
-                {
-                    new EnumLiteralJsonConverter(),
-                },
-            };
          }
 
         public override async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
