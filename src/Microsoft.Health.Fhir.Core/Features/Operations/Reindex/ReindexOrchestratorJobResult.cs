@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -35,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Count of completed query processing jobs
         /// </summary>
         public int CompletedJobs { get; set; }
+
+        public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
 
         [JsonProperty(JobRecordProperties.Error)]
         public IReadOnlyCollection<OperationOutcomeIssue> Error { get; set; } = new List<OperationOutcomeIssue>();

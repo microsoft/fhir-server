@@ -670,10 +670,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Assert - Verify search parameter hash is set
             Assert.NotNull(jobDef.SearchParameterHash);
             Assert.Equal("patientHash", jobDef.SearchParameterHash);
-
-            // Assert - Verify search parameter URLs are included
-            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
-            Assert.Contains(searchParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
         }
 
         [Fact]
@@ -783,10 +779,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 },
                 MaximumNumberOfResourcesPerQuery = 100,
                 MaximumNumberOfResourcesPerWrite = 100,
-                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>
-                {
-                    (searchParam.Url.OriginalString, SearchParameterStatus.Supported),
-                },
             };
 
             var existingJobs = await _queueClient.EnqueueAsync(
@@ -1142,113 +1134,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var firstJob = processingJobs.First();
             var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
 
-            // Assert - Verify SearchParameterUrlStatuses exist and are filtered correctly
-            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
-
-            // Assert - Verify BOTH Patient parameters are included
-            Assert.Contains(patientNameParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-            Assert.Contains(patientBirthdateParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-
-            // Assert - Verify Observation parameter is EXCLUDED (this is the key filtering behavior!)
-            Assert.DoesNotContain(observationCodeParam.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-
-            // Assert - Verify exactly 2 parameters (the two Patient parameters)
-            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count);
-
             // Assert - Verify the job is for Patient resource type
             Assert.Equal("Patient", jobDef.ResourceType);
-        }
-
-        [Fact]
-        public async Task GetValidSearchParameterUrlsForResourceType_WithExceptionInValidation_UsesFallback()
-        {
-            // Arrange
-            var searchParam1 = CreateSearchParameterInfo(
-                url: "http://hl7.org/fhir/SearchParameter/Patient-name",
-                resourceType: "Patient");
-
-            var searchParam2 = CreateSearchParameterInfo(
-                url: "http://hl7.org/fhir/SearchParameter/Patient-birthdate",
-                resourceType: "Patient");
-
-            var searchParamStatus1 = new ResourceSearchParameterStatus
-            {
-                LastUpdated = DateTime.UtcNow,
-                Uri = new Uri(searchParam1.Url.OriginalString),
-                Status = SearchParameterStatus.Supported,
-            };
-
-            var searchParamStatus2 = new ResourceSearchParameterStatus
-            {
-                LastUpdated = DateTime.UtcNow,
-                Uri = new Uri(searchParam2.Url.OriginalString),
-                Status = SearchParameterStatus.Supported,
-            };
-
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
-                .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
-
-            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
-                .Returns(callInfo =>
-                {
-                    callInfo[1] = new[] { searchParam1, searchParam2 }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
-                    return true;
-                });
-
-            // Simulate an exception when trying to get search parameters for Patient
-            // This triggers the fallback behavior
-            _searchDefinitionManager.GetSearchParameters("Patient")
-                .Returns(x => throw new Exception("Validation error"));
-
-            // The fallback should still allow GetSearchParameter to work for individual URLs
-            _searchDefinitionManager.GetSearchParameter(Arg.Any<string>())
-                .Returns(x => x[0] switch
-                {
-                    "http://hl7.org/fhir/SearchParameter/Patient-name" => searchParam1,
-                    "http://hl7.org/fhir/SearchParameter/Patient-birthdate" => searchParam2,
-                    _ => throw new SearchParameterNotSupportedException("Not found"),
-                });
-
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
-                .Returns("hash");
-
-            var searchResult = CreateSearchResult(resourceCount: 10);
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(searchResult);
-
-            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
-
-            var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob();
-
-            // Act
-            _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
-
-            // Wait for processing jobs to be created
-            var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
-
-            // Assert - Verify that jobs were still created despite the exception
-            Assert.True(processingJobs.Count > 0, "Processing jobs should have been created even when validation throws exception");
-
-            // Assert - Verify that the fallback behavior was used
-            // The fallback returns ALL search parameters from _reindexJobRecord.SearchParams
-            var firstJob = processingJobs.First();
-            var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
-
-            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
-
-            // The fallback should include ALL search parameters from the reindex job
-            // Since the exception occurred, it should use _reindexJobRecord.SearchParams.ToList()
-            Assert.Contains(searchParam1.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-            Assert.Contains(searchParam2.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-
-            // Verify that both parameters are present (the fallback includes all)
-            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count);
         }
 
         [Fact]
@@ -1683,15 +1570,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
 
-            // Verify the created jobs have SearchParameterUrlStatuses in their definitions
-            foreach (var job in processingJobs)
-            {
-                var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                Assert.NotNull(jobDef.SearchParameterUrlStatuses);
-                Assert.Contains(patientNameParam.Url.ToString(), jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-                Assert.Contains(patientBirthdateParam.Url.ToString(), jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-            }
-
             // Mark all jobs as completed to simulate successful reindexing
             foreach (var job in processingJobs)
             {
@@ -2020,18 +1898,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
 
             Assert.True(processingJobs.Count > 0, "Should have created at least one processing job");
-
-            var firstJob = processingJobs.First();
-            var jobDef = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(firstJob.Definition);
-
-            Assert.NotNull(jobDef.SearchParameterUrlStatuses);
-            Assert.Contains(searchParamLowercase.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-            Assert.Contains(searchParamMixedCase.Url.OriginalString, jobDef.SearchParameterUrlStatuses.Select(_ => _.Url));
-
-            // Verify both case variants are present
-            Assert.Equal(2, jobDef.SearchParameterUrlStatuses.Count(url =>
-                url.Url.Equals(searchParamLowercase.Url.OriginalString, StringComparison.Ordinal) ||
-                url.Url.Equals(searchParamMixedCase.Url.OriginalString, StringComparison.Ordinal)));
         }
 
         [Fact]

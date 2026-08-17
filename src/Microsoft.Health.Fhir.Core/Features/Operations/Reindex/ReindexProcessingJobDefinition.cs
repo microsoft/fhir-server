@@ -30,8 +30,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public int MaximumNumberOfResourcesPerQuery { get; set; }
 
         public int MaximumNumberOfResourcesPerWrite { get; set; }
-
-        [JsonConverter(typeof(ReindexSearchParameterUrlStatusesConverter))]
-        public IReadOnlyCollection<(string Url, SearchParameterStatus Status)> SearchParameterUrlStatuses { get; set; }
     }
 }

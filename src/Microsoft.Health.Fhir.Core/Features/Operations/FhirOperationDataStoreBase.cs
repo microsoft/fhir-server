@@ -452,24 +452,18 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(record, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
+    private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> processingJobs, ref ReindexJobRecord record)
     {
-        // Check the first child job's result
-        var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault();
-        if (subJob != null)
+        if (jobInfo.Result != null)
         {
-            var statuses = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(subJob.Definition).SearchParameterUrlStatuses;
-            if (statuses != null) // skip urls for old jobs
+            var urls = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(jobInfo.Result).SearchParameterUrls;
+            foreach (var url in urls)
             {
-                var urls = statuses.Select(x => x.Url).ToList();
-                foreach (var url in urls)
-                {
-                    record.SearchParams.Add(url);
-                }
+                record.SearchParams.Add(url);
             }
         }
 
-        foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
+        foreach (var job in processingJobs.Where(x => x.Id != jobInfo.GroupId))
         {
             // definition cannot be null
             var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);

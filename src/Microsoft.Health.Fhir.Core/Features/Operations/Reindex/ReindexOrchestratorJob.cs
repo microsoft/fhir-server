@@ -144,6 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await CreateReindexProcessingJobsAsync();
 
                 _result.CreatedJobs = _transientProcessingJobIds.Count;
+                _result.SearchParameterUrls = _transientSearchParamResouceTypes.Select(_ => _.Key).Distinct().OrderBy(_ => _).ToList();
 
                 await CheckForCompletionAsync();
 
@@ -378,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, _cancellationToken, true);
                         if (ranges.Any())
                         {
-                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, searchParams);
+                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType);
 
                             PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
@@ -408,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams);
+                        batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType);
                     }
 
                     PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
@@ -455,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(IReadOnlyList<(long StartId, long EndId, int Count)> ranges, string resourceType, List<(string Url, SearchParameterStatus Status)> searchParamUrlStatuses)
+        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(IReadOnlyList<(long StartId, long EndId, int Count)> ranges, string resourceType)
         {
             var definitions = new List<string>();
 
@@ -471,12 +472,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         StartResourceSurrogateId = range.StartId,
                         EndResourceSurrogateId = range.EndId,
-                        Count = range.Count, ////countOnlyResults?.TotalCount ?? 0,
+                        Count = range.Count,
                     },
                     ResourceType = resourceType,
                     MaximumNumberOfResourcesPerQuery = _definition.MaximumNumberOfResourcesPerQuery,
                     MaximumNumberOfResourcesPerWrite = _definition.MaximumNumberOfResourcesPerWrite,
-                    SearchParameterUrlStatuses = searchParamUrlStatuses.ToImmutableList(),
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
