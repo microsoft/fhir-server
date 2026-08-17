@@ -141,26 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
 
-                var currentJobs = new List<JobInfo>();
-                if (!_isSql) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
-                {
-                    var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                    currentJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
-                }
-
-                // For SQL Server, always attempt job creation. Duplicate definitions are discarded in SQL.
-                // For Cosmos, use existence check.
-                if (_isSql || !currentJobs.Any())
-                {
-                    await CreateReindexProcessingJobsAsync();
-                }
-                else // cosmos job restart
-                {
-                    foreach (var job in currentJobs.Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) }))
-                    {
-                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrlStatuses, [job.Id]);
-                    }
-                }
+                await CreateReindexProcessingJobsAsync();
 
                 _result.CreatedJobs = _transientProcessingJobIds.Count;
 
@@ -364,6 +345,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourcesPerJob = _definition.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
+            var existingCosmosJobs = !_isSql
+                                   ? (await _timeoutRetries.ExecuteAsync(async () => await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, _cancellationToken)))
+                                        .Where(_ => _.Id != _jobInfo.GroupId)
+                                        .Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) })
+                                        .GroupBy(_ => _.Def.ResourceType)
+                                        .ToDictionary(_ => _.Key, _ => _.Select(item => item.Id).ToList())
+                                   : null;
+
             foreach (var resourceType in resourceTypes)
             {
                 var searchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.ResourceTypes.Contains(resourceType)).Select(_ => (Url: _.Key, _.Value.Status)).ToList();
@@ -411,7 +400,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobInformation(_jobInfo, "Creating single processing job for resource type {ResourceType}. Total resource count: {Count}.", resourceType, resourceCount.Count);
                     var processingRanges = new List<(long StartId, long EndId, int Count)>() { (0L, 0L, (int)resourceCount.Count) };
 
-                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams);
+                    IReadOnlyList<long> batchJobIds;
+                    if (existingCosmosJobs.TryGetValue(resourceType, out var existingJobIds))
+                    {
+                        _logger.LogJobInformation(_jobInfo, "Skipping Cosmos processing job creation for resource type {ResourceType}. Reusing {Count} existing job(s).", resourceType, existingJobIds.Count);
+                        batchJobIds = existingJobIds;
+                    }
+                    else
+                    {
+                        batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, searchParams);
+                    }
 
                     PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 

@@ -737,6 +737,90 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task EnqueueQueryProcessingJobsAsync_WithCosmosExistingProcessingJob_ReusesJobWithoutCreatingDuplicate()
+        {
+            var searchParam = CreateSearchParameterInfo();
+            var searchParamStatus = new ResourceSearchParameterStatus
+            {
+                LastUpdated = DateTime.UtcNow,
+                Uri = new Uri(searchParam.Url.OriginalString),
+                Status = SearchParameterStatus.Supported,
+            };
+
+            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+                .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
+            _searchDefinitionManager.GetSearchParameters("Patient").Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString).Returns(searchParam);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string> { "Patient" });
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns("hash");
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(CreateSearchResult(resourceCount: 250));
+
+            var jobInfo = await CreateReindexJobRecord(maxResourcePerQuery: 100);
+
+            var existingProcessingDefinition = new ReindexProcessingJobDefinition
+            {
+                TypeId = (int)JobType.ReindexProcessing,
+                GroupId = jobInfo.GroupId,
+                ResourceType = "Patient",
+                SearchParameterHash = "hash",
+                ResourceCount = new SearchResultReindex
+                {
+                    Count = 250,
+                    StartResourceSurrogateId = 0,
+                    EndResourceSurrogateId = 0,
+                },
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)>
+                {
+                    (searchParam.Url.OriginalString, SearchParameterStatus.Supported),
+                },
+            };
+
+            var existingJobs = await _queueClient.EnqueueAsync(
+                (byte)QueueType.Reindex,
+                new[] { JsonConvert.SerializeObject(existingProcessingDefinition) },
+                jobInfo.GroupId,
+                false,
+                _cancellationToken);
+
+            var existingProcessingJob = existingJobs.Single();
+            existingProcessingJob.Status = JobStatus.Completed;
+            existingProcessingJob.Result = JsonConvert.SerializeObject(new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 250,
+                FailedResourceCount = 0,
+            });
+            await _queueClient.CompleteJobAsync(existingProcessingJob, false, _cancellationToken);
+
+            var orchestrator = CreateReindexOrchestratorJob(isSql: false);
+            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            var orchestratorResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+            Assert.NotNull(orchestratorResult);
+            Assert.Equal(250, orchestratorResult.SucceededResources);
+            Assert.Equal(0, orchestratorResult.FailedResources);
+
+            var jobsAfterExecute = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
+            var processingJobs = jobsAfterExecute.Where(job => job.Id != jobInfo.GroupId).ToList();
+
+            Assert.Single(processingJobs);
+            Assert.Equal(existingProcessingJob.Id, processingJobs[0].Id);
+        }
+
+        [Fact]
         public async Task EnqueueQueryProcessingJobsAsync_WithValidSearchParameters_CreatesProcessingJobsAndResult()
         {
             var searchParam = CreateSearchParameterInfo();

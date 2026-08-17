@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Medino;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -1021,141 +1022,206 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // This test validates the complete error propagation chain:
             // Processing Job Error → Orchestrator.ExecuteAsync → Error Array → FhirOperationDataStore → FailureDetails
 
+            var prefix = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var personSearchParam = await CreateSearchParam(prefix + "Person", SearchParamType.Token, "Person", "Person.id", prefix + "PersonCode");
+            var supplySearchParam = await CreateSearchParam(prefix + "SupplyDelivery", SearchParamType.Token, "SupplyDelivery", "SupplyDelivery.id", prefix + "SupplyDeliveryCode");
+
+            await _fixture.Mediator.UpsertResourceAsync(new Person { Id = Guid.NewGuid().ToString() }.ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(new SupplyDelivery { Id = Guid.NewGuid().ToString(), Status = SupplyDelivery.SupplyDeliveryStatus.InProgress }.ToResourceElement());
+
+            // Create a ReindexJobRecord for the orchestrator
+            var orchestratorRecord = new ReindexJobRecord(maxResourcesPerQuery: 3, maxResourcesPerWrite: 3) { Id = Guid.NewGuid().ToString("N") };
+
+            // Seed orchestrator job into queue using queue client so all data is in the same backing store.
+            var orchestratorJobInfo = await SeedOrchestratorJobAsync(orchestratorRecord);
+            var orchestratorGroupId = orchestratorJobInfo.GroupId;
+
+            // Create processing job definitions
+            var personJobDefinition = new ReindexProcessingJobDefinition
+            {
+                GroupId = orchestratorGroupId,
+                TypeId = (int)JobType.ReindexProcessing,
+                ResourceType = "Person",
+                SearchParameterHash = "ABC123",
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { (personSearchParam.Url, SearchParameterStatus.Enabled) },
+                ResourceCount = new SearchResultReindex { Count = 5 },
+                MaximumNumberOfResourcesPerQuery = 3,
+                MaximumNumberOfResourcesPerWrite = 3,
+            };
+
+            var supplyDeliveryJobDefinition = new ReindexProcessingJobDefinition
+            {
+                GroupId = orchestratorGroupId,
+                TypeId = (int)JobType.ReindexProcessing,
+                ResourceType = "SupplyDelivery",
+                SearchParameterHash = "DEF456",
+                SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { (supplySearchParam.Url, SearchParameterStatus.Enabled) },
+                ResourceCount = new SearchResultReindex { Count = 5 },
+                MaximumNumberOfResourcesPerQuery = 3,
+                MaximumNumberOfResourcesPerWrite = 3,
+            };
+
+            // Seed successful Person processing jobs
+            var personJob1Result = new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 2,
+                FailedResourceCount = 0,
+                Error = null,
+            };
+
+            var personJob2Result = new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 3,
+                FailedResourceCount = 0,
+                Error = null,
+            };
+
+            await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
+            await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob2Result, JobStatus.Completed, 3);
+
+            // Seed failed SupplyDelivery processing jobs with error messages
+            var errorMessage = "Search parameter validation failed during reindexing";
+
+            var supplyJob1Result = new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 0,
+                FailedResourceCount = 3,
+                Error = errorMessage,
+            };
+
+            var supplyJob2Result = new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 0,
+                FailedResourceCount = 2,
+                Error = errorMessage,
+            };
+
+            await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
+            await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob2Result, JobStatus.Failed, null);
+
+            var searchService = Substitute.For<ISearchService>();
+            searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult((IReadOnlyList<string>)new List<string> { "Person", "SupplyDelivery" }));
+            searchService.SearchForReindexAsync(
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(Task.FromResult(new SearchResult(totalCount: 5, unsupportedSearchParameters: new List<Tuple<string, string>>())));
+
+            // Create orchestrator and execute
+            var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            runtimeConfiguration.IsSurrogateIdRangingSupported.Returns(false);
+
+            var orchestrator = new ReindexOrchestratorJob(
+                _queueClient,
+                () => searchService.CreateMockScope(),
+                _searchParameterDefinitionManager,
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                runtimeConfiguration,
+                NullLoggerFactory.Instance,
+                _coreFeatureConfig,
+                _operationsConfig);
+
+            // Execute the orchestrator - it will load all processing jobs and extract errors
+            var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
+            Assert.NotEmpty(orchestratorResult);
+
+            // Persist orchestrator completion so datastore reads the updated result/status.
+            orchestratorJobInfo.Result = orchestratorResult;
+            await _queueClient.CompleteJobAsync(orchestratorJobInfo, false, CancellationToken.None);
+
+            // Deserialize the orchestrator result to verify error array is populated
+            var deserializedResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(orchestratorResult);
+            Assert.NotNull(deserializedResult);
+            Assert.NotEmpty(deserializedResult.Error);
+            Assert.True(deserializedResult.Error.Count >= 1);
+
+            // Verify at least one error message contains the processing job failure information.
+            Assert.Contains(deserializedResult.Error, error =>
+                !string.IsNullOrEmpty(error.Diagnostics)
+                && error.Diagnostics.Contains("SupplyDelivery", StringComparison.Ordinal)
+                && error.Diagnostics.Contains("Search parameter validation failed", StringComparison.Ordinal));
+
+            // This test exercises resume behavior from pre-existing processing jobs; it should not emit
+            // the informational "no search parameters" message from the job-creation path.
+            Assert.DoesNotContain(deserializedResult.Error, error =>
+                !string.IsNullOrEmpty(error.Diagnostics)
+                && error.Diagnostics.Contains("There are no search parameters to reindex", StringComparison.OrdinalIgnoreCase));
+
+            // Verify error propagation through FhirOperationDataStoreBase.PopulateReindexJobRecordFromResult
+            var wrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(orchestratorJobInfo.Id.ToString(), CancellationToken.None);
+            Assert.NotNull(wrapper);
+            var record = wrapper.JobRecord;
+
+            // Verify failureDetails are set with error messages
+            Assert.NotNull(record.FailureDetails);
+            Assert.NotEmpty(record.FailureDetails.FailureReason);
+            Assert.Contains("SupplyDelivery", record.FailureDetails.FailureReason);
+            Assert.Contains("Search parameter validation failed", record.FailureDetails.FailureReason);
+
+            // Verify NO generic "unknown error" message was used
+            Assert.DoesNotContain("Reindex failed with unknown error", record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GivenSqlReindexRestart_WhenProcessingJobsWereAlreadyCreated_ThenNoDuplicateProcessingJobIsCreated()
+        {
+            if (!_fixture.FhirRuntimeConfiguration.IsSurrogateIdRangingSupported)
+            {
+                return;
+            }
+
+            await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
+
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParamName = randomName;
+            var searchParamCode = randomName + "Code";
+            var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
+
+            var patient = await CreatePatientResource(randomName + "restartPatient", Guid.NewGuid().ToString());
+
+            var request = new CreateReindexRequest(new List<string>(), new List<string> { searchParam.Url });
+            using var cancellationTokenSource = new CancellationTokenSource();
+
             try
             {
-                // Create a ReindexJobRecord for the orchestrator
-                var orchestratorRecord = new ReindexJobRecord(
-                    maxResourcesPerQuery: 3,
-                    maxResourcesPerWrite: 3)
+                var response = await SetUpForReindexing(request);
+                var orchestrator = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+                var orchestratorId = long.Parse(orchestrator.JobRecord.Id, System.Globalization.CultureInfo.InvariantCulture);
+
+                var jobsAfterFirstRun = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, orchestratorId, true, CancellationToken.None);
+                var processingJobIdsAfterFirstRun = jobsAfterFirstRun.Where(_ => _.Id != orchestratorId).Select(_ => _.Id).OrderBy(_ => _).ToList();
+
+                Assert.NotEmpty(processingJobIdsAfterFirstRun);
+
+                await using (var conn = await _fixture.SqlHelper.GetSqlConnectionAsync())
+                await using (var cmd = new SqlCommand("UPDATE dbo.JobQueue SET Status = @Status, HeartbeatDate = dateadd(second,-600,getUTCdate()) WHERE QueueType = @QueueType AND JobId = @JobId", conn))
                 {
-                    Id = Guid.NewGuid().ToString("N"),
-                };
+                    cmd.Parameters.AddWithValue("@Status", (byte)JobStatus.Running);
+                    cmd.Parameters.AddWithValue("@QueueType", (byte)QueueType.Reindex);
+                    cmd.Parameters.AddWithValue("@JobId", orchestratorId);
+                    await conn.OpenAsync(CancellationToken.None);
+                    await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+                }
 
-                // Seed orchestrator job into queue using queue client so all data is in the same backing store.
-                var orchestratorJobInfo = await SeedOrchestratorJobAsync(orchestratorRecord);
-                var orchestratorGroupId = orchestratorJobInfo.GroupId;
+                using var restartCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                await WaitForReindexCompletionAsync(response, restartCancellation);
 
-                // Create processing job definitions
-                var personJobDefinition = new ReindexProcessingJobDefinition
-                {
-                    GroupId = orchestratorGroupId,
-                    TypeId = (int)JobType.ReindexProcessing,
-                    ResourceType = "Person",
-                    SearchParameterHash = "ABC123",
-                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/custom-person-name", SearchParameterStatus.Enabled) },
-                    ResourceCount = new SearchResultReindex { Count = 5 },
-                    MaximumNumberOfResourcesPerQuery = 3,
-                    MaximumNumberOfResourcesPerWrite = 3,
-                };
+                var jobsAfterSecondRun = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, orchestratorId, true, CancellationToken.None);
+                var processingJobIdsAfterSecondRun = jobsAfterSecondRun.Where(_ => _.Id != orchestratorId).Select(_ => _.Id).OrderBy(_ => _).ToList();
 
-                var supplyDeliveryJobDefinition = new ReindexProcessingJobDefinition
-                {
-                    GroupId = orchestratorGroupId,
-                    TypeId = (int)JobType.ReindexProcessing,
-                    ResourceType = "SupplyDelivery",
-                    SearchParameterHash = "DEF456",
-                    SearchParameterUrlStatuses = new List<(string Url, SearchParameterStatus Status)> { ("http://example.org/fhir/SearchParameter/test-supply-delivery", SearchParameterStatus.Enabled) },
-                    ResourceCount = new SearchResultReindex { Count = 5 },
-                    MaximumNumberOfResourcesPerQuery = 3,
-                    MaximumNumberOfResourcesPerWrite = 3,
-                };
-
-                // Seed successful Person processing jobs
-                var personJob1Result = new ReindexProcessingJobResult
-                {
-                    SucceededResourceCount = 2,
-                    FailedResourceCount = 0,
-                    Error = null,
-                };
-
-                var personJob2Result = new ReindexProcessingJobResult
-                {
-                    SucceededResourceCount = 3,
-                    FailedResourceCount = 0,
-                    Error = null,
-                };
-
-                await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
-                await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob2Result, JobStatus.Completed, 3);
-
-                // Seed failed SupplyDelivery processing jobs with error messages
-                var errorMessage = "Search parameter validation failed during reindexing";
-
-                var supplyJob1Result = new ReindexProcessingJobResult
-                {
-                    SucceededResourceCount = 0,
-                    FailedResourceCount = 3,
-                    Error = errorMessage,
-                };
-
-                var supplyJob2Result = new ReindexProcessingJobResult
-                {
-                    SucceededResourceCount = 0,
-                    FailedResourceCount = 2,
-                    Error = errorMessage,
-                };
-
-                await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
-                await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob2Result, JobStatus.Failed, null);
-
-                // Create orchestrator and execute
-                var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
-                runtimeConfiguration.IsSurrogateIdRangingSupported.Returns(false);
-
-                var orchestrator = new ReindexOrchestratorJob(
-                    _queueClient,
-                    () => _searchService,
-                    _searchParameterDefinitionManager,
-                    _searchParameterStatusManager,
-                    _searchParameterOperations,
-                    runtimeConfiguration,
-                    NullLoggerFactory.Instance,
-                    _coreFeatureConfig,
-                    _operationsConfig);
-
-                // Execute the orchestrator - it will load all processing jobs and extract errors
-                var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-                Assert.NotEmpty(orchestratorResult);
-
-                // Persist orchestrator completion so datastore reads the updated result/status.
-                orchestratorJobInfo.Result = orchestratorResult;
-                await _queueClient.CompleteJobAsync(orchestratorJobInfo, false, CancellationToken.None);
-
-                // Deserialize the orchestrator result to verify error array is populated
-                var deserializedResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(orchestratorResult);
-                Assert.NotNull(deserializedResult);
-                Assert.NotEmpty(deserializedResult.Error);
-                Assert.True(deserializedResult.Error.Count >= 1);
-
-                // Verify at least one error message contains the processing job failure information.
-                Assert.Contains(deserializedResult.Error, error =>
-                    !string.IsNullOrEmpty(error.Diagnostics)
-                    && error.Diagnostics.Contains("SupplyDelivery", StringComparison.Ordinal)
-                    && error.Diagnostics.Contains("Search parameter validation failed", StringComparison.Ordinal));
-
-                // This test exercises resume behavior from pre-existing processing jobs; it should not emit
-                // the informational "no search parameters" message from the job-creation path.
-                Assert.DoesNotContain(deserializedResult.Error, error =>
-                    !string.IsNullOrEmpty(error.Diagnostics)
-                    && error.Diagnostics.Contains("There are no search parameters to reindex", StringComparison.OrdinalIgnoreCase));
-
-                // Verify error propagation through FhirOperationDataStoreBase.PopulateReindexJobRecordFromResult
-                var wrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(orchestratorJobInfo.Id.ToString(), CancellationToken.None);
-                Assert.NotNull(wrapper);
-                var record = wrapper.JobRecord;
-
-                // Verify failureDetails are set with error messages
-                Assert.NotNull(record.FailureDetails);
-                Assert.NotEmpty(record.FailureDetails.FailureReason);
-                Assert.Contains("SupplyDelivery", record.FailureDetails.FailureReason);
-                Assert.Contains("Search parameter validation failed", record.FailureDetails.FailureReason);
-
-                // Verify NO generic "unknown error" message was used
-                Assert.DoesNotContain("Reindex failed with unknown error", record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase);
+                Assert.Equal(processingJobIdsAfterFirstRun.Count, processingJobIdsAfterSecondRun.Count);
+                Assert.Equal(processingJobIdsAfterFirstRun, processingJobIdsAfterSecondRun);
             }
             finally
             {
-                // Cleanup
+                cancellationTokenSource.Cancel();
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(patient.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
                 await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
             }
         }
@@ -1414,6 +1480,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
+        private async Task DeleteTestResources(string resourceType, CancellationToken cancellationToken = default)
+        {
+            var results = await _searchService.Value.SearchAsync(resourceType, new List<Tuple<string, string>>(), cancellationToken);
+            foreach (var result in results.Results)
+            {
+                await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(), false, false, cancellationToken);
+                _output.WriteLine($"Deleted {resourceType} resource: {result.Resource.ResourceId}");
+            }
+        }
+
         private async Task DeleteTestResources(CancellationToken cancellationToken = default)
         {
             try
@@ -1430,21 +1506,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // 3. Clean up patient and observation resources using queries
                 try
                 {
-                    // Get all patients created by test
-                    var patientResults = await _searchService.Value.SearchAsync("Patient", new List<Tuple<string, string>>(), cancellationToken);
-                    foreach (var result in patientResults.Results)
-                    {
-                        await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(), false, false, cancellationToken);
-                        _output.WriteLine($"Deleted Patient resource: {result.Resource.ResourceId}");
-                    }
-
-                    // Get all observations created by test
-                    var observationResults = await _searchService.Value.SearchAsync("Observation", new List<Tuple<string, string>>(), cancellationToken);
-                    foreach (var result in observationResults.Results)
-                    {
-                        await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(), false, false, cancellationToken);
-                        _output.WriteLine($"Deleted Observation resource: {result.Resource.ResourceId}");
-                    }
+                    await DeleteTestResources("Patient", cancellationToken);
+                    await DeleteTestResources("Person", cancellationToken);
+                    await DeleteTestResources("Observation", cancellationToken);
+                    await DeleteTestResources("SupplyDelivery", cancellationToken);
 
                     // Get all search parameters created by test
                     var searchResults = await _searchService.Value.SearchAsync("SearchParameter", new List<Tuple<string, string>>(), cancellationToken);
