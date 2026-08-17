@@ -30,8 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirOperationDataStore(IQueueClient queueClient, ILoggerFactory loggerFactory)
             : base(queueClient, loggerFactory)
         {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-         }
+        }
 
         public override async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
         {
