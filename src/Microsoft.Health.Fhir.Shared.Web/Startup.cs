@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Web
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Internal framework instantiation.")]
     public class Startup
     {
+        private const string RuntimeStateConfigurationKey = "FhirServer:CoreFeatures:RuntimeState";
         private static string instanceId;
 
         public Startup(IConfiguration configuration)
@@ -119,14 +120,14 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
-        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
+        private static IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
         {
             IFhirRuntimeConfiguration runtimeConfiguration = null;
 
-            string dataStore = Configuration["DataStore"];
+            string dataStore = configuration["DataStore"];
             if (KnownDataStores.IsCosmosDbDataStore(dataStore))
             {
-                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(GetRuntimeState(configuration));
             }
             else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
@@ -140,6 +141,26 @@ namespace Microsoft.Health.Fhir.Web
             fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
 
             return runtimeConfiguration;
+        }
+
+        private static FhirRuntimeState GetRuntimeState(IConfiguration configuration)
+        {
+            string configuredRuntimeState = configuration[RuntimeStateConfigurationKey];
+            if (string.IsNullOrWhiteSpace(configuredRuntimeState))
+            {
+                return FhirRuntimeState.Active;
+            }
+
+            string normalizedRuntimeState = configuredRuntimeState.Trim();
+            if (Enum.TryParse(normalizedRuntimeState, ignoreCase: true, out FhirRuntimeState runtimeState) &&
+                Enum.IsDefined(runtimeState) &&
+                string.Equals(normalizedRuntimeState, runtimeState.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return runtimeState;
+            }
+
+            throw new InvalidOperationException(
+                $"Invalid FHIR runtime state '{configuredRuntimeState}'. Supported values are '{FhirRuntimeState.Active}' and '{FhirRuntimeState.Deprecated}'.");
         }
 
         private void AddTaskHostingService(IServiceCollection services)
@@ -175,6 +196,10 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
+            IFhirRuntimeConfiguration runtimeConfiguration = app.ApplicationServices.GetRequiredService<IFhirRuntimeConfiguration>();
+            ILogger<Startup> logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
+            logger.LogInformation("The effective FHIR runtime state is {RuntimeState}.", runtimeConfiguration.RuntimeState);
+
             app.Use(async (context, next) =>
             {
                 if (instanceId != null)

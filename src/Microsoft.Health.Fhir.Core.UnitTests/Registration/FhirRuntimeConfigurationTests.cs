@@ -19,10 +19,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
         public void GivenARuntimeConfiguration_WhenForAzureApiForFHIR_FollowsTheExpectedValues()
         {
             // Azure API For FHIR.
-            IFhirRuntimeConfiguration runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            IFhirRuntimeConfiguration runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(FhirRuntimeState.Deprecated);
 
             // Support to Cosmos Db.
             Assert.Equal(KnownDataStores.CosmosDb, runtimeConfiguration.DataStore);
+
+            Assert.Equal(FhirRuntimeState.Deprecated, runtimeConfiguration.RuntimeState);
 
             // No support to Selective Search Parameter.
             Assert.False(runtimeConfiguration.IsSelectiveSearchParameterSupported);
@@ -42,6 +44,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 
             // Support to SQL Server.
             Assert.Equal(KnownDataStores.SqlServer, runtimeConfiguration.DataStore);
+
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
 
             // Support to Selective Search Parameter.
             Assert.True(runtimeConfiguration.IsSelectiveSearchParameterSupported);

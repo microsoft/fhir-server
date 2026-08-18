@@ -13,6 +13,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
@@ -38,6 +40,74 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         private const string TelemetryProviderOpenTelemetryConfigurationValue = "OpenTelemetry";
         private const string TelemetryProviderNoneConfigurationValue = "None";
         private const string AddTelemetryProviderMethodName = "AddTelemetryProvider";
+        private const string AddRuntimeConfigurationMethodName = "AddRuntimeConfiguration";
+        private const string RuntimeStateConfigurationKey = "FhirServer:CoreFeatures:RuntimeState";
+
+        [Theory]
+        [InlineData(null, FhirRuntimeState.Active)]
+        [InlineData("", FhirRuntimeState.Active)]
+        [InlineData("Active", FhirRuntimeState.Active)]
+        [InlineData("Deprecated", FhirRuntimeState.Deprecated)]
+        public void GivenGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenEffectiveStateIsRegistered(
+            string configuredRuntimeState,
+            FhirRuntimeState expectedRuntimeState)
+        {
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.CosmosDb },
+                { RuntimeStateConfigurationKey, configuredRuntimeState },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(services);
+
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
+
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(expectedRuntimeState, runtimeConfiguration.RuntimeState);
+        }
+
+        [Fact]
+        public void GivenDeprecatedGen2RuntimeState_WhenAddingRuntimeConfiguration_ThenEffectiveStateIsActive()
+        {
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.SqlServer },
+                { RuntimeStateConfigurationKey, FhirRuntimeState.Deprecated.ToString() },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(services);
+
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
+
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
+        }
+
+        [Theory]
+        [InlineData("Invalid")]
+        [InlineData("1")]
+        public void GivenInvalidGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenInitializationFails(string configuredRuntimeState)
+        {
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.CosmosDb },
+                { RuntimeStateConfigurationKey, configuredRuntimeState },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(new ServiceCollection());
+
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(
+                () => InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder));
+
+            Assert.IsType<InvalidOperationException>(exception.InnerException);
+        }
 
         [Fact]
         public void GivenAppSettings_WhenTelemetrySectionIsAbsent_ThenTelemetryProviderShouldBeDisabled()
@@ -177,6 +247,17 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 .AddInMemoryCollection(telemetrySettings)
                 .Build();
             return configuration;
+        }
+
+        private static void InvokeAddRuntimeConfiguration(
+            IConfiguration configuration,
+            IFhirServerBuilder fhirServerBuilder)
+        {
+            MethodInfo addRuntimeConfigurationMethod = typeof(Startup).GetMethod(
+                AddRuntimeConfigurationMethodName,
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            addRuntimeConfigurationMethod.Invoke(null, new object[] { configuration, fhirServerBuilder });
         }
     }
 }
