@@ -56,6 +56,9 @@ BEGIN
     BEGIN TRY
         EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@AuditText
 
+        -- ------------------------------------------------------------------------
+        -- Validate parameters and prerequisite Query Store state
+        -- ------------------------------------------------------------------------
         IF @PlanId IS NULL OR @PlanId <= 0
             THROW 50001, 'Plan ID must be a positive bigint.', 1
 
@@ -65,6 +68,11 @@ BEGIN
         IF @QueryStoreState IS NULL OR @QueryStoreState NOT IN ('READ_WRITE', 'READ_ONLY')
             THROW 50002, 'Query Store is not readable.', 1
 
+        -- ------------------------------------------------------------------------
+        -- Look up the plan and collect metadata safely into local variables
+        -- ------------------------------------------------------------------------
+        -- Projecting into scalar variables (rather than selecting directly) keeps the raw, unsanitized
+        -- query_plan XML out of the result set contract while it is still being sanitized below.
         SELECT @FoundPlanId = p.plan_id
               ,@QueryId = p.query_id
               ,@QueryHash = q.query_hash
@@ -103,6 +111,11 @@ BEGIN
         FROM sys.query_store_runtime_stats
         WHERE plan_id = @PlanId
 
+        -- ------------------------------------------------------------------------
+        -- Sanitize the Showplan XML and verify the ParameterList removal
+        -- ------------------------------------------------------------------------
+        -- Raw or partially sanitized plans are never returned to the caller: this branch either produces
+        -- a verified-clean plan or leaves @SanitizedShowPlanXml NULL with a status/error code explaining why.
         IF @RawQueryPlan IS NULL
         BEGIN
             SET @SanitizationStatus = 'PlanXmlUnavailable'
@@ -121,8 +134,13 @@ BEGIN
             BEGIN
                 BEGIN TRY
                     SET @SanitizedShowPlanXml = @LocalPlanXml
+                    -- local-name() matches the ParameterList element regardless of the Showplan XML
+                    -- namespace/version, since Query Store XML namespaces can vary across engine versions.
                     SET @SanitizedShowPlanXml.modify('delete //*[local-name(.) = "ParameterList"]')
 
+                    -- Defense-in-depth verification: check both the structural XML (no remaining
+                    -- ParameterList elements/attributes) and the serialized text (no leftover literal
+                    -- tokens) before trusting the sanitized plan is safe to return.
                     SET @RemainingParameterListCount = @SanitizedShowPlanXml.value('count(//*[local-name(.) = "ParameterList"])', 'bigint')
                     SET @ForbiddenAttributeCount = @SanitizedShowPlanXml.value('count(//@*[local-name(.) = "ParameterCompiledValue" or local-name(.) = "ParameterRuntimeValue"])', 'bigint')
                     SET @SerializedPlanXml = CONVERT(nvarchar(max), @SanitizedShowPlanXml)
@@ -164,6 +182,9 @@ BEGIN
 
         SET @Rows = 1
 
+        -- ------------------------------------------------------------------------
+        -- Project the plan metadata and verified Showplan XML
+        -- ------------------------------------------------------------------------
         SELECT @FoundPlanId AS PlanId
               ,@QueryId AS QueryId
               ,@QueryHash AS QueryHash
@@ -196,6 +217,9 @@ BEGIN
     BEGIN CATCH
         SET @CaughtErrorNumber = ERROR_NUMBER()
         SET @CaughtErrorState = ERROR_STATE()
+        -- ------------------------------------------------------------------------
+        -- Audit the failure and rethrow
+        -- ------------------------------------------------------------------------
         SET @AuditText = CONCAT(
             N'OriginalLogin=', CONVERT(nvarchar(128), ORIGINAL_LOGIN()),
             N';EffectivePrincipal=', CONVERT(nvarchar(128), USER_NAME()),

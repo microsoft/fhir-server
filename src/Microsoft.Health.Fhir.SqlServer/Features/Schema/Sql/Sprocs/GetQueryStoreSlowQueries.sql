@@ -39,6 +39,9 @@ BEGIN
         N';EffectivePrincipal=', USER_NAME());
 
     BEGIN TRY
+    -- ------------------------------------------------------------------------
+    -- Resolve defaults, capture Query Store state, and build the audit context
+    -- ------------------------------------------------------------------------
     SET @Top = ISNULL(@Top, 20);
     SET @Offset = ISNULL(@Offset, 0);
     SET @MinExecutions = ISNULL(@MinExecutions, 1);
@@ -80,6 +83,9 @@ BEGIN
             @Status = 'Start',
             @Text = @AuditText;
 
+        -- ------------------------------------------------------------------------
+        -- Validate parameters
+        -- ------------------------------------------------------------------------
         IF @Top < 1 OR @Top > 100
             THROW 50400, '@Top must be between 1 and 100.', 1;
 
@@ -118,15 +124,28 @@ BEGIN
         IF @OrderByNormalized IS NULL
             THROW 50407, '@OrderBy is not supported.', 1;
 
+        -- ------------------------------------------------------------------------
+        -- Validate Query Store prerequisite state
+        -- ------------------------------------------------------------------------
         IF ISNULL(@QueryStoreState, N'') NOT IN (N'READ_WRITE', N'READ_ONLY')
             THROW 50408, 'Query Store is not enabled and readable.', 1;
 
+        -- ------------------------------------------------------------------------
+        -- Normalize the literal filter into a safe LIKE pattern
+        -- ------------------------------------------------------------------------
+        -- Escape wildcard/escape characters before wrapping so a literal '%', '_', or '[' in the
+        -- caller-supplied text is matched literally rather than interpreted by LIKE.
         SET @QueryTextPattern =
             CASE
                 WHEN @QueryTextContains IS NULL THEN NULL
                 ELSE N'%' + REPLACE(REPLACE(REPLACE(REPLACE(@QueryTextContains, N'~', N'~~'), N'%', N'~%'), N'_', N'~_'), N'[', N'~[') + N'%'
             END;
 
+        -- ------------------------------------------------------------------------
+        -- Collapse duplicate runtime-stats rows and compute weighted aggregates
+        -- ------------------------------------------------------------------------
+        -- Active Query Store intervals can expose both a persisted row and an in-memory row for the
+        -- same plan/interval, so duplicates must be collapsed before aggregating across intervals.
         ;WITH RuntimeStatsRows AS
         (
             SELECT
@@ -152,6 +171,8 @@ BEGIN
                 ON rsi.runtime_stats_interval_id = rs.runtime_stats_interval_id
             -- The baseline is regular executions only. An explicit execution-type input belongs here if added later.
             WHERE rs.execution_type = 0
+              -- Query Store interval overlap semantics are inclusive of edge executions, so a run that only
+              -- partially overlaps the requested [@ResolvedStartTime, @ResolvedEndTime) window is still included.
               AND rsi.start_time < @ResolvedEndTime
               AND rsi.end_time > @ResolvedStartTime
         ),
@@ -209,6 +230,8 @@ BEGIN
                 rs.PlanId,
                 SUM(rs.RegularExecutionCount) AS RegularExecutionCount,
                 CONVERT(decimal(38, 0), SUM(rs.TotalDurationMicroseconds)) AS TotalDurationMicroseconds,
+                -- Averages are recomputed as execution-count-weighted sums rather than averaged directly,
+                -- and division uses decimal precision so intervals with unequal execution counts are not skewed.
                 CONVERT(decimal(38, 4), SUM(rs.TotalDurationMicroseconds) / NULLIF(CONVERT(decimal(38, 4), SUM(rs.RegularExecutionCount)), CONVERT(decimal(38, 4), 0))) AS AverageDurationMicroseconds,
                 MIN(rs.MinimumDurationMicroseconds) AS MinimumDurationMicroseconds,
                 MAX(rs.MaximumDurationMicroseconds) AS MaximumDurationMicroseconds,
@@ -229,6 +252,9 @@ BEGIN
             GROUP BY rs.PlanId
             HAVING SUM(rs.RegularExecutionCount) >= @MinExecutions
         ),
+        -- ------------------------------------------------------------------------
+        -- Aggregate wait-stat rows and handle capture availability
+        -- ------------------------------------------------------------------------
         WaitStatsRows AS
         (
             SELECT
@@ -239,6 +265,8 @@ BEGIN
             FROM sys.query_store_wait_stats AS ws
             INNER JOIN sys.query_store_runtime_stats_interval AS rsi
                 ON rsi.runtime_stats_interval_id = ws.runtime_stats_interval_id
+            -- When wait capture is disabled or unavailable this CTE is intentionally left empty so runtime
+            -- rows are still returned with NULL wait columns instead of failing the whole query.
             WHERE @WaitStatsStatus = 'Available'
               AND ws.execution_type = 0
               AND rsi.start_time < @ResolvedEndTime
@@ -286,6 +314,9 @@ BEGIN
             INNER JOIN AggregatedRuntimeStats AS ars
                 ON ars.PlanId = wp.PlanId
         )
+        -- ------------------------------------------------------------------------
+        -- Project results with static, deterministic ordering
+        -- ------------------------------------------------------------------------
         SELECT
             q.query_id AS QueryId,
             p.plan_id AS PlanId,
@@ -345,10 +376,14 @@ BEGIN
             ON aws.PlanId = ars.PlanId
         LEFT JOIN WaitStatsXml AS wsx
             ON wsx.PlanId = ars.PlanId
+        -- Self-exclusion keeps these diagnostic procedures' own Query Store entries out of their own
+        -- results, so running diagnostics does not appear as a "slow query" in the output.
         WHERE ISNULL(q.object_id, -1) <> ISNULL(@SlowQueriesProcedureObjectId, -2)
           AND ISNULL(q.object_id, -1) <> ISNULL(@PlanDiagnosticsProcedureObjectId, -2)
           AND ISNULL(q.object_id, -1) <> ISNULL(@StatisticsHealthProcedureObjectId, -2)
           AND (@QueryTextContains IS NULL OR qt.query_sql_text LIKE @QueryTextPattern ESCAPE N'~')
+        -- The requested @OrderBy column drives the primary sort key and every other CASE branch
+        -- evaluates to NULL, so ties still fall back to query_id/plan_id for a stable, deterministic order.
         ORDER BY
             CASE WHEN @OrderByNormalized = 'TotalWait' AND @WaitStatsStatus = 'Available' AND aws.TotalWaitMilliseconds IS NULL THEN 1 ELSE 0 END ASC,
             CASE WHEN @OrderByNormalized = 'TotalDuration' THEN ars.TotalDurationMicroseconds END DESC,
@@ -374,6 +409,9 @@ BEGIN
             @Text = @AuditText;
     END TRY
     BEGIN CATCH
+        -- ------------------------------------------------------------------------
+        -- Audit the failure and rethrow
+        -- ------------------------------------------------------------------------
         SET @AuditText = CONCAT(
             @AuditText,
             N';ErrorNumber=', ERROR_NUMBER(),

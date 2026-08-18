@@ -27,6 +27,9 @@ BEGIN
     BEGIN TRY
         EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @AuditText;
 
+        -- ------------------------------------------------------------------------
+        -- Validate parameters
+        -- ------------------------------------------------------------------------
         IF @Top IS NULL OR @Top < 1 OR @Top > 100
         BEGIN
             THROW 50000, '@Top must be between 1 and 100.', 127;
@@ -50,6 +53,9 @@ BEGIN
                 THROW 50000, '@TableName must be nonblank when supplied.', 127;
             END
 
+            -- ------------------------------------------------------------------------
+            -- Resolve the requested table name to exactly one user table
+            -- ------------------------------------------------------------------------
             SELECT
                 @TableCount = COUNT(*),
                 @TableObjectId = MIN(tableInfo.object_id)
@@ -73,6 +79,9 @@ BEGIN
             N';TableName=', ISNULL(@TableName, N'NULL'),
             N';OrderBy=', @NormalizedOrderBy);
 
+        -- ------------------------------------------------------------------------
+        -- Project statistics-column metadata as XML alongside stats/index properties
+        -- ------------------------------------------------------------------------
         ;WITH StatisticsMetadata AS
         (
             SELECT
@@ -111,6 +120,9 @@ BEGIN
                 statisticsProperties.rows AS [Rows],
                 statisticsProperties.unfiltered_rows AS UnfilteredRows,
                 statisticsProperties.rows_sampled AS RowsSampled,
+                -- NULLIF guards a zero-row denominator (returns NULL instead of a divide-by-zero error), and
+                -- a percentage can legitimately exceed 100 (e.g. rows_sampled/modification_counter can outgrow
+                -- a stale rows count), so the result is not clamped.
                 CONVERT(decimal(38, 4),
                     (CONVERT(decimal(38, 0), statisticsProperties.rows_sampled) * CONVERT(decimal(3, 0), 100))
                     / NULLIF(CONVERT(decimal(38, 0), statisticsProperties.rows), CONVERT(decimal(38, 0), 0))) AS SamplingPercent,
@@ -129,6 +141,9 @@ BEGIN
             LEFT JOIN sys.indexes AS indexInfo
                 ON indexInfo.object_id = statisticsInfo.object_id
                 AND indexInfo.index_id = statisticsInfo.stats_id
+            -- OUTER APPLY (rather than CROSS APPLY) preserves the statistics row even when
+            -- sys.dm_db_stats_properties returns nothing, e.g. for an unsupported/inaccessible object;
+            -- StatisticsStatus below reports 'PropertiesUnavailable' instead of silently dropping the row.
             OUTER APPLY
             (
                 SELECT
@@ -145,6 +160,8 @@ BEGIN
                 AND
                 (
                     (@TableName IS NOT NULL AND tableInfo.object_id = @TableObjectId)
+                    -- Without an explicit @TableName, temporal history tables (temporal_type = 1) are
+                    -- excluded because their statistics mirror the corresponding current table.
                     OR
                     (@TableName IS NULL AND tableInfo.temporal_type <> 1)
                 )
@@ -158,18 +175,25 @@ BEGIN
                     ORDER BY
                         CASE WHEN @NormalizedOrderBy = 'MODIFICATIONCOUNT' THEN ModificationCount END DESC,
                         CASE WHEN @NormalizedOrderBy = 'MODIFICATIONPERCENT' THEN ModificationPercent END DESC,
+                        -- NULL LastUpdated (properties unavailable) sorts first regardless of ASC/DESC,
+                        -- then the actual timestamp orders the known values oldest-first.
                         CASE WHEN @NormalizedOrderBy = 'LASTUPDATED' AND LastUpdated IS NULL THEN 0
                              WHEN @NormalizedOrderBy = 'LASTUPDATED' THEN 1
                         END ASC,
                         CASE WHEN @NormalizedOrderBy = 'LASTUPDATED' THEN LastUpdated END ASC,
                         CASE WHEN @NormalizedOrderBy = 'SAMPLINGPERCENT' THEN SamplingPercent END DESC,
                         CASE WHEN @NormalizedOrderBy = 'ROWS' THEN [Rows] END DESC,
+                        -- Table/statistics identity is the final, always-present tie-breaker so paging
+                        -- is deterministic regardless of which @OrderBy column is requested.
                         TableName ASC,
                         StatisticsName ASC,
                         StatisticsId ASC
                 ) AS RowNumber
             FROM StatisticsMetadata
         )
+        -- ------------------------------------------------------------------------
+        -- Project results and apply offset/top paging over the deterministic order
+        -- ------------------------------------------------------------------------
         SELECT
             TableName,
             StatisticsName,
@@ -209,6 +233,9 @@ BEGIN
     BEGIN CATCH
         SET @CaughtErrorNumber = ERROR_NUMBER();
         SET @CaughtErrorState = ERROR_STATE();
+        -- ------------------------------------------------------------------------
+        -- Audit the failure and rethrow
+        -- ------------------------------------------------------------------------
         SET @AuditText = CONCAT(
             N'OriginalLogin=', CONVERT(nvarchar(128), ORIGINAL_LOGIN()),
             N';EffectivePrincipal=', CONVERT(nvarchar(128), USER_NAME()),
@@ -216,6 +243,7 @@ BEGIN
             N';ErrorNumber=', CONVERT(nvarchar(11), @CaughtErrorNumber),
             N';ErrorState=', CONVERT(nvarchar(11), @CaughtErrorState));
 
+        -- Real error is before 1750, cannot trap in SQL; rethrow immediately without attempting to audit.
         IF ERROR_NUMBER() = 1750 THROW;
         EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @Start, @Text = @AuditText;
         THROW;
