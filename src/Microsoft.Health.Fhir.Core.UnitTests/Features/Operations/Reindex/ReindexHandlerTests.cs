@@ -134,10 +134,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var request = new CancelReindexRequest("id");
 
             var jobRecord = CreateJobRecord(OperationStatus.Running);
+            var canceledJobRecord = CreateJobRecord(OperationStatus.Canceled);
 
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
+            var canceledJobWrapper = new ReindexJobWrapper(canceledJobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
-            _fhirOperationDataStore.UpdateReindexJobAsync(jobRecord, WeakETag.FromVersionId("id"), Arg.Any<CancellationToken>()).Returns(jobWrapper);
+            _fhirOperationDataStore.CancelReindexJobAsync("id", Arg.Any<CancellationToken>()).Returns(canceledJobWrapper);
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 

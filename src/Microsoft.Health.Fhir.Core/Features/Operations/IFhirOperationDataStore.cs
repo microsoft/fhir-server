@@ -60,13 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Updates an existing reindex job record in the data store.
+        /// Cancels an existing reindex job record in the data store.
         /// </summary>
-        /// <param name="jobRecord">The updated job record</param>
-        /// <param name="eTag">current eTag value</param>
+        /// <param name="jobId">The id of the reindex job to cancel</param>
         /// <param name="cancellationToken">the cancellation token</param>
-        /// <returns>An instance of the updated job record</returns>
-        Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
+        /// <returns>An instance of the canceled job record</returns>
+        Task<ReindexJobWrapper> CancelReindexJobAsync(string jobId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Gets a reindex job by id.

@@ -258,31 +258,32 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    public virtual async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+    public virtual async Task<ReindexJobWrapper> CancelReindexJobAsync(string jobId, CancellationToken cancellationToken)
     {
-        EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-        if (jobRecord.Status != OperationStatus.Canceled)
+        EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+        if (!long.TryParse(jobId, out var id))
         {
-            throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
         }
-
-        eTag ??= WeakETag.FromVersionId("0");
-
-        jobRecord.LastModified = Clock.UtcNow;
 
         try
         {
-            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, long.Parse(jobRecord.Id), false, cancellationToken);
+            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, id, false, cancellationToken);
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Reindex, jobWithGroupId.GroupId, cancellationToken);
+
+            var jobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobWithGroupId.Definition);
+            var now = Clock.UtcNow;
+            jobRecord.Status = OperationStatus.Canceled;
+            jobRecord.CanceledTime = now;
+            jobRecord.LastModified = now;
             PopulateReindexJobRecordTimestampsFromJobInfo(jobWithGroupId, jobRecord);
+
+            return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobWithGroupId.Version.ToString()));
         }
         catch (JobNotExistException ex)
         {
             throw new JobNotFoundException(ex.Message);
         }
-
-        return new ReindexJobWrapper(jobRecord, eTag);
     }
 
     /// <summary>
