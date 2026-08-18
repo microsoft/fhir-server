@@ -62,13 +62,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var url = request.Resource.Instance.GetStringScalar("url");
 
                 // Reject if an active resource already owns this URL.
-                if (!string.IsNullOrWhiteSpace(url))
+                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([url], cancellationToken);
+                if (existingByUrl.ContainsKey(url))
                 {
-                    var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([url], cancellationToken);
-                    if (existingByUrl.ContainsKey(url))
-                    {
-                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
-                    }
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
                 }
 
                 QueueStatus(url, SearchParameterStatus.Supported, lastUpdated, null);

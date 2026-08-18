@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchParameterWithUrlLongerThan128_WhenCreating_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter(MaxAllowedUrlLength + 1);
+            SearchParameter searchParam = CreateCustomSearchParameter(CreateSearchParameterUrl(MaxAllowedUrlLength + 1));
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(searchParam));
 
@@ -81,7 +81,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'a');
+            string sharedUrl = CreateSearchParameterUrl();
+            SearchParameter sp1 = CreateCustomSearchParameter(sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different auto-generated ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'a');
+                SearchParameter sp2 = CreateCustomSearchParameter(sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -103,7 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'b');
+            string sharedUrl = CreateSearchParameterUrl();
+            SearchParameter sp1 = CreateCustomSearchParameter(sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -111,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different resource ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'b');
+                SearchParameter sp2 = CreateCustomSearchParameter(sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -125,14 +127,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter(repeatChar: 'c');
+            SearchParameter searchParam = CreateCustomSearchParameter();
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             try
             {
-                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+                searchParam.Url = CreateSearchParameterUrl(MaxAllowedUrlLength + 1);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
@@ -144,10 +146,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
+        // Builds a unique (per call) SearchParameter URL of exactly the requested length.
+        private static string CreateSearchParameterUrl(int length = MaxAllowedUrlLength)
+        {
+            string prefix = $"http://my.org/{Guid.NewGuid():N}/";
+            return prefix + new string('a', length - prefix.Length);
+        }
+
+        private static SearchParameter CreateCustomSearchParameter(string url = null)
         {
             string suffix = Guid.NewGuid().ToString("N");
-            const string prefix = "http://my.org/";
 #if R5
             var baseResourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
 #else
@@ -157,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return new SearchParameter
             {
                 Id = $"custom-search-param-{suffix[..8]}",
-                Url = prefix + new string(repeatChar, urlLength - prefix.Length),
+                Url = url ?? CreateSearchParameterUrl(),
                 Name = $"CustomSearchParam{suffix[..8]}",
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),
