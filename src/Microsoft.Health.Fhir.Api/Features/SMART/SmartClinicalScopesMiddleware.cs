@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             await _next(context);
         }
 
-        private Task WriteErrorResponseAsync(
+        private async Task WriteErrorResponseAsync(
             IFhirRequestContext requestContext,
             HttpContext httpContext,
             HttpStatusCode statusCode,
@@ -524,7 +524,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                 httpContext.Response.Clear();
                 httpContext.Response.StatusCode = (int)statusCode;
-                return httpContext.Response.WriteAsJsonAsync(body);
+                await httpContext.Response.WriteAsJsonAsync(body);
             }
             catch (Exception ex)
             {
