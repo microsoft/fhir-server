@@ -1075,18 +1075,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob1Result, JobStatus.Completed, 2);
             await SeedProcessingJobAsync(orchestratorGroupId, personJobDefinition, personJob2Result, JobStatus.Completed, 3);
 
-            // Seed failed SupplyDelivery processing jobs with error messages
-            var errorMessage = "Search parameter validation failed during reindexing";
+            // Seed failed SupplyDelivery processing jobs with a realistic processing-job failure message.
+            var errorMessage = "General error during bulk update";
 
             var supplyJob1Result = new ReindexProcessingJobResult
             {
-                SucceededResourceCount = 0,
+                SucceededResourceCount = 2,
                 Error = errorMessage,
             };
 
             var supplyJob2Result = new ReindexProcessingJobResult
             {
-                SucceededResourceCount = 0,
+                SucceededResourceCount = 1,
                 Error = errorMessage,
             };
 
@@ -1133,6 +1133,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.NotNull(deserializedResult.SearchParameterUrls);
             Assert.Contains(personSearchParam.Url, deserializedResult.SearchParameterUrls);
             Assert.Contains(supplySearchParam.Url, deserializedResult.SearchParameterUrls);
+            Assert.Equal(8, deserializedResult.SucceededResources);
+            Assert.Equal(7, deserializedResult.FailedResources);
             Assert.NotEmpty(deserializedResult.Error);
             Assert.True(deserializedResult.Error.Count >= 1);
 
@@ -1140,7 +1142,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.Contains(deserializedResult.Error, error =>
                 !string.IsNullOrEmpty(error.Diagnostics)
                 && error.Diagnostics.Contains("SupplyDelivery", StringComparison.Ordinal)
-                && error.Diagnostics.Contains("Search parameter validation failed", StringComparison.Ordinal));
+                && error.Diagnostics.Contains(errorMessage, StringComparison.Ordinal));
 
             // This test exercises resume behavior from pre-existing processing jobs; it should not emit
             // the informational "no search parameters" message from the job-creation path.
@@ -1155,12 +1157,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.NotNull(record.SearchParams);
             Assert.Contains(personSearchParam.Url, record.SearchParams);
             Assert.Contains(supplySearchParam.Url, record.SearchParams);
+            Assert.Equal(15, record.Count);
+            Assert.Equal(7, record.FailureCount);
 
             // Verify failureDetails are set with error messages
             Assert.NotNull(record.FailureDetails);
             Assert.NotEmpty(record.FailureDetails.FailureReason);
             Assert.Contains("SupplyDelivery", record.FailureDetails.FailureReason);
-            Assert.Contains("Search parameter validation failed", record.FailureDetails.FailureReason);
+            Assert.Contains(errorMessage, record.FailureDetails.FailureReason);
 
             // Verify NO generic "unknown error" message was used
             Assert.DoesNotContain("Reindex failed with unknown error", record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase);

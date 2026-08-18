@@ -886,13 +886,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(5), expectedMinimumJobs: 1);
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been enqueued");
 
+            long expectedSucceededResources = 0;
             foreach (var processingJob in processingJobs)
             {
                 var processingDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(processingJob.Definition);
+                var succeededResourceCount = Math.Max(0, processingDefinition?.ResourceCount?.Count - 1 ?? 0);
+                expectedSucceededResources += succeededResourceCount;
                 processingJob.Status = JobStatus.Completed;
                 processingJob.Result = JsonConvert.SerializeObject(new ReindexProcessingJobResult
                 {
-                    SucceededResourceCount = processingDefinition?.ResourceCount?.Count ?? 1,
+                    SucceededResourceCount = succeededResourceCount,
                 });
                 await _queueClient.CompleteJobAsync(processingJob, false, _cancellationToken);
             }
@@ -900,7 +903,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var result = await executeTask;
             var orchestratorResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
             Assert.NotNull(orchestratorResult);
-            Assert.True(orchestratorResult.SucceededResources > 0);
+            Assert.Equal(expectedSucceededResources, orchestratorResult.SucceededResources);
             Assert.True(orchestratorResult.FailedResources == 0);
         }
 
@@ -1294,7 +1297,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Create a failed result
             var failedResult = new ReindexProcessingJobResult
             {
-                SucceededResourceCount = 0,
+                SucceededResourceCount = 1,
             };
 
             jobToFail.Status = JobStatus.Failed;
@@ -1355,7 +1358,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 var orchestratorResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(orchestratorJob.Result);
 
                 // Failed jobs should be counted in FailedResources
-                Assert.True(orchestratorResult.FailedResources > 0, $"Expected FailedResources > 0, but got {orchestratorResult.FailedResources}");
+                Assert.Equal(jobDef.ResourceCount.Count - failedResult.SucceededResourceCount, orchestratorResult.FailedResources);
 
                 // Error information should be present
                 Assert.NotNull(orchestratorResult.Error);

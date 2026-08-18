@@ -484,12 +484,16 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 record.Resources.Add(definition.ResourceType);
             }
 
-            if (!string.IsNullOrEmpty(job.Result))
+            if (job.Status == JobStatus.Completed)
             {
                 var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                var failedResourceCount = Math.Max(0, definition.ResourceCount.Count - result.SucceededResourceCount);
-                record.Count += result.SucceededResourceCount + failedResourceCount;
-                record.FailureCount += failedResourceCount;
+                record.Count += result.SucceededResourceCount;
+            }
+            else if (job.Status == JobStatus.Failed)
+            {
+                var result = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                record.Count += definition.ResourceCount.Count;
+                record.FailureCount += definition.ResourceCount.Count - (result?.SucceededResourceCount ?? 0);
             }
         }
     }

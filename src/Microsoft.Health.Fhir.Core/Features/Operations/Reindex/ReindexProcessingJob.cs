@@ -191,12 +191,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
+                _result = new ReindexProcessingJobResult(); // cosmos logic is incremental, so result has to be initiated outside oom retries
+
                 await OomRetries.ExecuteAsync(async () =>
                 {
-                    _result = new ReindexProcessingJobResult();
-
                     if (_isSql)
                     {
+                        _result = new ReindexProcessingJobResult(); // sql reruns all, so result has to be initiated on every oom retry
                         await ProcessWithSurrogateIdRangeAsync();
                     }
                     else
@@ -207,26 +208,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (SqlException sqlEx)
             {
-                // For non-timeout SQL errors
-                _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
+                _logger.LogJobError(sqlEx, _jobInfo, "Reindex processing job error occurred: SqlException.");
                 SetJobError($"SQL Error: {sqlEx.Message}");
-                throw new JobExecutionSoftFailureException($"SQL error occurred during reindex processing: {sqlEx.Message}", _result, sqlEx, isCustomerCaused: false);
+                throw new JobExecutionSoftFailureException($"Reindex processing job error occurred: SqlException = {sqlEx.Message}", _result, sqlEx, isCustomerCaused: false);
             }
             catch (FhirException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred: FhirException.");
                 SetJobError(ex.Message);
                 throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
             }
             catch (OutOfMemoryException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job exhausted its out-of-memory retries.");
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred: OutOfMemoryException (exhausted retries).");
                 SetJobError(ex.Message);
                 throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred.");
                 SetJobError(ex.Message);
                 throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
             }
