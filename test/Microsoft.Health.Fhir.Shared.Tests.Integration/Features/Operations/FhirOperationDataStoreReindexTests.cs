@@ -57,8 +57,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task AssertNoReindexJobsExist()
         {
-            var jobs = await _operationDataStore.AcquireReindexJobsAsync(10, TimeSpan.FromSeconds(1), CancellationToken.None);
-            Assert.Empty(jobs);
+            var (found, id) = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
+            Assert.False(found);
+            Assert.Null(id);
         }
 
         [Fact]
@@ -80,41 +81,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsNoRunningReindexJob_WhenAcquiringReindexJobs_ThenAvailableReindexJobsShouldBeReturned()
-        {
-            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
-
-            IReadOnlyCollection<ReindexJobWrapper> jobs = await AcquireReindexJobsAsync();
-
-            // The job should be marked as running now since it's acquired.
-            jobRecord.Status = OperationStatus.Running;
-            jobRecord.StartTime = jobs.Single().JobRecord.StartTime;
-
-            Assert.NotNull(jobs);
-            Assert.Collection(
-                jobs,
-                job => ValidateReindexJobRecord(jobRecord, job.JobRecord));
-        }
-
-        [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        [InlineData(OperationStatus.Running)]
-        public async Task GivenNoReindexJobInQueuedState_WhenAcquiringReindexJobs_ThenNoReindexJobShouldBeReturned(OperationStatus operationStatus)
-        {
-            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
-
-            // Transition the job to its final state
-            await CompleteReindexJobAsync(jobRecord, (JobStatus)operationStatus);
-
-            IReadOnlyCollection<ReindexJobWrapper> jobs = await AcquireReindexJobsAsync();
-
-            Assert.NotNull(jobs);
-            Assert.Empty(jobs);
-        }
-
-        [Fact]
         public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreNotDisplayed()
         {
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(jobRecord => jobRecord.Status = OperationStatus.Completed);
@@ -128,21 +94,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             var parm = parms.Parameter.Where(e => e.Name == JobRecordProperties.QueryListErrors).SingleOrDefault();
 
             Assert.Null(parm);
-        }
-
-        [Fact]
-        public async Task GivenThereIsRunningReindexJobThatExpired_WhenAcquiringReindexJobs_ThenTheExpiredReindexJobShouldBeReturned()
-        {
-            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
-
-            await Task.Delay(1200);
-
-            IReadOnlyCollection<ReindexJobWrapper> expiredJobs = await AcquireReindexJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
-
-            Assert.NotNull(expiredJobs);
-            Assert.Collection(
-                expiredJobs,
-                expiredJobWrapper => ValidateReindexJobRecord(jobWrapper.JobRecord, expiredJobWrapper.JobRecord));
         }
 
         [Fact]
@@ -214,15 +165,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         private async Task<ReindexJobWrapper> CreateRunningReindexJob()
         {
             // Create a queued job.
-            await InsertNewReindexJobRecordAsync();
-
-            // Acquire the job. This will timestamp it and set it to running.
-            IReadOnlyCollection<ReindexJobWrapper> jobWrappers = await AcquireReindexJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
-
-            Assert.NotNull(jobWrappers);
-            Assert.Single(jobWrappers);
-
-            ReindexJobWrapper jobWrapper = jobWrappers.FirstOrDefault();
+            var jobRecord = await InsertNewReindexJobRecordAsync();
+            await CompleteReindexJobAsync(jobRecord, JobStatus.Running, CancellationToken.None);
+            ReindexJobWrapper jobWrapper = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(jobWrapper);
             Assert.NotNull(jobWrapper.JobRecord);
@@ -240,21 +185,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             ReindexJobWrapper result = await _operationDataStore.CreateReindexJobAsync(jobRecord, CancellationToken.None);
 
             return result.JobRecord;
-        }
-
-        private async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(
-            ushort maximumNumberOfConcurrentJobAllowed = 1,
-            TimeSpan? jobHeartbeatTimeoutThreshold = null)
-        {
-            if (jobHeartbeatTimeoutThreshold == null)
-            {
-                jobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(1);
-            }
-
-            return await _operationDataStore.AcquireReindexJobsAsync(
-                maximumNumberOfConcurrentJobAllowed,
-                jobHeartbeatTimeoutThreshold.Value,
-                CancellationToken.None);
         }
 
         private void ValidateReindexJobRecord(ReindexJobRecord expected, ReindexJobRecord actual)

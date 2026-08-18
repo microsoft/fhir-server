@@ -285,21 +285,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(jobRecord, eTag);
     }
 
-    public virtual async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
-    {
-        IReadOnlyCollection<JobInfo> jobInfos = await _queueClient.DequeueJobsAsync((byte)QueueType.Reindex, maximumNumberOfConcurrentJobsAllowed, Environment.MachineName, (int)jobHeartbeatTimeoutThreshold.TotalSeconds, cancellationToken);
-
-        var acquiredJobs = new List<ReindexJobWrapper>();
-
-        foreach (var job in jobInfos)
-        {
-            var jobRecord = await GetReindexJobByIdAsync(job.Id.ToString(), cancellationToken);
-            acquiredJobs.Add(jobRecord);
-        }
-
-        return acquiredJobs;
-    }
-
     /// <summary>
     /// Returns a reindex orchestrator job by id.
     /// </summary>

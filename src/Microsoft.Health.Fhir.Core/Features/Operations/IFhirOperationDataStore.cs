@@ -69,15 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Acquires reindex jobs.
-        /// </summary>
-        /// <param name="maximumNumberOfConcurrentJobsAllowed">The maximum number of concurrent reindex jobs allowed.</param>
-        /// <param name="jobHeartbeatTimeoutThreshold">The job heartbeat timeout threshold.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A list of acquired reindex jobs.</returns>
-        Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
-
-        /// <summary>
         /// Gets a reindex job by id.
         /// </summary>
         /// <param name="jobId">The id of the job.</param>
