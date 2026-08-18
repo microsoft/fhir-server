@@ -184,16 +184,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var totalResourceCount = _definition.ResourceCount.Count;
             var failedResourceCount = totalResourceCount - _result.SucceededResourceCount;
-            _result.Error = errorMessage;
             _result.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
+            _result.Error = errorMessage;
         }
 
         private async Task ProcessAsync()
         {
-            if (_cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
+            _cancellationToken.ThrowIfCancellationRequested();
 
             try
             {
