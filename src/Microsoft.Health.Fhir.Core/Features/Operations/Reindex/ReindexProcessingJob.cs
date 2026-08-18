@@ -136,7 +136,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckSearchParamHash", "Error", msg, null);
-                throw new ReindexJobException(msg);
+                _result.Error = msg;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, null, false);
             }
             else
             {
@@ -180,11 +181,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private void SetJobError(string errorMessage)
-        {
-            _result.Error = errorMessage;
-        }
-
         private async Task ProcessAsync()
         {
             _cancellationToken.ThrowIfCancellationRequested();
@@ -197,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     if (_isSql)
                     {
-                        _result = new ReindexProcessingJobResult(); // sql reruns all, so result has to be initiated on every oom retry
+                        _result = new ReindexProcessingJobResult(); // sql reruns all, so result has to be initialized on every oom retry
                         await ProcessWithSurrogateIdRangeAsync();
                     }
                     else
@@ -206,29 +202,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 });
             }
-            catch (SqlException sqlEx)
+            catch (SqlException ex)
             {
-                _logger.LogJobError(sqlEx, _jobInfo, "Reindex processing job error occurred: SqlException.");
-                SetJobError($"SQL Error: {sqlEx.Message}");
-                throw new JobExecutionSoftFailureException($"Reindex processing job error occurred: SqlException = {sqlEx.Message}", _result, sqlEx, isCustomerCaused: false);
+                _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. SqlException: {ex.Message}.");
+                _result.Error = ex.Message;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
             }
             catch (FhirException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred: FhirException.");
-                SetJobError(ex.Message);
-                throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
+                _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. FhirException: {ex.Message}.");
+                _result.Error = ex.Message;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
             }
             catch (OutOfMemoryException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred: OutOfMemoryException (exhausted retries).");
-                SetJobError(ex.Message);
-                throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
+                _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. OutOfMemoryException (exhausted retries): {ex.Message}.");
+                _result.Error = ex.Message;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred.");
-                SetJobError(ex.Message);
-                throw new JobExecutionSoftFailureException(ex.Message, _result, ex, isCustomerCaused: false);
+                _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. Exception: {ex.Message}.");
+                _result.Error = ex.Message;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
             }
         }
 
