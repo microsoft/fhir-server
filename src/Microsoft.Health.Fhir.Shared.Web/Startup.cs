@@ -31,7 +31,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -48,7 +47,6 @@ namespace Microsoft.Health.Fhir.Web
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Internal framework instantiation.")]
     public class Startup
     {
-        private const string RuntimeStateConfigurationKey = "FhirServer:CoreFeatures:RuntimeState";
         private static string instanceId;
 
         public Startup(IConfiguration configuration)
@@ -79,7 +77,6 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
-
             services.AddDevelopmentIdentityProvider(Configuration);
 
             // Set the runtime configuration for the up and running service.
@@ -145,22 +142,9 @@ namespace Microsoft.Health.Fhir.Web
 
         private static FhirRuntimeState GetRuntimeState(IConfiguration configuration)
         {
-            string configuredRuntimeState = configuration[RuntimeStateConfigurationKey];
-            if (string.IsNullOrWhiteSpace(configuredRuntimeState))
-            {
-                return FhirRuntimeState.Active;
-            }
+            string configuredRuntimeState = configuration["FhirServer:CoreFeatures:RuntimeState"];
 
-            string normalizedRuntimeState = configuredRuntimeState.Trim();
-            if (Enum.TryParse(normalizedRuntimeState, ignoreCase: true, out FhirRuntimeState runtimeState) &&
-                Enum.IsDefined(runtimeState) &&
-                string.Equals(normalizedRuntimeState, runtimeState.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return runtimeState;
-            }
-
-            throw new InvalidOperationException(
-                $"Invalid FHIR runtime state '{configuredRuntimeState}'. Supported values are '{FhirRuntimeState.Active}' and '{FhirRuntimeState.Deprecated}'.");
+            return Core.Extensions.ConfigurationExtensions.GetRuntimeStateConfiguration(configuredRuntimeState);
         }
 
         private void AddTaskHostingService(IServiceCollection services)
