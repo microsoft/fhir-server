@@ -487,8 +487,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             if (!string.IsNullOrEmpty(job.Result))
             {
                 var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                record.Count += result.SucceededResourceCount + result.FailedResourceCount;
-                record.FailureCount += result.FailedResourceCount;
+                var failedResourceCount = Math.Max(0, definition.ResourceCount.Count - result.SucceededResourceCount);
+                record.Count += result.SucceededResourceCount + failedResourceCount;
+                record.FailureCount += failedResourceCount;
             }
         }
     }

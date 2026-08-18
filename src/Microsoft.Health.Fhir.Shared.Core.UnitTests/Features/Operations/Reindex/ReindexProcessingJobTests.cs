@@ -368,7 +368,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = exception.Error as ReindexProcessingJobResult;
             string errorMessage = Assert.IsType<string>(jobResult?.Error);
             Assert.Contains("General error", errorMessage);
-            Assert.Equal(1, jobResult.FailedResourceCount);
         }
 
         [Fact]
@@ -674,7 +673,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             Assert.Equal(new[] { 1000, 100, 10, 1 }, requestedCounts);
             Assert.Equal("Simulated OOM", errorMessage);
-            Assert.Equal(1, jobResult.FailedResourceCount);
             Assert.IsType<OutOfMemoryException>(exception.InnerException);
 
             if (throwOnRead)

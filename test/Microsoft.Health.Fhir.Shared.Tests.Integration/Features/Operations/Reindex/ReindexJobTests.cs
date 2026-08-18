@@ -1063,14 +1063,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var personJob1Result = new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 2,
-                FailedResourceCount = 0,
                 Error = null,
             };
 
             var personJob2Result = new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 3,
-                FailedResourceCount = 0,
                 Error = null,
             };
 
@@ -1083,14 +1081,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var supplyJob1Result = new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 0,
-                FailedResourceCount = 3,
                 Error = errorMessage,
             };
 
             var supplyJob2Result = new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 0,
-                FailedResourceCount = 2,
                 Error = errorMessage,
             };
 
@@ -1246,7 +1242,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     Error = jobResult.Error,
                     Message = jobResult.Error,
-                    jobResult.FailedResourceCount,
                     jobResult.SucceededResourceCount,
                 })
                 : JsonConvert.SerializeObject(jobResult);

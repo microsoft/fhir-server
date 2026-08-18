@@ -13,11 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public long SucceededResourceCount { get; set; }
 
         /// <summary>
-        /// Failed processing resource count
-        /// </summary>
-        public long FailedResourceCount { get; set; }
-
-        /// <summary>
         /// Critical error during data processing.
         /// </summary>
         public string Error { get; set; }

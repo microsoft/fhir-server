@@ -182,9 +182,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void SetJobError(string errorMessage)
         {
-            var totalResourceCount = _definition.ResourceCount.Count;
-            var failedResourceCount = totalResourceCount - _result.SucceededResourceCount;
-            _result.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
             _result.Error = errorMessage;
         }
 

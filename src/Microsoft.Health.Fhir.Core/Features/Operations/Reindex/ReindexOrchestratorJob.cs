@@ -664,17 +664,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         continue;
                     }
 
+                    var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+
                     // if job failed it might not be able to set counts correctly, ignore data in result and set failed to all input and succeeded to 0
                     if (job.Status == JobStatus.Completed)
                     {
                         var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                        var failedResourceCount = Math.Max(0, def.ResourceCount.Count - result.SucceededResourceCount);
                         _result.SucceededResources += result.SucceededResourceCount;
-                        _result.FailedResources += result.FailedResourceCount;
-                        resourceTypeJobs.Value.Failed.Count += result.FailedResourceCount;
+                        _result.FailedResources += failedResourceCount;
+                        resourceTypeJobs.Value.Failed.Count += failedResourceCount;
                     }
                     else
                     {
-                        var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
                         _result.FailedResources += def.ResourceCount.Count;
                         resourceTypeJobs.Value.Failed.Count += def.ResourceCount.Count;
                         var result = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
