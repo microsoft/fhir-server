@@ -554,8 +554,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Scenario 1: Test that search parameter status is only updated when ALL jobs complete successfully
             // This tests both zero-count and non-zero-count resource scenarios with multiple resource types
-            var mixedBaseSearchParam = new SearchParameter();
-            var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
             var supplyDeliveryCount = 40 * storageMultiplier;
@@ -579,7 +577,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
             // This allows us to test the scenario where one resource type has data and another has none
-            mixedBaseSearchParam = await CreateCustomSearchParameterAsync(
+            var mixedBaseSearchParam = await CreateCustomSearchParameterAsync(
                 $"custom-mixed-base-{randomSuffix}",
                 ["SupplyDelivery", "Immunization"],  // Applies to both resource types
                 "SupplyDelivery.status",  // Valid for SupplyDelivery
@@ -588,7 +586,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Create a separate search parameter specifically for Person resources
             // This will create a separate reindex job for Person resources
-            personSearchParam = await CreateCustomSearchParameterAsync(
+            var personSearchParam = await CreateCustomSearchParameterAsync(
                 $"custom-person-name-{randomSuffix}",
                 ["Person"],  // Applies only to Person
                 "Person.name.given",  // Valid for Person name
@@ -656,12 +654,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenSearchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create custom search parameters - one with valid FHIRPath expression
-            specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
 
             // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
             await Task.Delay(3000);
@@ -715,14 +712,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenSearchParam = new SearchParameter();
-            var immunizationSearchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create custom search parameters - one with valid FHIRPath expression
-            specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-            immunizationSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-imm-{randomSuffix}", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
+            var specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var immunizationSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-imm-{randomSuffix}", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
 
             // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
             await Task.Delay(3000);
@@ -776,8 +771,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Scenario 3a: Case variant search parameter URLs with same status (Supported, Supported)
             // Both should be treated as separate entries and processed correctly
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var lowerCaseParam = new SearchParameter();
-            var upperCaseParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
@@ -786,8 +779,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             testResources.AddRange(specimenResources);
 
             // Create search parameters with unique codes
-            lowerCaseParam = await CreateCustomSearchParameterAsync($"custom-case-sensitive-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-            upperCaseParam = await CreateCustomSearchParameterAsync($"custom-case-Sensitive-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
+            var lowerCaseParam = await CreateCustomSearchParameterAsync($"custom-case-sensitive-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var upperCaseParam = await CreateCustomSearchParameterAsync($"custom-case-Sensitive-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
             Assert.NotNull(lowerCaseParam);
             Assert.NotNull(upperCaseParam);
 
@@ -837,8 +830,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Scenario 3b: Case variant search parameter URLs with different statuses
             // Verify both are set to the correct status when all jobs complete
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenTypeParam = new SearchParameter();
-            var specimenStatusParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
@@ -847,8 +838,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             testResources.AddRange(specimenResources);
 
             // Create custom search parameters with different expressions and unique codes
-            specimenTypeParam = await CreateCustomSearchParameterAsync($"custom-diff-type-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-            specimenStatusParam = await CreateCustomSearchParameterAsync($"custom-diff-status-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
+            var specimenTypeParam = await CreateCustomSearchParameterAsync($"custom-diff-type-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var specimenStatusParam = await CreateCustomSearchParameterAsync($"custom-diff-status-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
             Assert.NotNull(specimenTypeParam);
             Assert.NotNull(specimenStatusParam);
 
@@ -904,7 +895,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // 6. Reindex to remove the search parameter from the index
             // 7. Verify the search parameter is no longer supported (returns not-supported error)
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var searchParam = new SearchParameter();
             var specimenId = string.Empty;
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) reindexRequest1 = default;
@@ -922,7 +912,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
 
             // Step 2: Create a custom search parameter for Specimen.type
-            searchParam = await CreateCustomSearchParameterAsync(
+            var searchParam = await CreateCustomSearchParameterAsync(
                 $"custom-lifecycle-{randomSuffix}",
                 ["Specimen"],
                 "Specimen.type",
