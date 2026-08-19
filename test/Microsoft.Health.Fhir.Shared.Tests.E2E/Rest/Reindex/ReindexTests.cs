@@ -657,7 +657,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // This validates that indexing failures prevent status updates
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var specimenSearchParam = new SearchParameter();
-            var immunizationSearchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
