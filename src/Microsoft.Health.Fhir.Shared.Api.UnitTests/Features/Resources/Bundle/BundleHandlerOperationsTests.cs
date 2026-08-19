@@ -8,15 +8,18 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -25,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
-    public class BundleHandlerRuntimeTests
+    public class BundleHandlerOperationsTests
     {
         private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
 
@@ -40,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, bundleType);
+            var result = BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, httpContext, bundleType);
 
             // Assert
             Assert.Equal(expectedDefaultProcessingLogic, result);
@@ -53,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, null);
+            var result = BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, httpContext, null);
 
             // Assert
             Assert.Equal(BundleProcessingLogic.Sequential, result);
@@ -73,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             httpContext.Request.Headers.Append(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, new StringValues(input));
 
             // Act
-            var result = BundleHandlerRuntime.IsBundleProcessingLogicValid(httpContext);
+            var result = BundleHandlerOperations.IsBundleProcessingLogicValid(httpContext);
 
             // Assert
             Assert.True(result);
@@ -91,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             httpContext.Request.Headers.Append(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, new StringValues(input));
 
             // Act
-            var result = BundleHandlerRuntime.IsBundleProcessingLogicValid(httpContext);
+            var result = BundleHandlerOperations.IsBundleProcessingLogicValid(httpContext);
 
             // Assert
             Assert.False(result);
@@ -101,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public void GetBundleProcessingLogic_NullHttpContext_Throws()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
+            Assert.Throws<ArgumentNullException>(() => BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
         }
 
         [Fact]
@@ -110,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             const int timeWhenCustomerCancelledTheOperation = 4;
             const int maxTransactionExecutionTimeInSeconds = 5;
 
-            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
+            var result = BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(timeWhenCustomerCancelledTheOperation),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
                 new CancellationToken(canceled: true));
@@ -123,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(true, 5, 5)]
         public void IsTransactionCancelledByClient_WhenFalse(bool isCancelled, int transactionElapsedTime, int maxTransactionExecutionTime)
         {
-            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
+            var result = BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(transactionElapsedTime),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTime },
                 new CancellationToken(canceled: isCancelled));
@@ -156,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.NotNull(ftfe);
                 Assert.Equal(HttpStatusCode.PreconditionFailed, ftfe.ResponseStatusCode);
@@ -185,7 +188,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.NotNull(ftfe);
                 Assert.Equal(HttpStatusCode.FailedDependency, ftfe.ResponseStatusCode);
@@ -209,7 +212,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception e)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.Null(ftfe);
                 Assert.True(e is InvalidOperationException);
@@ -237,12 +240,197 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception e)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.Null(ftfe);
 
                 Assert.True(e is FhirTransactionCancelledException);
             }
+        }
+
+        [Fact]
+        public void ContainsSearchParams_WhenSearchParameterResourceExists_ReturnsTrue()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    new EntryComponent
+                    {
+                        Resource = new SearchParameter { Url = "http://example.org/sp-1" },
+                    },
+                ],
+            };
+
+            bool result = BundleHandlerOperations.ContainsSearchParams(bundle);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ContainsSearchParams_WhenDeleteSearchParameterRequestExists_ReturnsTrue()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.DELETE,
+                            Url = "SearchParameter/custom-sp",
+                        },
+                    },
+                ],
+            };
+
+            bool result = BundleHandlerOperations.ContainsSearchParams(bundle);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ContainsSearchParams_WhenBundleDoesNotContainSearchParameters_ReturnsFalse()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    new EntryComponent
+                    {
+                        Resource = new Patient(),
+                    },
+                ],
+            };
+
+            bool result = BundleHandlerOperations.ContainsSearchParams(bundle);
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenNoSearchParamsInBundle_ReturnsFalse()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    new EntryComponent
+                    {
+                        Resource = new Patient(),
+                    },
+                ],
+            };
+
+            bool result = BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>());
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenSearchParamsHaveNoConflicts_ReturnsTrue()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    CreateSearchParameterEntry("code-a", "http://example.org/sp-a"),
+                    CreateSearchParameterEntry("code-b", "http://example.org/sp-b"),
+                ],
+            };
+
+            bool result = BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>());
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenDeleteSearchParameterRequestExists_ReturnsTrue()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.DELETE,
+                            Url = "SearchParameter/obsolete-sp",
+                        },
+                    },
+                ],
+            };
+
+            bool result = BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>());
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenDuplicateCodesExist_ThrowsRequestNotValidException()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    CreateSearchParameterEntry("duplicate-code", "http://example.org/sp-1"),
+                    CreateSearchParameterEntry("duplicate-code", "http://example.org/sp-2"),
+                ],
+            };
+
+            var ex = Assert.Throws<RequestNotValidException>(() =>
+                BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>()));
+
+            Assert.Contains("duplicate-code", ex.Message);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenDuplicateUrlsExist_ThrowsRequestNotValidException()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    CreateSearchParameterEntry("code-1", "http://example.org/shared-url"),
+                    CreateSearchParameterEntry("code-2", "http://example.org/shared-url"),
+                ],
+            };
+
+            var ex = Assert.Throws<RequestNotValidException>(() =>
+                BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>()));
+
+            Assert.Contains("http://example.org/shared-url", ex.Message);
+        }
+
+        [Fact]
+        public void CheckSearchParamInputAndPossibleConflicts_WhenDuplicateCodesAndUrlsExist_ThrowsRequestNotValidException()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry =
+                [
+                    CreateSearchParameterEntry("duplicate-code", "http://example.org/shared-url"),
+                    CreateSearchParameterEntry("duplicate-code", "http://example.org/shared-url"),
+                ],
+            };
+
+            var ex = Assert.Throws<RequestNotValidException>(() =>
+                BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, Substitute.For<IModelInfoProvider>()));
+
+            Assert.Contains("duplicate-code", ex.Message);
+            Assert.Contains("http://example.org/shared-url", ex.Message);
+        }
+
+        private static EntryComponent CreateSearchParameterEntry(string code, string url)
+        {
+            var parser = new FhirJsonParser();
+            var searchParameter = parser.Parse<SearchParameter>($"{{\"resourceType\":\"SearchParameter\",\"url\":\"{url}\",\"code\":\"{code}\",\"base\":[\"Patient\"]}}");
+
+            return new EntryComponent
+            {
+                Resource = searchParameter,
+            };
         }
 
         private static HttpContext GetHttpContext()
