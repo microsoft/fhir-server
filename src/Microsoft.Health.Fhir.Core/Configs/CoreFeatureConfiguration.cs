@@ -180,5 +180,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.
         /// </summary>
         public bool EnableSmartExportScopeAuthorization { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating the runtime state of the FHIR server.
+        /// </summary>
+        public string RuntimeState { get; set; }
     }
 }
