@@ -31,9 +31,12 @@ using Xunit.Sdk;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 
+/// <summary>
+/// Tests for general SQL query generation behavior.
+/// </summary>
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Search)]
-public class SqlQueryGeneratorTests
+public partial class SqlQueryGeneratorTests
 {
     private readonly ISqlServerFhirModel _fhirModel;
     private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
