@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
-    public class FhirRuntimeStateMiddlewareTests
+    public class RuntimeStateMiddlewareTests
     {
         public static IEnumerable<object[]> AllowedDeprecatedRequests()
         {
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             string path)
         {
             bool nextInvoked = false;
-            FhirRuntimeStateMiddleware middleware = CreateMiddleware(
+            RuntimeStateMiddleware middleware = CreateMiddleware(
                 FhirRuntimeState.Deprecated,
                 _ =>
                 {
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             string method,
             string path)
         {
-            FhirRuntimeStateMiddleware middleware = CreateMiddleware(
+            RuntimeStateMiddleware middleware = CreateMiddleware(
                 FhirRuntimeState.Deprecated,
                 _ => throw new Xunit.Sdk.XunitException("The blocked request reached the next middleware."));
             DefaultHttpContext context = CreateContext(method, path);
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             Assert.Equal("OperationOutcome", outcome.RootElement.GetProperty("resourceType").GetString());
             Assert.Equal("business-rule", issue.GetProperty("code").GetString());
             Assert.Equal(
-                FhirRuntimeStateMiddleware.DeprecatedServiceIssueCode,
+                RuntimeStateMiddleware.DeprecatedServiceIssueCode,
                 issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetString());
             Assert.Contains("$export", issue.GetProperty("diagnostics").GetString());
             Assert.Contains("migration", issue.GetProperty("diagnostics").GetString());
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
         public async Task GivenActiveService_WhenRequestWouldBeBlockedForDeprecatedService_ThenRequestContinues()
         {
             bool nextInvoked = false;
-            FhirRuntimeStateMiddleware middleware = CreateMiddleware(
+            RuntimeStateMiddleware middleware = CreateMiddleware(
                 FhirRuntimeState.Active,
                 _ =>
                 {
@@ -125,13 +125,13 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             Assert.True(nextInvoked);
         }
 
-        private static FhirRuntimeStateMiddleware CreateMiddleware(
+        private static RuntimeStateMiddleware CreateMiddleware(
             FhirRuntimeState runtimeState,
             RequestDelegate next)
         {
             IFhirRuntimeConfiguration configuration = Substitute.For<IFhirRuntimeConfiguration>();
             configuration.RuntimeState.Returns(runtimeState);
-            return new FhirRuntimeStateMiddleware(next, configuration);
+            return new RuntimeStateMiddleware(next, configuration);
         }
 
         private static DefaultHttpContext CreateContext(string method, string path)

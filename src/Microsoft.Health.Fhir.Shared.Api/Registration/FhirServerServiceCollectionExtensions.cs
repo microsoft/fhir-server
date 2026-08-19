@@ -272,7 +272,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // Platform network validation and application authentication must precede deprecated-service enforcement.
                     app.UseFhirRequestContextAuthentication(
-                        builder => builder.UseMiddleware<FhirRuntimeStateMiddleware>());
+                        builder => builder.UseMiddleware<RuntimeStateMiddleware>());
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 

@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
     /// <summary>
     /// Restricts deprecated FHIR services to requests needed to export data.
     /// </summary>
-    public sealed class FhirRuntimeStateMiddleware
+    public sealed class RuntimeStateMiddleware
     {
         internal const string DeprecatedServiceIssueCode = "service-deprecated";
 
@@ -44,11 +44,11 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
         private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirRuntimeStateMiddleware"/> class.
+        /// Initializes a new instance of the <see cref="RuntimeStateMiddleware"/> class.
         /// </summary>
         /// <param name="next">The next request delegate.</param>
         /// <param name="runtimeConfiguration">The effective FHIR runtime configuration.</param>
-        public FhirRuntimeStateMiddleware(
+        public RuntimeStateMiddleware(
             RequestDelegate next,
             IFhirRuntimeConfiguration runtimeConfiguration)
         {
