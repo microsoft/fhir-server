@@ -8,10 +8,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Registration;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 {
@@ -20,40 +23,26 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
     /// </summary>
     public sealed class RuntimeStateMiddleware
     {
-        internal const string DeprecatedServiceIssueCode = "service-deprecated";
-
-        private const int MinimumRejectionDelayMilliseconds = 50;
-        private const int MaximumRejectionDelayMilliseconds = 100;
-        private const string ExportOperation = "$export";
-        private const string PatientResourceType = "Patient";
-        private const string GroupResourceType = "Group";
-        private const string OperationsRouteSegment = "_operations";
-        private const string ExportRouteSegment = "export";
-        private const string DeprecatedServiceResponse =
-            "{\"resourceType\":\"OperationOutcome\",\"issue\":[{\"severity\":\"error\",\"code\":\"business-rule\"," +
-            "\"details\":{\"coding\":[{\"system\":\"https://azurehealthcareapis.com/fhir/operation-outcome-code\"," +
-            "\"code\":\"service-deprecated\",\"display\":\"FHIR service deprecated\"}]," +
-            "\"text\":\"This FHIR service has been deprecated.\"}," +
-            "\"diagnostics\":\"This FHIR service no longer accepts normal workloads. Start a FHIR $export request " +
-            "or retrieve an existing export status, then follow Azure Health Data Services migration guidance to " +
-            "move the exported data to a supported FHIR service.\"}]}";
-
-        private static readonly byte[] _deprecatedServiceResponse = Encoding.UTF8.GetBytes(DeprecatedServiceResponse);
+        private static readonly Memory<byte> _deprecatedServiceResponse = Encoding.UTF8.GetBytes(GetDefaultOperationOutcome()).AsMemory();
 
         private readonly RequestDelegate _next;
         private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
+        private readonly ILogger<RuntimeStateMiddleware> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RuntimeStateMiddleware"/> class.
         /// </summary>
         /// <param name="next">The next request delegate.</param>
         /// <param name="runtimeConfiguration">The effective FHIR runtime configuration.</param>
+        /// <param name="logger">Logger.</param>
         public RuntimeStateMiddleware(
             RequestDelegate next,
-            IFhirRuntimeConfiguration runtimeConfiguration)
+            IFhirRuntimeConfiguration runtimeConfiguration,
+            ILogger<RuntimeStateMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _runtimeConfiguration = EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         /// <summary>
@@ -71,15 +60,31 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 return;
             }
 
-            int delayMilliseconds = RandomNumberGenerator.GetInt32(
-                MinimumRejectionDelayMilliseconds,
-                MaximumRejectionDelayMilliseconds + 1);
-            await Task.Delay(delayMilliseconds, context.RequestAborted);
+            // Pro-actively delays the execution for a short period of time to reduce retry amplification.
+            await DelayAsync(context);
 
+            _logger.LogInformation("Azure API for FHIR Deprecation - Request blocked due to deprecated state.");
+
+            // Write final response to the client indicating that the service is deprecated and no longer accepts normal workloads.
+            await WriteBlockingResponseAsync(context);
+        }
+
+        private static async Task DelayAsync(HttpContext context)
+        {
+            const int MinimumRejectionDelayMilliseconds = 50;
+            const int MaximumRejectionDelayMilliseconds = 150;
+
+            int delayMilliseconds = RandomNumberGenerator.GetInt32(MinimumRejectionDelayMilliseconds, MaximumRejectionDelayMilliseconds + 1);
+            await Task.Delay(delayMilliseconds, context.RequestAborted);
+        }
+
+        private static async Task WriteBlockingResponseAsync(HttpContext context)
+        {
             context.Response.StatusCode = StatusCodes.Status410Gone;
             context.Response.ContentType = KnownContentTypes.JsonContentType;
             context.Response.ContentLength = _deprecatedServiceResponse.Length;
-            await context.Response.Body.WriteAsync(_deprecatedServiceResponse.AsMemory(), context.RequestAborted);
+
+            await context.Response.Body.WriteAsync(_deprecatedServiceResponse, context.RequestAborted);
         }
 
         private static bool IsAllowedRequest(HttpRequest request)
@@ -136,6 +141,10 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 return false;
             }
 
+            const string ExportOperation = "$export";
+            const string PatientResourceType = "Patient";
+            const string GroupResourceType = "Group";
+
             if (segments.Length == 1)
             {
                 return string.Equals(segments[0], ExportOperation, StringComparison.OrdinalIgnoreCase);
@@ -155,10 +164,47 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 
         private static bool IsExportStatusRequest(string[] segments)
         {
+            const string OperationsRouteSegment = "_operations";
+            const string ExportRouteSegment = "export";
+
             return segments?.Length == 3 &&
                 string.Equals(segments[0], OperationsRouteSegment, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(segments[1], ExportRouteSegment, StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(segments[2]);
+        }
+
+        private static string GetDefaultOperationOutcome()
+        {
+            const string deprecatedServiceIssueCode = "service-deprecated";
+
+            // TODO: 204984 - Update operation outcome with final customer communication.
+            OperationOutcome operationOutcome = new OperationOutcome()
+            {
+                Issue = new System.Collections.Generic.List<OperationOutcome.IssueComponent>()
+                {
+                    new OperationOutcome.IssueComponent()
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.BusinessRule,
+                        Details = new CodeableConcept()
+                        {
+                            Coding = new System.Collections.Generic.List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    System = "https://azurehealthcareapis.com/fhir/operation-outcome-code",
+                                    Code = deprecatedServiceIssueCode,
+                                    Display = "FHIR service deprecated",
+                                },
+                            },
+                            Text = "This FHIR service has been deprecated.",
+                        },
+                        Diagnostics = "This FHIR service is deprecated no longer accepts normal workloads.",
+                    },
+                },
+            };
+
+            return JsonConvert.SerializeObject(operationOutcome);
         }
     }
 }
