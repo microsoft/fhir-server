@@ -9,6 +9,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.RuntimeState;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -20,7 +21,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Web)]
+    [Trait(Traits.Category, Categories.ServiceRuntimeState)]
     public class RuntimeStateMiddlewareTests
     {
         public static IEnumerable<object[]> AllowedDeprecatedRequests()
@@ -94,15 +95,16 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             Assert.True(stopwatch.ElapsedMilliseconds >= 45);
 
             context.Response.Body.Position = 0;
+
             using JsonDocument outcome = await JsonDocument.ParseAsync(context.Response.Body);
+
             JsonElement issue = outcome.RootElement.GetProperty("issue")[0];
+
             Assert.Equal("OperationOutcome", outcome.RootElement.GetProperty("resourceType").GetString());
-            Assert.Equal("business-rule", issue.GetProperty("code").GetString());
-            Assert.Equal(
-                RuntimeStateMiddleware.DeprecatedServiceIssueCode,
-                issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetString());
-            Assert.Contains("$export", issue.GetProperty("diagnostics").GetString());
-            Assert.Contains("migration", issue.GetProperty("diagnostics").GetString());
+            Assert.Equal("business-rule", issue.GetProperty("code").GetProperty("value").GetString());
+            Assert.Equal("service-deprecated", issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetProperty("value").GetString());
+            Assert.Contains("This FHIR service is deprecated no longer accepts normal workloads.", issue.GetProperty("diagnostics").GetProperty("value").GetString());
+
             Assert.DoesNotContain("patient-id", issue.GetRawText());
             Assert.DoesNotContain("Smith", issue.GetRawText());
         }
@@ -131,7 +133,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
         {
             IFhirRuntimeConfiguration configuration = Substitute.For<IFhirRuntimeConfiguration>();
             configuration.RuntimeState.Returns(runtimeState);
-            return new RuntimeStateMiddleware(next, configuration);
+
+            ILogger<RuntimeStateMiddleware> logger = Substitute.For<ILogger<RuntimeStateMiddleware>>();
+
+            return new RuntimeStateMiddleware(next, configuration, logger);
         }
 
         private static DefaultHttpContext CreateContext(string method, string path)

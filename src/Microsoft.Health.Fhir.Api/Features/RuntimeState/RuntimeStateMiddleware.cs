@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Registration;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 {
@@ -35,10 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
         /// <param name="next">The next request delegate.</param>
         /// <param name="runtimeConfiguration">The effective FHIR runtime configuration.</param>
         /// <param name="logger">Logger.</param>
-        public RuntimeStateMiddleware(
-            RequestDelegate next,
-            IFhirRuntimeConfiguration runtimeConfiguration,
-            ILogger<RuntimeStateMiddleware> logger)
+        public RuntimeStateMiddleware(RequestDelegate next, IFhirRuntimeConfiguration runtimeConfiguration, ILogger<RuntimeStateMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _runtimeConfiguration = EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
@@ -96,10 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 
             string[] segments = GetPathSegments(request.Path);
 
-            return IsHealthCheckRequest(segments) ||
-                IsMetadataRequest(segments) ||
-                IsExportStartRequest(segments) ||
-                IsExportStatusRequest(segments);
+            return IsHealthCheckRequest(segments) || IsMetadataRequest(segments) || IsExportStartRequest(segments) || IsExportStatusRequest(segments);
         }
 
         private static string[] GetPathSegments(PathString path)
@@ -204,7 +199,10 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 },
             };
 
-            return JsonConvert.SerializeObject(operationOutcome);
+            JObject operationOutcomeAsJObject = JObject.FromObject(operationOutcome);
+            operationOutcomeAsJObject.AddFirst(new JProperty("resourceType", "OperationOutcome"));
+
+            return operationOutcomeAsJObject.ToString();
         }
     }
 }

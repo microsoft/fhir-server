@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
-    public static class FhirRequestRuntimeStateMiddleware
+    public static class FhirRequestRuntimeStateMiddlewareExtensions
     {
         public static IApplicationBuilder UseFhirRuntimeState(this IApplicationBuilder builder, FhirServerConfiguration fhirServerConfiguration)
         {

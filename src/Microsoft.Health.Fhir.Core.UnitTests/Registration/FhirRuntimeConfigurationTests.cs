@@ -13,6 +13,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.ServiceRuntimeState)]
     public sealed class FhirRuntimeConfigurationTests
     {
         [Theory]
