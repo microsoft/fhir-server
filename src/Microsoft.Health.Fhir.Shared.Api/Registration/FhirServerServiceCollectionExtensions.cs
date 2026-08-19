@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.RuntimeState;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -269,7 +270,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
 
-                    app.UseFhirRequestContextAuthentication();
+                    // Platform network validation and application authentication must precede deprecated-service enforcement.
+                    app.UseFhirRequestContextAuthentication(
+                        builder => builder.UseMiddleware<FhirRuntimeStateMiddleware>());
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 
