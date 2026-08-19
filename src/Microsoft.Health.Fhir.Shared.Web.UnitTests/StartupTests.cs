@@ -52,6 +52,10 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             string configuredRuntimeState,
             FhirRuntimeState expectedRuntimeState)
         {
+            // This test ensures that the default values are properly handled for Gen1 runtime state.
+            // Empty/null values should be treated as "Active" for Gen1 runtime state.
+            // Active/Deprecates values should be treated as-is for Gen1 runtime state.
+
             var settings = new Dictionary<string, string>
             {
                 { "DataStore", KnownDataStores.CosmosDb },
@@ -72,6 +76,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         [Fact]
         public void GivenDeprecatedGen2RuntimeState_WhenAddingRuntimeConfiguration_ThenEffectiveStateIsActive()
         {
+            // This test ensures that the 'Active' is always handled for Gen2 runtime state, no matter what the configured value is.
+
             var settings = new Dictionary<string, string>
             {
                 { "DataStore", KnownDataStores.SqlServer },
@@ -92,21 +98,25 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         [Theory]
         [InlineData("Invalid")]
         [InlineData("1")]
-        public void GivenInvalidGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenInitializationFails(string configuredRuntimeState)
+        public void GivenInvalidGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenInitializationContinuesAsActive(string configuredRuntimeState)
         {
+            // This test ensures that invalid values are properly handled for Gen1 runtime state as 'Active'.
+
             var settings = new Dictionary<string, string>
             {
                 { "DataStore", KnownDataStores.CosmosDb },
                 { RuntimeStateConfigurationKey, configuredRuntimeState },
             };
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
             var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
-            fhirServerBuilder.Services.Returns(new ServiceCollection());
+            fhirServerBuilder.Services.Returns(services);
 
-            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(
-                () => InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder));
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
 
-            Assert.IsType<InvalidOperationException>(exception.InnerException);
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
         }
 
         [Fact]
