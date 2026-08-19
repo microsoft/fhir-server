@@ -160,10 +160,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobError(ex, _jobInfo, $"The reindex job was canceled, Id={_jobInfo.Id}");
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Incomplete, Core.Resources.ReindexingJobCancelled);
             }
+            catch (JobExecutionException ex) when (ex.Error is ReindexOrchestratorJobResult)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
                 _logger.LogJobError(ex, _jobInfo, $"The reindex failed. Id={_jobInfo.Id}");
+            }
+            finally
+            {
+                _jobInfo.Data = _result.SucceededResources + _result.FailedResources;
             }
 
             return JsonConvert.SerializeObject(_result);
@@ -187,7 +195,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var msg = "Unable to sync search parameter cache. Please resubmit reindex. If issue persists please contact your administrator.";
                     _logger.LogJobError(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null);
-                    throw new JobExecutionException(msg, false);
+                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
+                    throw new JobExecutionException(msg, _result, false);
                 }
             }
             else
@@ -680,11 +689,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                         _result.SucceededResources += succeededResourceCount;
                         _result.FailedResources += def.ResourceCount.Count - succeededResourceCount;
-                        resourceTypeJobs.Value.FailedJobs.Count++;
 
                         var msg = $"Processing job failed for resource type {def.ResourceType}.{(result == null ? string.Empty : ": " + result.Error)}";
                         _logger.LogJobWarning(_jobInfo, msg);
                         AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
+
+                        throw new JobExecutionException(msg, _result, false);
                     }
                 }
 
@@ -713,7 +723,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
             if (allJobsComplete)
             {
-                _jobInfo.Data = _result.SucceededResources + _result.FailedResources;
                 _logger.LogJobInformation(_jobInfo, $"Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}");
             }
         }

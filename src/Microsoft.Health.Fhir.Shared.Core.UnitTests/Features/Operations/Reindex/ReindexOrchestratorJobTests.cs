@@ -278,8 +278,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
-            var result = await orchestrator.ExecuteAsync(jobInfo, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, CancellationToken.None));
+            var jobResult = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
 
             // Assert
             Assert.NotNull(jobResult);

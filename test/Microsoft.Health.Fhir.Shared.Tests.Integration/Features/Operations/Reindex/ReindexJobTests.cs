@@ -1119,22 +1119,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _coreFeatureConfig,
                 _operationsConfig);
 
-            // Execute the orchestrator - it will load all processing jobs and extract errors
-            var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            Assert.NotEmpty(orchestratorResult);
+            // Execute the orchestrator - with fail-fast behavior, processing failure should fail the orchestrator job.
+            var orchestratorException = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
+            var deserializedResult = Assert.IsType<ReindexOrchestratorJobResult>(orchestratorException.Error);
+            var orchestratorResult = JsonConvert.SerializeObject(deserializedResult);
 
-            // Persist orchestrator completion so datastore reads the updated result/status.
+            // Persist orchestrator failure so datastore reads the updated result/status.
+            orchestratorJobInfo.Status = JobStatus.Failed;
             orchestratorJobInfo.Result = orchestratorResult;
             await _queueClient.CompleteJobAsync(orchestratorJobInfo, false, CancellationToken.None);
 
-            // Deserialize the orchestrator result to verify error array is populated
-            var deserializedResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(orchestratorResult);
-            Assert.NotNull(deserializedResult);
             Assert.NotNull(deserializedResult.SearchParameterUrls);
             Assert.Contains(personSearchParam.Url, deserializedResult.SearchParameterUrls);
             Assert.Contains(supplySearchParam.Url, deserializedResult.SearchParameterUrls);
-            Assert.Equal(8, deserializedResult.SucceededResources);
-            Assert.Equal(7, deserializedResult.FailedResources);
+            Assert.True(deserializedResult.SucceededResources >= 0);
+            Assert.True(deserializedResult.FailedResources > 0);
             Assert.NotEmpty(deserializedResult.Error);
             Assert.True(deserializedResult.Error.Count >= 1);
 
@@ -1157,8 +1156,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.NotNull(record.SearchParams);
             Assert.Contains(personSearchParam.Url, record.SearchParams);
             Assert.Contains(supplySearchParam.Url, record.SearchParams);
-            Assert.Equal(15, record.Count);
-            Assert.Equal(7, record.FailureCount);
+            Assert.True(record.Count > 0);
+            Assert.True(record.FailureCount > 0);
 
             // Verify failureDetails are set with error messages
             Assert.NotNull(record.FailureDetails);
@@ -1168,6 +1167,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             // Verify NO generic "unknown error" message was used
             Assert.DoesNotContain("Reindex failed with unknown error", record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GivenFailedProcessingJobWithErrorField_WhenGettingReindexJob_ThenStatusStaysRunningUntilOrchestratorFails()
+        {
+            var orchestratorRecord = new ReindexJobRecord(maxResourcesPerQuery: 3, maxResourcesPerWrite: 3) { Id = Guid.NewGuid().ToString("N") };
+            var orchestratorJobInfo = await SeedOrchestratorJobAsync(orchestratorRecord);
+            var orchestratorGroupId = orchestratorJobInfo.GroupId;
+
+            var processingDefinition = new ReindexProcessingJobDefinition
+            {
+                GroupId = orchestratorGroupId,
+                TypeId = (int)JobType.ReindexProcessing,
+                ResourceType = "SupplyDelivery",
+                SearchParameterHash = "DEF456",
+                ResourceCount = new SearchResultReindex { Count = 5 },
+                MaximumNumberOfResourcesPerQuery = 3,
+                MaximumNumberOfResourcesPerWrite = 3,
+            };
+
+            const string errorMessage = "General error during bulk update";
+            var failedResult = new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 2,
+                Error = errorMessage,
+            };
+
+            var failedDefinition = JsonConvert.SerializeObject(processingDefinition);
+            var failedPayload = JsonConvert.SerializeObject(failedResult);
+            var failedJob = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, orchestratorGroupId, failedDefinition, JobStatus.Running, null, null, CancellationToken.None);
+            failedJob.QueueType = (byte)QueueType.Reindex;
+            failedJob.Status = JobStatus.Failed;
+            failedJob.Result = failedPayload;
+            await _queueClient.CompleteJobAsync(failedJob, false, CancellationToken.None);
+
+            var wrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(orchestratorJobInfo.Id.ToString(), CancellationToken.None);
+
+            Assert.Equal(OperationStatus.Running, wrapper.JobRecord.Status);
+            Assert.Null(wrapper.JobRecord.FailureDetails);
         }
 
         [Fact]

@@ -329,51 +329,10 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, cancellationToken)).ToList();
         var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
         var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
-        var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
 
-        if (cancelledJobsExist && !failedJobsExist && !inFlightJobsExist)
+        if (cancelledJobsExist && status != JobStatus.Failed && !inFlightJobsExist)
         {
             status = JobStatus.Cancelled;
-        }
-
-        if (failedJobsExist)
-        {
-            foreach (var job in groupJobs.Where(x => x.Id != jobInfo.Id && x.Status == JobStatus.Failed))
-            {
-                if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
-                {
-                    var processResult = JsonConvert.DeserializeObject<ReindexProcessingJobErrorResult>(job.Result);
-                    if (!string.IsNullOrEmpty(processResult.Message))
-                    {
-                        if (record.FailureDetails == null)
-                        {
-                            record.FailureDetails = new JobFailureDetails(processResult.Message, HttpStatusCode.InternalServerError);
-                        }
-                        else if (!processResult.Message.Contains(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
-                        {
-                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.Message, record.FailureDetails.FailureStatusCode);
-                        }
-                    }
-                }
-                else
-                {
-                    if (record.FailureDetails == null)
-                    {
-                        record.FailureDetails = new JobFailureDetails(Core.Resources.ProcessingJobHadNoResults, HttpStatusCode.InternalServerError);
-                    }
-                    else
-                    {
-                        record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + Core.Resources.ProcessingJobHadNoResults, record.FailureDetails.FailureStatusCode);
-                    }
-                }
-            }
-
-            // Only mark as failed if no in-flight jobs exist
-            if (!inFlightJobsExist)
-            {
-                record.Status = OperationStatus.Failed;
-                status = JobStatus.Failed;
-            }
         }
 
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
@@ -390,7 +349,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     errorMessage += error.Diagnostics + " ";
                 }
 
-                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !inFlightJobsExist && !cancelledJobsExist)
+                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !cancelledJobsExist)
                 {
                     status = JobStatus.Failed;
                 }
@@ -408,7 +367,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         // To prevent sending consumer status that is wrong if there are still running processing jobs that were enqueued during race condition.
-        if (inFlightJobsExist && status != JobStatus.Running)
+        if (inFlightJobsExist && status != JobStatus.Running && status != JobStatus.Failed)
         {
             status = JobStatus.Running;
         }
