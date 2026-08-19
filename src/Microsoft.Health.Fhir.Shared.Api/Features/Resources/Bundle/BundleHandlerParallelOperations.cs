@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -18,7 +17,6 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -205,7 +203,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (bundleExecutionContext.IsTransactionFailedByClientError && parallelRequests != null && parallelRequests.Exception != null)
                     {
                         // FhirTransactionFailedException - It means that the transaction failed due a possible client error.
-                        FhirTransactionFailedException clientException = BundleHandlerRuntime.GetPrioritizedClientException(parallelRequests.Exception);
+                        FhirTransactionFailedException clientException = BundleHandlerOperations.GetPrioritizedClientException(parallelRequests.Exception);
                         if (clientException != null)
                         {
                             ExceptionDispatchInfo.Capture(clientException).Throw();
@@ -374,7 +372,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         try
                         {
-                            await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
+                            await BundleHandlerOperations.DelayWithRetryAfterAsync(httpContext, cancellationToken);
                         }
                         catch (OperationCanceledException oce)
                         {
@@ -451,7 +449,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     resourceExecutionContext,
                     httpStatusCode,
                     entryComponent,
-                    isOperationCancelledByClient: !bundleExecutionContext.IsTransactionFailedByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleExecutionContext.Configuration, cancellationToken));
+                    isOperationCancelledByClient: !bundleExecutionContext.IsTransactionFailedByClientError && BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleExecutionContext.Configuration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
@@ -468,7 +466,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (bundleType.Equals(BundleType.Transaction))
             {
-                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: !isOperationCancelledByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
+                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: !isOperationCancelledByClientError && BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             // Default path for batch bundles.

@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
 
-            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
+            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerOperations.IsBundleProcessingLogicValid(_outerHttpContext) : true;
         }
 
         public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
+                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
 
                 if (_bundleType == BundleType.Batch)
                 {
@@ -251,9 +251,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
                         }
-                        else if (bundleResource.Entry.Any(e => e.Resource?.TypeName == KnownResourceTypes.SearchParameter
-                                                               //// for deletes type name is not populated, so checking url
-                                                               || e.Request?.Url?.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true))
+                        else if (BundleHandlerOperations.ContainsSearchParams(bundleResource))
                         {
                             // SearchParameter persistence relies on the parallel-bundle path (MergeResourcesAndSearchParams)
                             // for atomic resource + status row commit, so any sequential transaction bundle containing a
@@ -290,49 +288,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task CheckSearchParamInputConflictsAndUpdateCache(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
         {
-            var codes = new HashSet<(string Type, string Code)>();
-            var urls = new HashSet<string>();
-            var dupCodes = new HashSet<(string Type, string Code)>();
-            var dupUrls = new HashSet<string>();
-            var searchParamsInBundle = false;
-            foreach (var param in bundle.Entry.Select(_ => _.Resource as SearchParameter).Where(_ => _ != null))
-            {
-                if (param.Code != null && param.Base != null)
-                {
-                    var allResourceTypes = SearchParameterDefinitionManager.GetDerivedResourceTypes(_modelInfoProvider, param.Base.Where(_ => _ != null).Select(_ => _.Value.ToString()).ToList());
-                    foreach (var resourceType in allResourceTypes.Where(_ => !codes.Add((_, param.Code))))
-                    {
-                        dupCodes.Add((resourceType, param.Code));
-                    }
-                }
-
-                if (param.Url != null && !urls.Add(param.Url))
-                {
-                    dupUrls.Add(param.Url);
-                }
-
-                searchParamsInBundle = true;
-            }
-
-            if (dupCodes.Count > 0 || dupUrls.Count > 0)
-            {
-                if (dupCodes.Count == 0)
-                {
-                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
-                }
-                else if (dupUrls.Count == 0)
-                {
-                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
-                }
-
-                throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
-            }
-
-            // for deletes Entry.Resource is null. need to check in other way
-            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
-            {
-                searchParamsInBundle = true;
-            }
+            bool searchParamsInBundle = BundleHandlerOperations.CheckSearchParamInputAndPossibleConflicts(bundle, _modelInfoProvider);
 
             if (searchParamsInBundle)
             {
@@ -763,7 +719,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             try
                             {
-                                await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
+                                await BundleHandlerOperations.DelayWithRetryAfterAsync(httpContext, cancellationToken);
                             }
                             catch (OperationCanceledException oce)
                             {
@@ -835,7 +791,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
+                    RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;

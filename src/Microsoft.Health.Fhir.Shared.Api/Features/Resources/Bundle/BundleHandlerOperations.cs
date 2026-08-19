@@ -9,12 +9,16 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
+using static Hl7.Fhir.ElementModel.ScopedNode;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -23,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// <summary>
     /// Set of static methods used as part of the bundle handling logic.
     /// </summary>
-    public static class BundleHandlerRuntime
+    public static class BundleHandlerOperations
     {
         /// <summary>
         /// Delay logic used in case of retry operations.
@@ -110,6 +114,68 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Reaching this part of the code means that the bundle type is not set or it's using an invalid value.
             // Returning sequential as the default processing logic for both cases.
             return BundleProcessingLogic.Sequential;
+        }
+
+        public static bool ContainsSearchParams(Hl7.Fhir.Model.Bundle bundle)
+        {
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+
+            return bundle.Entry.Any(e => e.Resource?.TypeName == KnownResourceTypes.SearchParameter ||
+                    e.Request?.Url?.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true); // for deletes type name is not populated, so checking url
+        }
+
+        /// <summary>
+        /// Checks for duplicate search parameter codes and urls in the bundle and throws a <see cref="RequestNotValidException"/> if any duplicates are found.
+        /// </summary>
+        /// <returns>Returns true if there are search parameters in the bundle; otherwise, false.</returns>
+        /// <remarks>If any duplicate search parameter codes or urls are found, a <see cref="RequestNotValidException"/> is thrown.</remarks>
+        public static bool CheckSearchParamInputAndPossibleConflicts(Hl7.Fhir.Model.Bundle bundle, IModelInfoProvider modelInfoProvider)
+        {
+            var codes = new HashSet<(string Type, string Code)>();
+            var urls = new HashSet<string>();
+            var dupCodes = new HashSet<(string Type, string Code)>();
+            var dupUrls = new HashSet<string>();
+            var searchParamsInBundle = false;
+            foreach (var param in bundle.Entry.Select(_ => _.Resource as SearchParameter).Where(_ => _ != null))
+            {
+                if (param.Code != null && param.Base != null)
+                {
+                    var allResourceTypes = SearchParameterDefinitionManager.GetDerivedResourceTypes(modelInfoProvider, param.Base.Where(_ => _ != null).Select(_ => _.Value.ToString()).ToList());
+                    foreach (var resourceType in allResourceTypes.Where(_ => !codes.Add((_, param.Code))))
+                    {
+                        dupCodes.Add((resourceType, param.Code));
+                    }
+                }
+
+                if (param.Url != null && !urls.Add(param.Url))
+                {
+                    dupUrls.Add(param.Url);
+                }
+
+                searchParamsInBundle = true;
+            }
+
+            if (dupCodes.Count > 0 || dupUrls.Count > 0)
+            {
+                if (dupCodes.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
+                }
+                else if (dupUrls.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
+                }
+
+                throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
+            }
+
+            // for deletes Entry.Resource is null. need to check in other way
+            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
+            {
+                searchParamsInBundle = true;
+            }
+
+            return searchParamsInBundle;
         }
 
         /// <summary>

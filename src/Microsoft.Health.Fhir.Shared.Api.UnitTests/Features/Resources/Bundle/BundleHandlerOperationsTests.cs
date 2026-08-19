@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
-    public class BundleHandlerRuntimeTests
+    public class BundleHandlerOperationsTests
     {
         private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
 
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, bundleType);
+            var result = BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, httpContext, bundleType);
 
             // Assert
             Assert.Equal(expectedDefaultProcessingLogic, result);
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, null);
+            var result = BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, httpContext, null);
 
             // Assert
             Assert.Equal(BundleProcessingLogic.Sequential, result);
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             httpContext.Request.Headers.Append(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, new StringValues(input));
 
             // Act
-            var result = BundleHandlerRuntime.IsBundleProcessingLogicValid(httpContext);
+            var result = BundleHandlerOperations.IsBundleProcessingLogicValid(httpContext);
 
             // Assert
             Assert.True(result);
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             httpContext.Request.Headers.Append(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, new StringValues(input));
 
             // Act
-            var result = BundleHandlerRuntime.IsBundleProcessingLogicValid(httpContext);
+            var result = BundleHandlerOperations.IsBundleProcessingLogicValid(httpContext);
 
             // Assert
             Assert.False(result);
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public void GetBundleProcessingLogic_NullHttpContext_Throws()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
+            Assert.Throws<ArgumentNullException>(() => BundleHandlerOperations.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
         }
 
         [Fact]
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             const int timeWhenCustomerCancelledTheOperation = 4;
             const int maxTransactionExecutionTimeInSeconds = 5;
 
-            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
+            var result = BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(timeWhenCustomerCancelledTheOperation),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
                 new CancellationToken(canceled: true));
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(true, 5, 5)]
         public void IsTransactionCancelledByClient_WhenFalse(bool isCancelled, int transactionElapsedTime, int maxTransactionExecutionTime)
         {
-            var result = BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(
+            var result = BundleHandlerOperations.HasCancellationHappenedBeforeMaxExecutionTime(
                 TimeSpan.FromSeconds(transactionElapsedTime),
                 new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTime },
                 new CancellationToken(canceled: isCancelled));
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.NotNull(ftfe);
                 Assert.Equal(HttpStatusCode.PreconditionFailed, ftfe.ResponseStatusCode);
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.NotNull(ftfe);
                 Assert.Equal(HttpStatusCode.FailedDependency, ftfe.ResponseStatusCode);
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception e)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.Null(ftfe);
                 Assert.True(e is InvalidOperationException);
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             catch (Exception e)
             {
-                FhirTransactionFailedException ftfe = BundleHandlerRuntime.GetPrioritizedClientException(mainTask.Exception);
+                FhirTransactionFailedException ftfe = BundleHandlerOperations.GetPrioritizedClientException(mainTask.Exception);
 
                 Assert.Null(ftfe);
 
