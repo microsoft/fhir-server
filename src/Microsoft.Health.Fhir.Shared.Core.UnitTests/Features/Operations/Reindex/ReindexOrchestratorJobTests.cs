@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task ExecuteAsync_WhenCancellationRequested_ReturnsJobCancelledResult()
+        public async Task ExecuteAsync_WhenCancellationRequested_ThrowsOperationCanceledException()
         {
             // Arrange
             var cancellationTokenSource = new CancellationTokenSource();
@@ -309,14 +309,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob();
 
-            // Act
-            var result = await orchestrator.ExecuteAsync(jobInfo, cancellationTokenSource.Token);
-            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
-
-            // Assert
-            Assert.NotNull(jobResult);
-            Assert.NotNull(jobResult.Error);
-            Assert.Contains(jobResult.Error, e => e.Diagnostics.Contains("cancelled"));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => orchestrator.ExecuteAsync(jobInfo, cancellationTokenSource.Token));
 
             _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
                 .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });

@@ -725,10 +725,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             };
 
             // Act & Assert - Job should fail immediately on mismatch
-            var exception = await Assert.ThrowsAsync<ReindexJobException>(
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Current={staleHash}", exception.Message);
+            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Local={staleHash}", exception.Message);
         }
 
         [Fact]
@@ -768,10 +768,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             };
 
             // Act & Assert - Job should fail without trying to self-heal
-            var exception = await Assert.ThrowsAsync<ReindexJobException>(
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Current={staleHash}", exception.Message);
+            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Local={staleHash}", exception.Message);
         }
 
         [Fact]

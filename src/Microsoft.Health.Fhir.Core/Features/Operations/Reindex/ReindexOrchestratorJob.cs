@@ -153,12 +153,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 _logger.LogJobInformation(jobInfo, $"The reindex job was cancelled by caller, Id={_jobInfo.Id}");
-                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, Core.Resources.ReindexingCancelledbyCaller);
+                throw;
             }
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobError(ex, _jobInfo, $"The reindex job was canceled, Id={_jobInfo.Id}");
-                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Incomplete, Core.Resources.ReindexingJobCancelled);
+                throw;
             }
             catch (JobExecutionException ex) when (ex.Error is ReindexOrchestratorJobResult)
             {

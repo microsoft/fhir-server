@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Determine if we're using SQL Server (surrogate ID range) or Cosmos DB (continuation tokens)
             _isSql = _definition.ResourceCount != null && _definition.ResourceCount.StartResourceSurrogateId > 0 && _definition.ResourceCount.EndResourceSurrogateId > 0;
 
+            _result = new ReindexProcessingJobResult(); // cosmos logic is incremental, so result has to be initiated outside oom retries
             await CheckSearchParamHash();
 
             await ProcessAsync();
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
             var requestedSearchParameterHash = _definition.SearchParameterHash;
             var isBad = requestedSearchParameterHash != searchParameterHash;
-            var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
+            var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Local={searchParameterHash}";
             if (isBad)
             {
                 _logger.LogJobError(_jobInfo, msg);
@@ -187,8 +188,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                _result = new ReindexProcessingJobResult(); // cosmos logic is incremental, so result has to be initiated outside oom retries
-
                 await OomRetries.ExecuteAsync(async () =>
                 {
                     if (_isSql)
@@ -220,6 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _result.Error = ex.Message;
                 throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. Exception: {ex.Message}.");
@@ -248,10 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             using var store = _fhirDataStoreFactory();
             foreach (var range in subRanges)
             {
-                if (_cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
+                _cancellationToken.ThrowIfCancellationRequested();
 
                 var resources = await _timeoutRetries.ExecuteAsync(async () =>
                 {
@@ -279,8 +279,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             using var store = _fhirDataStoreFactory();
             string continuationToken = null;
 
-            while (!_cancellationToken.IsCancellationRequested)
+            while (true)
             {
+                _cancellationToken.ThrowIfCancellationRequested();
+
                 var result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_batchSize, continuationToken));
 
                 var resources = result.Results?.Select(_ => _.Resource).ToList();
