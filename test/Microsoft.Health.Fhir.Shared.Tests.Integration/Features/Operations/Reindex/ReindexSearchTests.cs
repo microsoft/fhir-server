@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenResourceWithMatchingHash_WhenPerformingReindexSearch_ThenResourceShouldNotBeReturned()
         {
-            if (_isSQL) // search param hash matching is supprted ony in cosmos.
+            if (_isSQL) // search param hash matching is supported only in cosmos.
             {
                 return;
             }

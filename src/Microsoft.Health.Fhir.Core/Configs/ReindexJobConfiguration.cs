@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int ActiveHostsEventsMultiplier { get; set; } = 9;
 
         /// <summary>
-        /// Controls orchetrator job info polling interval
+        /// Controls orchestrator job info polling interval
         /// </summary>
         public int JobsPollingIntervalSec { get; set; } = 30;
 
