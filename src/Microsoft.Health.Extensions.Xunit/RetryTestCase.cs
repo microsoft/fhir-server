@@ -144,11 +144,17 @@ namespace Microsoft.Health.Extensions.Xunit
                     // A cancelled run short-circuits and reports nothing, which is not the same as
                     // passing. Treating an empty summary as success would drop the test from the
                     // results entirely, taking any failure already seen on an earlier attempt with it.
-                    if (summary.Total == 0 || cancellationTokenSource.IsCancellationRequested)
+                    //
+                    // An empty summary is the only reliable signal that the attempt reported
+                    // nothing. Cancellation on its own is not: an attempt that ran to completion
+                    // while cancellation was requested has already reported its own result through
+                    // the bus, and replaying an earlier attempt's deferred failure on top of that
+                    // adds a second, orphaned result for a test that actually finished.
+                    if (summary.Total == 0)
                     {
                         bool hasObservedFailure = (pendingFailureBus?.HasDeferredFailure ?? false) || interceptingBus.HasDeferredFailure;
 
-                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' did not complete attempt {attempt}/{_maxRetries} because the run was cancelled. Reporting the last observed result rather than a pass.");
+                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed result rather than a pass.");
 
                         pendingFailureBus?.ReplayDeferredMessages();
                         interceptingBus.ReplayDeferredMessages();
