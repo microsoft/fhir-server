@@ -56,10 +56,12 @@ steps:
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'TestTokenEndpoint': $(TestTokenEndpoint)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -98,6 +100,5 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()

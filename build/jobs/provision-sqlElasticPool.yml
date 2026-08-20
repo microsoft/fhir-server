@@ -27,8 +27,9 @@ parameters:
 jobs:
 - job: provisionSqlPool
   pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzurePowerShell@5
     displayName: 'Ensure SQL elastic pool ${{ parameters.elasticPoolName }} exists'

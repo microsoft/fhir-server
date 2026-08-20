@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -16,6 +16,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var notification = new SearchParametersInitializedNotification();
 
             // Act
-            await _service.Handle(notification, CancellationToken.None);
+            await _service.HandleAsync(notification, CancellationToken.None);
 
             // Assert
             // The method should complete without throwing - the flag is set internally
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterOperations.ClearReceivedCalls();
 
             // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await _service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
@@ -281,7 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for timer to fire and handle the exception
             await Task.Delay(200);
@@ -314,7 +315,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(_ => Task.FromException<bool>(new OperationCanceledException()));
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait longer for timer to fire and handle the exception - give it up to 2 seconds
             // The timer starts immediately (TimeSpan.Zero) when Handle is called
@@ -351,7 +352,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await executeTask;
 
             // Act - Try to handle the notification after cancellation
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
         }
 
         [Fact]
@@ -372,7 +373,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(_ => true);
 
             // Start service that skips refresh
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Start the service and then immediately cancel it
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
@@ -412,8 +413,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
+                Substitute.For<IScopeProvider<IFhirDataStore>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
             // Start a long-running API call that holds the semaphore
@@ -423,7 +424,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(_searchParameterStatusManager, paramOperations, _coreFeatureConfiguration, _searchParameterCacheRefresherMetricHandler, mockLogger);
 
             // Start service that skips refresh
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             await apiTask;
 
@@ -461,15 +462,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                () => Substitute.For<IScoped<IFhirOperationDataStore>>(),
                 Substitute.For<Func<IScoped<ISearchService>>>(),
+                Substitute.For<IScopeProvider<IFhirDataStore>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
             var service = new SearchParameterCacheRefreshBackgroundService(_searchParameterStatusManager, paramOperations, _coreFeatureConfiguration, _searchParameterCacheRefresherMetricHandler, mockLogger);
 
             // Start service that holds the semaphore
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Start API call that waits
             var sw = Stopwatch.StartNew();

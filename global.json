@@ -1,5 +1,8 @@
 {
     "sdk": {
-        "version": "9.0.313"
+        "version": "10.0.302"
+    },
+    "test": {
+        "runner": "Microsoft.Testing.Platform"
     }
 }

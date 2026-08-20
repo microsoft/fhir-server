@@ -11,7 +11,10 @@ using NSubstitute;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators
 {
     /// <summary>
-    /// Fixture to initialize the ModelInfoProvider for CompartmentQueryGeneratorTests.
+    /// Fixture that initializes the static <see cref="ModelInfoProvider"/> with a compartment-aware
+    /// provider. Shared by test classes that depend on the provider being set (for example
+    /// CompartmentQueryGeneratorTests and ScalarTemporalEqualityRewriterTests) so they do not have to
+    /// mutate the process-global provider inline and race other parallel test classes.
     /// </summary>
     public class ModelInfoProviderFixture
     {

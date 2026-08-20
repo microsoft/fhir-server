@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>113</LatestSchemaVersion>
+    <LatestSchemaVersion>116</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Health.SqlServer.Api" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" />
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />

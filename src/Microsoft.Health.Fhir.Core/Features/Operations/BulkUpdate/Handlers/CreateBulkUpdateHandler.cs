@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<CreateBulkUpdateResponse> Handle(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<CreateBulkUpdateResponse> HandleAsync(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -83,11 +83,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 searchParameters.AddRange(request.ConditionalParameters);
             }
 
-            var dateCurrent = new PartialDateTime(Clock.UtcNow);
-            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
-
             // Remove bulk update specific parameters from search parameters
             searchParameters.RemoveAll(t => BulkUpdateQueryParameters.Any(param => param.Equals(t.Item1, StringComparison.OrdinalIgnoreCase)));
+
+            var searchParameterCopy = searchParameters.Select(t => Tuple.Create(t.Item1, t.Item2)).ToList();
+
+            // Temporarily add _lastUpdated to the search parameters to mimic the behavior of the processing job. Conditional search will also fail if there are no search criteria.
+            var dateCurrent = new PartialDateTime(Clock.UtcNow);
+            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
@@ -113,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var processingDefinition = new BulkUpdateDefinition(
                 JobType.BulkUpdateOrchestrator,
                 request.ResourceType,
-                searchParameters,
+                searchParameterCopy,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,

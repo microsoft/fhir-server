@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var searchParams = new List<Tuple<string, string>>()
             {
-                new Tuple<string, string>("_lastUpdated", "value"),
+                new Tuple<string, string>(KnownQueryParameterNames.MaxCount, "100"),
             };
 
             var resourceTypes = new HashSet<string> { "Patient", "Observation" };
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -417,7 +417,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -654,7 +654,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -704,7 +704,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -736,7 +736,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -769,7 +769,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -797,7 +797,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -817,7 +817,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -836,10 +836,69 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = "not a valid json",
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData("gt2026-07-06")]
+        [InlineData("ge2026-07-06")]
+        [InlineData("lt2026-07-06")]
+        [InlineData("le2026-07-06")]
+        [InlineData("sa2026-07-06")]
+        [InlineData("eb2026-07-06")]
+        public async Task GivenBulkUpdateJob_WhenLastUpdatedFilterIsGivenAndIsParallelIsTrue_ThenProcessingJobsUseCtPathNotSurrogateIdRanges(string lastUpdatedValue)
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(_ => Task.FromResult(GenerateSearchResult(2, null)));
+
+            var searchParams = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, lastUpdatedValue),
+            };
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // CT path: SearchAsync is called, GetUsedResourceTypes is NOT called (that is the surrogateId path)
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+            await _searchService.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>());
+
+            // Exactly one processing job queued
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
+            var definitions = calls
+                .Select(call => (string[])call.GetArguments()[1])
+                .SelectMany(defs => defs)
+                .ToArray();
+
+            Assert.Single(definitions);
+            var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[0]);
+
+            // Processing job must NOT have surrogate-id range bounds (proves CT path was taken)
+            Assert.Null(actualDefinition.StartSurrogateId);
+            Assert.Null(actualDefinition.EndSurrogateId);
+
+            // The _lastUpdated filter must be forwarded to the processing job so the SQL layer applies it
+            Assert.Contains(actualDefinition.SearchParameters, p =>
+                p.Item1.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(p.Item2, lastUpdatedValue, StringComparison.OrdinalIgnoreCase));
         }
 
         public static IEnumerable<object[]> GetAllowedSearchParameters()
@@ -852,31 +911,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 new List<Tuple<string, string>>
                 {
-                    new Tuple<string, string>("_lastUpdated", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
                     new Tuple<string, string>("_maxCount", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
-                    new Tuple<string, string>("_lastUpdated", "value"),
-                    new Tuple<string, string>("_maxCount", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
-                    new Tuple<string, string>("_lastUpdated", "value1"),
-                    new Tuple<string, string>("_lastUpdated", "value2"),
-                    new Tuple<string, string>("_lastUpdated", "value3"),
                 },
             };
         }

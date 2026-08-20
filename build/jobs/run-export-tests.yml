@@ -12,8 +12,11 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -145,15 +148,17 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  variables:
+    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -285,7 +290,6 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Export ${{ parameters.version }} SQL'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
       

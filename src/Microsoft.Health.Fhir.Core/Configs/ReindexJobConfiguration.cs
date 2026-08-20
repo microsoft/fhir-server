@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
         /// to determine max time to wait for search param cache refresh. Relevant for SQL only.
         /// </summary>
-        public int CacheUpdateMaxWaitMultiplier { get; set; } = 20;
+        public int CacheUpdateMaxWaitMultiplier { get; set; } = 40;
 
         /// <summary>
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds

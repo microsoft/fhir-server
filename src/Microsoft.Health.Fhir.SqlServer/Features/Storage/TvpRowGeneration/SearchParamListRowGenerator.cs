@@ -11,16 +11,23 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class SearchParamListRowGenerator : ITableValuedParameterRowGenerator<List<ResourceSearchParameterStatus>, SearchParamListRow>
+    internal class SearchParamListRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceSearchParameterStatus>, SearchParamListRow>
     {
-        public IEnumerable<SearchParamListRow> GenerateRows(List<ResourceSearchParameterStatus> searchParameterStatuses)
+        public IEnumerable<SearchParamListRow> GenerateRows(IReadOnlyList<ResourceSearchParameterStatus> searchParameterStatuses)
         {
-            return searchParameterStatuses.Select(searchParameterStatus => new SearchParamListRow(
+            var currentUrls = searchParameterStatuses.Select(searchParameterStatus =>
+                new SearchParamListRow(
                     searchParameterStatus.Uri.OriginalString,
                     searchParameterStatus.Status.ToString(),
                     searchParameterStatus.IsPartiallySupported,
-                    searchParameterStatus.LastUpdated != default(System.DateTimeOffset) ? searchParameterStatus.LastUpdated : System.DateTimeOffset.MinValue))
-                .ToList();
+                    searchParameterStatus.LastUpdated));
+            var previousUrls = searchParameterStatuses.Where(_ => _.PreviousUri != null).Select(searchParameterStatus =>
+                new SearchParamListRow(
+                    searchParameterStatus.PreviousUri.OriginalString,
+                    SearchParameterStatus.Deleted.ToString(),
+                    searchParameterStatus.IsPartiallySupported,
+                    searchParameterStatus.LastUpdated));
+            return currentUrls.Concat(previousUrls);
         }
     }
 }

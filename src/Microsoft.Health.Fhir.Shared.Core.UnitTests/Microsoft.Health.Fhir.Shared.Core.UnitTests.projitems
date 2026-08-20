@@ -25,9 +25,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\IgnixaSchemaContextTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserParityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexOrchestratorJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexProcessingJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandlerTests.cs" />
@@ -63,6 +66,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterComparerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterRetryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />

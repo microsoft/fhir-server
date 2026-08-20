@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
@@ -34,14 +35,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Parallel.For(0, numberOfResources - 2, i =>
             {
                 // Success.
-                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, "200", TimeSpan.Zero);
+                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, HttpStatusCode.OK, TimeSpan.Zero);
             });
 
             // Customer error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, "400", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, HttpStatusCode.BadRequest, TimeSpan.Zero);
 
             // Server error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, "500", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, HttpStatusCode.InternalServerError, TimeSpan.Zero);
 
             Assert.Equal(numberOfResources, bundleStatistics.NumberOfResources);
             Assert.Equal(50, bundleStatistics.ResolvedReferences);

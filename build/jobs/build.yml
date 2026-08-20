@@ -36,6 +36,8 @@ steps:
       command: test
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
+      # Disable the task's built-in (non-retry-aware) result publishing so the
+      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
       publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/unit-test-results'
@@ -57,6 +59,8 @@ steps:
       command: test
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
+      # Disable the task's built-in (non-retry-aware) result publishing so the
+      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
       publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'

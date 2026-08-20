@@ -10,9 +10,9 @@ using Microsoft.Health.Fhir.Core.Features.Metrics;
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
     /// <summary>
-    /// A Mediatr message containing information about API responses.
+    /// A Medino message containing information about API responses.
     /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
-    /// Consume these using Mediatr to collect stats about API responses.
+    /// Consume these using Medino to collect stats about API responses.
     /// </summary>
     public class ApiResponseNotification : IMetricsNotification
     {

@@ -539,8 +539,8 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 9.0.0
-* Component Source:   https://github.com/jbogard/MediatR
+## Medino 3.0.2
+* Component Source:   https://github.com/brendankowitz/Medino
 * Component Copyright and License:
   > Apache License
   >                            Version 2.0, January 2004

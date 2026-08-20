@@ -92,6 +92,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
                 throw;
             }
+            catch (Exception ex) when (ex.GetType().FullName?.Contains("MalformedContinuationToken", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                // The Cosmos DB SDK may throw MalformedContinuationTokenException (an internal SDK type)
+                // during client-side continuation token parsing without wrapping it in a CosmosException.
+                // This is a client error (invalid/stale token), not a server error.
+                _logger.LogMalformedContinuationToken(ex);
+                throw new RequestNotValidException(Microsoft.Health.Fhir.Core.Resources.InvalidContinuationToken);
+            }
         }
     }
 }

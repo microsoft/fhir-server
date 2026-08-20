@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public bool OptimizedQueryProcessing { get; }
 
-        public bool FailedDueClientError { get; private set; }
+        public bool FailedByClientError { get; private set; }
 
         public bool Cancelled { get; private set; }
 
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 numberOfResources = NumberOfResources,
                 registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
-                clientError = FailedDueClientError,
+                clientError = FailedByClientError,
                 cancelled = Cancelled,
                 success = successedRequests,
                 errors = failedRequests,
@@ -107,22 +107,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return serializableEntity.ToString();
         }
 
-        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, string statusCode, TimeSpan elapsedTime)
+        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, HttpStatusCode httpStatusCode, TimeSpan elapsedTime)
         {
-            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
-            {
-                httpStatusCode = HttpStatusCode.BadRequest;
-            }
-
             _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, ResourceType = resourceType, Index = index, HttpStatusCode = (int)httpStatusCode, ElapsedTime = elapsedTime });
         }
 
-        public void MarkBundleAsFailedDueClientError()
+        public void SetBundleAsFailedByClientError()
         {
-            FailedDueClientError = true;
+            FailedByClientError = true;
         }
 
-        public void MarkBundleAsCancelled()
+        public void SetBundleAsCancelled()
         {
             Cancelled = true;
         }

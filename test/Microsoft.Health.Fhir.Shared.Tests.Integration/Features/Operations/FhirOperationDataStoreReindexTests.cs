@@ -37,19 +37,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
     public class FhirOperationDataStoreReindexTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
-        private readonly IFhirStorageTestHelper _testHelper;
 
         public FhirOperationDataStoreReindexTests(FhirStorageTestsFixture fixture)
         {
-            _operationDataStore = fixture.OperationDataStore;
-            _testHelper = fixture.TestHelper;
+            _operationDataStore = fixture.TestSqlServerOperationDataStore ?? fixture.OperationDataStore;
         }
 
         public async ValueTask InitializeAsync()
         {
-            await _testHelper.DeleteAllReindexJobRecordsAsync();
-            await CancelActiveReindexJobIfExists();
-
             GetTestQueueClient().ClearJobs();
 
             await AssertNoReindexJobsExist();
@@ -289,7 +284,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             if (found && !string.IsNullOrEmpty(id))
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_operationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(id), cancellationToken);
+                await cancelReindexHandler.HandleAsync(new CancelReindexRequest(id), cancellationToken);
 
                 // Optionally, wait for the job to be marked as canceled
                 var job = await _operationDataStore.GetReindexJobByIdAsync(id, cancellationToken);

@@ -85,6 +85,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionOverBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate={Fixture.SmithPatientBirthDate}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+        }
+
+        // Month-precision birthdate query inside a chain exercises the non-collapsed two-predicate date path (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionOverBirthdateMonthPrecision_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate=1990-05";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
+        }
+
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
@@ -131,6 +154,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(bundle, Fixture.TrumanPatient);
+        }
+
+        // Reverse _has chain beside an exact-day birthdate eq — a shape that previously broke SQL generation when the eq emitted a UNION (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned(bool includeAccurateTotal)
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}";
+            if (includeAccurateTotal)
+            {
+                query += "&_total=accurate";
+            }
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            if (includeAccurateTotal)
+            {
+                Assert.Equal(1, bundle.Total.GetValueOrDefault());
+            }
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+        // Exact-day birthdate eq combined with _sort — a path that previously failed SQL generation when the date eq produced a UNION (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAnExactDayBirthdateSearchWithSort_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_sort=birthdate";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
         }
 
         [Fact]
@@ -379,6 +437,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public string SmithPatientGivenName { get; } = Guid.NewGuid().ToString();
 
+            public string SmithPatientBirthDate { get; } = "1990-05-15";
+
             public string TrumanPatientGivenName { get; } = Guid.NewGuid().ToString();
 
             public string SnomedCode { get; } = Guid.NewGuid().ToString();
@@ -426,8 +486,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
                 AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Female, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
-                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
-                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
+                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, BirthDate = SmithPatientBirthDate, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
+                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, BirthDate = "1990-05-16", Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
                 DeviceSnomedSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;

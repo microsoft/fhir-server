@@ -1057,5 +1057,90 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Null(result);
         }
+
+        // -----------------------------------------------------------------------
+        // ExtractParameterHash
+        // -----------------------------------------------------------------------
+
+        [Theory]
+
+        // No hash comment -> null
+        [InlineData(null, null)]
+        [InlineData("", null)]
+        [InlineData("SELECT * FROM dbo.Resource", null)]
+        [InlineData("WITH cte0 AS (SELECT 1) SELECT * FROM cte0", null)]
+
+        // Hash comment with params= suffix -> returns just the base64 hash
+        [InlineData(
+            "WITH cte0 AS (SELECT 1)\r\n/* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */\r\nSELECT * FROM cte0",
+            "LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=")]
+        [InlineData(
+            "SELECT 1 /* HASH Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0= params=@p0 */",
+            "Ek+CaDdNQVS2c/2D7Gw5XA0Dts4v0KOssOrfn2bNYm0=")]
+
+        // Hash comment without params= suffix -> returns the hash
+        [InlineData("SELECT 1 /* HASH abc123def456= */", "abc123def456=")]
+
+        // Realistic multi-CTE chained search query -> returns the embedded hash
+        [InlineData(
+            @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 varchar(256) = 'active'
+                DECLARE @p1 varchar(256) = 'Smith%'
+                DECLARE @p8 int = 11
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+                    FROM dbo.TokenSearchParam
+                    WHERE SearchParamId = 1260 AND Code = @p0 AND ResourceTypeId = 124
+                )
+                ,cte7 AS
+                (
+                    SELECT DISTINCT TOP (@p8) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial
+                    FROM cte0
+                    ORDER BY T1 DESC, Sid1 DESC
+                )
+                /* HASH LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo= params=@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7 */
+                SELECT * FROM (SELECT DISTINCT r.ResourceTypeId, r.ResourceId FROM dbo.Resource r
+                     JOIN cte7 ON r.ResourceTypeId = cte7.T1 AND r.ResourceSurrogateId = cte7.Sid1
+                WHERE IsHistory = 0 AND IsDeleted = 0
+                ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC
+                option (recompile)",
+            "LKzCYkd+9LKATJ3BQebo9R3aYgN9ZXVU/42C2WntCUo=")]
+
+        // Malformed: hash start present but no closing */ -> null
+        [InlineData("SELECT 1 /* HASH abc123=", null)]
+
+        // Empty / whitespace-only hash -> null (otherwise the downstream LIKE filter
+        // would match every hash-bearing Query Store row)
+        [InlineData("SELECT 1 /* HASH  params=@p0 */", null)] // empty hash before params=
+        [InlineData("SELECT 1 /* HASH  */", null)] // whitespace-only hash, no params
+        public void ExtractParameterHash_ReturnsExpectedHashOrNull(string input, string expectedHash)
+        {
+            // Act
+            string result = SqlServerSearchService.ExtractParameterHash(input);
+
+            // Assert
+            Assert.Equal(expectedHash, result);
+        }
+
+        // -----------------------------------------------------------------------
+        // Query Store throttling constants
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public void QueryStoreLookupTimeoutSeconds_IsCappedReasonably()
+        {
+            // The diagnostic query timeout must stay short so it never inherits the (much longer)
+            // main query timeout. It also acts only as a backup to the 2s CancellationToken, so it
+            // must be at least 1s and comfortably above the CTS deadline. The 10s upper bound is a
+            // sanity guard, not a hard requirement: if a future change intentionally raises the
+            // constant past 10s, update both this bound and the rationale comment on
+            // SqlServerSearchService.QueryStoreLookupTimeoutSeconds.
+            Assert.InRange(SqlServerSearchService.QueryStoreLookupTimeoutSeconds, 1, 10);
+        }
     }
 }

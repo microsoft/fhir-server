@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -66,6 +66,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();
+
+            var defaultContextProperties = new Dictionary<string, object>();
+            var defaultContext = Substitute.For<IFhirRequestContext>();
+            defaultContext.Properties.Returns(defaultContextProperties);
+            _requestContextAccessor.RequestContext.Returns(defaultContext);
+
+            _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
+
+            // Default: no active resource owns any URL (tests that need a conflict override this).
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>()));
         }
 
         [Fact]
@@ -78,8 +89,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
@@ -87,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenValidateSearchParameterIsCalled()
         {
-            var searchParameter = new SearchParameter() { Id = "Id" };
+            var searchParameter = new SearchParameter() { Id = "Id", Url = "http://test" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var request = new CreateResourceRequest(resource, bundleResourceContext: null);
@@ -95,8 +106,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
@@ -115,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
             await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
@@ -132,8 +143,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(new List<ResourceSearchParameterStatus>());
 
             var contextProperties = new Dictionary<string, object>();
             var fhirContext = Substitute.For<IFhirRequestContext>();
@@ -143,14 +152,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
-            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
-            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatusUpdates));
-            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
-            Assert.Single(pendingStatuses);
-            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatuses[0].Status);
-            Assert.Equal("http://example.com/Id", pendingStatuses[0].Uri.OriginalString);
+            Assert.True(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
+            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
+            Assert.NotNull(pendingStatus);
+            Assert.Equal(SearchParameterStatus.PendingDelete, pendingStatus.Status);
+            Assert.Equal("http://example.com/Id", pendingStatus.Uri.OriginalString);
         }
 
         [Fact]
@@ -168,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
         }
@@ -186,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
-                await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None));
+                await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
         }
 
         [Fact]
@@ -210,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () =>
-                await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None));
+                await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
         }
 
         [Fact]
@@ -227,8 +235,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
@@ -251,8 +259,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
@@ -282,14 +290,65 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
-            var pendingStatuses = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatusUpdates] as List<ResourceSearchParameterStatus>;
-            Assert.NotNull(pendingStatuses);
-            Assert.Equal(2, pendingStatuses.Count);
-            Assert.Contains(pendingStatuses, s => s.Uri.OriginalString == "http://example.com/old-url" && s.Status == SearchParameterStatus.Deleted);
-            Assert.Contains(pendingStatuses, s => s.Uri.OriginalString == "http://example.com/new-url" && s.Status == SearchParameterStatus.Supported);
+            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
+            Assert.NotNull(pendingStatus);
+            Assert.Equal("http://example.com/new-url", pendingStatus.Uri.OriginalString);
+            Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlAlreadyOwnedBySameResource_ThenNoExceptionThrown()
+        {
+            const string url = "http://example.com/my-param";
+            var searchParameter = new SearchParameter() { Id = "SameId", Url = url };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "SameId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            // Same resource Id — must not throw even though URL is already "owned".
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>
+                {
+                    { url, new SearchParameter() { Id = "SameId", Url = url }.ToTypedElement() },
+                }));
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlAlreadyOwnedByDifferentResource_ThenBadRequestThrown()
+        {
+            const string url = "http://example.com/my-param";
+            var searchParameter = new SearchParameter() { Id = "NewId", Url = url };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "NewId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            // Different resource Id — must throw.
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(System.Threading.Tasks.Task.FromResult(new Dictionary<string, ITypedElement>
+                {
+                    { url, new SearchParameter() { Id = "DifferentId", Url = url }.ToTypedElement() },
+                }));
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+            await Assert.ThrowsAsync<BadRequestException>(() => behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

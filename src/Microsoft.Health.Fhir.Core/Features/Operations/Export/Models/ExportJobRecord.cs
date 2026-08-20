@@ -98,6 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
             Till = till ?? new PartialDateTime(Clock.UtcNow);
+            IsTillExplicit = till != null;
             StartSurrogateId = startSurrogateId;
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
@@ -165,7 +166,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public PartialDateTime Since { get; private set; }
 
         [JsonProperty(JobRecordProperties.Till)]
-        public PartialDateTime Till { get; private set; }
+        public PartialDateTime Till { get; internal set; }
+
+        /// <summary>
+        /// Indicates whether the Till value was explicitly set by the user.
+        /// If false, Till should be set to the job's CreateDate in the orchestrator.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.IsTillExplicit)]
+        public bool IsTillExplicit { get; private set; }
 
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; internal set; }

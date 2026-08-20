@@ -209,9 +209,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 };
                 await _fhirClient.CreateAsync(organization);
 
-                // Wait to ensure resources are created before bulk update
-                await Task.Delay(2000);
-
                 var patchRequest = new Parameters()
                     .AddAddPatchParameter("Resource", "language", new Code("en"));
 
@@ -295,8 +292,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -368,8 +363,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -436,8 +429,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Ensure resources are created
-
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
@@ -467,8 +458,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "active", new FhirBoolean(true));
@@ -494,8 +483,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -518,8 +505,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -545,8 +530,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on both Patient and Group
             var patchRequest = new Parameters()
@@ -579,8 +562,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
             // For Ignored resources
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
@@ -608,8 +589,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 31);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
             var patchRequest = new Parameters()
@@ -647,7 +626,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create Group with included Patients
             await CreateGroupWithPatients(tag, 31);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
             var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
@@ -673,7 +651,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -709,7 +686,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 10);
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // Create a patch request that updates a field on Patient
             var patchRequest = new Parameters()
@@ -740,6 +716,79 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateWithLastUpdatedFilter_WhenCompleted_ThenOnlyResourcesCreatedAfterCutoffAreUpdated(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var tag = Guid.NewGuid().ToString();
+
+            // Step 1: Create 2 "early" patients that should NOT be touched by the bulk update
+            await CreatePatients(tag, 2);
+
+            // Capture a timestamp strictly after the early patients are committed.
+            // The 1-second buffers ensure early patients have lastUpdated < cutoff
+            // and late patients have lastUpdated > cutoff.
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            var cutoff = DateTimeOffset.UtcNow;
+            await Task.Delay(TimeSpan.FromSeconds(2));
+
+            // Step 2: Create 3 "late" patients that SHOULD be updated
+            await CreatePatients(tag, 3);
+
+            // Sanity check: confirm the _lastUpdated filter returns exactly 3 resources
+            var cutoffStr = cutoff.UtcDateTime.ToString("o"); // e.g. 2026-07-08T12:30:00.0000000Z
+            var countResult = await _fhirClient.SearchAsync(
+                ResourceType.Patient,
+                $"_tag={tag}&_lastUpdated=gt{cutoffStr}&_summary=count");
+            Assert.Equal(3, countResult.Resource.Total);
+
+            // Step 3: Run bulk update scoped to the tag AND the _lastUpdated cutoff.
+            // Before the fix this would have updated all 5 patients; after the fix only 3 should be updated.
+            var patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient", "active", new FhirBoolean(true));
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+
+            var queryParam = new Dictionary<string, string>
+            {
+                { "_lastUpdated", $"gt{cutoffStr}" },
+                { "_isParallel", isParallel.ToString() },
+            };
+
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // Expect exactly 3 updated — the 2 early patients must NOT appear here
+            BulkUpdateResult expectedResults = new BulkUpdateResult();
+            expectedResults.ResourcesUpdated.Add("Patient", 3);
+            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // Step 4: Verify the 3 late patients now have active=true
+            var latePatients = await _fhirClient.SearchAsync(
+                ResourceType.Patient,
+                $"_tag={tag}&_lastUpdated=gt{cutoffStr}");
+            Assert.Equal(3, latePatients.Resource.Entry.Count);
+            foreach (var entry in latePatients.Resource.Entry)
+            {
+                var patient = (Patient)entry.Resource;
+                Assert.True(patient.Active == true, $"Patient {patient.Id} (late) should have active=true after bulk update.");
+            }
+
+            // Step 5: Verify the 2 early patients were NOT updated (active still null/not-set)
+            var earlyPatients = await _fhirClient.SearchAsync(
+                ResourceType.Patient,
+                $"_tag={tag}&_lastUpdated=le{cutoffStr}");
+            Assert.Equal(2, earlyPatients.Resource.Entry.Count);
+            foreach (var entry in earlyPatients.Resource.Entry)
+            {
+                var patient = (Patient)entry.Resource;
+                Assert.True(patient.Active != true, $"Patient {patient.Id} (early) should NOT have been updated by the bulk update.");
+            }
+        }
+
         private async Task RunBulkUpdateRequest(
             Parameters patchRequest,
             BulkUpdateResult expectedResults,
@@ -758,8 +807,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), (int)expectedResults.ResourcesUpdated[key], tag);
             }
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk update
 
             HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, path, queryParams);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
