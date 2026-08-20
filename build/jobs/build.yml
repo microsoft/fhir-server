@@ -49,6 +49,9 @@ steps:
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
       failTaskOnFailedTests: true
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
@@ -71,6 +74,9 @@ steps:
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
       failTaskOnFailedTests: true
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'

@@ -149,6 +149,9 @@ jobs:
       mergeTestResults: true
       testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
       failTaskOnFailedTests: true
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
@@ -291,5 +294,8 @@ jobs:
       mergeTestResults: true
       testRunTitle: 'Export ${{ parameters.version }} SQL'
       failTaskOnFailedTests: true
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
       

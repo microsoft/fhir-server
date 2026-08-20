@@ -111,6 +111,9 @@ jobs:
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       failTaskOnFailedTests: true
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
