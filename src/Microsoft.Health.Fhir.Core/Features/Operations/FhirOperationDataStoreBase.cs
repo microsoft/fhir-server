@@ -272,10 +272,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Reindex, jobWithGroupId.GroupId, cancellationToken);
 
             var jobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobWithGroupId.Definition);
-            var now = Clock.UtcNow;
             jobRecord.Status = OperationStatus.Canceled;
-            jobRecord.CanceledTime = now;
-            jobRecord.LastModified = now;
             PopulateReindexJobRecordTimestampsFromJobInfo(jobWithGroupId, jobRecord);
 
             return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobWithGroupId.Version.ToString()));
