@@ -28,29 +28,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
 
     public class ReindexSearchTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
-        private readonly bool _isSQL;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
-            _isSQL = fixture.DataStore is SqlServer.Features.Storage.SqlServerFhirDataStore;
         }
 
         [Fact]
         public async Task GivenResourceWithMatchingHash_WhenPerformingReindexSearch_ThenResourceShouldNotBeReturned()
         {
-            if (_isSQL) // search param hash matching is supported only in cosmos.
-            {
-                return;
-            }
-
             ResourceWrapper testPatient = null;
 
             try
@@ -86,11 +79,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenResourceWithDifferentHash_WhenPerformingReindexSearch_ThenResourceShouldBeReturned()
         {
-            if (_isSQL)
-            {
-                return;
-            }
-
             ResourceWrapper testPatient = null;
 
             try
@@ -125,11 +113,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenAReindexWithHistory_WhenEmptyPageEncountered_EmptyDataNotReturned()
         {
-            if (_isSQL)
-            {
-                return;
-            }
-
             ResourceWrapper testPatient = null;
 
             try
