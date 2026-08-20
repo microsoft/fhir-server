@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -60,7 +60,12 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             if (testCase is not XunitTestCase xunitTestCase)
             {
-                Trace.WriteLine($"[RetryTheory] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not XunitTestCase. Retry logic will NOT be applied.");
+                // Trace output only reaches an attached debugger, so a Trace-only warning here
+                // means retries are silently not applied in CI. Every test case type xunit.v3
+                // produces derives from XunitTestCase, so this only happens if a custom
+                // discoverer introduces its own type.
+                Console.WriteLine(
+                    $"[RetryTheory] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not {nameof(XunitTestCase)}. Retry logic will NOT be applied to it.");
                 return testCase;
             }
 

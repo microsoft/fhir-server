@@ -160,8 +160,20 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <param name="closedVariant">The fixture arguments the test case was discovered for.</param>
         private static void ApplyVariantDisplayName(ITestCase testCase, SingleFlag[] closedVariant)
         {
-            if (closedVariant.Length == 0 || testCase is not XunitTestCase xunitTestCase)
+            if (closedVariant.Length == 0)
             {
+                return;
+            }
+
+            if (testCase is not XunitTestCase xunitTestCase)
+            {
+                // Without the suffix every variant of this method reports under the same name, so
+                // a failure cannot be attributed to a fixture argument set. Every test case type
+                // xunit.v3 produces derives from XunitTestCase, so this only happens if a custom
+                // discoverer introduces its own type -- say so rather than silently mis-naming.
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not {nameof(XunitTestCase)}. " +
+                    "Its fixture argument set will NOT be appended to the display name, so variants of this test will be indistinguishable in test results.");
                 return;
             }
 
