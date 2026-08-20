@@ -48,7 +48,7 @@
         <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <NoWarn>$(NoWarn);xUnit1031;xUnit1051;SA1208;SA1209;SA1518</NoWarn>
+        <NoWarn>$(NoWarn);xUnit1051;SA1208;SA1209;SA1518</NoWarn>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
