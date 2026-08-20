@@ -14,10 +14,10 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     internal sealed class FixtureArgumentSetTestMethod : XunitTestMethod
     {
-        private static readonly FieldInfo TestMethodArgumentsField = typeof(XunitTestMethod).GetField("testMethodArguments", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo TraitsField = typeof(XunitTestMethod).GetField("traits", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo UniqueIdField = typeof(XunitTestMethod).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo MethodField = typeof(XunitTestMethod).GetField("method", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo TestMethodArgumentsField = GetRequiredField("testMethodArguments");
+        private static readonly FieldInfo TraitsField = GetRequiredField("traits");
+        private static readonly FieldInfo UniqueIdField = GetRequiredField("uniqueID");
+        private static readonly FieldInfo MethodField = GetRequiredField("method");
 
         private readonly FixtureArgumentSetTestClass _testClass;
         private readonly MethodInfo _methodInfo;
@@ -37,8 +37,8 @@ namespace Microsoft.Health.Extensions.Xunit
             _uniqueId = uniqueId;
 
             UpdateMethodArguments(Array.Empty<object>());
-            UniqueIdField?.SetValue(this, _uniqueId);
-            MethodField?.SetValue(this, _methodInfo);
+            UniqueIdField.SetValue(this, _uniqueId);
+            MethodField.SetValue(this, _methodInfo);
         }
 
 #pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
@@ -47,20 +47,20 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 #pragma warning restore CS0618
 
-#pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
-        public new string GetDisplayName(string baseDisplayName, string displayName, object[] testMethodArguments, Type[] genericTypes)
+        /// <summary>
+        /// Resolves a private field on <see cref="XunitTestMethod"/> that this type has to write to
+        /// because xUnit v3 seals the corresponding members.
+        /// </summary>
+        /// <param name="name">The name of the private instance field.</param>
+        /// <returns>The field.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the field no longer exists.</exception>
+        private static FieldInfo GetRequiredField(string name)
         {
-            var combinedArguments = CombineFixtureAndMethodArguments(testMethodArguments ?? Array.Empty<object>());
-            return base.GetDisplayName(baseDisplayName, displayName, combinedArguments, genericTypes);
+            return typeof(XunitTestMethod).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException(
+                    $"XunitTestMethod.{name} was not found. Fixture argument set traits and arguments cannot be applied, " +
+                    "which would silently change which tests the CI filters select. This usually means the xunit.v3 version changed.");
         }
-
-        public new object[] ResolveMethodArguments(object[] arguments)
-        {
-            var combinedArguments = CombineFixtureAndMethodArguments(arguments ?? Array.Empty<object>());
-            UpdateMethodArguments(combinedArguments);
-            return base.ResolveMethodArguments(combinedArguments);
-        }
-#pragma warning restore SA1100
 
         private object[] CombineFixtureAndMethodArguments(object[] methodArguments)
         {
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 return;
             }
 
-            TestMethodArgumentsField?.SetValue(this, methodArguments);
+            TestMethodArgumentsField.SetValue(this, methodArguments);
         }
 
         internal void UpdateArgumentsFromMethod()
@@ -101,41 +101,38 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             var combinedArguments = CombineFixtureAndMethodArguments(Array.Empty<object>());
-            TestMethodArgumentsField?.SetValue(this, combinedArguments);
+            TestMethodArgumentsField.SetValue(this, combinedArguments);
 
-            if (TraitsField != null)
-            {
-                var traits = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var traits = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 #pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
-                foreach (var kvp in base.Traits)
-                {
-                    traits[kvp.Key] = new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase);
-                }
+            foreach (var kvp in base.Traits)
+            {
+                traits[kvp.Key] = new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase);
+            }
 #pragma warning restore SA1100
 
-                for (int i = 0; i < _fixtureArguments.Count; i++)
+            for (int i = 0; i < _fixtureArguments.Count; i++)
+            {
+                var enumValue = _fixtureArguments[i].EnumValue;
+                var enumValueText = enumValue.ToString();
+
+                string key = $"{enumValue.GetType().Name}";
+                if (!traits.TryGetValue(key, out var values))
                 {
-                    var enumValue = _fixtureArguments[i].EnumValue;
-                    var enumValueText = enumValue.ToString();
-
-                    string key = $"{enumValue.GetType().Name}";
-                    if (!traits.TryGetValue(key, out var values))
-                    {
-                        values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                        traits[key] = values;
-                    }
-
-                    values.Add(enumValueText);
-
-                    if (TryGetFixtureTraitName(enumValue, out var traitName))
-                    {
-                        AddTrait(traits, traitName, enumValueText);
-                    }
+                    values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    traits[key] = values;
                 }
 
-                var typedTraits = traits.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyCollection<string>)kvp.Value, StringComparer.OrdinalIgnoreCase);
-                TraitsField.SetValue(this, new Lazy<IReadOnlyDictionary<string, IReadOnlyCollection<string>>>(() => typedTraits));
+                values.Add(enumValueText);
+
+                if (TryGetFixtureTraitName(enumValue, out var traitName))
+                {
+                    AddTrait(traits, traitName, enumValueText);
+                }
             }
+
+            var typedTraits = traits.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyCollection<string>)kvp.Value, StringComparer.OrdinalIgnoreCase);
+            TraitsField.SetValue(this, new Lazy<IReadOnlyDictionary<string, IReadOnlyCollection<string>>>(() => typedTraits));
         }
 
         private static void AddTrait(Dictionary<string, HashSet<string>> traits, string key, string value)

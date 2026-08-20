@@ -21,7 +21,7 @@ namespace Microsoft.Health.Extensions.Xunit
     internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
         public CustomXunitTestFrameworkExecutor(Assembly assembly)
-            : base(new FixtureArgumentSetTestAssembly(assembly))
+            : base(new XunitTestAssembly(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)))
         {
         }
 
@@ -29,58 +29,6 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var runner = new FixtureArgumentSetAssemblyRunner();
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
-        }
-
-        private sealed class FixtureArgumentSetTestAssembly : XunitTestAssembly
-        {
-            private readonly Assembly _assembly;
-            private readonly object _assemblyFixtureTypesLock = new object();
-            private IReadOnlyCollection<Type> _assemblyFixtureTypes;
-            private static readonly FieldInfo AssemblyFixtureTypesField = typeof(XunitTestAssembly).GetField("assemblyFixtureTypes", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            public FixtureArgumentSetTestAssembly(Assembly assembly)
-                : base(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null))
-            {
-                _assembly = assembly;
-            }
-
-#pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
-            public FixtureArgumentSetTestAssembly()
-            {
-            }
-#pragma warning restore CS0618
-
-            public new IReadOnlyCollection<Type> AssemblyFixtureTypes
-            {
-                get
-                {
-                    if (_assemblyFixtureTypes == null)
-                    {
-                        lock (_assemblyFixtureTypesLock)
-                        {
-                            if (_assemblyFixtureTypes == null)
-                            {
-#pragma warning disable CS0618 // AssemblyFixtureAttribute is obsolete; usage is required for assembly fixture discovery.
-                                _assemblyFixtureTypes = _assembly
-                                    .GetCustomAttributes(typeof(global::Xunit.AssemblyFixtureAttribute), inherit: false)
-                                    .Cast<global::Xunit.AssemblyFixtureAttribute>()
-                                    .Select(attribute => attribute.AssemblyFixtureType)
-                                    .ToArray();
-#pragma warning restore CS0618
-
-                                if (AssemblyFixtureTypesField == null)
-                                {
-                                    throw new InvalidOperationException("Unable to initialize assembly fixtures because XunitTestAssembly.assemblyFixtureTypes was not found.");
-                                }
-
-                                AssemblyFixtureTypesField.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
-                            }
-                        }
-                    }
-
-                    return _assemblyFixtureTypes;
-                }
-            }
         }
 
         private sealed class FixtureArgumentSetAssemblyRunner : XunitTestAssemblyRunner

@@ -15,9 +15,12 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     internal sealed class FixtureArgumentSetTestClass : XunitTestClass
     {
-        private static readonly FieldInfo UniqueIdField = typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic);
-        private readonly Type _testClassType;
-        private IReadOnlyList<SingleFlag> _fixtureArguments;
+        private static readonly FieldInfo UniqueIdField = typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException(
+                "XunitTestClass.uniqueID was not found, so fixture argument set variants cannot be given distinct identities and " +
+                "would collapse into a single test class. This usually means the xunit.v3 version changed.");
+
+        private readonly IReadOnlyList<SingleFlag> _fixtureArguments;
 
         public FixtureArgumentSetTestClass(Type testClassType, IXunitTestCollection testCollection, IReadOnlyList<SingleFlag> fixtureArguments, string uniqueId)
             : base(testClassType, testCollection, uniqueId)
@@ -26,7 +29,6 @@ namespace Microsoft.Health.Extensions.Xunit
             EnsureArg.IsNotNull(testCollection, nameof(testCollection));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
 
-            _testClassType = testClassType;
             _fixtureArguments = fixtureArguments;
             UpdateUniqueId();
         }
@@ -38,24 +40,9 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 #pragma warning restore CS0618
 
-#pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
-        public new Type Class => _testClassType ?? base.Class;
-#pragma warning restore SA1100
-
         internal IReadOnlyList<SingleFlag> GetFixtureArguments()
         {
             return _fixtureArguments;
-        }
-
-        internal void ApplyFixtureArguments(IReadOnlyList<SingleFlag> fixtureArguments)
-        {
-            if (fixtureArguments == null)
-            {
-                return;
-            }
-
-            _fixtureArguments = fixtureArguments;
-            UpdateUniqueId();
         }
 
         private void UpdateUniqueId()
@@ -66,7 +53,7 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             var className = $"{TestClassName}({string.Join(", ", _fixtureArguments.Select(v => v.EnumValue))})";
-            UniqueIdField?.SetValue(this, UniqueIDGenerator.ForTestClass(TestCollection.UniqueID, className));
+            UniqueIdField.SetValue(this, UniqueIDGenerator.ForTestClass(TestCollection.UniqueID, className));
         }
     }
 }

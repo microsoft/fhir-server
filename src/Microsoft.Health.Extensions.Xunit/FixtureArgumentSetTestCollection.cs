@@ -18,7 +18,7 @@ namespace Microsoft.Health.Extensions.Xunit
             : base(
                 EnsureArg.IsNotNull(sourceCollection, nameof(sourceCollection)).TestAssembly,
                 sourceCollection.CollectionDefinition,
-                sourceCollection.DisableParallelization || IsExplicitCollection(sourceCollection),
+                ShouldDisableParallelization(sourceCollection),
                 BuildDisplayName(sourceCollection.TestCollectionDisplayName, fixtureArguments),
                 uniqueID: BuildUniqueId(sourceCollection, fixtureArguments))
         {
@@ -50,12 +50,24 @@ namespace Microsoft.Health.Extensions.Xunit
             return UniqueIDGenerator.ForTestCollection(sourceCollection.TestAssembly.UniqueID, displayName, sourceCollection.TestCollectionClassName);
         }
 
-        private static bool IsExplicitCollection(IXunitTestCollection sourceCollection)
+        /// <summary>
+        /// Determines whether the variants of a collection should be prevented from running concurrently.
+        /// </summary>
+        /// <remarks>
+        /// Splitting a collection into one variant per fixture argument set would otherwise let the
+        /// variants run concurrently. Any collection backed by a [CollectionDefinition] class stays
+        /// serialized, because those group classes that were deliberately placed together.
+        /// <para>
+        /// This does not cover a name-only [Collection("...")] with no matching [CollectionDefinition]:
+        /// TestCollectionClassName holds the definition class, so it is null for those and there is
+        /// nothing here to detect them by.
+        /// </para>
+        /// </remarks>
+        /// <param name="sourceCollection">The collection the variant was derived from.</param>
+        /// <returns><c>true</c> if the variant collection should run serially.</returns>
+        private static bool ShouldDisableParallelization(IXunitTestCollection sourceCollection)
         {
-            // A collection is explicit when it has a [CollectionDefinition] class or a named
-            // [Collection("...")] attribute (TestCollectionClassName is non-null for named collections,
-            // null for the implicit per-class default collection).
-            return sourceCollection.CollectionDefinition != null || sourceCollection.TestCollectionClassName != null;
+            return sourceCollection.DisableParallelization || sourceCollection.CollectionDefinition != null;
         }
     }
 }

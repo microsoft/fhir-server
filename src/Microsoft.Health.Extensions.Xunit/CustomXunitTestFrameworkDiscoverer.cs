@@ -21,6 +21,8 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     {
+        private static readonly FieldInfo TestCaseDisplayNameField = typeof(XunitTestCase).GetField("testCaseDisplayName", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private readonly ConcurrentDictionary<string, FixtureArgumentSetTestCollection> _variantCollectionCache = new(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, FixtureArgumentSetTestClass> _variantClassCache = new(StringComparer.Ordinal);
 
@@ -130,7 +132,17 @@ namespace Microsoft.Health.Extensions.Xunit
 
                     closedVariantTestMethod.UpdateArgumentsFromMethod();
 
-                    if (!await FindTestsForMethod(closedVariantTestMethod, discoveryOptions, callback))
+                    // xUnit builds the display name from the class and method names only, so every
+                    // variant of a method would otherwise be reported under an identical name and
+                    // a failure could not be attributed to a specific fixture argument set.
+                    var variantArguments = closedVariant;
+                    Func<ITestCase, ValueTask<bool>> variantCallback = testCase =>
+                    {
+                        ApplyVariantDisplayName(testCase, variantArguments);
+                        return callback(testCase);
+                    };
+
+                    if (!await FindTestsForMethod(closedVariantTestMethod, discoveryOptions, variantCallback))
                     {
                         return false;
                     }
@@ -138,6 +150,37 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Appends the fixture argument set to a discovered test case's display name, so that the
+        /// variants of a test can be told apart in test results.
+        /// </summary>
+        /// <param name="testCase">The discovered test case.</param>
+        /// <param name="closedVariant">The fixture arguments the test case was discovered for.</param>
+        private static void ApplyVariantDisplayName(ITestCase testCase, SingleFlag[] closedVariant)
+        {
+            if (closedVariant.Length == 0 || testCase is not XunitTestCase xunitTestCase)
+            {
+                return;
+            }
+
+            if (TestCaseDisplayNameField == null)
+            {
+                throw new InvalidOperationException(
+                    "Unable to name fixture argument set variants because XunitTestCase.testCaseDisplayName was not found. " +
+                    "This usually means the xunit.v3 version changed; see Microsoft.Health.Extensions.Xunit.");
+            }
+
+            var suffix = $" ({string.Join(", ", closedVariant.Select(argument => argument.EnumValue))})";
+            var displayName = xunitTestCase.TestCaseDisplayName;
+
+            if (displayName.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            TestCaseDisplayNameField.SetValue(xunitTestCase, displayName + suffix);
         }
 
         private static string BuildVariantCollectionKey(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> closedVariant)
