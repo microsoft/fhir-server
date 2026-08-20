@@ -268,7 +268,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         try
         {
-            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, id, false, cancellationToken);
+            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, id, true, cancellationToken);
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Reindex, jobWithGroupId.GroupId, cancellationToken);
 
             var jobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobWithGroupId.Definition);
