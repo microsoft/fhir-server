@@ -34,14 +34,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
     {
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly bool _isSQL;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
-            _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
             _isSQL = fixture.DataStore is SqlServer.Features.Storage.SqlServerFhirDataStore;
         }
 
