@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             string configuredRuntimeState = configuration["FhirServer:CoreFeatures:RuntimeState"];
 
-            return Core.Extensions.ConfigurationExtensions.GetRuntimeStateConfiguration(configuredRuntimeState);
+            return Core.Extensions.ConfigurationExtensions.ParseRuntimeStateConfiguration(configuredRuntimeState);
         }
 
         private void AddTaskHostingService(IServiceCollection services)
