@@ -136,8 +136,4 @@
          blocking-task call sites use targeted #pragma disables instead. -->
     <Rule Id="xUnit1051" Action="None" />
   </Rules>
-  <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
-    <Rule Id="SA1208" Action="None" />
-    <Rule Id="SA1209" Action="None" />
-  </Rules>
 </RuleSet>
