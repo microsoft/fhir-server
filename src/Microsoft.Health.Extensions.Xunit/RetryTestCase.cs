@@ -25,12 +25,35 @@ namespace Microsoft.Health.Extensions.Xunit
         private int _delayMs;
         private bool _retryOnAssertionFailure;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RetryTestCase"/> class. Used only by the deserializer.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Called by the de-serializer; should only be called by deriving classes for de-serialization purposes")]
         public RetryTestCase()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RetryTestCase"/> class.
+        /// </summary>
+        /// <param name="testMethod">The test method this test case belongs to.</param>
+        /// <param name="displayName">The display name reported for the test case.</param>
+        /// <param name="uniqueId">The unique ID of the test case.</param>
+        /// <param name="explicit">Whether the test case is only run when explicitly selected.</param>
+        /// <param name="skipExceptions">Exception types that cause the test to be reported as skipped rather than failed.</param>
+        /// <param name="skipReason">The static reason the test is skipped, or <c>null</c> if it is not skipped.</param>
+        /// <param name="skipType">The type containing the member named by <paramref name="skipUnless"/> or <paramref name="skipWhen"/>.</param>
+        /// <param name="skipUnless">The name of a property that must be <c>true</c> for the test to run.</param>
+        /// <param name="skipWhen">The name of a property that must be <c>false</c> for the test to run.</param>
+        /// <param name="traits">The traits associated with the test case.</param>
+        /// <param name="testMethodArguments">The arguments passed to the test method.</param>
+        /// <param name="sourceFile">The source file containing the test method.</param>
+        /// <param name="sourceLine">The line number of the test method.</param>
+        /// <param name="timeout">The per-attempt timeout in milliseconds, or <c>null</c> for none.</param>
+        /// <param name="maxRetries">The maximum number of attempts. Values below one are clamped to one.</param>
+        /// <param name="delayMs">The delay in milliseconds between attempts.</param>
+        /// <param name="retryOnAssertionFailure">Whether assertion failures should be retried, rather than only non-assertion exceptions.</param>
         public RetryTestCase(
             IXunitTestMethod testMethod,
             string displayName,

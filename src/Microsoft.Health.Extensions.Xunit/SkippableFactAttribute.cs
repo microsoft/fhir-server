@@ -14,6 +14,11 @@ namespace Xunit
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class SkippableFactAttribute : FactAttribute
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SkippableFactAttribute"/> class.
+        /// </summary>
+        /// <param name="sourceFilePath">The source file containing the test method. Supplied by the compiler.</param>
+        /// <param name="sourceLineNumber">The line number of the test method. Supplied by the compiler.</param>
         public SkippableFactAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
             : base(sourceFilePath, sourceLineNumber)
         {

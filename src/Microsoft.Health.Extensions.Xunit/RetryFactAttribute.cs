@@ -18,6 +18,11 @@ namespace Microsoft.Health.Extensions.Xunit
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class RetryFactAttribute : FactAttribute
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RetryFactAttribute"/> class.
+        /// </summary>
+        /// <param name="sourceFilePath">The source file containing the test method. Supplied by the compiler.</param>
+        /// <param name="sourceLineNumber">The line number of the test method. Supplied by the compiler.</param>
         public RetryFactAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
             : base(sourceFilePath, sourceLineNumber)
         {

@@ -17,6 +17,9 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     public sealed class CustomXunitTestFramework : XunitTestFramework
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CustomXunitTestFramework"/> class.
+        /// </summary>
         public CustomXunitTestFramework()
             : base(configFileName: null)
         {

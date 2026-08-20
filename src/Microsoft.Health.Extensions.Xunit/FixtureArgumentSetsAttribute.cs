@@ -18,6 +18,14 @@ namespace Microsoft.Health.Extensions.Xunit
     {
         private readonly Enum[] _argumentSets;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FixtureArgumentSetsAttribute"/> class.
+        /// </summary>
+        /// <param name="argumentSets">
+        /// The flags enum values to pass to the class fixture's constructor. Each distinct enum type
+        /// contributes one argument, and the test class is expanded into one variant per combination
+        /// of the flags set within each type.
+        /// </param>
         protected FixtureArgumentSetsAttribute(params Enum[] argumentSets)
         {
             EnsureArg.IsNotNull(argumentSets, nameof(argumentSets));
