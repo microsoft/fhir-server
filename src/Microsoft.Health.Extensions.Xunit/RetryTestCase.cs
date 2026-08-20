@@ -77,7 +77,10 @@ namespace Microsoft.Health.Extensions.Xunit
             // A retry count below one would skip the attempt loop entirely and report no result
             // at all, silently dropping the test. Always run at least one attempt.
             _maxRetries = Math.Max(1, maxRetries);
-            _delayMs = delayMs;
+
+            // A negative delay below -1 makes Task.Delay throw, turning a configuration slip into
+            // an unrelated crash inside the retry loop.
+            _delayMs = Math.Max(0, delayMs);
             _retryOnAssertionFailure = retryOnAssertionFailure;
         }
 
@@ -105,6 +108,12 @@ namespace Microsoft.Health.Extensions.Xunit
             var runSummary = new RunSummary { Total = 1 };
             Exception lastException = null;
 
+            // Holds the deferred failure of an attempt that is about to be retried. It is discarded
+            // only once a later attempt has actually reported a result, so that a run cancelled
+            // between attempts still reports the failure that was already observed instead of
+            // silently dropping the test.
+            FailureInterceptingMessageBus pendingFailureBus = null;
+
             for (int attempt = 1; attempt <= _maxRetries; attempt++)
             {
                 var isLastAttempt = attempt == _maxRetries;
@@ -114,32 +123,48 @@ namespace Microsoft.Health.Extensions.Xunit
                 // Create a fresh aggregator for each attempt
                 var attemptAggregator = new ExceptionAggregator();
 
-                // Only intercept failure messages on non-final attempts
-                // On the final attempt, let everything go through (both success and failure)
-                IMessageBus busToUse;
                 FailureInterceptingMessageBus interceptingBus = null;
-
-                if (isLastAttempt)
-                {
-                    busToUse = messageBus;
-                }
-                else
-                {
-                    interceptingBus = new FailureInterceptingMessageBus(messageBus);
-                    busToUse = interceptingBus;
-                }
 
                 try
                 {
+                    // Always wrap the bus so the failure details are available for the CI log, but only
+                    // defer (hide) a failure while a further attempt could still supersede it.
+                    interceptingBus = new FailureInterceptingMessageBus(messageBus, deferFailures: !isLastAttempt);
+
                     var summary = await XunitRunnerHelper.RunXunitTestCase(
                         this,
-                        busToUse,
+                        interceptingBus,
                         cancellationTokenSource,
                         attemptAggregator,
                         explicitOption,
                         constructorArguments);
 
                     runSummary.Time = summary.Time;
+
+                    // A cancelled run short-circuits and reports nothing, which is not the same as
+                    // passing. Treating an empty summary as success would drop the test from the
+                    // results entirely, taking any failure already seen on an earlier attempt with it.
+                    if (summary.Total == 0 || cancellationTokenSource.IsCancellationRequested)
+                    {
+                        bool hasObservedFailure = (pendingFailureBus?.HasDeferredFailure ?? false) || interceptingBus.HasDeferredFailure;
+
+                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' did not complete attempt {attempt}/{_maxRetries} because the run was cancelled. Reporting the last observed result rather than a pass.");
+
+                        pendingFailureBus?.ReplayDeferredMessages();
+                        interceptingBus.ReplayDeferredMessages();
+
+                        if (lastException != null)
+                        {
+                            aggregator.Add(lastException);
+                        }
+
+                        runSummary.Failed = hasObservedFailure ? 1 : 0;
+                        return runSummary;
+                    }
+
+                    // This attempt reported a real result, so a failure held over from an earlier
+                    // attempt has been superseded and must not also be reported.
+                    pendingFailureBus?.DiscardDeferredMessages();
 
                     if (summary.Failed == 0)
                     {
@@ -158,9 +183,9 @@ namespace Microsoft.Health.Extensions.Xunit
                     // If no exception was captured but test failed, create an exception using captured failure details
                     if (lastException == null && summary.Failed > 0)
                     {
-                        string failureMsg = interceptingBus?.LastFailureMessage ?? "Test failed but no exception was captured.";
-                        string stackTrace = interceptingBus?.LastFailureStackTrace;
-                        bool isAssertionFailure = interceptingBus?.IsAssertionFailure ?? false;
+                        string failureMsg = interceptingBus.LastFailureMessage ?? "Test failed but no exception was captured.";
+                        string stackTrace = interceptingBus.LastFailureStackTrace;
+                        bool isAssertionFailure = interceptingBus.IsAssertionFailure;
 
                         string fullMessage = failureMsg +
                             (stackTrace != null ? Environment.NewLine + "Stack Trace:" + Environment.NewLine + stackTrace : string.Empty);
@@ -198,7 +223,7 @@ namespace Microsoft.Health.Extensions.Xunit
                             // retrying, so replay it now: the reporters derive their results
                             // solely from the message bus, and without this the failure would
                             // disappear from the test results entirely and the run would pass.
-                            interceptingBus?.ReplayDeferredMessages();
+                            interceptingBus.ReplayDeferredMessages();
 
                             if (lastException != null)
                             {
@@ -209,12 +234,40 @@ namespace Microsoft.Health.Extensions.Xunit
                             return runSummary;
                         }
 
-                        // Not the last attempt - the failure was intercepted, so retry
+                        // Not the last attempt - the failure was intercepted, so retry.
+                        // Carry the deferred failure forward rather than discarding it now: if the
+                        // run is cancelled during the delay, or the next attempt never reports a
+                        // result, this is the only remaining record that the test failed.
+                        pendingFailureBus = interceptingBus;
+
+                        // Ownership moves to pendingFailureBus. Clear the local so this iteration's
+                        // finally does not dispose it, which would replay the failure immediately.
+                        interceptingBus = null;
+
                         Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}, retrying after {_delayMs}ms. Error: {lastException?.Message ?? "No exception message"}");
                         messageBus.QueueMessage(
                             new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
 
-                        await Task.Delay(_delayMs);
+                        try
+                        {
+                            await Task.Delay(_delayMs, cancellationTokenSource.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Cancelled while waiting to retry. The failure from this attempt is
+                            // still deferred, so report it instead of letting the test vanish.
+                            Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' was cancelled during the retry delay after attempt {attempt}/{_maxRetries}. Reporting the failure from that attempt.");
+
+                            pendingFailureBus.ReplayDeferredMessages();
+
+                            if (lastException != null)
+                            {
+                                aggregator.Add(lastException);
+                            }
+
+                            runSummary.Failed = 1;
+                            return runSummary;
+                        }
                     }
                     else
                     {
@@ -240,11 +293,14 @@ namespace Microsoft.Health.Extensions.Xunit
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}': {ex.GetType().FullName}: {ex.Message}");
+
+                    // Disposing replays anything still deferred, so a crash cannot swallow a
+                    // failure that an earlier attempt already produced.
+                    pendingFailureBus?.Dispose();
                     throw;
                 }
                 finally
                 {
-                    // Dispose the intercepting bus if we created one
                     interceptingBus?.Dispose();
                 }
             }
@@ -267,7 +323,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             base.Deserialize(info);
             _maxRetries = Math.Max(1, info.GetValue<int>(nameof(_maxRetries)));
-            _delayMs = info.GetValue<int>(nameof(_delayMs));
+            _delayMs = Math.Max(0, info.GetValue<int>(nameof(_delayMs)));
             _retryOnAssertionFailure = info.GetValue<bool>(nameof(_retryOnAssertionFailure));
         }
 
@@ -324,12 +380,14 @@ namespace Microsoft.Health.Extensions.Xunit
         private class FailureInterceptingMessageBus : IMessageBus
         {
             private readonly IMessageBus _innerBus;
+            private readonly bool _deferFailures;
             private readonly List<IMessageSinkMessage> _deferredMessages = new List<IMessageSinkMessage>();
             private bool _deferring;
 
-            public FailureInterceptingMessageBus(IMessageBus innerBus)
+            public FailureInterceptingMessageBus(IMessageBus innerBus, bool deferFailures)
             {
                 _innerBus = innerBus;
+                _deferFailures = deferFailures;
             }
 
             public string LastFailureMessage { get; private set; }
@@ -375,9 +433,12 @@ namespace Microsoft.Health.Extensions.Xunit
                          failed.ExceptionTypes[0].Contains("TrueException", StringComparison.Ordinal) ||
                          failed.ExceptionTypes[0].Contains("FalseException", StringComparison.Ordinal));
 
-                    _deferring = true;
-                    _deferredMessages.Add(message);
-                    return true;
+                    if (_deferFailures)
+                    {
+                        _deferring = true;
+                        _deferredMessages.Add(message);
+                        return true;
+                    }
                 }
 
                 // All other messages (ITestPassed, ITestStarting, ITestFinished, etc.) pass through
@@ -400,9 +461,26 @@ namespace Microsoft.Health.Extensions.Xunit
                 _deferring = false;
             }
 
+            /// <summary>
+            /// Drops the deferred failure without reporting it. Call this only when a later attempt
+            /// has actually reported a result that supersedes it.
+            /// </summary>
+            public void DiscardDeferredMessages()
+            {
+                _deferredMessages.Clear();
+                _deferring = false;
+            }
+
             public void Dispose()
             {
-                // Don't dispose the inner bus - it's owned by the caller
+                // Don't dispose the inner bus - it's owned by the caller.
+                // Anything still deferred was never explicitly replayed or discarded. Dropping it
+                // would remove the test from the run, so fail safe by reporting it.
+                if (_deferredMessages.Count > 0)
+                {
+                    Console.WriteLine($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
+                    ReplayDeferredMessages();
+                }
             }
         }
     }

@@ -48,9 +48,14 @@ namespace Microsoft.Health.Extensions.Xunit
 #pragma warning restore CS0618
 
         /// <summary>
-        /// Resolves a private field on <see cref="XunitTestMethod"/> that this type has to write to
-        /// because xUnit v3 seals the corresponding members.
+        /// Resolves a private field on <see cref="XunitTestMethod"/> that this type has to write to.
         /// </summary>
+        /// <remarks>
+        /// xUnit v3 holds this state in private fields with no public setter and no virtual member
+        /// that would let a derived type supply it, so reflection is the only way to set it. The
+        /// members are not virtual either, which is why hiding them with <c>new</c> does not work:
+        /// xUnit dispatches through <see cref="IXunitTestMethod"/> and would never see the override.
+        /// </remarks>
         /// <param name="name">The name of the private instance field.</param>
         /// <returns>The field.</returns>
         /// <exception cref="InvalidOperationException">Thrown when the field no longer exists.</exception>
