@@ -1,0 +1,236 @@
+# SMART patient-compartment _include/_revinclude leak reproduction
+#
+# Prerequisites:
+# - Run the R4 or R4B FHIR server locally with the SQL provider.
+# - Enable authentication and the local identity provider.
+# - Set FhirServer:Security:Authorization:ScopesClaim to "scope".
+# - Run the requests in order.
+#
+# Patient/smart-patient-A is the authorized SMART compartment.
+# Patient/smart-compartment-leak-patient-b is outside that compartment.
+#
+# Sections 5 and 6 reproduce the original ADR-2607 leak on the commit before
+# the fix. Sections 2 through 4 reproduce the Observation.focus regression
+# identified during review of the fix. Sections 7 and 8 reproduce the iterative
+# _include:iterate / _revinclude:iterate variants, proving every hop of an
+# iterative include is compartment-checked.
+
+@hostname = localhost:44348
+@baseUrl = https://{{hostname}}
+
+###############################################################################
+# 1. Acquire tokens and create the reproduction data
+###############################################################################
+
+### Get an administrator token for setup and control requests
+# @name adminBearer
+POST {{baseUrl}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Create the reproduction resources
+# @name setup
+POST {{baseUrl}}
+content-type: application/fhir+json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+< ./Data/SmartIncludeRevIncludeCompartmentLeakSetup.json
+
+### Get a Patient A SMART token
+# @name patientBearer
+POST {{baseUrl}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/*.read fhir-api
+
+### Control: Patient A is visible to the Patient A token
+GET {{baseUrl}}/Patient?_id=smart-patient-A
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+### Control: Patient B is not visible to the Patient A token
+# Expected: an empty search Bundle.
+GET {{baseUrl}}/Patient?_id=smart-compartment-leak-patient-b
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+### Admin control: inspect the Observation used by the focus tests
+# Its subject is Patient B, so it is outside Patient A's formal compartment.
+# Its focus references Patient A, which does not establish Patient-compartment membership.
+GET {{baseUrl}}/Observation/smart-compartment-focus-observation-b
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+###############################################################################
+# 2. Direct-search control for the Observation.focus membership regression
+###############################################################################
+
+### Patient A must not retrieve Patient B's Observation directly
+# Vulnerable result: Bundle contains smart-compartment-focus-observation-b.
+# Correct result: empty Bundle.
+GET {{baseUrl}}/Observation?_id=smart-compartment-focus-observation-b
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 3. _include reproduction for the Observation.focus membership regression
+###############################################################################
+
+### Include an out-of-compartment Observation from an in-compartment report
+# The DiagnosticReport belongs to Patient A through subject.
+# The included Observation belongs to Patient B through subject; focus=Patient A
+# must not make it part of Patient A's compartment.
+#
+# Vulnerable result:
+# - DiagnosticReport/smart-compartment-focus-report-a, search.mode=match
+# - Observation/smart-compartment-focus-observation-b, search.mode=include
+#
+# Correct result:
+# - DiagnosticReport/smart-compartment-focus-report-a only
+GET {{baseUrl}}/DiagnosticReport?_id=smart-compartment-focus-report-a&_include=DiagnosticReport:result
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 4. _revinclude reproduction for the Observation.focus membership regression
+###############################################################################
+
+### Reverse-include Patient B's Observation through its focus reference
+# Observation.focus can target Patient but is not nominated as Observation
+# membership in the R4 Patient CompartmentDefinition.
+#
+# Vulnerable result:
+# - Patient/smart-patient-A, search.mode=match
+# - Observation/smart-compartment-focus-observation-b, search.mode=include
+#
+# Correct result:
+# - Patient/smart-patient-A only
+GET {{baseUrl}}/Patient?_id=smart-patient-A&_revinclude=Observation:focus
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 5. Original ADR-2607 _include leak
+###############################################################################
+
+### Include the out-of-compartment subscriber from Patient A's Coverage
+# On the commit before the ADR fix, this also returns
+# Patient/smart-compartment-leak-patient-b.
+# With the ADR fix, only Coverage/smart-compartment-leak-coverage is returned.
+GET {{baseUrl}}/Coverage?_id=smart-compartment-leak-coverage&_include=Coverage:subscriber
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 6. Original ADR-2607 _revinclude leak
+###############################################################################
+
+### Reverse-include Patient B's report from Patient A's Observation
+# On the commit before the ADR fix, this also returns
+# DiagnosticReport/smart-compartment-leak-report-b.
+# With the ADR fix, only Observation/smart-compartment-leak-observation-a is returned.
+GET {{baseUrl}}/Observation?_id=smart-compartment-leak-observation-a&_revinclude=DiagnosticReport:result
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 7. Iterative _include (_include:iterate) reproduction
+###############################################################################
+
+### Two-hop include: DiagnosticReport:result then Observation:focus
+# Mirrors the SmartSearchTests _include:iterate integration scenario: every hop of an
+# iterative include must be compartment-checked, not just the first.
+#
+# DiagnosticReport/smart-compartment-focus-report-a belongs to Patient A (subject = A).
+# Its result is Observation/smart-compartment-focus-observation-b, whose subject is
+# Patient B, so that Observation is OUTSIDE Patient A's compartment. The iterate leg
+# would then follow Observation.focus (-> Patient A), but it can only run on an
+# authorized intermediate.
+#
+# Vulnerable result:
+# - DiagnosticReport/smart-compartment-focus-report-a, search.mode=match
+# - Observation/smart-compartment-focus-observation-b, search.mode=include (subject B leak)
+# - Patient/smart-patient-A, search.mode=include (reached by the iterate focus hop)
+#
+# Correct result:
+# - DiagnosticReport/smart-compartment-focus-report-a only. The out-of-compartment
+#   Observation is excluded, so the iterate hop has nothing to expand.
+GET {{baseUrl}}/DiagnosticReport?_id=smart-compartment-focus-report-a&_include=DiagnosticReport:result&_include:iterate=Observation:focus
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 8. Iterative _revinclude (_revinclude:iterate) reproduction
+###############################################################################
+
+### Two-hop reverse-include: Observation:subject then DiagnosticReport:result
+# Mirrors the SmartSearchTests _revinclude:iterate integration scenario: the second
+# (iterate) reverse hop must be compartment-checked just like the first.
+#
+# Patient/smart-patient-A is the compartment root (match). _revinclude=Observation:subject
+# pulls Observation/smart-compartment-leak-observation-a (subject = A, in-compartment).
+# _revinclude:iterate=DiagnosticReport:result then pulls reports whose result references
+# that Observation: DiagnosticReport/smart-compartment-leak-report-b has subject = Patient B,
+# so it is OUTSIDE Patient A's compartment and must not be disclosed.
+#
+# Vulnerable result:
+# - Patient/smart-patient-A, search.mode=match
+# - Observation/smart-compartment-leak-observation-a, search.mode=include
+# - DiagnosticReport/smart-compartment-leak-report-b, search.mode=include (subject B leak)
+#
+# Correct result:
+# - Patient/smart-patient-A and Observation/smart-compartment-leak-observation-a only.
+GET {{baseUrl}}/Patient?_id=smart-patient-A&_revinclude=Observation:subject&_revinclude:iterate=DiagnosticReport:result
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 9. Optional cleanup
+###############################################################################
+
+### Remove the uniquely named reproduction resources
+# Patient/smart-patient-A is intentionally retained because it is shared by
+# the local SMART identity-provider examples.
+POST {{baseUrl}}
+content-type: application/fhir+json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "entry": [
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "DiagnosticReport/smart-compartment-focus-report-a"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "Observation/smart-compartment-focus-observation-b"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "Coverage/smart-compartment-leak-coverage"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "DiagnosticReport/smart-compartment-leak-report-b"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "Observation/smart-compartment-leak-observation-a"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "Patient/smart-compartment-leak-patient-b"
+      }
+    }
+  ]
+}
