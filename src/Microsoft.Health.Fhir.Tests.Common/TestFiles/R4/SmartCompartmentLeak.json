@@ -181,6 +181,9 @@
                         "reference": "Patient/smart-leak-child"
                     }
                 ],
+                "device": {
+                    "reference": "Device/smart-leak-parent-device-early"
+                },
                 "effectiveDateTime": "2021-07-01"
             },
             "request": {
@@ -287,6 +290,9 @@
                         "reference": "Patient/smart-leak-parent"
                     }
                 ],
+                "device": {
+                    "reference": "Device/smart-leak-parent-device"
+                },
                 "effectiveDateTime": "2021-07-02"
             },
             "request": {
@@ -427,11 +433,41 @@
                         "reference": "Practitioner/smart-practitioner-A"
                     }
                 ],
+                "device": {
+                    "reference": "Device/smart-leak-parent-device"
+                },
                 "effectiveDateTime": "2021-08-01"
             },
             "request": {
                 "method": "PUT",
                 "url": "Observation/smart-leak-pract-obs"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-leak-parent-device-early",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345680"
+                    }
+                ],
+                "patient": {
+                    "reference": "Patient/smart-leak-parent"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-leak-parent-device-early"
             }
         },
         {

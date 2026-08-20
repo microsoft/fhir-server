@@ -11,7 +11,9 @@
 #
 # Sections 5 and 6 reproduce the original ADR-2607 leak on the commit before
 # the fix. Sections 2 through 4 reproduce the Observation.focus regression
-# identified during review of the fix.
+# identified during review of the fix. Sections 7 and 8 reproduce the iterative
+# _include:iterate / _revinclude:iterate variants, proving every hop of an
+# iterative include is compartment-checked.
 
 @hostname = localhost:44348
 @baseUrl = https://{{hostname}}
@@ -36,241 +38,7 @@ POST {{baseUrl}}
 content-type: application/fhir+json
 Authorization: Bearer {{adminBearer.response.body.access_token}}
 
-{
-  "resourceType": "Bundle",
-  "type": "batch",
-  "entry": [
-    {
-      "resource": {
-        "resourceType": "Patient",
-        "id": "smart-patient-A",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "active": true,
-        "name": [
-          {
-            "family": "AuthorizedPatient",
-            "given": [
-              "SMART"
-            ]
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Patient/smart-patient-A"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Patient",
-        "id": "smart-compartment-leak-patient-b",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "active": true,
-        "name": [
-          {
-            "family": "OutsideCompartment",
-            "given": [
-              "PatientB"
-            ]
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Patient/smart-compartment-leak-patient-b"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "smart-compartment-focus-observation-b",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "status": "final",
-        "code": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "29463-7",
-              "display": "Body weight"
-            }
-          ]
-        },
-        "subject": {
-          "reference": "Patient/smart-compartment-leak-patient-b"
-        },
-        "focus": [
-          {
-            "reference": "Patient/smart-patient-A"
-          }
-        ],
-        "valueQuantity": {
-          "value": 70,
-          "unit": "kg",
-          "system": "http://unitsofmeasure.org",
-          "code": "kg"
-        }
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Observation/smart-compartment-focus-observation-b"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "DiagnosticReport",
-        "id": "smart-compartment-focus-report-a",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "status": "final",
-        "code": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "11502-2",
-              "display": "Laboratory report"
-            }
-          ]
-        },
-        "subject": {
-          "reference": "Patient/smart-patient-A"
-        },
-        "result": [
-          {
-            "reference": "Observation/smart-compartment-focus-observation-b"
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "DiagnosticReport/smart-compartment-focus-report-a"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Coverage",
-        "id": "smart-compartment-leak-coverage",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "status": "active",
-        "subscriber": {
-          "reference": "Patient/smart-compartment-leak-patient-b"
-        },
-        "beneficiary": {
-          "reference": "Patient/smart-patient-A"
-        },
-        "payor": [
-          {
-            "reference": "Patient/smart-patient-A"
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Coverage/smart-compartment-leak-coverage"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "smart-compartment-leak-observation-a",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "status": "final",
-        "code": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "4548-4",
-              "display": "Hemoglobin A1c"
-            }
-          ]
-        },
-        "subject": {
-          "reference": "Patient/smart-patient-A"
-        }
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Observation/smart-compartment-leak-observation-a"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "DiagnosticReport",
-        "id": "smart-compartment-leak-report-b",
-        "meta": {
-          "tag": [
-            {
-              "system": "https://github.com/microsoft/fhir-server/repro",
-              "code": "smart-compartment-include-leak"
-            }
-          ]
-        },
-        "status": "final",
-        "code": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "11502-2",
-              "display": "Laboratory report"
-            }
-          ]
-        },
-        "subject": {
-          "reference": "Patient/smart-compartment-leak-patient-b"
-        },
-        "result": [
-          {
-            "reference": "Observation/smart-compartment-leak-observation-a"
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "DiagnosticReport/smart-compartment-leak-report-b"
-      }
-    }
-  ]
-}
+< ./Data/SmartIncludeRevIncludeCompartmentLeakSetup.json
 
 ### Get a Patient A SMART token
 # @name patientBearer
@@ -365,7 +133,56 @@ GET {{baseUrl}}/Observation?_id=smart-compartment-leak-observation-a&_revinclude
 Authorization: Bearer {{patientBearer.response.body.access_token}}
 
 ###############################################################################
-# 7. Optional cleanup
+# 7. Iterative _include (_include:iterate) reproduction
+###############################################################################
+
+### Two-hop include: DiagnosticReport:result then Observation:focus
+# Mirrors the SmartSearchTests _include:iterate integration scenario: every hop of an
+# iterative include must be compartment-checked, not just the first.
+#
+# DiagnosticReport/smart-compartment-focus-report-a belongs to Patient A (subject = A).
+# Its result is Observation/smart-compartment-focus-observation-b, whose subject is
+# Patient B, so that Observation is OUTSIDE Patient A's compartment. The iterate leg
+# would then follow Observation.focus (-> Patient A), but it can only run on an
+# authorized intermediate.
+#
+# Vulnerable result:
+# - DiagnosticReport/smart-compartment-focus-report-a, search.mode=match
+# - Observation/smart-compartment-focus-observation-b, search.mode=include (subject B leak)
+# - Patient/smart-patient-A, search.mode=include (reached by the iterate focus hop)
+#
+# Correct result:
+# - DiagnosticReport/smart-compartment-focus-report-a only. The out-of-compartment
+#   Observation is excluded, so the iterate hop has nothing to expand.
+GET {{baseUrl}}/DiagnosticReport?_id=smart-compartment-focus-report-a&_include=DiagnosticReport:result&_include:iterate=Observation:focus
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 8. Iterative _revinclude (_revinclude:iterate) reproduction
+###############################################################################
+
+### Two-hop reverse-include: Observation:subject then DiagnosticReport:result
+# Mirrors the SmartSearchTests _revinclude:iterate integration scenario: the second
+# (iterate) reverse hop must be compartment-checked just like the first.
+#
+# Patient/smart-patient-A is the compartment root (match). _revinclude=Observation:subject
+# pulls Observation/smart-compartment-leak-observation-a (subject = A, in-compartment).
+# _revinclude:iterate=DiagnosticReport:result then pulls reports whose result references
+# that Observation: DiagnosticReport/smart-compartment-leak-report-b has subject = Patient B,
+# so it is OUTSIDE Patient A's compartment and must not be disclosed.
+#
+# Vulnerable result:
+# - Patient/smart-patient-A, search.mode=match
+# - Observation/smart-compartment-leak-observation-a, search.mode=include
+# - DiagnosticReport/smart-compartment-leak-report-b, search.mode=include (subject B leak)
+#
+# Correct result:
+# - Patient/smart-patient-A and Observation/smart-compartment-leak-observation-a only.
+GET {{baseUrl}}/Patient?_id=smart-patient-A&_revinclude=Observation:subject&_revinclude:iterate=DiagnosticReport:result
+Authorization: Bearer {{patientBearer.response.body.access_token}}
+
+###############################################################################
+# 9. Optional cleanup
 ###############################################################################
 
 ### Remove the uniquely named reproduction resources

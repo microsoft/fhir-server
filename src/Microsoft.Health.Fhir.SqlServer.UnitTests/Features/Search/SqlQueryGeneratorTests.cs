@@ -9,6 +9,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -368,7 +370,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Act
         SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
             Expression.SmartCompartmentSearch("Patient", "patient-a", "Observation"),
-            rewriter);
+            rewriter,
+            CreateSmartRewriter());
 
         // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
@@ -411,7 +414,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Act
         SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
             Expression.SmartCompartmentSearch("Patient", "patient-a", "Condition"),
-            rewriter);
+            rewriter,
+            CreateSmartRewriter());
 
         // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
@@ -442,7 +446,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Act
         SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
             Expression.SmartCompartmentSearch("Patient", "patient-a", "AllergyIntolerance"),
-            rewriter);
+            rewriter,
+            CreateSmartRewriter());
 
         // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
@@ -484,7 +489,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Act
         SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
             Expression.SmartCompartmentSearch("Practitioner", "practitioner-a", "Encounter"),
-            rewriter);
+            rewriter,
+            CreateSmartRewriter());
 
         // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
@@ -519,7 +525,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Act
         SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
             Expression.SmartCompartmentSearch("Practitioner", "practitioner-a", "EpisodeOfCare"),
-            rewriter);
+            rewriter,
+            CreateSmartRewriter());
 
         // Assert
         SmartCompartmentMembershipRule rule = Assert.Single(membership.MembershipRules);
@@ -559,7 +566,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Observation", false)),
             Expression.SmartCompartmentSearch("Patient", "patient-a", "Observation"));
 
-        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(coreExpression, rewriter);
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(coreExpression, rewriter, CreateSmartRewriter());
 
         Assert.NotNull(membership);
         Assert.Equal("Patient", membership.CompartmentResourceType);
@@ -664,5 +671,25 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         return new SqlCompartmentSearchRewriter(
             new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
             new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+    }
+
+    // Production always supplies a SmartCompartmentSearchRewriter to the factory, so the parameter is
+    // required. The SMART Device conditional-visibility rules are exercised end to end in
+    // SmartCompartmentSearchRewriterTests; these membership tests assert only formal compartment
+    // membership parameters, so the Device restriction is disabled here to keep the conditional-rule
+    // set empty (preserving each test's original configuration and expectations).
+    private static SmartCompartmentSearchRewriter CreateSmartRewriter()
+    {
+        ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        ICompartmentDefinitionManager compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+
+        var compartmentRewriter = new SqlCompartmentSearchRewriter(
+            new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+
+        return new SmartCompartmentSearchRewriter(
+            compartmentRewriter,
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+            Options.Create(new CoreFeatureConfiguration { EnableSmartCompartmentDeviceRestriction = false }));
     }
 }

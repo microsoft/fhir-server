@@ -112,10 +112,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 rewriter.GetMaterializedCompartmentSearchParameters(compartmentType, filteredResourceTypes: null);
 
             Assert.True(
-                membership.ContainsKey(resourceType),
+                membership.TryGetValue(resourceType, out IReadOnlyCollection<SearchParameterInfo> membershipParameters),
                 $"{resourceType} resolved no {compartmentType} compartment membership parameters at all.");
 
-            HashSet<string> membershipUrls = membership[resourceType]
+            HashSet<string> membershipUrls = membershipParameters
                 .Select(parameter => parameter.Url.AbsoluteUri)
                 .ToHashSet(StringComparer.Ordinal);
 

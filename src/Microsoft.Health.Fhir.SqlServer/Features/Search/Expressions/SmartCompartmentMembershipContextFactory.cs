@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,8 +21,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public static SmartCompartmentMembershipContext Create(
             Expression expression,
             SqlCompartmentSearchRewriter compartmentSearchRewriter,
-            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter = null)
+            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter)
         {
+            EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
+            EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
+
             SmartCompartmentSearchExpression smartCompartment = FindSmartCompartment(expression);
             if (smartCompartment == null)
             {
@@ -51,8 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             // NOT universally shared: it is authorized only by its conditional leg in the SQL generator (own device
             // referencing the compartment root, or unassigned device with no patient reference).
             IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules =
-                smartCompartmentSearchRewriter?.GetConditionalCompartmentRules(smartCompartment.CompartmentType)
-                ?? Array.Empty<SmartCompartmentConditionalRule>();
+                smartCompartmentSearchRewriter.GetConditionalCompartmentRules(smartCompartment.CompartmentType);
 
             ImmutableArray<SmartCompartmentConditionalMembershipRule> conditionalMembershipRules = conditionalRules
                 .Select(rule => new SmartCompartmentConditionalMembershipRule(

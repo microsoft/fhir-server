@@ -392,6 +392,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_id", "smart-leak-coverage"));
             query.Add(new Tuple<string, string>("_include", "Coverage:subscriber"));
 
+            // Request a page larger than the entire cross-compartment fixture (15 resources in
+            // SmartCompartmentLeak.json) so the whole result set fits on a single page. This guarantees the
+            // compartment filtering below is what excludes the parent Patient, not paging: a non-null primary
+            // ContinuationToken would mean results were truncated and the assertions could pass vacuously.
+            query.Add(new Tuple<string, string>("_count", "50"));
+
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
@@ -399,6 +405,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             var results = await _searchService.Value.SearchAsync("Coverage", query, CancellationToken.None);
+
+            // The single page holds every match, so no primary continuation token should be produced.
+            Assert.Null(results.ContinuationToken);
 
             // The in-compartment primary match should still be returned.
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Coverage" && x.Resource.ResourceId == "smart-leak-coverage");
@@ -559,6 +568,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // smart-leak-child-obs-with-outside-focus is in Patient A's compartment (subject = Child)
             // but its focus points to Patient B (smart-leak-parent), who is OUTSIDE the compartment.
             // Following _include=Observation:focus must NOT disclose Patient B.
+            //
+            // This is DISTINCT from the Coverage:subscriber leak test
+            // (GivenPatientScopeReadAll_WhenIncludeReferencesResourceOutsideCompartment...): there the
+            // out-of-compartment target is reached through Coverage:subscriber, a parameter the Patient
+            // CompartmentDefinition DOES nominate as Coverage membership, so the leak is about not letting a
+            // formal membership parameter expand the compartment across its boundary. Here the reference is
+            // Observation.focus, which is NOT nominated as Observation membership by the Patient
+            // CompartmentDefinition, so this guards that an arbitrary Patient-targeting reference cannot confer
+            // membership or leak its target. Both scenarios are required and must be kept.
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_id", "smart-leak-child-obs-with-outside-focus"));
             query.Add(new Tuple<string, string>("_include", "Observation:focus"));
@@ -616,6 +634,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // The focus-based leak Observations must NOT appear: their subjects are NOT smart-patient-A.
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceId == "smart-leak-focus-obs");
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceId == "smart-leak-child-obs-with-outside-focus");
+
+            // Exact size proves nothing extra leaks in: the Patient plus exactly one Encounter, one Condition
+            // and one ImagingStudy (the only smart-patient-A subject members of those types in the fixture).
+            Assert.Equal(4, results.Results.Count());
         }
 
         [SkippableFact]
@@ -651,9 +673,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Observations with subject = Patient A (child) are in-compartment.
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-child-obs");
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-child-obs-with-outside-focus");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-child-obs-outside-device");
 
             // The Observation whose subject is Patient B must NOT appear (out-of-compartment).
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-focus-obs");
+
+            // Exact size proves nothing extra leaks in: the Patient, its one Procedure, and exactly the three
+            // Observations whose subject is smart-leak-child (child-obs, child-obs-with-outside-focus and
+            // child-obs-outside-device). No out-of-compartment resource is present.
+            Assert.Equal(5, results.Results.Count());
         }
 
         [SkippableFact]
@@ -702,6 +730,94 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(includedResources, result => result.Resource.ResourceId == "smart-practitioner-A");
             Assert.Contains(includedResources, result => result.Resource.ResourceId == "smart-leak-parent");
             Assert.DoesNotContain(includedResources, result => result.Resource.ResourceId == "smart-leak-child");
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesContinuationTokenFromOneCompartment_WhenConsumedUnderDifferentCompartment_ThenAuthorizationIsReapplied()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // An includes continuation token encodes only a scan position (the matched surrogate-id window and
+            // the last included surrogate id) — never any authorization. Compartment authorization is derived
+            // from the CURRENT request context every time the token is consumed. This test mints a token under
+            // Patient B (smart-leak-parent) and replays that SAME token under Patient A (smart-leak-child) to
+            // prove authorization is reapplied for whichever compartment consumes it, not baked into the token.
+            //
+            // Determinism: _include=Observation:device targets two Devices of the SAME resource type, so the
+            // include order depends on surrogate id alone — independent of the per-deployment ResourceTypeId
+            // order. smart-leak-parent-device-early is seeded immediately before smart-leak-parent-device, so
+            // with _includesCount=1 the early Device is ALWAYS page one under Patient B and
+            // smart-leak-parent-device is ALWAYS on the continuation page. This guarantees the unauthorized
+            // target is reached via a continuation token (never the base page). Both Devices are assigned to
+            // Patient B, so both are authorized under Patient B; smart-leak-parent-device is genuinely reachable
+            // under Patient A because the in-window smart-leak-child-obs-with-outside-focus (subject = Child)
+            // also references it — yet it is out of Patient A's compartment and must be excluded there.
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_tag", "testTag|smart-leak"));
+            query.Add(new Tuple<string, string>("_include", "Observation:device"));
+            query.Add(new Tuple<string, string>("_includesCount", "1"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-parent";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Page one under Patient B is deterministically the lower-surrogate early Device (authorized under
+            // Patient B), and smart-leak-parent-device is deferred to the continuation page.
+            var firstPage = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            var firstPageIncludes = firstPage.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            Assert.Contains(firstPageIncludes, result => result.Resource.ResourceId == "smart-leak-parent-device-early");
+            Assert.DoesNotContain(firstPageIncludes, result => result.Resource.ResourceId == "smart-leak-parent-device");
+            Assert.NotNull(firstPage.IncludesContinuationToken);
+
+            var continuationQuery = new List<Tuple<string, string>>(query)
+            {
+                new Tuple<string, string>(
+                    KnownQueryParameterNames.IncludesContinuationToken,
+                    ContinuationTokenEncoder.Encode(firstPage.IncludesContinuationToken)),
+            };
+
+            // Consume the continuation token under its minting context (Patient B): smart-leak-parent-device is
+            // the next authorized Device, so it is legitimately disclosed here. This proves the token
+            // deterministically reaches the parent-assigned Device — the resource the cross-context read below
+            // must NOT disclose — and guards against a vacuous cross-context assertion.
+            var sameContextPage = await _searchService.Value.SearchAsync(
+                "Observation",
+                continuationQuery,
+                CancellationToken.None,
+                isIncludesOperation: true);
+            var sameContextIncludes = sameContextPage.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            Assert.Contains(sameContextIncludes, result => result.Resource.ResourceId == "smart-leak-parent-device");
+
+            // Replay the IDENTICAL continuation token under a DIFFERENT compartment context (Patient A,
+            // smart-leak-child). smart-leak-parent-device remains a reachable include candidate in the reused
+            // match window via smart-leak-child-obs-with-outside-focus (subject = Child, device = parent Device),
+            // but compartment authorization is re-derived for Patient A and must exclude it.
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var crossContextPage = await _searchService.Value.SearchAsync(
+                "Observation",
+                continuationQuery,
+                CancellationToken.None,
+                isIncludesOperation: true);
+            var crossContextIncludes = crossContextPage.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+
+            // The parent-assigned Device, authorized only under the token's minting context, must NOT leak into
+            // Patient A's context. Every included resource returned must be authorized to Patient A.
+            Assert.DoesNotContain(crossContextIncludes, result => result.Resource.ResourceId == "smart-leak-parent-device");
+            Assert.All(crossContextIncludes, result => Assert.NotEqual("smart-leak-parent-device", result.Resource.ResourceId));
         }
 
         [SkippableFact]
