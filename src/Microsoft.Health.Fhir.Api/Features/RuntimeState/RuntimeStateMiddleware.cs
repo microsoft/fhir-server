@@ -14,7 +14,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Registration;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
@@ -24,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
     /// </summary>
     public sealed class RuntimeStateMiddleware
     {
-        private static readonly Memory<byte> _deprecatedServiceResponse = Encoding.UTF8.GetBytes(GetDefaultOperationOutcome()).AsMemory();
+        private static readonly Memory<byte> _deprecatedServiceResponse = GetDefaultOperationOutcomeAsBytes();
 
         private readonly RequestDelegate _next;
         private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
@@ -168,41 +167,38 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 !string.IsNullOrWhiteSpace(segments[2]);
         }
 
-        private static string GetDefaultOperationOutcome()
+        private static Memory<byte> GetDefaultOperationOutcomeAsBytes()
         {
-            const string deprecatedServiceIssueCode = "service-deprecated";
-
             // TODO: 204984 - Update operation outcome with final customer communication.
-            OperationOutcome operationOutcome = new OperationOutcome()
+            var body = new
             {
-                Issue = new System.Collections.Generic.List<OperationOutcome.IssueComponent>()
+                resourceType = nameof(OperationOutcome),
+                issue = new[]
                 {
-                    new OperationOutcome.IssueComponent()
+                    new
                     {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.BusinessRule,
-                        Details = new CodeableConcept()
+                        severity = "error",
+                        code = "business-rule",
+                        details = new
                         {
-                            Coding = new System.Collections.Generic.List<Coding>()
+                            coding = new[]
                             {
-                                new Coding()
+                                new
                                 {
-                                    System = "https://azurehealthcareapis.com/fhir/operation-outcome-code",
-                                    Code = deprecatedServiceIssueCode,
-                                    Display = "FHIR service deprecated",
+                                    system = "https://azurehealthcareapis.com/fhir/operation-outcome-code",
+                                    code = "service-deprecated",
+                                    display = "FHIR service deprecated",
                                 },
                             },
-                            Text = "This FHIR service has been deprecated.",
+                            text = "This FHIR service has been deprecated.",
                         },
-                        Diagnostics = "This FHIR service is deprecated no longer accepts normal workloads.",
+                        diagnostics = "This FHIR service is deprecated no longer accepts normal workloads.",
                     },
                 },
             };
 
-            JObject operationOutcomeAsJObject = JObject.FromObject(operationOutcome);
-            operationOutcomeAsJObject.AddFirst(new JProperty("resourceType", "OperationOutcome"));
-
-            return operationOutcomeAsJObject.ToString();
+            string operationOutcomeAsString = JObject.FromObject(body).ToString();
+            return Encoding.UTF8.GetBytes(operationOutcomeAsString).AsMemory();
         }
     }
 }

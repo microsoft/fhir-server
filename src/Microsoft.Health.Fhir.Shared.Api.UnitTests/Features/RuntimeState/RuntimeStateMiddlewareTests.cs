@@ -101,9 +101,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             JsonElement issue = outcome.RootElement.GetProperty("issue")[0];
 
             Assert.Equal("OperationOutcome", outcome.RootElement.GetProperty("resourceType").GetString());
-            Assert.Equal("business-rule", issue.GetProperty("code").GetProperty("value").GetString());
-            Assert.Equal("service-deprecated", issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetProperty("value").GetString());
-            Assert.Contains("This FHIR service is deprecated no longer accepts normal workloads.", issue.GetProperty("diagnostics").GetProperty("value").GetString());
+            Assert.Equal("error", issue.GetProperty("severity").GetString());
+            Assert.Equal("business-rule", issue.GetProperty("code").GetString());
+            Assert.Equal("service-deprecated", issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetString());
+            Assert.Contains("This FHIR service is deprecated no longer accepts normal workloads.", issue.GetProperty("diagnostics").GetString());
 
             Assert.DoesNotContain("patient-id", issue.GetRawText());
             Assert.DoesNotContain("Smith", issue.GetRawText());
