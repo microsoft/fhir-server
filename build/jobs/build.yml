@@ -36,8 +36,8 @@ steps:
       command: test
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      # Disable the task's built-in result publishing so the PublishTestResults@2 task below,
+      # which controls the glob and how failures are treated, is the sole publisher.
       publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/unit-test-results'
@@ -48,9 +48,16 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/unit-test-results/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The runner's exit code is the retry-aware verdict -- 0 once an attempt passes,
+      # non-zero when they are exhausted -- and the step that runs the tests already fails on
+      # it, so the attempts are published for visibility only.
+      failTaskOnFailedTests: false
       # A missing TRX means the run reported nothing; without this the publish step
-      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      # succeeds silently and there is nothing to notice.
       failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
 
@@ -61,8 +68,8 @@ steps:
       command: test
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      # Disable the task's built-in result publishing so the PublishTestResults@2 task below,
+      # which controls the glob and how failures are treated, is the sole publisher.
       publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
@@ -73,9 +80,16 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The runner's exit code is the retry-aware verdict -- 0 once an attempt passes,
+      # non-zero when they are exhausted -- and the step that runs the tests already fails on
+      # it, so the attempts are published for visibility only.
+      failTaskOnFailedTests: false
       # A missing TRX means the run reported nothing; without this the publish step
-      # succeeds silently and failTaskOnFailedTests has no results to act on.
+      # succeeds silently and there is nothing to notice.
       failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
   - task: reportgenerator@5

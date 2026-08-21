@@ -156,7 +156,10 @@ namespace Microsoft.Health.Extensions.Xunit
                             currentAttemptObservedFailure: interceptingBus.HasDeferredFailure,
                             earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
 
-                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed result rather than a pass.");
+                        Console.WriteLine(
+                            outcome == NoResultOutcome.ReportNothing
+                                ? $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted), and no earlier attempt observed a failure, so there is nothing to report for it."
+                                : $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed failure rather than a pass.");
 
                         // At most one bus is replayed. A failure this attempt saw supersedes anything held
                         // over from an earlier one, and replaying both would publish two results for a
@@ -202,6 +205,12 @@ namespace Microsoft.Health.Extensions.Xunit
                             new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' passed on attempt {attempt}/{_maxRetries}"));
 
                         runSummary.Failed = 0;
+
+                        // A test that was skipped or left unrun did not pass, and the counts saying so
+                        // live on the attempt's summary. Returning only Total and Failed would report
+                        // it to anything reading this summary as a test that ran and passed.
+                        runSummary.Skipped = summary.Skipped;
+                        runSummary.NotRun = summary.NotRun;
                         return runSummary;
                     }
 
@@ -509,9 +518,12 @@ namespace Microsoft.Health.Extensions.Xunit
                         ? string.Join(Environment.NewLine, failed.StackTraces)
                         : null;
 
-                    // Detect if this is an assertion failure by checking exception types.
-                    // Every xUnit assertion exception lives under the Xunit.Sdk namespace, so the
-                    // namespace check already covers the individual assertion exception types.
+                    // Classify the failure as an assertion failure so RetryOnAssertionFailure can decide
+                    // whether it is worth another attempt. This is a substring match, not a namespace
+                    // check: xUnit's own assertion exceptions live under Xunit.Sdk, but assertion
+                    // libraries used alongside it do not, and matching "Assert" anywhere in the type
+                    // name catches those too. The trade is that an unrelated type whose name happens to
+                    // contain either word is classified the same way, which only costs an attempt.
                     IsAssertionFailure = failed.ExceptionTypes != null &&
                         failed.ExceptionTypes.Length > 0 &&
                         (failed.ExceptionTypes[0].Contains("Xunit", StringComparison.Ordinal) ||

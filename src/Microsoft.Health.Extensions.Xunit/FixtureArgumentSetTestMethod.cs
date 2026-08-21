@@ -87,16 +87,6 @@ namespace Microsoft.Health.Extensions.Xunit
             return result;
         }
 
-        private void UpdateMethodArguments(object[] methodArguments)
-        {
-            if (_fixtureArguments.Count == 0)
-            {
-                return;
-            }
-
-            TestMethodArgumentsField.SetValue(this, methodArguments);
-        }
-
         internal void UpdateArgumentsFromMethod()
         {
             if (_fixtureArguments.Count == 0)

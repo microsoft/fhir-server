@@ -36,5 +36,28 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     [Prefix + "FlakyRow(row: 3, recovers: True)"] = "Passed",
                 });
         }
+
+        /// <summary>
+        /// A theory whose data is resolved at run time rather than at discovery cannot be wrapped for
+        /// retry, because the wrapper would supply the arguments it was built with -- none -- and every
+        /// row would be lost to an arity error instead of running. The discoverer leaves such a case
+        /// alone, so the rows still run, each with its own arguments, and simply do not retry: all
+        /// three fail here because each one fails its first attempt. Names carrying the argument values
+        /// are what separates "ran without retrying" from "lost its data".
+        /// </summary>
+        [Fact]
+        public void GivenARetryingTheoryResolvedAtRunTime_WhenTheRunCompletes_ThenEveryRowStillRunsWithItsArguments()
+        {
+            TestAssetRun run = TestAssetRunner.Run("RetryTheoryOutcomes", preEnumerateTheories: false);
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [Prefix + "FlakyRow(row: 1, recovers: True)"] = "Failed",
+                    [Prefix + "FlakyRow(row: 2, recovers: False)"] = "Failed",
+                    [Prefix + "FlakyRow(row: 3, recovers: True)"] = "Failed",
+                });
+        }
     }
 }

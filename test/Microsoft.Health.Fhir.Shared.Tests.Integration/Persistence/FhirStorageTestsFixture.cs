@@ -94,8 +94,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _fixture = fixture;
 
-            // This step has to be done in the constructor because it uses an AsyncLocal and the tests run with the same
-            // execution context as the fixture constructor, but not the same as InitializeAsync().
+            // ResourceIdProvider holds its factory in an ordinary field, so where it is built does
+            // not affect what the tests see. The comment that used to be here claimed it had to be
+            // built in the constructor to keep an AsyncLocal alive; that flow no longer exists under
+            // xunit.v3 (see FixtureArgumentSetClassRunner) and this type never depended on it.
             _resourceIdProvider = new ResourceIdProvider();
 
             _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
@@ -212,8 +214,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await asyncLifetime.InitializeAsync();
             }
 
-            // Initialize FhirRequestContext to ensure pending status updates are captured
-            // This needs to be here (like ResourceIdProvider) because it uses AsyncLocal
+            // Initialize FhirRequestContext to ensure pending status updates are captured.
+            // FhirRequestContextAccessor stores the context in an AsyncLocal, so this assignment is
+            // only visible to callers that share this execution context; tests that need a request
+            // context of their own set it themselves.
             FhirRequestContextAccessor.RequestContext = new DefaultFhirRequestContext
             {
                 BaseUri = new Uri("http://localhost/"),

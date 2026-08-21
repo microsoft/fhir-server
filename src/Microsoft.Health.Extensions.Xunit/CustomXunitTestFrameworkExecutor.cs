@@ -53,6 +53,20 @@ namespace Microsoft.Health.Extensions.Xunit
             }
         }
 
+        /// <summary>
+        /// Runs a test class, injecting the fixture argument set values its variant was expanded with.
+        /// </summary>
+        /// <remarks>
+        /// Under xunit.v2 this runner also ran test methods in the execution context captured right
+        /// after each class fixture was constructed, so an <see cref="AsyncLocal{T}"/> written by a
+        /// fixture constructor could be read by the tests. That is not reproducible on xunit.v3:
+        /// v2 built fixtures in a synchronous <c>CreateClassFixture</c> override, while v3 builds
+        /// them inside <c>FixtureMappingManager.GetFixture</c>, an async method whose state machine
+        /// restores the caller's execution context as it returns. Any such write is therefore
+        /// already discarded before this runner regains control, and no capture point outside that
+        /// method can see it. Fixtures that need to share ambient state with their tests have to
+        /// expose it as a member instead of relying on the execution context.
+        /// </remarks>
         private sealed class FixtureArgumentSetClassRunner : XunitTestClassRunner
         {
             private static readonly FieldInfo FixtureCacheField = typeof(FixtureMappingManager)
@@ -61,33 +75,10 @@ namespace Microsoft.Health.Extensions.Xunit
             private static readonly FieldInfo ParentMappingManagerField = typeof(FixtureMappingManager)
                 .GetField("parentMappingManager", BindingFlags.Instance | BindingFlags.NonPublic);
 
-            private ExecutionContext _executionContext;
-
             protected override async ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
             {
                 InjectFixtureArguments(context);
-                var result = await base.OnTestClassStarting(context);
-                _executionContext = ExecutionContext.Capture();
-                return result;
-            }
-
-            protected override async ValueTask<bool> OnTestClassFinished(XunitTestClassRunnerContext context, RunSummary summary)
-            {
-                _executionContext?.Dispose();
-                _executionContext = null;
-                return await base.OnTestClassFinished(context, summary);
-            }
-
-            protected override ValueTask<RunSummary> RunTestMethod(XunitTestClassRunnerContext context, IXunitTestMethod testMethod, IReadOnlyCollection<IXunitTestCase> testCases, object[] constructorArguments)
-            {
-                if (_executionContext == null)
-                {
-                    return base.RunTestMethod(context, testMethod, testCases, constructorArguments);
-                }
-
-                ValueTask<RunSummary> summary = default;
-                ExecutionContext.Run(_executionContext, _ => summary = base.RunTestMethod(context, testMethod, testCases, constructorArguments), null);
-                return summary;
+                return await base.OnTestClassStarting(context);
             }
 
             protected override ValueTask<object> GetConstructorArgument(XunitTestClassRunnerContext context, ConstructorInfo constructor, int index, ParameterInfo parameter)

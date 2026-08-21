@@ -41,8 +41,13 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// Whether to cancel the run as soon as a test fails. Scenarios that exercise cancellation
         /// rely on this to cancel the run from inside it.
         /// </param>
+        /// <param name="preEnumerateTheories">
+        /// Whether the runner may resolve theory data at discovery time. Turning this off is the
+        /// supported way to reach the delay-enumerated code path, which a theory also reaches on
+        /// its own when its data cannot be serialized.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true)
         {
             string assetsAssembly = ResolveAssetsAssembly();
             string resultsDirectory = Path.Combine(Path.GetTempPath(), "xunit-ext-assets", Guid.NewGuid().ToString("N"));
@@ -75,6 +80,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     arguments.Add("--stop-on-fail");
                     arguments.Add("on");
+                }
+
+                if (!preEnumerateTheories)
+                {
+                    arguments.Add("--pre-enumerate-theories");
+                    arguments.Add("off");
                 }
 
                 (int exitCode, string output, TimeSpan duration) = Execute(arguments);
@@ -249,8 +260,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             // guard would keep passing while checking nothing.
             XAttribute errorAttribute = document
                 .Descendants(trx + "Counters")
-                .Select(e => e.Attribute("error"))
-                .FirstOrDefault(a => a != null);
+                .Attributes("error")
+                .FirstOrDefault();
 
             if (errorAttribute == null)
             {

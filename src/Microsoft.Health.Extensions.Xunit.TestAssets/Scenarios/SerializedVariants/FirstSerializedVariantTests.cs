@@ -9,9 +9,9 @@ using Xunit;
 namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.SerializedVariants
 {
     /// <summary>
-    /// One of two classes placed in the same name-only collection, each expanded into one variant
-    /// per data store. A name-only <c>[Collection]</c> has no <c>[CollectionDefinition]</c> class
-    /// behind it, which is the case the fixture argument set machinery has to detect by other means.
+    /// One of two classes placed in the same collection, each expanded into one variant per data
+    /// store. The collection is declared by name only, without a <c>[CollectionDefinition]</c>
+    /// class behind it, which xUnit accepts and treats like any other collection.
     /// </summary>
     /// <remarks>
     /// Classes are put in a collection to stop them running at the same time, usually because they

@@ -35,6 +35,53 @@ namespace Microsoft.Health.Extensions.Xunit
             EnsureArg.IsNotNull(callback, nameof(callback));
             EnsureArg.IsNotNull(discoveryOptions, nameof(discoveryOptions));
 
+            try
+            {
+                return await FindTestsForTypeCore(testClass, discoveryOptions, callback);
+            }
+            catch (Exception ex)
+            {
+                // An exception thrown out of discovery is reported by xunit.v3 only as an internal
+                // diagnostic message, which is suppressed unless the run was started with
+                // --xunit-internal-diagnostics on. The class is dropped and the run still reports
+                // success, so a broken expansion would look exactly like a class that has no tests.
+                // Reporting a test case that fails on execution instead puts the fault in the results
+                // and in the exit code, where it cannot be missed.
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] ERROR: discovery of '{testClass.TestClassName}' failed, so its tests were replaced by a single failing test case. {ex}");
+
+                MethodInfo firstMethod = testClass.Methods.FirstOrDefault();
+                if (firstMethod == null)
+                {
+                    // Nothing to hang a test case off. Rethrowing keeps the original xunit behaviour,
+                    // which is all that is left, and the console line above is the only warning.
+                    throw;
+                }
+
+                var errorTestMethod = new XunitTestMethod(
+                    testClass,
+                    firstMethod,
+                    Array.Empty<object>(),
+                    uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, firstMethod.Name));
+
+                // The test case is handed to xunit through the callback, which owns it from then on
+                // and disposes it with the rest of the discovered cases.
+#pragma warning disable CA2000
+                var errorTestCase = new ExecutionErrorTestCase(
+                    errorTestMethod,
+                    $"{testClass.TestClassName} (fixture argument set discovery)",
+                    $"{testClass.UniqueID}-fixture-argument-set-discovery-error",
+                    sourceFilePath: null,
+                    sourceLineNumber: null,
+                    errorMessage: $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran. {ex}");
+#pragma warning restore CA2000
+
+                return await callback(errorTestCase);
+            }
+        }
+
+        private async ValueTask<bool> FindTestsForTypeCore(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, Func<ITestCase, ValueTask<bool>> callback)
+        {
             var attribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
             var methodAttributes = testClass.Methods.ToDictionary(
                 method => method,
@@ -221,11 +268,13 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </summary>
         /// <param name="variantKey">The key returned by <see cref="BuildVariantKey"/>.</param>
         /// <param name="testClass">The test class the variant was derived from.</param>
-        /// <returns>A stable key for the variant class, also used to seed its unique ID.</returns>
+        /// <returns>A stable key for the variant class.</returns>
         /// <remarks>
         /// The variants of a class share a collection and a class name, so the class name alone no
-        /// longer separates them. Seeding the unique ID from this key instead keeps every variant
-        /// distinct to the runner and to the reporters.
+        /// longer separates them and this key is what the variant class cache is keyed on. It is
+        /// also passed as the seed for the class's unique ID, but only reaches it for a variant that
+        /// carries no arguments: <see cref="FixtureArgumentSetTestClass"/> recomputes the unique ID
+        /// from its own argument values whenever it has any, which is the usual case.
         /// </remarks>
         private static string BuildVariantClassKey(string variantKey, Type testClass)
         {

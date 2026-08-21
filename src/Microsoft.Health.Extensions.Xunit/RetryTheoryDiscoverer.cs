@@ -50,6 +50,21 @@ namespace Microsoft.Health.Extensions.Xunit
 
         private static IXunitTestCase WrapTestCase(IXunitTestCase testCase, RetryTheoryAttribute attribute)
         {
+            if (testCase is IXunitDelayEnumeratedTestCase)
+            {
+                // A delay-enumerated case has not resolved its data rows yet, and it resolves them
+                // itself at run time. RetryTestCase cannot stand in for that: it would run the
+                // method with the arguments it was constructed with -- none -- and every row of the
+                // theory would be lost with an arity error rather than run. Returning the case
+                // unwrapped costs the retries but keeps the tests, which is the better trade.
+                // Theories reach this path when their data cannot be pre-enumerated, or when
+                // pre-enumeration is turned off.
+                Console.WriteLine(
+                    $"[RetryTheory] WARNING: Test case '{testCase.TestCaseDisplayName}' resolves its data at run time, so retry logic will NOT be applied to it. " +
+                    "Use pre-enumerable theory data (for example [InlineData], or [MemberData] whose values are serializable) if the rows need to be retried.");
+                return testCase;
+            }
+
             if (testCase is not XunitTestCase xunitTestCase)
             {
                 // Trace output only reaches an attached debugger, so a Trace-only warning here
