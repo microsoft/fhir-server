@@ -2121,5 +2121,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Assert - CheckCacheConsistencyAsync should have been called twice (Start and End) with the configured multiplier
             await _searchParameterStatusManager.Received(2).CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task GivenMissingResourcesForSomeNonSystemParams_WhenCheckingCacheResources_ThenReturnsMissingNonSystemUrls()
+        {
+            var systemParam = CreateSearchParameterInfo(url: "http://hl7.org/fhir/SearchParameter/Patient-name");
+            systemParam.IsSystemDefined = true;
+
+            var nonSystemA = CreateSearchParameterInfo(url: "http://example.org/fhir/SearchParameter/custom-a");
+            nonSystemA.IsSystemDefined = false;
+
+            var nonSystemB = CreateSearchParameterInfo(url: "http://example.org/fhir/SearchParameter/custom-b");
+            nonSystemB.IsSystemDefined = false;
+
+            _searchDefinitionManager.GetSearchParameters("Patient")
+                .Returns(new[] { systemParam, nonSystemA, nonSystemB });
+
+            var activeResources = new Dictionary<string, ITypedElement>(StringComparer.Ordinal)
+            {
+                [nonSystemA.Url.OriginalString] = Substitute.For<ITypedElement>(),
+            };
+
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(activeResources);
+
+            var missing = await ReindexOrchestratorJob.GetCustomSearchParamsWithoutResourcesAsync(
+                "Patient",
+                _searchParameterOperations,
+                _searchDefinitionManager,
+                CancellationToken.None);
+
+            Assert.Single(missing);
+            Assert.Contains(missing, p => p.Url == nonSystemB.Url);
+        }
+
+        [Fact]
+        public async Task GivenNoNonSystemParamsInCache_WhenCheckingCacheResources_ThenReturnsEmptyList()
+        {
+            var systemParam = CreateSearchParameterInfo(url: "http://hl7.org/fhir/SearchParameter/Patient-name");
+            systemParam.IsSystemDefined = true;
+
+            _searchDefinitionManager.GetSearchParameters("Patient")
+                .Returns(new[] { systemParam });
+
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, ITypedElement>());
+
+            var missing = await ReindexOrchestratorJob.GetCustomSearchParamsWithoutResourcesAsync(
+                "Patient",
+                _searchParameterOperations,
+                _searchDefinitionManager,
+                CancellationToken.None);
+
+            Assert.Empty(missing);
+        }
     }
 }

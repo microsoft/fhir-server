@@ -264,6 +264,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return toMarkDeleted;
         }
 
+        internal static async Task<List<SearchParameterInfo>> GetCustomSearchParamsWithoutResourcesAsync(
+            string resourceType,
+            ISearchParameterOperations searchParamOperations,
+            ISearchParameterDefinitionManager searchParamDefinitionManager,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+            EnsureArg.IsNotNull(searchParamOperations, nameof(searchParamOperations));
+            EnsureArg.IsNotNull(searchParamDefinitionManager, nameof(searchParamDefinitionManager));
+
+            var customSearchParams = searchParamDefinitionManager.GetSearchParameters(resourceType).Where(p => !p.IsSystemDefined).ToList();
+            var customSearchParamUrls = customSearchParams.Select(p => p.Url.OriginalString).ToList();
+
+            var activeSearchParamResources = await searchParamOperations.GetSearchParametersByUrlsAsync(customSearchParamUrls, cancellationToken);
+
+            var customSearchParamsWithoutResources = customSearchParams.Where(p => !activeSearchParamResources.ContainsKey(p.Url.OriginalString)).ToList();
+
+            return customSearchParamsWithoutResources;
+        }
+
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync()
         {
             // Build queries based on new search params
