@@ -14,9 +14,9 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault
     /// <remarks>
     /// The class declares one dimension and the method below declares two, the second of which
     /// names no flag. A dimension that names no flag means "use the class-level dimension in this
-    /// position", and the class has no second position, so the expansion reads past the end of the
-    /// class-level dimensions. The misconfiguration itself is not the point: it is simply the
-    /// cheapest way to make discovery of a real class throw, which is what this scenario is for.
+    /// position", and the class has no second position, so the expansion has nothing to inherit and
+    /// refuses. The misconfiguration itself is not the point: it is simply the cheapest way to make
+    /// discovery of a real class throw, which is what this scenario is for.
     /// </remarks>
     [AssetArgumentSets(AssetDataStore.Sql | AssetDataStore.Cosmos)]
     public class DiscoveryFaultTests : IClassFixture<AssetFixture>

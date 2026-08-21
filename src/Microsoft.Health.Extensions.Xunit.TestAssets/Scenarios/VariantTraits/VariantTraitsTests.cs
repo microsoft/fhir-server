@@ -51,6 +51,23 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.VariantTraits
         }
 
         /// <summary>
+        /// A theory with no data rows is the other way to reach xunit's error case, and it reaches it
+        /// from a different discoverer than the malformed fact above. Both are declared because a fix
+        /// that covered only one would leave the other invisible to a filtering leg.
+        /// </summary>
+        /// <param name="value">Never supplied: no data row is declared.</param>
+        [Trait("Category", "ExportLongRunning")]
+#pragma warning disable xUnit1003 // Theory methods must have test data
+#pragma warning disable xUnit1026 // Theory method does not use parameter
+        [Theory]
+        public void MalformedTheoryIsStillReportedToAFilteringLeg(int value)
+#pragma warning restore xUnit1026
+#pragma warning restore xUnit1003
+        {
+            throw new InvalidOperationException("This method can never run: xunit reports it as an error instead.");
+        }
+
+        /// <summary>
         /// Carries a trait of its own alongside the injected one, in the shape the export and E2E legs
         /// select by - a data store and a category together. A variant that kept only the injected
         /// trait would drop this one and vanish from those legs.

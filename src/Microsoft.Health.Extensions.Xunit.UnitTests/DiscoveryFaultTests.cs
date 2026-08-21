@@ -53,7 +53,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             TestAssetRun run = TestAssetRunner.Run("DiscoveryFault");
 
             Assert.Contains("[FixtureArgumentSets] ERROR", run.Output, StringComparison.Ordinal);
-            Assert.Contains("IndexOutOfRangeException", run.Output, StringComparison.Ordinal);
+            Assert.Contains("fixture argument set dimensions where its class declares", run.Output, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             {
                 string reported = ExtractReportedFailure(run.Output, caseName);
 
-                Assert.Contains("IndexOutOfRangeException", reported, StringComparison.Ordinal);
+                Assert.Contains("fixture argument set dimensions where its class declares", reported, StringComparison.Ordinal);
                 Assert.DoesNotContain("had multiple values", reported, StringComparison.Ordinal);
             }
         }

@@ -35,7 +35,9 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [ScenarioClass + ".MalformedFactIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
+                    [ScenarioClass + ".MalformedTheoryIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
                     [ScenarioClass + ".MalformedFactIsStillReportedToAFilteringLeg (Cosmos)"] = "Failed",
+                    [ScenarioClass + ".MalformedTheoryIsStillReportedToAFilteringLeg (Cosmos)"] = "Failed",
                     [ScenarioClass + ".HealthyTestKeepsBothItsOwnTraitAndTheInjectedOne (Sql)"] = "Passed",
                     [ScenarioClass + ".HealthyTestKeepsBothItsOwnTraitAndTheInjectedOne (Cosmos)"] = "Passed",
                 });
@@ -58,6 +60,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [ScenarioClass + ".MalformedFactIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
+                    [ScenarioClass + ".MalformedTheoryIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
                     [ScenarioClass + ".HealthyTestKeepsBothItsOwnTraitAndTheInjectedOne (Sql)"] = "Passed",
                 });
 
@@ -80,6 +83,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [ScenarioClass + ".MalformedFactIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
+                    [ScenarioClass + ".MalformedTheoryIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
                     [ScenarioClass + ".HealthyTestKeepsBothItsOwnTraitAndTheInjectedOne (Sql)"] = "Passed",
                 });
 

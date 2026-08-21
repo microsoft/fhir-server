@@ -773,12 +773,23 @@ namespace Microsoft.Health.Extensions.Xunit
                     else
                     {
                         // Take the class-level set: this position is either one the method left empty
-                        // or one it says nothing about at all. Reading past the end of the class's
-                        // dimensions throws, which happens for a method that declares more dimensions
-                        // than its class and leaves the extra one empty - it is asking to inherit a
-                        // dimension that does not exist. That throw is caught by the per-method
-                        // handler in FindTestsForTypeCore and reported as a failing test case
-                        // standing in for this method, rather than losing the method quietly.
+                        // or one it says nothing about at all. A method that declares more dimensions
+                        // than its class and leaves the extra one empty is asking to inherit a
+                        // dimension that does not exist, so there is nothing to take. Reading past the
+                        // end would throw too, but with a message naming an array index rather than the
+                        // attribute that is wrong, and this exception is what the developer is shown as
+                        // the body of the failing test standing in for the method.
+                        if (i >= classLevelOpenParameterSets.Length)
+                        {
+                            throw new InvalidOperationException(
+                                $"'{testClass.TestClassName}.{method.Name}' declares {methodLevelOpenParameterSets.Length} fixture argument set dimensions where its class declares {classLevelOpenParameterSets.Length}, and names no value in dimension {i}. " +
+                                "A dimension naming no value inherits the class-level one in that position, and the class has no dimension there. " +
+                                "Either name the values that dimension should take, or drop it so the method declares no more dimensions than its class.");
+                        }
+
+                        // That throw is caught by the per-method handler in FindTestsForTypeCore and
+                        // reported as a failing test case standing in for this method, rather than
+                        // losing the method quietly.
                         mergedOpenParameterSets[i] = classLevelOpenParameterSets[i];
                     }
                 }
