@@ -18,9 +18,10 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
         /// <summary>
         /// Covers the outcome matrix: a non-retriable failure, an exhausted retry, a flaky test
-        /// that eventually passes, a non-assertion exception, a plain pass, and a clamped
-        /// configuration. Every one of these must appear exactly once, and the failures must not
-        /// be swallowed by the retry bookkeeping.
+        /// that eventually passes, a non-assertion exception, a plain pass, a run-time skip, and a
+        /// clamped configuration. Every one of these must appear exactly once, and the failures must
+        /// not be swallowed by the retry bookkeeping. The skip pins that a test which excuses itself
+        /// is neither retried nor turned into a pass.
         /// </summary>
         [Fact]
         public void GivenRetryingTests_WhenTheRunCompletes_ThenEachTestIsReportedExactlyOnce()
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     [Prefix + "NonAssertionException_IsReportedFailedOnce"] = "Failed",
                     [Prefix + "FlakyThenPasses_IsReportedPassedOnce"] = "Passed",
                     [Prefix + "AlwaysPasses_IsReportedPassed"] = "Passed",
+                    [Prefix + "SkippedAtRunTime_IsReportedSkipped"] = "NotExecuted",
                     [Prefix + "ClampedRetryConfiguration_RunsExactlyOnce"] = "Passed",
                 });
         }

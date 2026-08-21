@@ -39,6 +39,12 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 return await FindTestsForTypeCore(testClass, discoveryOptions, callback);
             }
+            catch (OperationCanceledException)
+            {
+                // A cancelled run is not a discovery fault. Reporting it as a failing test case would
+                // turn pressing Ctrl+C, or a runner-imposed timeout, into a test failure.
+                throw;
+            }
             catch (Exception ex)
             {
                 // An exception thrown out of discovery is reported by xunit.v3 only as an internal
@@ -50,6 +56,16 @@ namespace Microsoft.Health.Extensions.Xunit
                 Console.WriteLine(
                     $"[FixtureArgumentSets] ERROR: discovery of '{testClass.TestClassName}' failed, so its tests were replaced by a single failing test case. {ex}");
 
+                // The console line above is the authoritative record of the fault. The test case below
+                // puts the failure in the results and in the exit code, but it cannot be relied on to
+                // carry the cause: a case travels through the ordinary class runner, which builds the
+                // class's fixtures first, and a class using fixture argument sets has by definition a
+                // fixture taking an argument the failed expansion never produced. That fixture failure
+                // is aggregated ahead of this message and is what the report ends up showing. Both
+                // ways out of that were tried and are worse - anchoring the case to a class of its own
+                // takes it out of the namespace and class filters that would have selected the tests
+                // it replaces, and discarding the aggregated failure discards this message with it,
+                // leaving the fault unreported again.
                 MethodInfo firstMethod = testClass.Methods.FirstOrDefault();
                 if (firstMethod == null)
                 {
@@ -58,6 +74,14 @@ namespace Microsoft.Health.Extensions.Xunit
                     throw;
                 }
 
+                // The case stays on the class that failed, rather than on a class of its own, so that
+                // it is still selected by whatever namespace or class filter would have selected the
+                // tests it replaces. FixtureArgumentSetClassRunner keeps the class's fixtures from
+                // pre-empting the message it carries.
+                // The case stays on the class that failed, rather than on a class of its own, so that
+                // it is still selected by whatever namespace or class filter would have selected the
+                // tests it replaces. It is given the argument set traits for the same reason, since a
+                // leg selecting by those would otherwise pass with the class silently missing.
                 var errorTestMethod = new XunitTestMethod(
                     testClass,
                     firstMethod,
@@ -67,17 +91,74 @@ namespace Microsoft.Health.Extensions.Xunit
                 // The test case is handed to xunit through the callback, which owns it from then on
                 // and disposes it with the rest of the discovered cases.
 #pragma warning disable CA2000
-                var errorTestCase = new ExecutionErrorTestCase(
+                var errorTestCase = new DiscoveryErrorTestCase(
                     errorTestMethod,
                     $"{testClass.TestClassName} (fixture argument set discovery)",
                     $"{testClass.UniqueID}-fixture-argument-set-discovery-error",
-                    sourceFilePath: null,
-                    sourceLineNumber: null,
-                    errorMessage: $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran. {ex}");
+                    errorMessage: $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran. {ex}",
+                    traits: BuildFaultTraits(testClass));
 #pragma warning restore CA2000
 
                 return await callback(errorTestCase);
             }
+        }
+
+        /// <summary>
+        /// Collects every argument set value the class asked for, so that a failure standing in for
+        /// its tests is selected by the same trait filters they would have been.
+        /// </summary>
+        /// <remarks>
+        /// This runs while handling a discovery failure, and reads the same attribute whose contents
+        /// may well be what caused it, so it treats any further exception as simply having no traits
+        /// to offer. Reporting the failure without them is worth more than not reporting it at all.
+        /// </remarks>
+        /// <param name="testClass">The class whose expansion failed.</param>
+        /// <returns>The traits, keyed by argument enum type name; empty when none could be read.</returns>
+        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(IXunitTestClass testClass)
+        {
+            var traits = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                var attributes = new List<FixtureArgumentSetsAttribute>();
+
+                if (testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() is FixtureArgumentSetsAttribute classAttribute)
+                {
+                    attributes.Add(classAttribute);
+                }
+
+                foreach (MethodInfo method in testClass.Methods)
+                {
+                    if (method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() is FixtureArgumentSetsAttribute methodAttribute)
+                    {
+                        attributes.Add(methodAttribute);
+                    }
+                }
+
+                foreach (SingleFlag flag in attributes.SelectMany(ExpandEnumFlagsFromAttributeData).SelectMany(dimension => dimension ?? Array.Empty<SingleFlag>()))
+                {
+                    if (flag.EnumValue == null)
+                    {
+                        continue;
+                    }
+
+                    string key = flag.EnumValue.GetType().Name;
+                    if (!traits.TryGetValue(key, out IReadOnlyCollection<string> values))
+                    {
+                        values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        traits[key] = values;
+                    }
+
+                    ((HashSet<string>)values).Add(flag.EnumValue.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the argument set traits of '{testClass.TestClassName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+            }
+
+            return traits;
         }
 
         private async ValueTask<bool> FindTestsForTypeCore(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, Func<ITestCase, ValueTask<bool>> callback)

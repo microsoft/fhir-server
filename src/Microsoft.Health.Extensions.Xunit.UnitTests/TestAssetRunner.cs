@@ -46,8 +46,13 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// supported way to reach the delay-enumerated code path, which a theory also reaches on
         /// its own when its data cannot be serialized.
         /// </param>
+        /// <param name="filterTrait">
+        /// A <c>Name=Value</c> trait filter to apply on top of the namespace filter, in the form the
+        /// runner takes on the command line. CI legs select their tests this way, so this is how a
+        /// scenario checks that it is still selected when they do.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null)
         {
             string assetsAssembly = ResolveAssetsAssembly();
             string resultsDirectory = Path.Combine(Path.GetTempPath(), "xunit-ext-assets", Guid.NewGuid().ToString("N"));
@@ -86,6 +91,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     arguments.Add("--pre-enumerate-theories");
                     arguments.Add("off");
+                }
+
+                if (!string.IsNullOrEmpty(filterTrait))
+                {
+                    arguments.Add("--filter-trait");
+                    arguments.Add(filterTrait);
                 }
 
                 (int exitCode, string output, TimeSpan duration) = Execute(arguments);

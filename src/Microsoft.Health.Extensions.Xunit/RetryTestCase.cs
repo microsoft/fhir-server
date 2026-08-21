@@ -208,7 +208,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         // A test that was skipped or left unrun did not pass, and the counts saying so
                         // live on the attempt's summary. Returning only Total and Failed would report
-                        // it to anything reading this summary as a test that ran and passed.
+                        // it to anything reading this summary as a test that ran and passed. The
+                        // Microsoft Testing Platform runner is not such a reader - it counts the
+                        // messages instead, and reports the skip correctly either way - so this keeps
+                        // the summary contract rather than fixing anything visible in a CI report.
                         runSummary.Skipped = summary.Skipped;
                         runSummary.NotRun = summary.NotRun;
                         return runSummary;

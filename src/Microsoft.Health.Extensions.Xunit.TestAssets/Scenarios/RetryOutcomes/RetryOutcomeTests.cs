@@ -11,7 +11,7 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryOutcomes
 {
     /// <summary>
     /// The full <see cref="RetryFactAttribute"/> outcome matrix, run without cancellation.
-    /// Expected: 6 results, 3 failed and 3 passed, with exactly one result per test.
+    /// Expected: 7 results, 3 failed, 3 passed and 1 skipped, with exactly one result per test.
     /// </summary>
     public class RetryOutcomeTests
     {
@@ -69,6 +69,17 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryOutcomes
         public void AlwaysPasses_IsReportedPassed()
         {
             Assert.True(true);
+        }
+
+        /// <summary>
+        /// A test that skips itself must be reported as skipped, and must not be retried on the way
+        /// there: a skip is not a failure, so the attempt loop has to stop at it rather than run the
+        /// test again and report the last attempt as a pass.
+        /// </summary>
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 10)]
+        public void SkippedAtRunTime_IsReportedSkipped()
+        {
+            Assert.Skip("ASSET: skipped at run time");
         }
 
         /// <summary>
