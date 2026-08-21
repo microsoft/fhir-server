@@ -8,8 +8,9 @@ parameters:
 jobs:
 - job: DockerAddTag
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureCLI@2
     displayName: 'Azure CLI: InlineScript'

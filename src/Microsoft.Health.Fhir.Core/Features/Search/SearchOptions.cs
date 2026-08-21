@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            ContainsIterativeInclude = other.ContainsIterativeInclude;
             QueryParams = new Dictionary<string, IList<string>>(other.QueryParams);
         }
 
@@ -190,6 +191,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 #pragma warning disable CA2227 // Collection properties should be read only
         public IDictionary<string, IList<string>> QueryParams { get; set; }
 #pragma warning restore CA2227 // Collection properties should be read only
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the search contains iterative includes.
+        /// </summary>
+        public bool ContainsIterativeInclude { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

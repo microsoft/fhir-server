@@ -105,9 +105,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
                     var approximateEnd = dateTime.End.AddTicks(differenceTicks);
 
+                    // Spec (ap): the search range overlaps the target range. Emit overlap directly
+                    // (Start <= approxEnd AND End >= approxStart) rather than the eq-shaped containment.
                     _outputExpression = Expression.And(
-                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateStart),
-                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, approximateEnd));
+                        Expression.LessThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateEnd),
+                        Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, _componentIndex, approximateStart));
                     break;
                 default:
                     ThrowComparatorNotSupported();

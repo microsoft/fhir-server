@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+    <None Remove="TestFiles\Normative\Bundle-InvalidBundleType.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRecord.json" />
     <None Remove="TestFiles\Normative\capabilitystatement-example.json" />
     <None Remove="TestFiles\Normative\codesystem-abstract-types.json" />
@@ -167,6 +168,7 @@
     <None Remove="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-InvalidBundleType.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRecord.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
@@ -440,6 +442,7 @@
     <EmbeddedResource Include="TestFiles\R4\servicerequest-example.json" />
     <EmbeddedResource Include="TestFiles\R4\slot-example.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartCommon.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartCompartmentLeak.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientA.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientB.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientD.json" />

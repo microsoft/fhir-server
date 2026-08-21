@@ -260,6 +260,46 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchOnlyPermission_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        {
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.Search);
+
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                true,
+                false);
+
+            Assert.False(result);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenNoPermissionsAndGranularDisabled_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        {
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.None);
+
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                false,
+                false);
+
+            Assert.False(result);
+        }
+
+        [Theory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write)]

@@ -17,7 +17,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (newHash != oldHash)
                 {
                     _logger.LogDebug("Profiles: New Profiles found.");
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
                 _logger.LogInformation("Profiles: Profiles are updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                                     foreach (var artifact in artifacts)
                                     {
-                                        result[artifact.ResourceUri] = artifact;
+                                        result[GetCanonicalUrl(artifact)] = artifact;
                                     }
                                 }
                             }
@@ -294,7 +294,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 return null;
             }
 
-            if (_resourcesByUri.TryGet(summary.ResourceUri, out Resource resource))
+            var cacheKey = GetCanonicalUrl(summary);
+            if (_resourcesByUri.TryGet(cacheKey, out Resource resource))
             {
                 return resource;
             }
@@ -307,7 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     if (navStream.Current != null)
                     {
                         resource = navStream.Current.ToPoco<Resource>();
-                        _resourcesByUri.TryAdd(summary.ResourceUri, resource);
+                        _resourcesByUri.TryAdd(cacheKey, resource);
                         return resource;
                     }
                 }

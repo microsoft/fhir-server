@@ -62,6 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public ResourceElement Metadata { get; set; }
 
+        /// <summary>
+        /// Gets the token endpoint used when tests acquire client-credential tokens directly.
+        /// </summary>
+        internal Uri ClientCredentialTokenUri => GetClientCredentialTokenEndpoint();
+
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
@@ -142,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (user == null)
             {
                 var credentialConfiguration = new OAuth2ClientCredentialOptions(
-                    TokenUri,
+                    GetClientCredentialTokenEndpoint(),
                     resource,
                     scope,
                     clientApplication.ClientId,
@@ -198,6 +203,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         internal abstract HttpMessageHandler CreateMessageHandler();
+
+        /// <summary>
+        /// Gets the token endpoint used for standard client-credential authentication.
+        /// </summary>
+        protected virtual Uri GetClientCredentialTokenEndpoint() => TokenUri;
 
         /// <summary>
         /// Set the security options on the class.

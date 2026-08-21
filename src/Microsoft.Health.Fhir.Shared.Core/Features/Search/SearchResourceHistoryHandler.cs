@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _dataResourceFilter = dataResourceFilter;
         }
 
-        public async Task<SearchResourceHistoryResponse> Handle(SearchResourceHistoryRequest request, CancellationToken cancellationToken)
+        public async Task<SearchResourceHistoryResponse> HandleAsync(SearchResourceHistoryRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

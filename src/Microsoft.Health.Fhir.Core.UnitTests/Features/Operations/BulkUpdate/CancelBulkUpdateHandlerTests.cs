@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Returns(DataActions.BulkOperator);
 
             var request = new CancelBulkUpdateRequest(1);
-            await _handler.Handle(request, CancellationToken.None);
+            await _handler.HandleAsync(request, CancellationToken.None);
 
             _supportedProfiles.Received(1).Refresh();
         }
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Returns(DataActions.BulkOperator);
 
             var request = new CancelBulkUpdateRequest(1);
-            await _handler.Handle(request, CancellationToken.None);
+            await _handler.HandleAsync(request, CancellationToken.None);
 
             _supportedProfiles.Received(1).Refresh();
         }
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Write);
 
             var request = new CancelBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             var request = new CancelBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Throws(new System.InvalidOperationException("Unexpected error"));
 
             var request = new CancelBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<System.InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<System.InvalidOperationException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
 
             var request = new CancelBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Returns(new List<JobInfo>());
 
             var request = new CancelBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         public static IEnumerable<object[]> BulkUpdateJobConflictTestData()
@@ -289,12 +289,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             if (expectedStatus == HttpStatusCode.Conflict)
             {
-                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.Handle(request, CancellationToken.None));
+                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
                 Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
             }
             else
             {
-                var response = await _handler.Handle(request, CancellationToken.None);
+                var response = await _handler.HandleAsync(request, CancellationToken.None);
 
                 Assert.Equal(expectedStatus, response.StatusCode);
                 if (expectedStatus == HttpStatusCode.Accepted)

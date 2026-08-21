@@ -96,6 +96,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
+        // Month-precision birthdate query inside a chain exercises the non-collapsed two-predicate date path (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionOverBirthdateMonthPrecision_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient.birthdate=1990-05";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
+        }
+
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
@@ -142,6 +154,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(bundle, Fixture.TrumanPatient);
+        }
+
+        // Reverse _has chain beside an exact-day birthdate eq — a shape that previously broke SQL generation when the eq emitted a UNION (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAReverseChainSearchExpressionCombinedWithAnExactDayBirthdate_WhenSearched_ThenCorrectBundleShouldBeReturned(bool includeAccurateTotal)
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_has:Observation:patient:code={Fixture.SnomedCode}";
+            if (includeAccurateTotal)
+            {
+                query += "&_total=accurate";
+            }
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            if (includeAccurateTotal)
+            {
+                Assert.Equal(1, bundle.Total.GetValueOrDefault());
+            }
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+        }
+
+        // Exact-day birthdate eq combined with _sort — a path that previously failed SQL generation when the date eq produced a UNION (default-independent result).
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAnExactDayBirthdateSearchWithSort_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&birthdate={Fixture.SmithPatientBirthDate}&_sort=birthdate";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
         }
 
         [Fact]

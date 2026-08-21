@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -47,6 +47,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ProcessResource(ref resource, ref profile);
 
+            // This endpoint has no id to fall back to, so if the Parameters payload did not
+            // carry an actual resource, there is nothing to validate.
+            if (resource == null)
+            {
+                throw new BadRequestException(Resources.ValidateResourceRequired);
+            }
+
             Uri profileUri = GetProfile(profile);
 
             return await RunValidationAsync(resource.ToResourceElement(), profileUri);
@@ -54,10 +61,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static void ProcessResource(ref Resource resource, ref string profile)
         {
-            if (resource.TypeName == KnownResourceTypes.Parameters)
+            if (resource?.TypeName == KnownResourceTypes.Parameters)
             {
                 var parameterResource = (Parameters)resource;
-                var profileFromParameters = parameterResource.Parameter.Find(param => param.Name.Equals("profile", StringComparison.OrdinalIgnoreCase));
+                var profileFromParameters = parameterResource.Parameter?.Find(param => param.Name.Equals("profile", StringComparison.OrdinalIgnoreCase));
                 if (profileFromParameters != null)
                 {
                     if (profile != null)
@@ -71,7 +78,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
 
-                resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
+                var resourceParam = parameterResource.Parameter?.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase));
+                if (resourceParam != null)
+                {
+                    // Extract the inner resource even when it is null so callers with an id
+                    // (e.g. ValidateByIdPost) can fall back to reading the resource from storage.
+                    resource = resourceParam.Resource;
+                }
             }
         }
 
@@ -117,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
-            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
+            var response = await _mediator.SendAsync<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
             return FhirResult.Create(new OperationOutcome { Issue = response.Issues.Select(x => x.ToPoco()).ToList() }.ToResourceElement());
         }
 

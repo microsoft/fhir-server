@@ -493,6 +493,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (includeRevincludeSearchExpressions.Any())
             {
                 searchExpressions.AddRange(includeRevincludeSearchExpressions);
+
+                if (includeRevincludeSearchExpressions.Any(expression => expression.Iterate))
+                {
+                    searchOptions.ContainsIterativeInclude = true;
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
