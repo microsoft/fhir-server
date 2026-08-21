@@ -67,10 +67,11 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// <summary>
         /// The compound shape the export and E2E legs select by. A test runs only if it carries every
         /// named trait, so injecting the data store trait must add to the test's own rather than
-        /// replace them.
+        /// replace them - for the error case xunit built as much as for the healthy one, since the
+        /// error case gets every trait it has this way and would otherwise carry only the injected one.
         /// </summary>
         [Fact]
-        public void GivenATestCarryingItsOwnTrait_WhenALegSelectsOnBothTraits_ThenItIsStillSelected()
+        public void GivenTestsCarryingTheirOwnTrait_WhenALegSelectsOnBothTraits_ThenBothAreStillSelected()
         {
             TestAssetRun run = TestAssetRunner.Run("VariantTraits", filterQueryTraits: "(AssetDataStore=Sql)&(Category=ExportLongRunning)");
 
@@ -78,8 +79,11 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 run,
                 new Dictionary<string, string>
                 {
+                    [ScenarioClass + ".MalformedFactIsStillReportedToAFilteringLeg (Sql)"] = "Failed",
                     [ScenarioClass + ".HealthyTestKeepsBothItsOwnTraitAndTheInjectedOne (Sql)"] = "Passed",
                 });
+
+            Assert.NotEqual(0, run.ExitCode);
         }
     }
 }

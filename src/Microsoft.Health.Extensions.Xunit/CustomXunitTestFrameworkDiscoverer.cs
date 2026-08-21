@@ -989,12 +989,9 @@ namespace Microsoft.Health.Extensions.Xunit
                 foreach (Enum value in Enum.GetValues(e.GetType()))
                 {
                     var flagAsLong = Convert.ToInt64(value);
-                    if (IsPowerOfTwo(flagAsLong))
+                    if (IsPowerOfTwo(flagAsLong) && (enumAsLong & flagAsLong) != 0)
                     {
-                        if ((enumAsLong & flagAsLong) != 0)
-                        {
-                            yield return new SingleFlag(value);
-                        }
+                        yield return new SingleFlag(value);
                     }
                 }
             }

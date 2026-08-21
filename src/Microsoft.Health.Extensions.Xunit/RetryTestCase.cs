@@ -584,7 +584,11 @@ namespace Microsoft.Health.Extensions.Xunit
                     // check: xUnit's own assertion exceptions live under Xunit.Sdk, but assertion
                     // libraries used alongside it do not, and matching "Assert" anywhere in the type
                     // name catches those too. The trade is that an unrelated type whose name happens to
-                    // contain either word is classified the same way, which only costs an attempt.
+                    // contain either word is classified the same way, and with RetryOnAssertionFailure
+                    // left at its default of false that costs the test its remaining attempts rather
+                    // than spending one: an assertion failure is taken to be deterministic, so it is
+                    // not retried. The failure is still reported red either way, so the cost is a
+                    // flaky test going unretried, never a failure going unseen.
                     IsAssertionFailure = failed.ExceptionTypes != null &&
                         failed.ExceptionTypes.Length > 0 &&
                         (failed.ExceptionTypes[0].Contains("Xunit", StringComparison.Ordinal) ||

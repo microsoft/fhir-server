@@ -41,6 +41,7 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.VariantTraits
         /// suppressed because the malformed declaration is the point.
         /// </summary>
         /// <param name="value">Never supplied: the declaration is deliberately malformed.</param>
+        [Trait("Category", "ExportLongRunning")]
 #pragma warning disable xUnit1001 // Fact methods cannot have parameters
         [Fact]
         public void MalformedFactIsStillReportedToAFilteringLeg(int value)
