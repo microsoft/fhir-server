@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient patientClient = await CreateSmartHttpClientAsync(TestApplications.SmartPatientA, "patient/Patient.read");
             using HttpRequestMessage exportRequest = GenerateExportRequest(
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenUserSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient userClient = await CreateSmartHttpClientAsync(TestApplications.SmartPractitionerA, "user/Patient.read");
             using HttpRequestMessage exportRequest = GenerateExportRequest(
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientOrUserSmartScope_WhenRequestingSystemExportStatusOrCancel_ThenServerShouldReturnNotFound()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSystemWildcardScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAccepted()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient);
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAcceptedWithInferredType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
 
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPartialSystemScope_WhenCreatingMatchingOrMismatchingTypeExport_ThenServerShouldAuthorizeEveryRequestedType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenExplicitTypeJob_WhenSystemScopeMatchesOrMismatches_ThenStatusAndCancelShouldAuthorizeEveryType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient matchingClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
             Uri contentLocation = await CreateExportJobAsync(matchingClient, "Patient");
@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenJobWithoutExplicitType_WhenSystemScopeIsPartialOrWildcard_ThenWildcardAccessIsRequired()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             using HttpClient wildcardClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(wildcardClient);
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientRouteWithoutPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             // Patient/$export requires system/Patient selection access in addition to the explicit output type,
             // independently of whether the output type itself is covered.
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenGroupRouteWithoutGroupSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             // Group/{id}/$export requires both system/Group and system/Patient selection access; Patient plus the
             // explicit output type alone is not sufficient.
@@ -336,7 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenGroupRouteWithGroupAndPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnAccepted()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Skip.If(!CanIssueSmartTokens(), "Requires the in-proc identity provider or the remote third-party SMART token configuration.");
 
             // Job creation does not synchronously validate that the referenced Group exists, so a nonexistent
             // group id is sufficient to exercise the route authorization requirements in isolation.
@@ -478,6 +478,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         private async Task<string> GetSmartAccessTokenAsync(TestApplication application, string scope)
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return AuthenticationSettings.CreateThirdPartySmartToken(application.ClientId, scope);
+            }
+
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "grant_type", application.GrantType },
@@ -494,6 +499,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var responseJson = await response.Content.ReadAsStringAsync();
             var tokenResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
             return tokenResponse["access_token"].GetString();
+        }
+
+        private bool CanIssueSmartTokens()
+        {
+            return _fixture.IsUsingInProcTestServer || AuthenticationSettings.IsThirdPartySmartTokenConfigured;
         }
 
         private async Task<Uri> CreateExportJobAsync(HttpClient client, string resourceType = null)

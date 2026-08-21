@@ -32,7 +32,8 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
-                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+                $secretFlag = if ($secret.Name -in @('TestSmartTokenPrivateKey', 'TestSmartTokenIssuer')) { ';issecret=true' } else { '' }
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)$secretFlag]$($plainValue)"
             }
         }
 
