@@ -828,6 +828,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.CommandText = "dbo.MergeResources";
                 cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+
+                // protection from incorrect API behavior.
+                if (mergeWrappers.Any(_ => _.ResourceWrapper.ResourceTypeName == KnownResourceTypes.SearchParameter))
+                {
+                    throw new InvalidOperationException($"MergeResources cannot be used for SearchParameters");
+                }
             }
 
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
