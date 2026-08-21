@@ -113,7 +113,7 @@ Truncation is applied **after** sanitization and verification, never before, so 
 
 ### Query Store state
 
-The watchdog reads `sys.database_query_store_options` and proceeds only when `actual_state_desc` is `READ_WRITE`. Any other state, or no row at all, is logged as a warning naming the state and `readonly_reason`, and the tick is skipped.
+The watchdog reads `sys.database_query_store_options` and proceeds only when `actual_state_desc` is `READ_WRITE`. A row reporting any other state is logged as a warning naming that state together with the decoded `readonly_reason`, and the tick is skipped. When the view returns no row at all there is no state and no reason to report, so that case is logged as its own warning saying that Query Store is not configured on the database, and the tick is skipped.
 
 **The watchdog never issues `ALTER DATABASE`.** Turning Query Store on is a database-scoped configuration change with its own permission and blast-radius considerations, and it is on by default in Azure SQL Database. Enabling it stays an explicit operator action.
 
@@ -131,7 +131,9 @@ The watchdog's own Query Store reads are excluded by filtering out query text re
 
 ### Wait statistics
 
-Wait statistics are collected by a **separate, best-effort** query and merged in C#. A failure — most commonly `sys.query_store_wait_stats` being unavailable, or wait capture being off — is logged as a warning, leaves the wait fields null, and sets `WaitStatisticsStatus` to `Failed`. Runtime results are still emitted.
+Wait statistics are collected by a **separate, best-effort** query and merged in C#. A caught `SqlException` — the wait view being unavailable, a timeout, a deadlock, or a permission denial — is logged as a warning, leaves the wait fields null, and sets `WaitStatisticsStatus` to `Failed`. Runtime results are still emitted.
+
+`Failed` is reserved for that case: a wait read that actually broke. The ordinary outcomes of wait capture being turned off, or of no waits having accrued for a plan inside the window, are an empty result set rather than a failure — those plans carry `WaitStatisticsStatus` of `Unavailable`, with null wait fields and no warning logged.
 
 `SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime metrics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the notification carries the status.
 
@@ -147,6 +149,8 @@ Modification percentage is left null when the row count is null or zero rather t
 
 `WatchdogsBackgroundService` cancels **every** watchdog if any one of them fails. A diagnostic feature must never be able to take down transaction or cleanup watchdogs, so the collection body contains its own failures: missing views and permission denials are logged and the tick returns rather than propagating.
 
+The missing-view handler spans the whole collection rather than each individual read, so the aborting read can be the last one, after slow queries and plans have already been published. Its warning is worded to hold in that case too: it reports that collection was aborted and that whatever had already been emitted was still published, rather than claiming that nothing was collected.
+
 That containment covers **per-tick collection only**. `Watchdog<T>.ExecuteAsync` awaits `InitParamsAsync` *before* and *outside* `FhirTimer`'s per-tick catch, so a throw during initialization — seeding the `dbo.Parameters` rows — still faults the watchdog task, and `WatchdogsBackgroundService` cancels the rest. This is a **pre-existing property of the shared watchdog framework**, not something this feature introduces: `DefragWatchdog` initializes with the identical insert pattern. It is documented here rather than worked around, because changing the shared framework is out of scope for a diagnostics feature.
 
 ### Reading the primary
@@ -159,9 +163,9 @@ The cost is one collection per period against the primary — hourly by default 
 
 ### Configuration that disables collection
 
-A non-positive `SlowQueryCount` or `StatisticsHealthCount` reduces the corresponding query to `TOP (0)` or skips the section entirely, which is indistinguishable from a healthy empty result. Both cases are logged as a warning once per tick, and a section turned off deliberately through `IncludeQueryPlans` or `IncludeStatisticsHealth` is logged at information level. Misconfiguration is never fatal: a diagnostics feature must not fail the host.
+A non-positive `SlowQueryCount` or `StatisticsHealthCount` disables the corresponding section: the round-trip is skipped entirely rather than issued as a `TOP (0)` query whose empty result would be indistinguishable from a healthy one. Both cases are logged as a warning once per tick, and a section turned off deliberately through `IncludeQueryPlans` or `IncludeStatisticsHealth` is logged at information level. Misconfiguration is never fatal: a diagnostics feature must not fail the host.
 
-A completed tick logs one information-level line carrying the collection window and the counts of slow queries, plans and statistics rows published, **including zeros**, so that "the watchdog has been dead for three days" is distinguishable from "there were no slow queries".
+A completed tick logs one information-level line carrying the collection window and the counts of slow queries, plans and statistics rows published, **including zeros**, so that "the watchdog has been dead for three days" is distinguishable from "there were no slow queries". The plan count is the number of plans that actually carried sanitized XML, not the number of plan notifications published, so it is deliberately lower than the slow-query count whenever Query Store held no plan for a query or sanitization rejected one.
 
 ## Sanitization
 
@@ -177,7 +181,7 @@ The sanitizer:
 
 Step 4 is defence in depth: the plan is never emitted on the strength of the removal logic alone. It is structural because Showplan embeds the original SQL in `StatementText`, so a text scan would drop — silently and permanently — any plan whose own query text happens to contain the literal string `ParameterList`.
 
-`QueryPlanSanitizationResult` is constructed only through static factories, so "not verified but populated" is unconstructable rather than merely unused: every failure factory forces the XML to null, the success factory refuses a null document, and the truncation flag is derived from the payload rather than supplied alongside it.
+`QueryPlanSanitizationResult` is constructed only through static factories. The factories do not re-verify the document — the success factory trusts its caller for that — but they do constrain the result's shape: every failure factory forces the XML to null, so no failure status can be paired with a payload; the success factory refuses a null document; and the truncation flag is derived from the payload rather than supplied alongside it.
 
 ### Disclosure boundary
 

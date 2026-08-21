@@ -12,10 +12,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     /// <remarks>
     /// The constructor is private and instances are produced only through the factory methods below, because the
-    /// payload can embed literal parameter values taken from patient data. "Not verified but populated" is therefore
-    /// a PHI-leak shape and must be impossible to express: every failure factory forces <see cref="Xml"/> to null and
-    /// the success factory refuses a null document. <see cref="Truncated"/> is derived rather than supplied so it can
-    /// never disagree with the payload it describes.
+    /// payload can embed literal parameter values taken from patient data. The factories do not themselves verify
+    /// the document — <see cref="Sanitized"/> trusts its caller for that — but they do guarantee the shape of the
+    /// result: every failure factory forces <see cref="Xml"/> to null, so no failure status can be paired with a
+    /// payload, the success factory refuses a null document, and <see cref="Truncated"/> is derived from the
+    /// payload rather than supplied alongside it, so it cannot contradict what it describes.
     /// </remarks>
     internal sealed class QueryPlanSanitizationResult
     {

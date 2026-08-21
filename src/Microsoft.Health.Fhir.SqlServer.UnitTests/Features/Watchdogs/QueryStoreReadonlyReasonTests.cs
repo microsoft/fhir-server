@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -76,6 +77,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             // Assert
             Assert.Contains("size limit", description, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenADocumentedBitCombinedWithAnUndocumentedBit_WhenDescribed_ThenAlsoReportsTheUndocumentedBitAndTheRawValue()
+        {
+            // Arrange
+            const int undocumentedBit = 1 << 20;
+            const int mask = 65536 | undocumentedBit;
+
+            // Act
+            string description = QueryStoreDiagnosticsWatchdog.DescribeReadonlyReason(mask);
+
+            // Assert
+            // A state flag this code does not know about must not be swallowed just because a documented bit happened
+            // to be set alongside it: the raw value is what an operator takes to the SQL Server documentation.
+            Assert.Contains("Query Store has reached its size limit (MAX_STORAGE_SIZE_MB)", description, StringComparison.Ordinal);
+            Assert.Contains(undocumentedBit.ToString(CultureInfo.InvariantCulture), description, StringComparison.Ordinal);
+            Assert.Contains(mask.ToString(CultureInfo.InvariantCulture), description, StringComparison.Ordinal);
         }
     }
 }

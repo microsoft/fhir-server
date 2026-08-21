@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
@@ -31,6 +32,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private const int QueryExecutionCount = 2;
         private const int QueryStorePollAttempts = 15;
+
+        // The probe table's row count at the point its statistics are updated, and the number of rows inserted
+        // afterwards. They are deliberately different from each other and from any other value asserted below, so a
+        // reordering of the positionally read statistics columns cannot go unnoticed.
+        private const int ProbeTableRowCount = 200;
+        private const int ProbeTableModificationCount = 5;
 
         // Wall-clock timing on the client is coarser than Query Store's own measurement, and the first execution pays
         // for compilation, so the upper bound gets a fixed allowance on top of the measured elapsed time.
@@ -68,66 +75,81 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await CreateProbeTableAsync(connection, tableName, CancellationToken.None);
                 double probeElapsedMilliseconds = await ExecuteProbeQueryAsync(connection, tableName, queryAlias, CancellationToken.None);
                 await WaitForQueryStoreCaptureAsync(connection, queryAlias, CancellationToken.None);
+                await PrepareStatisticsProbeAsync(connection, tableName, CancellationToken.None);
 
                 // Act
                 await watchdog.RunWorkForTestingAsync(CancellationToken.None);
 
                 // Assert
-                SlowQueryNotification slowQuery = Assert.Single(
-                    notifications.FindAll(notification => notification is SlowQueryNotification)
-                        .ConvertAll(notification => (SlowQueryNotification)notification)
-                        .FindAll(notification => notification.QueryText.Contains(queryAlias, StringComparison.Ordinal)));
-                Assert.True(slowQuery.QueryId > 0);
-                Assert.True(slowQuery.PlanId > 0);
-                Assert.True(slowQuery.QueryTextLength > 0);
+                // The probe query is grouped by plan_id, and a recompile between executions would produce a second
+                // plan and therefore a second notification. That is a legitimate outcome, so the assertions are on
+                // the whole matching set: what must hold is that the executions add up.
+                List<SlowQueryNotification> probeNotifications = notifications
+                    .OfType<SlowQueryNotification>()
+                    .Where(notification => notification.QueryText.Contains(queryAlias, StringComparison.Ordinal))
+                    .ToList();
+                Assert.NotEmpty(probeNotifications);
 
                 // The probe runs a fixed number of times under a GUID alias, so the rollup across Query Store
-                // intervals must sum to exactly that count.
-                Assert.Equal(QueryExecutionCount, slowQuery.ExecutionCount);
+                // intervals and plans must sum to exactly that count.
+                Assert.Equal((long)QueryExecutionCount, probeNotifications.Sum(notification => notification.ExecutionCount));
 
                 // Query Store records microseconds and the contract is milliseconds. The probe runs at MAXDOP 1 and
                 // is timed on the client, so the reported totals must sit inside the wall clock plus a tolerance. A
                 // missing /1000.0 would inflate these by three orders of magnitude and break the upper bound; a
                 // doubly applied one would sink them below MinDurationMilliseconds and the query would never appear.
                 double durationUpperBoundMilliseconds = probeElapsedMilliseconds + ProbeTimingToleranceMilliseconds;
-                Assert.InRange(slowQuery.TotalDurationMilliseconds, 1, durationUpperBoundMilliseconds);
-                Assert.InRange(slowQuery.AverageDurationMilliseconds, 1, durationUpperBoundMilliseconds);
-                Assert.InRange(slowQuery.MaxDurationMilliseconds, 1, durationUpperBoundMilliseconds);
-                Assert.InRange(slowQuery.TotalCpuMilliseconds, 0, durationUpperBoundMilliseconds);
-                Assert.InRange(slowQuery.AverageCpuMilliseconds, 0, durationUpperBoundMilliseconds);
-                Assert.Equal(slowQuery.TotalDurationMilliseconds / QueryExecutionCount, slowQuery.AverageDurationMilliseconds, 3);
-                Assert.True(slowQuery.TotalLogicalReads > 0);
-
-                // Wait collection is best-effort and its failure is swallowed so that runtime metrics still publish.
-                // A status other than Failed is therefore the only proof that the wait SQL actually executed.
-                Assert.Contains(
-                    slowQuery.WaitStatisticsStatus,
-                    new[] { QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsUnavailableStatus });
-                if (string.Equals(slowQuery.WaitStatisticsStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, StringComparison.Ordinal))
+                foreach (SlowQueryNotification slowQuery in probeNotifications)
                 {
-                    Assert.NotNull(slowQuery.TotalWaitMilliseconds);
-                    Assert.NotNull(slowQuery.AverageWaitMilliseconds);
-                    Assert.False(string.IsNullOrEmpty(slowQuery.TopWaitCategory));
+                    Assert.True(slowQuery.QueryId > 0);
+                    Assert.True(slowQuery.PlanId > 0);
+                    Assert.True(slowQuery.QueryTextLength > 0);
+                    Assert.True(slowQuery.ExecutionCount > 0);
+
+                    Assert.InRange(slowQuery.TotalDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+                    Assert.InRange(slowQuery.AverageDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+                    Assert.InRange(slowQuery.MaxDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+
+                    // The probe is a three-way cross join at MAXDOP 1, so its CPU is provably non-trivial: a lower
+                    // bound of zero would let a regression that zeroed CPU entirely pass.
+                    Assert.InRange(slowQuery.TotalCpuMilliseconds, 1, durationUpperBoundMilliseconds);
+                    Assert.InRange(slowQuery.AverageCpuMilliseconds, 1, durationUpperBoundMilliseconds);
+
+                    // Query Store stores per-interval averages, so the emitted average must be the count-weighted
+                    // one rather than an unweighted mean across intervals.
+                    Assert.Equal(slowQuery.TotalDurationMilliseconds / slowQuery.ExecutionCount, slowQuery.AverageDurationMilliseconds, 3);
+                    Assert.Equal(slowQuery.TotalCpuMilliseconds / slowQuery.ExecutionCount, slowQuery.AverageCpuMilliseconds, 3);
+                    Assert.True(slowQuery.TotalLogicalReads > 0);
+
+                    // Wait collection is best-effort and its failure is swallowed so that runtime metrics still
+                    // publish. A status other than Failed is therefore the only proof that the wait SQL executed.
+                    Assert.Contains(
+                        slowQuery.WaitStatisticsStatus,
+                        new[] { QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsUnavailableStatus });
+                    if (string.Equals(slowQuery.WaitStatisticsStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, StringComparison.Ordinal))
+                    {
+                        Assert.NotNull(slowQuery.TotalWaitMilliseconds);
+                        Assert.NotNull(slowQuery.AverageWaitMilliseconds);
+                        Assert.False(string.IsNullOrEmpty(slowQuery.TopWaitCategory));
+                    }
+                    else
+                    {
+                        Assert.Null(slowQuery.TotalWaitMilliseconds);
+                    }
+
+                    QueryPlanNotification queryPlan = Assert.Single(
+                        notifications.OfType<QueryPlanNotification>().ToList(),
+                        notification => notification.QueryId == slowQuery.QueryId && notification.PlanId == slowQuery.PlanId);
+                    Assert.Equal(QueryPlanSanitizer.SanitizedStatus, queryPlan.SanitizationStatus);
+                    Assert.NotNull(queryPlan.SanitizedQueryPlan);
                 }
-                else
+
+                AssertStatisticsHealthOrdinals(notifications, tableName);
+
+                foreach (SlowQueryNotification slowQuery in notifications.OfType<SlowQueryNotification>())
                 {
-                    Assert.Null(slowQuery.TotalWaitMilliseconds);
-                }
-
-                QueryPlanNotification queryPlan = Assert.Single(
-                    notifications.FindAll(notification => notification is QueryPlanNotification)
-                        .ConvertAll(notification => (QueryPlanNotification)notification)
-                        .FindAll(notification => notification.QueryId == slowQuery.QueryId && notification.PlanId == slowQuery.PlanId));
-                Assert.Equal(QueryPlanSanitizer.SanitizedStatus, queryPlan.SanitizationStatus);
-                Assert.NotNull(queryPlan.SanitizedQueryPlan);
-
-                Assert.NotEmpty(notifications.FindAll(notification => notification is StatisticsHealthNotification));
-
-                foreach (IMetricsNotification notification in notifications.FindAll(notification => notification is SlowQueryNotification))
-                {
-                    string queryText = ((SlowQueryNotification)notification).QueryText;
-                    Assert.DoesNotContain("query_store", queryText, StringComparison.OrdinalIgnoreCase);
-                    Assert.DoesNotContain("dm_db_stats_properties", queryText, StringComparison.OrdinalIgnoreCase);
+                    Assert.DoesNotContain("query_store", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
+                    Assert.DoesNotContain("dm_db_stats_properties", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
                 }
             }
             finally
@@ -175,6 +197,68 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        private static void AssertStatisticsHealthOrdinals(List<IMetricsNotification> notifications, string probeTableName)
+        {
+            // Every column of the statistics-health read is taken positionally from a hand-written SELECT list that
+            // no compiler checks, so two same-typed columns could be reordered and every value would silently swap.
+            // The probe table is set up so that its statistics carry values that differ from one another, which pins
+            // those ordinals: a swap would have to preserve every one of these values to go unnoticed.
+            List<StatisticsHealthNotification> statisticsHealth = notifications.OfType<StatisticsHealthNotification>().ToList();
+            Assert.NotEmpty(statisticsHealth);
+
+            StatisticsHealthNotification probeIndexStatistics = Assert.Single(
+                statisticsHealth,
+                notification =>
+                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(notification.TableName, probeTableName, StringComparison.Ordinal)
+                    && string.Equals(notification.StatisticsName, $"PK_{probeTableName}", StringComparison.Ordinal));
+
+            // The probe table holds ProbeTableRowCount rows at the point its statistics were updated with a full
+            // scan, and exactly ProbeTableModificationCount rows were added afterwards, so every numeric column has
+            // a known and distinct value rather than a coincidentally equal one.
+            Assert.NotNull(probeIndexStatistics.LastUpdated);
+            Assert.NotNull(probeIndexStatistics.Rows);
+            Assert.NotNull(probeIndexStatistics.RowsSampled);
+            Assert.NotNull(probeIndexStatistics.ModificationCounter);
+            Assert.Equal((long)ProbeTableRowCount, probeIndexStatistics.Rows.Value);
+            Assert.Equal((long)ProbeTableRowCount, probeIndexStatistics.RowsSampled.Value);
+            Assert.Equal((long)ProbeTableModificationCount, probeIndexStatistics.ModificationCounter.Value);
+            Assert.NotNull(probeIndexStatistics.ModificationPercent);
+            Assert.Equal(ProbeTableModificationCount * 100.0 / ProbeTableRowCount, probeIndexStatistics.ModificationPercent.Value, 6);
+
+            // Statistics backed by an index report is_from_index, and nothing else.
+            Assert.True(probeIndexStatistics.IsFromIndex);
+            Assert.False(probeIndexStatistics.IsAutoCreated);
+            Assert.False(probeIndexStatistics.IsUserCreated);
+            Assert.False(probeIndexStatistics.HasFilter);
+
+            // A standalone CREATE STATISTICS object reports user_created, and nothing else, which separates that
+            // flag from the three bit columns adjacent to it.
+            StatisticsHealthNotification probeUserStatistics = Assert.Single(
+                statisticsHealth,
+                notification =>
+                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(notification.TableName, probeTableName, StringComparison.Ordinal)
+                    && string.Equals(notification.StatisticsName, $"ST_{probeTableName}", StringComparison.Ordinal));
+            Assert.True(probeUserStatistics.IsUserCreated);
+            Assert.False(probeUserStatistics.IsFromIndex);
+            Assert.False(probeUserStatistics.IsAutoCreated);
+            Assert.False(probeUserStatistics.HasFilter);
+
+            // A real FHIR table is asserted on as well, so that the scan is not merely finding the table this test
+            // created. This index is filtered, which is what separates has_filter from is_from_index.
+            StatisticsHealthNotification filteredIndexStatistics = Assert.Single(
+                statisticsHealth,
+                notification =>
+                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(notification.TableName, "Resource", StringComparison.Ordinal)
+                    && string.Equals(notification.StatisticsName, "IX_Resource_ResourceTypeId_ResourceId", StringComparison.Ordinal));
+            Assert.True(filteredIndexStatistics.HasFilter);
+            Assert.True(filteredIndexStatistics.IsFromIndex);
+            Assert.False(filteredIndexStatistics.IsAutoCreated);
+            Assert.False(filteredIndexStatistics.IsUserCreated);
+        }
+
         private QueryStoreDiagnosticsWatchdog CreateWatchdog(IMediator mediator, bool enabled)
         {
             var configuration = new WatchdogConfiguration();
@@ -184,7 +268,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             configuration.QueryStoreDiagnostics.MinDurationMilliseconds = 1;
             configuration.QueryStoreDiagnostics.IncludeQueryPlans = true;
             configuration.QueryStoreDiagnostics.IncludeStatisticsHealth = true;
-            configuration.QueryStoreDiagnostics.StatisticsHealthCount = 50;
+
+            // High enough to cover every statistics object in the FHIR schema, so that the assertions on named
+            // statistics do not depend on where the staleness ordering happens to place them.
+            configuration.QueryStoreDiagnostics.StatisticsHealthCount = 5000;
 
             return new QueryStoreDiagnosticsWatchdog(
                 _fixture.SqlRetryService,
@@ -257,10 +344,26 @@ WHERE Id IN ('QueryStoreDiagnosticsWatchdog.IsEnabled', 'QueryStoreDiagnosticsWa
 
         private static async Task CreateProbeTableAsync(SqlConnection connection, string tableName, CancellationToken cancellationToken)
         {
+            // The primary key is named explicitly so that the statistics object it backs has a predictable name to
+            // assert on; an unnamed constraint would get a generated one.
             await ExecuteNonQueryAsync(
                 connection,
-                $"CREATE TABLE dbo.[{tableName}] (Id int NOT NULL PRIMARY KEY); INSERT INTO dbo.[{tableName}] (Id) SELECT TOP (200) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) FROM sys.all_objects;",
+                $"CREATE TABLE dbo.[{tableName}] (Id int NOT NULL CONSTRAINT [PK_{tableName}] PRIMARY KEY); INSERT INTO dbo.[{tableName}] (Id) SELECT TOP ({ProbeTableRowCount}) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) FROM sys.all_objects;",
                 cancellationToken);
+        }
+
+        private static async Task PrepareStatisticsProbeAsync(SqlConnection connection, string tableName, CancellationToken cancellationToken)
+        {
+            // A full-scan update fixes rows and rows_sampled at the current row count and sets last_updated; the
+            // rows inserted afterwards then fix modification_counter at a different, known value. Without this the
+            // table's statistics have never been updated and dm_db_stats_properties reports nulls throughout, which
+            // asserts nothing about which column was read.
+            string commandText = $@"
+UPDATE STATISTICS dbo.[{tableName}] WITH FULLSCAN;
+CREATE STATISTICS [ST_{tableName}] ON dbo.[{tableName}] (Id) WITH FULLSCAN;
+INSERT INTO dbo.[{tableName}] (Id) SELECT TOP ({ProbeTableModificationCount}) {ProbeTableRowCount} + ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) FROM sys.all_objects;";
+
+            await ExecuteNonQueryAsync(connection, commandText, cancellationToken);
         }
 
         private static async Task DropProbeTableAsync(SqlConnection connection, string tableName, CancellationToken cancellationToken)

@@ -272,20 +272,60 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     return;
                 }
 
-                if (_configuration.SlowQueryCount <= 0)
-                {
-                    _logger.LogWarning(
-                        "QueryStoreDiagnosticsWatchdog: SlowQueryCount is {SlowQueryCount}, which disables slow-query collection. Configure a positive value to collect slow queries.",
-                        _configuration.SlowQueryCount);
-                }
+                await CollectDiagnosticsAsync(startTime, collectionTime, cancellationToken);
+            }
+            catch (SqlException ex) when (ex.Number == 208)
+            {
+                // This filter covers the whole method body rather than each read, which loses the ability to name the
+                // failing statement. That is the accepted trade-off: the watchdog only runs when an operator enabled
+                // it in both configuration and dbo.Parameters, so "the views you asked me to read do not exist" is
+                // always operator-actionable and permanent, and per-read catches would be more churn than value.
+                // Because the filter spans every read, the missing view can be the last one, after slow queries and
+                // plans have already been published; the message is therefore deliberately worded to be true of a
+                // partial tick as well as of one that emitted nothing.
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection was aborted because a required Query Store or statistics view is unavailable. Any diagnostics already emitted during this collection were still published.");
+            }
+            catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: SQL permissions do not allow diagnostics collection.");
+            }
+        }
 
-                var slowQueries = await GetSlowQueriesAsync(startTime, cancellationToken);
+        /// <summary>
+        /// Runs the collection itself, once the configuration, runtime and Query Store state gates have all passed.
+        /// Separated from <see cref="RunWorkAsync"/> so that the reads and the notifications they produce are
+        /// reachable from unit tests: the gates above read <c>dbo.Parameters</c> through
+        /// <see cref="SqlCommandExtensions.ExecuteScalarAsync(SqlCommand, ISqlRetryService, ILogger, CancellationToken, string, bool, bool)"/>,
+        /// which materializes its value inside a callback executed against a live <see cref="SqlCommand"/> and so
+        /// cannot be substituted. Exception handling deliberately stays in the caller.
+        /// </summary>
+        /// <param name="startTime">The start of the collection window.</param>
+        /// <param name="collectionTime">The end of the collection window.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        internal async Task CollectDiagnosticsAsync(DateTimeOffset startTime, DateTimeOffset collectionTime, CancellationToken cancellationToken)
+        {
+            IReadOnlyList<SlowQueryResult> slowQueries = Array.Empty<SlowQueryResult>();
+            var waitStatisticsFailed = false;
+            if (_configuration.SlowQueryCount <= 0)
+            {
+                // Skipping the round-trip rather than running it with TOP (0) keeps this degenerate configuration
+                // reading the same way as the StatisticsHealthCount one below.
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: SlowQueryCount is {SlowQueryCount}, which disables slow-query collection. Configure a positive value to collect slow queries.",
+                    _configuration.SlowQueryCount);
+            }
+            else
+            {
+                slowQueries = await GetSlowQueriesAsync(startTime, cancellationToken);
                 var waitStatistics = await GetWaitStatisticsAsync(startTime, slowQueries, cancellationToken);
+                waitStatisticsFailed = waitStatistics.Failed;
 
                 foreach (var slowQuery in slowQueries)
                 {
                     waitStatistics.Waits.TryGetValue(slowQuery.PlanId, out var wait);
-                    var queryText = Truncate(slowQuery.QueryText);
+                    var queryText = slowQuery.QueryText;
+                    var queryTextTruncated = queryText.Length > MaxFieldLength;
                     await _mediator.PublishAsync(
                         new SlowQueryNotification
                         {
@@ -303,64 +343,54 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                             AverageWaitMilliseconds = wait == null ? null : wait.TotalWaitMilliseconds / slowQuery.ExecutionCount,
                             TopWaitCategory = wait?.TopWaitCategory,
                             WaitStatisticsStatus = GetWaitStatisticsStatus(waitStatistics.Failed, wait),
-                            QueryText = queryText.Value,
-                            QueryTextTruncated = queryText.Truncated,
-                            QueryTextLength = queryText.OriginalLength,
+                            QueryText = queryTextTruncated ? queryText.Substring(0, MaxFieldLength) : queryText,
+                            QueryTextTruncated = queryTextTruncated,
+                            QueryTextLength = queryText.Length,
                             IntervalStart = slowQuery.IntervalStart,
                             IntervalEnd = slowQuery.IntervalEnd,
                         },
                         cancellationToken);
                 }
-
-                var queryPlanCount = 0;
-                if (!_configuration.IncludeQueryPlans)
-                {
-                    _logger.LogInformation("QueryStoreDiagnosticsWatchdog: query plan collection is turned off by configuration (IncludeQueryPlans).");
-                }
-                else if (slowQueries.Count > 0)
-                {
-                    queryPlanCount = await PublishQueryPlansAsync(slowQueries, cancellationToken);
-                }
-
-                var statisticsHealthCount = 0;
-                if (!_configuration.IncludeStatisticsHealth)
-                {
-                    _logger.LogInformation("QueryStoreDiagnosticsWatchdog: statistics health collection is turned off by configuration (IncludeStatisticsHealth).");
-                }
-                else if (_configuration.StatisticsHealthCount <= 0)
-                {
-                    _logger.LogWarning(
-                        "QueryStoreDiagnosticsWatchdog: StatisticsHealthCount is {StatisticsHealthCount}, which disables statistics health collection. Configure a positive value to collect statistics health.",
-                        _configuration.StatisticsHealthCount);
-                }
-                else
-                {
-                    statisticsHealthCount = await PublishStatisticsHealthAsync(cancellationToken);
-                }
-
-                // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
-                // dead for three days" and "there were no slow queries" are indistinguishable downstream.
-                _logger.LogInformation(
-                    "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}",
-                    startTime,
-                    collectionTime,
-                    slowQueries.Count,
-                    queryPlanCount,
-                    statisticsHealthCount,
-                    waitStatistics.Failed);
             }
-            catch (SqlException ex) when (ex.Number == 208)
+
+            var queryPlanCount = 0;
+            if (!_configuration.IncludeQueryPlans)
             {
-                // This filter covers the whole method body rather than each read, which loses the ability to name the
-                // failing statement. That is the accepted trade-off: the watchdog only runs when an operator enabled
-                // it in both configuration and dbo.Parameters, so "the views you asked me to read do not exist" is
-                // always operator-actionable and permanent, and per-read catches would be more churn than value.
-                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: Query Store diagnostics views are unavailable, so no diagnostics can be collected.");
+                _logger.LogInformation("QueryStoreDiagnosticsWatchdog: query plan collection is turned off by configuration (IncludeQueryPlans).");
             }
-            catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262)
+            else if (slowQueries.Count > 0)
             {
-                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: SQL permissions do not allow diagnostics collection.");
+                queryPlanCount = await PublishQueryPlansAsync(slowQueries, cancellationToken);
             }
+
+            var statisticsHealthCount = 0;
+            if (!_configuration.IncludeStatisticsHealth)
+            {
+                _logger.LogInformation("QueryStoreDiagnosticsWatchdog: statistics health collection is turned off by configuration (IncludeStatisticsHealth).");
+            }
+            else if (_configuration.StatisticsHealthCount <= 0)
+            {
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: StatisticsHealthCount is {StatisticsHealthCount}, which disables statistics health collection. Configure a positive value to collect statistics health.",
+                    _configuration.StatisticsHealthCount);
+            }
+            else
+            {
+                statisticsHealthCount = await PublishStatisticsHealthAsync(cancellationToken);
+            }
+
+            // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
+            // dead for three days" and "there were no slow queries" are indistinguishable downstream. QueryPlans
+            // counts the plans that actually carried sanitized XML, so it is deliberately lower than SlowQueries
+            // whenever Query Store had no plan for a query or sanitization rejected one.
+            _logger.LogInformation(
+                "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}",
+                startTime,
+                collectionTime,
+                slowQueries.Count,
+                queryPlanCount,
+                statisticsHealthCount,
+                waitStatisticsFailed);
         }
 
         private async Task<QueryStoreState> GetQueryStoreStateAsync(CancellationToken cancellationToken)
@@ -467,6 +497,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                 "Failed to read Query Store plans",
                 cancellationToken);
             var plansById = plans.ToDictionary(plan => plan.PlanId);
+            var publishedPlanCount = 0;
 
             foreach (var slowQuery in slowQueries)
             {
@@ -494,9 +525,17 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                         SanitizationStatus = sanitizedPlan.Status,
                     },
                     cancellationToken);
+
+                // A notification is published for every slow query, including the ones with no usable plan, but only
+                // the ones that carried XML are counted: a count that always equalled the slow-query count would tell
+                // an operator nothing about whether plans are actually arriving.
+                if (sanitizedPlan.Xml != null)
+                {
+                    publishedPlanCount++;
+                }
             }
 
-            return slowQueries.Count;
+            return publishedPlanCount;
         }
 
         private async Task<int> PublishStatisticsHealthAsync(CancellationToken cancellationToken)
@@ -504,9 +543,11 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             await using var command = new SqlCommand(StatisticsHealthSql);
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
 
+            // The reader projects straight into the notification contract: an intermediate DTO here would be a
+            // property-for-property copy of it and nothing else.
             var statisticsHealth = await _sqlRetryService.ExecuteReaderAsync(
                 command,
-                reader => new StatisticsHealthResult
+                reader => new StatisticsHealthNotification
                 {
                     SchemaName = reader.GetString(0),
                     TableName = reader.GetString(1),
@@ -527,23 +568,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
 
             foreach (var statistic in statisticsHealth)
             {
-                await _mediator.PublishAsync(
-                    new StatisticsHealthNotification
-                    {
-                        SchemaName = statistic.SchemaName,
-                        TableName = statistic.TableName,
-                        StatisticsName = statistic.StatisticsName,
-                        LastUpdated = statistic.LastUpdated,
-                        Rows = statistic.Rows,
-                        RowsSampled = statistic.RowsSampled,
-                        ModificationCounter = statistic.ModificationCounter,
-                        ModificationPercent = statistic.ModificationPercent,
-                        IsAutoCreated = statistic.IsAutoCreated,
-                        IsUserCreated = statistic.IsUserCreated,
-                        IsFromIndex = statistic.IsFromIndex,
-                        HasFilter = statistic.HasFilter,
-                    },
-                    cancellationToken);
+                await _mediator.PublishAsync(statistic, cancellationToken);
             }
 
             return statisticsHealth.Count;
@@ -563,6 +588,11 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
         /// <returns>A comma-separated description of the set bits.</returns>
         internal static string DescribeReadonlyReason(int? readonlyReason)
         {
+            // Every bit this method knows how to name. An unrecognized bit is reported rather than dropped, so a
+            // state flag introduced by a newer SQL Server reaches the operator instead of vanishing behind whichever
+            // documented bits happened to be set alongside it.
+            const int knownReasonMask = 1 | 2 | 4 | 8 | 65536 | 131072;
+
             if (readonlyReason == null)
             {
                 return "not reported";
@@ -604,7 +634,18 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                 reasons.Add("Query Store has reached the limit on the number of statements");
             }
 
-            return reasons.Count == 0 ? "unrecognized reason" : string.Join(", ", reasons);
+            if (reasons.Count == 0)
+            {
+                return "unrecognized reason";
+            }
+
+            var unrecognizedBits = readonlyReason.Value & ~knownReasonMask;
+            if (unrecognizedBits != 0)
+            {
+                reasons.Add(FormattableString.Invariant($"unrecognized reason bits {unrecognizedBits} (readonly_reason = {readonlyReason.Value})"));
+            }
+
+            return string.Join(", ", reasons);
         }
 
         private static string GetWaitStatisticsStatus(bool waitStatisticsFailed, WaitStatistics wait)
@@ -617,14 +658,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             return wait == null ? WaitStatisticsUnavailableStatus : WaitStatisticsAvailableStatus;
         }
 
-        private static TruncatedField Truncate(string value)
-        {
-            value ??= string.Empty;
-            var truncated = value.Length > MaxFieldLength;
-            return new TruncatedField(truncated ? value.Substring(0, MaxFieldLength) : value, truncated, value.Length);
-        }
-
-        private sealed class SlowQueryResult
+        internal sealed class SlowQueryResult
         {
             internal long QueryId { get; set; }
 
@@ -653,33 +687,6 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             internal DateTimeOffset IntervalEnd { get; set; }
         }
 
-        private sealed class StatisticsHealthResult
-        {
-            internal string SchemaName { get; set; }
-
-            internal string TableName { get; set; }
-
-            internal string StatisticsName { get; set; }
-
-            internal DateTimeOffset? LastUpdated { get; set; }
-
-            internal long? Rows { get; set; }
-
-            internal long? RowsSampled { get; set; }
-
-            internal long? ModificationCounter { get; set; }
-
-            internal double? ModificationPercent { get; set; }
-
-            internal bool IsAutoCreated { get; set; }
-
-            internal bool IsUserCreated { get; set; }
-
-            internal bool IsFromIndex { get; set; }
-
-            internal bool HasFilter { get; set; }
-        }
-
         private sealed class QueryStoreState
         {
             // Trap: sys.database_query_store_options.readonly_reason is int, NOT bigint, even though the neighbouring
@@ -697,7 +704,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             internal int? ReadonlyReason { get; }
         }
 
-        private sealed class WaitStatistics
+        internal sealed class WaitStatistics
         {
             internal WaitStatistics(long planId, double totalWaitMilliseconds, string topWaitCategory)
             {
@@ -724,22 +731,6 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             internal long PlanId { get; }
 
             internal string QueryPlan { get; }
-        }
-
-        private sealed class TruncatedField
-        {
-            internal TruncatedField(string value, bool truncated, int originalLength)
-            {
-                Value = value;
-                Truncated = truncated;
-                OriginalLength = originalLength;
-            }
-
-            internal string Value { get; }
-
-            internal bool Truncated { get; }
-
-            internal int OriginalLength { get; }
         }
     }
 }
