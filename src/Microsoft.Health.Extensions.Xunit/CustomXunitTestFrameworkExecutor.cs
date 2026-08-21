@@ -69,14 +69,40 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             EnsureArg.IsNotNull(executionOptions, nameof(executionOptions));
 
-            SetEnvironment(AssertEquivalentMaxDepthVariable, executionOptions.AssertEquivalentMaxDepth());
-            SetEnvironment(PrintMaxEnumerableLengthVariable, executionOptions.PrintMaxEnumerableLength());
-            SetEnvironment(PrintMaxObjectDepthVariable, executionOptions.PrintMaxObjectDepth());
-            SetEnvironment(PrintMaxObjectMemberCountVariable, executionOptions.PrintMaxObjectMemberCount());
-            SetEnvironment(PrintMaxStringLengthVariable, executionOptions.PrintMaxStringLength());
+            foreach (KeyValuePair<string, int?> variable in BuildAssertionFormattingEnvironment(executionOptions))
+            {
+                SetEnvironment(variable.Key, variable.Value);
+            }
 
             var runner = new FixtureArgumentSetAssemblyRunner();
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
+        }
+
+        /// <summary>
+        /// Pairs each assertion formatting option with the environment variable <c>Assert</c> reads it
+        /// from.
+        /// </summary>
+        /// <remarks>
+        /// The pairing is the part that can go wrong silently. Every one of these options is an
+        /// <see cref="int"/>, so two of them swapped still compiles, still sets both variables and
+        /// still leaves the names correct - it only makes assertion failure messages truncate at the
+        /// wrong place, which no test asserting on names would notice. Returning the pairs rather than
+        /// setting them directly is what lets a test state them.
+        /// </remarks>
+        /// <param name="executionOptions">The options the run was started with.</param>
+        /// <returns>Each variable name with the value to give it, or <c>null</c> to leave it alone.</returns>
+        internal static IReadOnlyList<KeyValuePair<string, int?>> BuildAssertionFormattingEnvironment(ITestFrameworkExecutionOptions executionOptions)
+        {
+            EnsureArg.IsNotNull(executionOptions, nameof(executionOptions));
+
+            return new[]
+            {
+                new KeyValuePair<string, int?>(AssertEquivalentMaxDepthVariable, executionOptions.AssertEquivalentMaxDepth()),
+                new KeyValuePair<string, int?>(PrintMaxEnumerableLengthVariable, executionOptions.PrintMaxEnumerableLength()),
+                new KeyValuePair<string, int?>(PrintMaxObjectDepthVariable, executionOptions.PrintMaxObjectDepth()),
+                new KeyValuePair<string, int?>(PrintMaxObjectMemberCountVariable, executionOptions.PrintMaxObjectMemberCount()),
+                new KeyValuePair<string, int?>(PrintMaxStringLengthVariable, executionOptions.PrintMaxStringLength()),
+            };
         }
 
         private static void SetEnvironment(string environmentVariableName, int? value)

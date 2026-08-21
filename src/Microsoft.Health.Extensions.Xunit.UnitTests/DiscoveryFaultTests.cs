@@ -19,11 +19,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         private const string CosmosErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery: Cosmos)";
 
         /// <summary>
-        /// xUnit reports an exception thrown out of discovery only as an internal diagnostic, which
-        /// is suppressed by default, and carries on without the class. A run containing any other
-        /// healthy class therefore still reports success, so a broken expansion is indistinguishable
-        /// from a class that has no tests. The discoverer turns the fault into a failing test case
-        /// instead, which puts it in the results and in the exit code.
+        /// xUnit reports an exception thrown out of discovery only as a diagnostic message, which is
+        /// suppressed unless the run was started with <c>--xunit-diagnostics</c>, and carries on
+        /// without the class. A run containing any other healthy class therefore still reports
+        /// success, so a broken expansion is indistinguishable from a class that has no tests. The
+        /// discoverer turns the fault into a failing test case instead, which puts it in the results
+        /// and in the exit code.
         /// </summary>
         [Fact]
         public void GivenAClassThatCannotBeExpanded_WhenItIsDiscovered_ThenTheFaultIsReportedAsAFailedTest()

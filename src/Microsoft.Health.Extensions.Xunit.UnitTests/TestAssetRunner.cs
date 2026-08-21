@@ -61,9 +61,25 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// other data store - so this is how a scenario checks that a leg excluding one value still
         /// sees what it was meant to run.
         /// </param>
+        /// <param name="filterQueryTraits">
+        /// The trait predicate of a query filter, in the form the runner takes inside the brackets of a
+        /// query - such as <c>(DataStore=CosmosDb)&amp;(Category=ExportLongRunning)</c>. This is the
+        /// compound form the repository's E2E and export legs select with, where a case runs only if it
+        /// carries every named trait, so a failure missing any one of them is invisible to the leg that
+        /// would have run the tests it stands for. The runner scopes the query to the scenario itself,
+        /// because a query filter cannot be combined with the plain namespace filter used otherwise.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null, string filterNotTrait = null)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null, string filterNotTrait = null, string filterQueryTraits = null)
         {
+            // The runner rejects a query filter outright once any plain filter has been added, so the
+            // two forms cannot be mixed. Saying that here keeps a scenario that tries from failing as an
+            // unhandled exception inside the asset, which reads as the asset being broken.
+            if (!string.IsNullOrEmpty(filterQueryTraits) && (!string.IsNullOrEmpty(filterTrait) || !string.IsNullOrEmpty(filterNotTrait)))
+            {
+                throw new ArgumentException("A query filter cannot be combined with a trait filter; express the whole selection as a query.", nameof(filterQueryTraits));
+            }
+
             string assetsAssembly = ResolveAssetsAssembly();
             string resultsDirectory = Path.Combine(Path.GetTempPath(), "xunit-ext-assets", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(resultsDirectory);
@@ -80,8 +96,6 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     "exec",
                     assetsAssembly,
-                    "--filter-namespace",
-                    ScenarioNamespacePrefix + scenario,
                     "--parallel",
                     "collections",
                     "--report-trx",
@@ -90,6 +104,20 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     "--results-directory",
                     resultsDirectory,
                 };
+
+                if (string.IsNullOrEmpty(filterQueryTraits))
+                {
+                    arguments.Add("--filter-namespace");
+                    arguments.Add(ScenarioNamespacePrefix + scenario);
+                }
+                else
+                {
+                    // A query names each level of the test's identity in turn - assembly, namespace,
+                    // class, method - before the traits, so scoping it to the scenario means matching
+                    // any assembly and any class and method within that one namespace.
+                    arguments.Add("--filter-query");
+                    arguments.Add(FormattableString.Invariant($"/*/{ScenarioNamespacePrefix}{scenario}/*/*/[{filterQueryTraits}]"));
+                }
 
                 if (stopOnFail)
                 {

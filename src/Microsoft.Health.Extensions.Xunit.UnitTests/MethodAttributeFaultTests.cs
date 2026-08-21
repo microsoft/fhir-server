@@ -16,7 +16,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     public class MethodAttributeFaultTests
     {
         private const string ScenarioClass = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.MethodAttributeFault.MethodAttributeFaultTests";
-        private const string ErrorCaseName = ScenarioClass + ".NeverRuns (fixture argument set discovery: Cosmos)";
+        private const string SqlErrorCaseName = ScenarioClass + ".NeverRuns (fixture argument set discovery: Sql)";
+        private const string SqlSomeErrorCaseName = ScenarioClass + ".NeverRuns (fixture argument set discovery: Sql, Some)";
 
         /// <summary>
         /// Reading the attribute is a separate step from expanding it, and it can fail on its own: a
@@ -37,22 +38,45 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [ScenarioClass + ".RunsBeforeTheFault"] = "Passed",
                     [ScenarioClass + ".RunsAfterTheFault (Cosmos)"] = "Passed",
-                    [ErrorCaseName] = "Failed",
+                    [SqlErrorCaseName] = "Failed",
+                    [SqlSomeErrorCaseName] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);
         }
 
         /// <summary>
-        /// The values a fault case carries as traits are pooled from every method of the class, and
-        /// reading them can hit the very declaration that caused the fault. Reading the whole class in
-        /// one attempt meant that one unreadable method left the pool empty, so the failure went out
-        /// with no argument set traits at all - and a leg selecting its tests by those traits would
-        /// then skip the failure and pass with the class missing. Here only the failing method's
-        /// values are unreadable, so the case must still carry the value its sibling declares.
+        /// The failure has to carry the values the failing method itself declared, so that the leg
+        /// which would have run it is the leg that sees it. Asking the method for the single attribute
+        /// it declares is what threw, and answering that with nothing left the failure carrying only
+        /// values borrowed from a sibling - reported to the Cosmos leg, which would never have run
+        /// this method, and hidden from the SQL leg, which would. Reading each of the method's
+        /// attributes on its own keeps the failure where its tests were.
         /// </summary>
         [Fact]
-        public void GivenOneMethodWhoseAttributeCannotBeRead_WhenTestsAreSelectedByArgumentSetTrait_ThenTheFaultIsStillReported()
+        public void GivenOneMethodWhoseAttributeCannotBeRead_WhenTestsAreSelectedByItsOwnArgumentSetTrait_ThenTheFaultIsStillReported()
+        {
+            TestAssetRun run = TestAssetRunner.Run("MethodAttributeFault", filterTrait: "AssetDataStore=Sql");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [SqlErrorCaseName] = "Failed",
+                    [SqlSomeErrorCaseName] = "Failed",
+                });
+
+            Assert.NotEqual(0, run.ExitCode);
+        }
+
+        /// <summary>
+        /// The other side of the same guarantee: the sibling's value must not leak onto the failure.
+        /// A failure tagged with a value its method never declared is a red test on a leg that would
+        /// never have run it, and - worse - is dropped by that leg's exclusion filter in the runs
+        /// where the fault should have been reported elsewhere.
+        /// </summary>
+        [Fact]
+        public void GivenOneMethodWhoseAttributeCannotBeRead_WhenTestsAreSelectedByASiblingsArgumentSetTrait_ThenOnlyTheSiblingRuns()
         {
             TestAssetRun run = TestAssetRunner.Run("MethodAttributeFault", filterTrait: "AssetDataStore=Cosmos");
 
@@ -61,10 +85,9 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [ScenarioClass + ".RunsAfterTheFault (Cosmos)"] = "Passed",
-                    [ErrorCaseName] = "Failed",
                 });
 
-            Assert.NotEqual(0, run.ExitCode);
+            Assert.Equal(0, run.ExitCode);
         }
 
         /// <summary>

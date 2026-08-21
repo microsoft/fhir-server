@@ -60,11 +60,22 @@ namespace Microsoft.Health.Extensions.Xunit
                 // own faults, so it belongs to the class as a whole and no method of it was expanded.
                 //
                 // testClass.Methods includes every public method, property accessors among them, so
-                // the anchor is chosen from those xunit would treat as tests: a fault reported
-                // against a property getter names nothing a reader can act on, and the getter carries
-                // none of the traits a CI leg selects the class's tests by.
-                MethodInfo firstMethod = testClass.Methods.FirstOrDefault(IsTestMethod) ?? testClass.Methods.FirstOrDefault();
-                if (firstMethod == null)
+                // the failures are reported against those xunit would treat as tests: a fault
+                // reported against a property getter names nothing a reader can act on, and the
+                // getter carries none of the traits a CI leg selects the class's tests by.
+                //
+                // One failure is reported per lost method rather than one for the class, because a
+                // single failure can only carry one set of traits, and the methods of a class need
+                // not agree on theirs. A failure carrying every method's traits is dropped by a leg
+                // excluding any one of them; a failure carrying only the first method's is invisible
+                // to a leg selecting by another's. Either way a leg passes green with tests missing.
+                MethodInfo[] lostMethods = testClass.Methods.Where(IsTestMethod).ToArray();
+                if (lostMethods.Length == 0)
+                {
+                    lostMethods = testClass.Methods.Take(1).ToArray();
+                }
+
+                if (lostMethods.Length == 0)
                 {
                     // Nothing to hang a test case off. Rethrowing keeps the original xunit behaviour,
                     // which is all that is left.
@@ -75,7 +86,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 return await ReportDiscoveryFault(
                     testClass,
-                    firstMethod,
+                    lostMethods,
                     tracker,
                     ex,
                     $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran.");
@@ -108,16 +119,34 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <summary>
         /// Determines whether xunit would treat a method as a test.
         /// </summary>
+        /// <remarks>
+        /// This is asked while handling a discovery failure, over the very metadata that may have
+        /// caused it, so a method whose attributes cannot be read is treated as not a test rather than
+        /// allowed to throw. The caller then falls back to any method at all, which reports the failure
+        /// against a less helpful name - still far better than letting the class vanish from a green
+        /// run, which is what an escaping exception here would cause.
+        /// </remarks>
         /// <param name="method">The method to inspect.</param>
         /// <returns><c>true</c> when the method carries a fact or theory attribute.</returns>
-        private static bool IsTestMethod(MethodInfo method) =>
-            method.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0;
+        private static bool IsTestMethod(MethodInfo method)
+        {
+            try
+            {
+                return method.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the attributes of '{method.Name}' could not be read while choosing a method to report a discovery failure against. {ex}");
+                return false;
+            }
+        }
 
         /// <summary>
         /// Reports a discovery failure as a test case that fails when the run reaches it.
         /// </summary>
         /// <param name="testClass">The class being discovered.</param>
-        /// <param name="method">The method to report the failure against.</param>
+        /// <param name="lostMethods">The methods the fault lost, each of which gets its own failures.</param>
         /// <param name="tracker">The callback discovered test cases are handed to.</param>
         /// <param name="exception">The failure being reported.</param>
         /// <param name="summary">A sentence saying what was lost, used to open the failure message.</param>
@@ -133,13 +162,17 @@ namespace Microsoft.Health.Extensions.Xunit
         /// that would have selected the tests it replaces, and discarding the aggregated failure
         /// discards this message with it, leaving the fault unreported again.
         /// <para>
-        /// One case is reported per combination of argument set values rather than one case carrying
-        /// them all, because a trait exclusion filter drops a case when <em>any</em> of its values
-        /// under the named trait matches. A single case declaring both <c>DataStore=CosmosDb</c> and
-        /// <c>DataStore=SqlServer</c> would be dropped by the SQL leg's
-        /// <c>--filter-not-trait DataStore=CosmosDb</c> and by the Cosmos leg's
-        /// <c>--filter-not-trait DataStore=SqlServer</c> alike, so the fault would be reported to
-        /// nobody while both legs stayed green.
+        /// Every failure reported here stands for exactly one thing that would have run: one method,
+        /// under one combination of argument set values. Nothing is merged, because a case carrying
+        /// more than one method's traits, or more than one combination's values, is a case a filter can
+        /// drop for a reason that applies to only part of what it stands for. A trait filter drops a
+        /// case when <em>any</em> of its values under the named trait matches, so a single case
+        /// declaring both <c>DataStore=CosmosDb</c> and <c>DataStore=SqlServer</c> is dropped by the
+        /// SQL leg's <c>--filter-not-trait DataStore=CosmosDb</c> and by the Cosmos leg's
+        /// <c>--filter-not-trait DataStore=SqlServer</c> alike - reported to nobody while both legs
+        /// stay green. The same holds of ordinary traits: pooling one method's
+        /// <c>Category=ExportLongRunning</c> into the failures standing for methods that do not
+        /// declare it would let the normal leg's <c>Category!=ExportLongRunning</c> drop all of them.
         /// </para>
         /// <para>
         /// A case standing for a combination is anchored to that combination's variant class, the same
@@ -153,14 +186,36 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </remarks>
         private async ValueTask<bool> ReportDiscoveryFault(
             IXunitTestClass testClass,
-            MethodInfo method,
+            IReadOnlyList<MethodInfo> lostMethods,
             CallbackTracker tracker,
             Exception exception,
             string summary)
         {
             Console.WriteLine($"[FixtureArgumentSets] ERROR: {summary} It was replaced by a failing test case. {exception}");
 
-            foreach (IReadOnlyList<SingleFlag> combination in BuildFaultArgumentSetCombinations(ReadFaultArgumentSetValues(testClass)))
+            foreach (MethodInfo method in lostMethods)
+            {
+                if (!await ReportDiscoveryFaultForMethod(testClass, method, tracker, exception, summary))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private async ValueTask<bool> ReportDiscoveryFaultForMethod(
+            IXunitTestClass testClass,
+            MethodInfo method,
+            CallbackTracker tracker,
+            Exception exception,
+            string summary)
+        {
+            // Overloads share a name, so a fault reported against each of two of them would otherwise
+            // give both cases the same unique ID and xunit would keep only one.
+            string methodKey = BuildFaultMethodKey(method);
+
+            foreach (IReadOnlyList<SingleFlag> combination in BuildFaultArgumentSetCombinations(ReadFaultArgumentSetDimensions(testClass, method)))
             {
                 string displaySuffix = combination.Count == 0
                     ? string.Empty
@@ -192,7 +247,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     anchorClass,
                     method,
                     Array.Empty<object>(),
-                    uniqueID: UniqueIDGenerator.ForTestMethod(anchorClass.UniqueID, method.Name));
+                    uniqueID: UniqueIDGenerator.ForTestMethod(anchorClass.UniqueID, methodKey));
 
                 // The test case is handed to xunit through the callback, which owns it from then on
                 // and disposes it with the rest of the discovered cases.
@@ -200,7 +255,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 var errorTestCase = new DiscoveryErrorTestCase(
                     errorTestMethod,
                     $"{testClass.TestClassName}.{method.Name} (fixture argument set discovery{displaySuffix})",
-                    $"{testClass.UniqueID}-{method.Name}-fixture-argument-set-discovery-error{idSuffix}",
+                    $"{testClass.UniqueID}-{methodKey}-fixture-argument-set-discovery-error{idSuffix}",
                     errorMessage: $"{summary} {exception}",
                     traits: BuildFaultTraits(errorTestMethod, combination));
 #pragma warning restore CA2000
@@ -215,43 +270,82 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
-        /// Closes the argument set values a failed class declared over each other, one dimension per
-        /// enum type, so that each combination can be reported as its own failure.
+        /// Closes the argument set values a failed class declared over each other, so that each
+        /// combination its tests would have run as can be reported as its own failure.
         /// </summary>
-        /// <param name="argumentSetValues">Every argument set value read off the class, in any order.</param>
+        /// <param name="argumentSetDimensions">
+        /// The dimensions each declared argument set attribute expands to, one entry per attribute,
+        /// each holding that attribute's dimensions in the order it declares them.
+        /// </param>
         /// <returns>
-        /// One list per combination. A class declaring no argument set values yields a single empty
-        /// combination, so a fault is always reported at least once.
+        /// One list per combination, deduplicated. A class declaring no argument set values yields a
+        /// single empty combination, so a fault is always reported at least once.
         /// </returns>
         /// <remarks>
-        /// Values are grouped by enum type because that is what a dimension is: an attribute takes one
-        /// flags enum per fixture constructor parameter, and the variants a class expands to are the
-        /// product of the single flags set within each. Reproducing that product here means a leg
-        /// selecting a variant by trait selects the failure standing in for it, and a leg excluding a
-        /// variant by trait excludes only that one and still sees the rest.
+        /// A dimension is one flags enum, taken by one of the fixture's constructor parameters, and
+        /// the variants an attribute expands to are the product of the single flags set within each of
+        /// its dimensions. Reproducing that product means a leg selecting a variant by trait selects
+        /// the failure standing in for it, and a leg excluding a variant by trait excludes only that
+        /// one and still sees the rest.
+        /// <para>
+        /// Each attribute is closed over separately rather than every value being pooled into one
+        /// product, because attributes need not agree on which dimensions they use. Pooling would give
+        /// the failures standing in for a method that declares only a data store a format value it
+        /// never asked for, and a leg excluding that format would then exclude every failure the class
+        /// produced - passing green with those tests missing, which is the one outcome this whole
+        /// mechanism exists to prevent. Closing each attribute separately keeps every combination one
+        /// that some method really would have run as.
+        /// </para>
         /// </remarks>
-        internal static IReadOnlyList<IReadOnlyList<SingleFlag>> BuildFaultArgumentSetCombinations(IEnumerable<SingleFlag> argumentSetValues)
+        internal static IReadOnlyList<IReadOnlyList<SingleFlag>> BuildFaultArgumentSetCombinations(IEnumerable<SingleFlag[][]> argumentSetDimensions)
         {
-            EnsureArg.IsNotNull(argumentSetValues, nameof(argumentSetValues));
+            EnsureArg.IsNotNull(argumentSetDimensions, nameof(argumentSetDimensions));
 
-            IEnumerable<IEnumerable<SingleFlag>> dimensions = argumentSetValues
-                .Where(flag => flag.EnumValue != null)
-                .GroupBy(flag => flag.EnumValue.GetType())
-                .OrderBy(dimension => dimension.Key.Name, StringComparer.Ordinal)
-                .Select(dimension => (IEnumerable<SingleFlag>)dimension
-                    .GroupBy(flag => flag.EnumValue)
-                    .Select(values => values.First())
-                    .ToArray())
-                .ToArray();
+            var combinations = new List<IReadOnlyList<SingleFlag>>();
 
-            return CartesianProduct(dimensions)
-                .Select(combination => (IReadOnlyList<SingleFlag>)combination.ToArray())
-                .ToArray();
+            // Two attributes declaring the same values would otherwise be reported twice, and the two
+            // failures would share a unique ID.
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (SingleFlag[][] attributeDimensions in argumentSetDimensions)
+            {
+                IEnumerable<IEnumerable<SingleFlag>> dimensions = (attributeDimensions ?? Array.Empty<SingleFlag[]>())
+                    .Where(dimension => dimension != null)
+                    .Select(dimension => (IEnumerable<SingleFlag>)dimension
+                        .Where(flag => flag.EnumValue != null)
+                        .GroupBy(flag => flag.EnumValue)
+                        .Select(values => values.First())
+                        .ToArray())
+                    .Where(dimension => dimension.Any())
+                    .ToArray();
+
+                foreach (IEnumerable<SingleFlag> combination in CartesianProduct(dimensions))
+                {
+                    SingleFlag[] closed = combination.ToArray();
+                    string key = string.Join(
+                        "|",
+                        closed
+                            .Select(flag => $"{flag.EnumValue.GetType().FullName}.{flag.EnumValue}")
+                            .OrderBy(text => text, StringComparer.Ordinal));
+
+                    if (seen.Add(key))
+                    {
+                        combinations.Add(closed);
+                    }
+                }
+            }
+
+            if (combinations.Count == 0)
+            {
+                combinations.Add(Array.Empty<SingleFlag>());
+            }
+
+            return combinations;
         }
 
         /// <summary>
-        /// Reads every argument set value a class and its methods declare, for use in reporting a
-        /// discovery failure.
+        /// Reads the argument set dimensions that apply to one lost method, for use in reporting the
+        /// discovery failure that stands in for it.
         /// </summary>
         /// <remarks>
         /// This runs while handling a discovery failure, and reads the same attributes whose contents
@@ -259,61 +353,59 @@ namespace Microsoft.Health.Extensions.Xunit
         /// further exception costs only that one attribute's values. Reporting the failure with fewer
         /// traits is worth more than not reporting it at all.
         /// <para>
-        /// Every method's values are pooled, not just the anchor method's, because a class-level fault
-        /// loses every method. Pooling can only add combinations, and an extra combination reports the
-        /// fault once more rather than hiding it, whereas a missing one is a leg that passes with the
-        /// tests absent.
+        /// Every attribute the class and the method declare is read, not the single one the expansion
+        /// would have used, because declaring two is one of the ways the expansion fails: asking for
+        /// the single attribute throws, and answering that with no values at all leaves the failure
+        /// carrying none of the traits its own declaration named. A method declaring
+        /// <c>DataStore=SqlServer</c> twice over would then be reported to the Cosmos leg and not to
+        /// the SQL one - the leg that would have run it passing green without it.
+        /// </para>
+        /// <para>
+        /// Only this method's own attributes are read, never a sibling's. The failure stands for this
+        /// method alone, and a value borrowed from a sibling is a value no test of this method would
+        /// have carried, which an exclusion filter can then use to drop the failure entirely.
         /// </para>
         /// </remarks>
         /// <param name="testClass">The class whose expansion failed.</param>
-        /// <returns>The declared values; empty when none could be read.</returns>
-        private static SingleFlag[] ReadFaultArgumentSetValues(IXunitTestClass testClass)
+        /// <param name="method">The lost method the failure stands in for.</param>
+        /// <returns>The dimensions of each declared attribute; empty when none could be read.</returns>
+        private static List<SingleFlag[][]> ReadFaultArgumentSetDimensions(IXunitTestClass testClass, MethodInfo method)
         {
-            var attributes = new List<FixtureArgumentSetsAttribute>();
+            var dimensions = new List<SingleFlag[][]>();
 
-            // Each attribute is read on its own so that the one whose contents may have caused the
-            // fault in the first place costs only its own values, rather than emptying the pool and
-            // leaving the failure with no traits for a leg's filter to select it by.
-            TryAdd(() => testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
+            AddAll(() => testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false), testClass.TestClassName);
+            AddAll(() => method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false), $"{testClass.TestClassName}.{method.Name}");
 
-            foreach (MethodInfo method in testClass.Methods)
+            return dimensions;
+
+            void AddAll(Func<object[]> read, string owner)
             {
-                MethodInfo closedMethod = method;
-                TryAdd(() => closedMethod.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
-            }
-
-            return attributes
-                .SelectMany(SafeExpand)
-                .Where(flag => flag.EnumValue != null)
-                .ToArray();
-
-            void TryAdd(Func<FixtureArgumentSetsAttribute> read)
-            {
+                object[] attributes;
                 try
                 {
-                    if (read() is FixtureArgumentSetsAttribute attribute)
+                    attributes = read();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: the argument set attributes of '{owner}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    return;
+                }
+
+                // Each attribute is expanded on its own so that the one whose contents may have caused
+                // the fault in the first place costs only its own values, rather than leaving the
+                // failure with no traits for a leg's filter to select it by.
+                foreach (FixtureArgumentSetsAttribute attribute in attributes.OfType<FixtureArgumentSetsAttribute>())
+                {
+                    try
                     {
-                        attributes.Add(attribute);
+                        dimensions.Add(ExpandEnumFlagsFromAttributeData(attribute));
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(
-                        $"[FixtureArgumentSets] WARNING: some argument set traits of '{testClass.TestClassName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
-                }
-            }
-
-            IEnumerable<SingleFlag> SafeExpand(FixtureArgumentSetsAttribute attribute)
-            {
-                try
-                {
-                    return ExpandEnumFlagsFromAttributeData(attribute).SelectMany(dimension => dimension ?? Array.Empty<SingleFlag>()).ToArray();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(
-                        $"[FixtureArgumentSets] WARNING: some argument set traits of '{testClass.TestClassName}' could not be expanded, so a trait filter may not select the failure standing in for its tests. {ex}");
-                    return Array.Empty<SingleFlag>();
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"[FixtureArgumentSets] WARNING: an argument set attribute of '{owner}' could not be expanded, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    }
                 }
             }
         }
@@ -323,17 +415,28 @@ namespace Microsoft.Health.Extensions.Xunit
         /// the same filters they would have been.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Two kinds of trait matter. The ordinary ones the method and its class declare come from the
         /// anchoring method itself, and CI legs combine them with argument set values in filters such
         /// as <c>(DataStore=CosmosDb)&amp;(Category=ExportLongRunning)</c>, so leaving either out lets
         /// the leg that would have run these tests pass without them. The argument set values are the
         /// ones the expansion never got far enough to produce, so they are supplied by the caller from
         /// the attributes rather than read off any discovered variant.
+        /// </para>
+        /// <para>
+        /// Reading the anchor's own traits runs xunit's trait discovery, which evaluates user code and
+        /// the method's and class's attributes, and so can fail for the same reason the expansion did.
+        /// That is caught here: a failure reported with only its argument set traits is still reported,
+        /// whereas letting the read escape would take the whole mechanism down with it and leave the
+        /// class silently absent from a green run.
+        /// </para>
         /// </remarks>
         /// <param name="anchor">The method the failure is reported against.</param>
         /// <param name="argumentSetCombination">The one combination of argument set values this failure stands for.</param>
         /// <returns>The traits, keyed by trait name.</returns>
-        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(XunitTestMethod anchor, IReadOnlyList<SingleFlag> argumentSetCombination)
+        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(
+            XunitTestMethod anchor,
+            IReadOnlyList<SingleFlag> argumentSetCombination)
         {
             var traits = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -348,12 +451,20 @@ namespace Microsoft.Health.Extensions.Xunit
                 ((HashSet<string>)values).Add(value);
             }
 
-            foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in anchor.Traits)
+            try
             {
-                foreach (string value in trait.Value)
+                foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in anchor.Traits)
                 {
-                    Add(trait.Key, value);
+                    foreach (string value in trait.Value)
+                    {
+                        Add(trait.Key, value);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the ordinary traits of '{anchor.TestClass.TestClassName}.{anchor.MethodName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
             }
 
             foreach (SingleFlag flag in argumentSetCombination)
@@ -362,6 +473,39 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             return traits;
+        }
+
+        /// <summary>
+        /// Builds the part of a discovery failure's unique ID that identifies the method it is
+        /// reported against.
+        /// </summary>
+        /// <remarks>
+        /// The method's name alone is not unique: a class may overload a test method, and two failures
+        /// sharing a unique ID leave xunit reporting only one of them - the other silently absent,
+        /// which is the outcome reporting these failures exists to prevent. The parameter types are
+        /// included to tell overloads apart, and are read defensively because this runs while handling
+        /// a failure that may itself be a type that cannot be loaded.
+        /// </remarks>
+        /// <param name="method">The method the failure is reported against.</param>
+        /// <returns>A key identifying the method, falling back to its name alone.</returns>
+        private static string BuildFaultMethodKey(MethodInfo method)
+        {
+            try
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 0)
+                {
+                    return method.Name;
+                }
+
+                return $"{method.Name}({string.Join(",", parameters.Select(parameter => parameter.ParameterType.FullName ?? parameter.ParameterType.Name))})";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the signature of '{method.Name}' could not be read, so a failure reported against an overload of it may be dropped as a duplicate. {ex}");
+                return method.Name;
+            }
         }
 
         /// <summary>
@@ -435,7 +579,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     continueDiscovery = await ReportDiscoveryFault(
                         testClass,
-                        method,
+                        new[] { method },
                         tracker,
                         ex,
                         $"Discovering the fixture argument set variants of '{testClass.TestClassName}.{method.Name}' failed, so none of that method's tests ran. Other methods of the class were discovered normally.");

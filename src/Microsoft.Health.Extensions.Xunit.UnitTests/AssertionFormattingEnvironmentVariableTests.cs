@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -48,6 +49,81 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
             Assert.NotNull(field);
             Assert.Equal(expectedVariableName, field.GetRawConstantValue());
+        }
+
+        /// <summary>
+        /// Pins which option goes into which variable, not just that the names are right.
+        /// </summary>
+        /// <remarks>
+        /// Every one of these options is an <see cref="int"/>, so two of them swapped compiles, sets
+        /// every variable, and leaves all five names correct - the only symptom is assertion failure
+        /// messages truncating at the wrong place, which the name comparison above cannot see. Giving
+        /// each option a distinct value is what makes a swap fail here.
+        /// </remarks>
+        [Fact]
+        public void GivenEveryAssertionFormattingOption_WhenTheyAreCopiedToTheEnvironment_ThenEachReachesItsOwnVariable()
+        {
+            var options = new RecordingExecutionOptions();
+            options.SetAssertEquivalentMaxDepth(11);
+            options.SetPrintMaxEnumerableLength(12);
+            options.SetPrintMaxObjectDepth(13);
+            options.SetPrintMaxObjectMemberCount(14);
+            options.SetPrintMaxStringLength(15);
+
+            Dictionary<string, int?> environment = CustomXunitTestFrameworkExecutor
+                .BuildAssertionFormattingEnvironment(options)
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+            Assert.Equal(
+                new Dictionary<string, int?>(StringComparer.Ordinal)
+                {
+                    [CustomXunitTestFrameworkExecutor.AssertEquivalentMaxDepthVariable] = 11,
+                    [CustomXunitTestFrameworkExecutor.PrintMaxEnumerableLengthVariable] = 12,
+                    [CustomXunitTestFrameworkExecutor.PrintMaxObjectDepthVariable] = 13,
+                    [CustomXunitTestFrameworkExecutor.PrintMaxObjectMemberCountVariable] = 14,
+                    [CustomXunitTestFrameworkExecutor.PrintMaxStringLengthVariable] = 15,
+                },
+                environment);
+        }
+
+        /// <summary>
+        /// An option nobody passed has to stay unset rather than being written as some default. The
+        /// variables are process-wide and outlive the run that set them, so writing a value xunit
+        /// would otherwise have chosen for itself would silently override whatever the environment
+        /// already said.
+        /// </summary>
+        [Fact]
+        public void GivenNoAssertionFormattingOptions_WhenTheyAreCopiedToTheEnvironment_ThenNoVariableIsGivenAValue()
+        {
+            IReadOnlyList<KeyValuePair<string, int?>> environment =
+                CustomXunitTestFrameworkExecutor.BuildAssertionFormattingEnvironment(new RecordingExecutionOptions());
+
+            Assert.All(environment, pair => Assert.Null(pair.Value));
+        }
+
+        /// <summary>
+        /// The smallest thing that can stand in for the runner's options: xunit's own extension
+        /// methods supply the option names, so the test states only the pairing and never repeats a
+        /// name that could drift from the one the runner really uses.
+        /// </summary>
+        private sealed class RecordingExecutionOptions : ITestFrameworkExecutionOptions
+        {
+            private readonly Dictionary<string, object> _values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+            public TValue GetValue<TValue>(string name)
+            {
+                return _values.TryGetValue(name, out object value) ? (TValue)value : default;
+            }
+
+            public void SetValue<TValue>(string name, TValue value)
+            {
+                _values[name] = value;
+            }
+
+            public string ToJson()
+            {
+                return "{}";
+            }
         }
     }
 }
