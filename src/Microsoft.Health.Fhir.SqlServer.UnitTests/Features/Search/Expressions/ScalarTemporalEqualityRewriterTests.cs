@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(ModelInfoProviderCollection.Name)]
     public class ScalarTemporalEqualityRewriterTests : IClassFixture<ModelInfoProviderFixture>
     {
         private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);

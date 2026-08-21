@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Xunit;
 using Xunit.Sdk;
 using Xunit.v3;
@@ -113,6 +114,67 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
             Assert.Equal(1, summary.Total);
             Assert.Equal(1, summary.Failed);
+        }
+
+        /// <summary>
+        /// The exception attached to a replayed current-attempt failure has to be the one that
+        /// attempt captured. Attaching the earlier attempt's exception would report this attempt's
+        /// failure under the previous attempt's error text.
+        /// </summary>
+        [Fact]
+        public void GivenTheCurrentAttemptIsReplayed_WhenSelectingTheException_ThenTheCurrentAttemptsExceptionIsChosen()
+        {
+            var current = new InvalidOperationException("current");
+            var earlier = new InvalidOperationException("earlier");
+
+            Exception selected = RetryTestCase.SelectNoResultException(NoResultOutcome.ReplayCurrentAttempt, current, earlier);
+
+            Assert.Same(current, selected);
+        }
+
+        /// <summary>
+        /// An attempt cut short before it captured anything of its own still has its failure
+        /// replayed, and nothing is attached rather than reaching back for a stale exception.
+        /// </summary>
+        [Fact]
+        public void GivenTheCurrentAttemptIsReplayedWithoutAnException_WhenSelectingTheException_ThenNothingIsChosen()
+        {
+            Exception selected = RetryTestCase.SelectNoResultException(
+                NoResultOutcome.ReplayCurrentAttempt,
+                currentAttemptException: null,
+                earlierAttemptException: new InvalidOperationException("earlier"));
+
+            Assert.Null(selected);
+        }
+
+        /// <summary>
+        /// When the earlier attempt's failure is the one replayed, its exception is the one that
+        /// describes it.
+        /// </summary>
+        [Fact]
+        public void GivenAnEarlierAttemptIsReplayed_WhenSelectingTheException_ThenTheEarlierAttemptsExceptionIsChosen()
+        {
+            var current = new InvalidOperationException("current");
+            var earlier = new InvalidOperationException("earlier");
+
+            Exception selected = RetryTestCase.SelectNoResultException(NoResultOutcome.ReplayEarlierAttempt, current, earlier);
+
+            Assert.Same(earlier, selected);
+        }
+
+        /// <summary>
+        /// Nothing was published for the test, so nothing should be attached to it either. Adding an
+        /// exception here would turn a test that reported no result into a reported error.
+        /// </summary>
+        [Fact]
+        public void GivenNothingIsReplayed_WhenSelectingTheException_ThenNothingIsChosen()
+        {
+            Exception selected = RetryTestCase.SelectNoResultException(
+                NoResultOutcome.ReportNothing,
+                new InvalidOperationException("current"),
+                new InvalidOperationException("earlier"));
+
+            Assert.Null(selected);
         }
     }
 }

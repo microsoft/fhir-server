@@ -183,9 +183,14 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         StopRunIfRequested(continueRunning, cancellationTokenSource);
 
-                        if (lastException != null)
+                        Exception noResultException = SelectNoResultException(
+                            outcome,
+                            currentAttemptException: attemptAggregator.ToException(),
+                            earlierAttemptException: lastException);
+
+                        if (noResultException != null)
                         {
-                            aggregator.Add(lastException);
+                            aggregator.Add(noResultException);
                         }
 
                         RunSummary noResultSummary = CreateNoResultSummary(outcome);
@@ -339,9 +344,24 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}': {ex.GetType().FullName}: {ex.Message}");
 
-                    // Disposing replays anything still deferred, so a crash cannot swallow a
-                    // failure that an earlier attempt already produced.
-                    pendingFailureBus?.Dispose();
+                    // A crash must not swallow a failure an earlier attempt already produced, but at
+                    // most one attempt's failure may reach the bus: replaying both would publish two
+                    // results for a single test. That is the same supersession rule the no-result
+                    // path applies, so it is decided the same way here. Disposing replays whatever
+                    // is still deferred, and the finally below does that for the current attempt.
+                    NoResultOutcome disposition = DecideNoResultOutcome(
+                        currentAttemptObservedFailure: interceptingBus?.HasDeferredFailure ?? false,
+                        earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
+
+                    if (disposition == NoResultOutcome.ReplayEarlierAttempt)
+                    {
+                        pendingFailureBus?.Dispose();
+                    }
+                    else
+                    {
+                        pendingFailureBus?.DiscardDeferredMessages();
+                    }
+
                     throw;
                 }
                 finally
@@ -380,6 +400,12 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <param name="currentAttemptObservedFailure">Whether this attempt saw a failure before it was cut short.</param>
         /// <param name="earlierAttemptObservedFailure">Whether an earlier attempt deferred a failure that has not been superseded.</param>
         /// <returns>Which deferred failure, if any, should reach the results.</returns>
+        /// <remarks>
+        /// This rule governs both places an attempt can end without reporting: the empty-summary
+        /// path, and the crash path where an unexpected exception unwinds the attempt. Both have to
+        /// let at most one attempt's failure reach the bus, because replaying two would publish two
+        /// results for a single test, so both decide it here rather than each reimplementing it.
+        /// </remarks>
         internal static NoResultOutcome DecideNoResultOutcome(bool currentAttemptObservedFailure, bool earlierAttemptObservedFailure)
         {
             if (currentAttemptObservedFailure)
@@ -390,6 +416,38 @@ namespace Microsoft.Health.Extensions.Xunit
             return earlierAttemptObservedFailure
                 ? NoResultOutcome.ReplayEarlierAttempt
                 : NoResultOutcome.ReportNothing;
+        }
+
+        /// <summary>
+        /// Chooses the exception that belongs with the failure being reported for an attempt that
+        /// published no result of its own.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <param name="currentAttemptException">The exception this attempt captured, if any.</param>
+        /// <param name="earlierAttemptException">The exception captured by the most recent attempt that failed, if any.</param>
+        /// <returns>The exception to attach to the reported failure, or <c>null</c> when nothing should be attached.</returns>
+        /// <remarks>
+        /// The exception has to describe the same failure that was replayed to the bus, otherwise
+        /// the run reports one attempt's failure alongside a different attempt's error text. So the
+        /// choice mirrors the bus exactly: the current attempt's failure carries the current
+        /// attempt's exception, an earlier attempt's failure carries the earlier one's, and an
+        /// attempt that reported nothing at all attaches nothing. Attaching the earlier exception to
+        /// a current-attempt failure is the specific mistake this guards against, because
+        /// <c>lastException</c> still holds the previous attempt's error at that point.
+        /// </remarks>
+        internal static Exception SelectNoResultException(NoResultOutcome outcome, Exception currentAttemptException, Exception earlierAttemptException)
+        {
+            switch (outcome)
+            {
+                case NoResultOutcome.ReplayCurrentAttempt:
+                    return currentAttemptException;
+
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    return earlierAttemptException;
+
+                default:
+                    return null;
+            }
         }
 
         /// <summary>

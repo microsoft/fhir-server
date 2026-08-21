@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(ModelInfoProviderCollection.Name)]
     public class CompartmentQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
         private readonly ISqlServerFhirModel _model;

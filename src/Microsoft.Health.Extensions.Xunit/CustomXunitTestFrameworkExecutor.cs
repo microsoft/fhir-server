@@ -1,14 +1,16 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Xunit;
 using Xunit.Sdk;
 using Xunit.v3;
@@ -20,15 +22,69 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
+        /// <summary>
+        /// The environment variable <c>Assert</c> reads <c>--assert-equivalent-max-depth</c> from.
+        /// </summary>
+        /// <remarks>
+        /// xunit keeps these names in an internal class, so they are repeated here rather than
+        /// referenced. <c>AssertionFormattingEnvironmentVariableTests</c> compares them back against
+        /// that class, so a rename in a future xunit version fails a test rather than turning these
+        /// options silently back off.
+        /// </remarks>
+        internal const string AssertEquivalentMaxDepthVariable = "XUNIT_ASSERT_EQUIVALENT_MAX_DEPTH";
+
+        /// <summary>The environment variable <c>Assert</c> reads <c>--print-max-enumerable-length</c> from.</summary>
+        internal const string PrintMaxEnumerableLengthVariable = "XUNIT_PRINT_MAX_ENUMERABLE_LENGTH";
+
+        /// <summary>The environment variable <c>Assert</c> reads <c>--print-max-object-depth</c> from.</summary>
+        internal const string PrintMaxObjectDepthVariable = "XUNIT_PRINT_MAX_OBJECT_DEPTH";
+
+        /// <summary>The environment variable <c>Assert</c> reads <c>--print-max-object-member-count</c> from.</summary>
+        internal const string PrintMaxObjectMemberCountVariable = "XUNIT_PRINT_MAX_OBJECT_MEMBER_COUNT";
+
+        /// <summary>The environment variable <c>Assert</c> reads <c>--print-max-string-length</c> from.</summary>
+        internal const string PrintMaxStringLengthVariable = "XUNIT_PRINT_MAX_STRING_LENGTH";
+
         public CustomXunitTestFrameworkExecutor(Assembly assembly)
             : base(new XunitTestAssembly(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)))
         {
         }
 
+        /// <summary>
+        /// Runs the discovered test cases through the fixture argument set assembly runner.
+        /// </summary>
+        /// <param name="testCases">The test cases to run.</param>
+        /// <param name="executionMessageSink">The sink execution messages are reported to.</param>
+        /// <param name="executionOptions">The options the run was started with.</param>
+        /// <param name="cancellationToken">Cancels the run.</param>
+        /// <returns>A task that completes when the run does.</returns>
+        /// <remarks>
+        /// Substituting the assembly runner means not going through the base implementation, which is
+        /// also where xunit copies the assertion formatting options into the environment that
+        /// <c>Assert</c> reads them from. Skipping that step would leave options such as
+        /// <c>--print-max-object-depth</c> accepted on the command line and then silently ignored, so
+        /// the same copy is made here before the run starts.
+        /// </remarks>
         public override async ValueTask RunTestCases(IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(executionOptions, nameof(executionOptions));
+
+            SetEnvironment(AssertEquivalentMaxDepthVariable, executionOptions.AssertEquivalentMaxDepth());
+            SetEnvironment(PrintMaxEnumerableLengthVariable, executionOptions.PrintMaxEnumerableLength());
+            SetEnvironment(PrintMaxObjectDepthVariable, executionOptions.PrintMaxObjectDepth());
+            SetEnvironment(PrintMaxObjectMemberCountVariable, executionOptions.PrintMaxObjectMemberCount());
+            SetEnvironment(PrintMaxStringLengthVariable, executionOptions.PrintMaxStringLength());
+
             var runner = new FixtureArgumentSetAssemblyRunner();
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
+        }
+
+        private static void SetEnvironment(string environmentVariableName, int? value)
+        {
+            if (value.HasValue)
+            {
+                Environment.SetEnvironmentVariable(environmentVariableName, value.Value.ToString(CultureInfo.InvariantCulture));
+            }
         }
 
         /// <summary>
@@ -327,15 +383,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 foreach (var testCase in testCases)
                 {
-                    if (testCase is XunitTestCase xunitTestCase)
-                    {
-                        MergeTraits(traits, xunitTestCase.Traits.ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => (IReadOnlyCollection<string>)kvp.Value.ToArray(),
-                            StringComparer.OrdinalIgnoreCase));
-                        continue;
-                    }
-
+                    // Read through the metadata interface, which XunitTestCase implements as a
+                    // read-only projection of the same dictionary its own Traits property exposes.
                     MergeTraits(traits, ((ITestCaseMetadata)testCase).Traits);
                 }
 

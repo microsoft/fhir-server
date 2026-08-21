@@ -55,8 +55,14 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// The value to pass as the runner's thread limit, in the form it takes on the command line.
         /// Scenarios that observe how much runs at once set this so the expected bound is explicit.
         /// </param>
+        /// <param name="filterNotTrait">
+        /// A <c>Name=Value</c> trait filter to exclude on, in the form the runner takes on the command
+        /// line. The repository's integration legs select their tests this way - each excludes the
+        /// other data store - so this is how a scenario checks that a leg excluding one value still
+        /// sees what it was meant to run.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null, string filterNotTrait = null)
         {
             string assetsAssembly = ResolveAssetsAssembly();
             string resultsDirectory = Path.Combine(Path.GetTempPath(), "xunit-ext-assets", Guid.NewGuid().ToString("N"));
@@ -101,6 +107,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     arguments.Add("--filter-trait");
                     arguments.Add(filterTrait);
+                }
+
+                if (!string.IsNullOrEmpty(filterNotTrait))
+                {
+                    arguments.Add("--filter-not-trait");
+                    arguments.Add(filterNotTrait);
                 }
 
                 if (!string.IsNullOrEmpty(maxThreads))

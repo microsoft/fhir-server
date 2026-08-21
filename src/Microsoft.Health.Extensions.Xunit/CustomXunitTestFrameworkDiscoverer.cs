@@ -41,27 +41,20 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 return await FindTestsForTypeCore(testClass, discoveryOptions, tracker);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex)))
             {
-                // A cancelled run is not a discovery fault. Reporting it as a failing test case would
-                // turn pressing Ctrl+C, or a runner-imposed timeout, into a test failure.
-                throw;
-            }
-            catch (Exception ex) when (tracker.IsCallbackFailure(ex))
-            {
-                // The caller's own sink threw. Describing that as a failure to expand this class would
-                // be wrong, and handing the caller a further test case is unlikely to fare any better,
-                // so it goes back to xunit to deal with as it would for any other class.
+                // Either the run was cancelled, or the caller's own sink threw. Neither is a failure
+                // to expand fixture argument sets, so neither is reported as one.
                 throw;
             }
             catch (Exception ex)
             {
-                // An exception thrown out of discovery is reported by xunit.v3 only as an internal
-                // diagnostic message, which is suppressed unless the run was started with
-                // --xunit-internal-diagnostics on. The class is dropped and the run still reports
-                // success, so a broken expansion would look exactly like a class that has no tests.
-                // Reporting a test case that fails on execution instead puts the fault in the results
-                // and in the exit code, where it cannot be missed.
+                // An exception thrown out of discovery is reported by xunit.v3 only as a diagnostic
+                // message, which is suppressed unless the run was started with --xunit-diagnostics.
+                // The class is dropped and the run still reports success, so a broken expansion would
+                // look exactly like a class that has no tests. Reporting a test case that fails on
+                // execution instead puts the fault in the results and in the exit code, where it
+                // cannot be missed.
                 //
                 // Reaching here means the failure was outside the per-method loop, which reports its
                 // own faults, so it belongs to the class as a whole and no method of it was expanded.
@@ -90,6 +83,29 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
+        /// Decides whether an exception thrown while expanding fixture argument sets goes back to
+        /// xunit unchanged, or is reported as a failing test case standing in for the tests it lost.
+        /// </summary>
+        /// <remarks>
+        /// Reporting a fault as a test is what stops a broken expansion from leaving a run green with
+        /// its tests silently absent, but it is only right for a failure that belongs to the expansion.
+        /// Two do not. A cancelled run is not a fault at all, and turning it into a test case would
+        /// make pressing Ctrl+C, or a runner-imposed timeout, produce a red test that names a class
+        /// with nothing wrong with it. A failure raised by xunit's own callback is not ours either,
+        /// and the only way to report it would be to hand that same callback another test case.
+        /// <para>
+        /// This is a separate function so that the decision can be pinned directly. Reached only
+        /// through a catch clause, the cancellation case in particular needs a run to be cancelled at
+        /// the moment a class is being expanded, which no scenario can arrange reliably.
+        /// </para>
+        /// </remarks>
+        /// <param name="exception">The exception that ended the expansion.</param>
+        /// <param name="isCallbackFailure">Whether the exception came from xunit's own callback.</param>
+        /// <returns><c>true</c> to rethrow; <c>false</c> to report the failure as a test case.</returns>
+        internal static bool ShouldRethrowRatherThanReport(Exception exception, bool isCallbackFailure) =>
+            exception is OperationCanceledException || isCallbackFailure;
+
+        /// <summary>
         /// Determines whether xunit would treat a method as a test.
         /// </summary>
         /// <param name="method">The method to inspect.</param>
@@ -116,8 +132,26 @@ namespace Microsoft.Health.Extensions.Xunit
         /// anchoring the case to a class of its own takes it out of the namespace and class filters
         /// that would have selected the tests it replaces, and discarding the aggregated failure
         /// discards this message with it, leaving the fault unreported again.
+        /// <para>
+        /// One case is reported per combination of argument set values rather than one case carrying
+        /// them all, because a trait exclusion filter drops a case when <em>any</em> of its values
+        /// under the named trait matches. A single case declaring both <c>DataStore=CosmosDb</c> and
+        /// <c>DataStore=SqlServer</c> would be dropped by the SQL leg's
+        /// <c>--filter-not-trait DataStore=CosmosDb</c> and by the Cosmos leg's
+        /// <c>--filter-not-trait DataStore=SqlServer</c> alike, so the fault would be reported to
+        /// nobody while both legs stayed green.
+        /// </para>
+        /// <para>
+        /// A case standing for a combination is anchored to that combination's variant class, the same
+        /// class the tests it replaces would have run in. That is what lets the failure carry its own
+        /// message: the executor takes the fixture's argument from the variant class it is running,
+        /// and only falls back to reading it off the case's traits when there is no variant class to
+        /// ask - a fallback that cannot tell one combination from another and refuses to guess. With
+        /// the argument supplied the fixture builds, nothing is aggregated ahead of the case, and the
+        /// report shows the discovery failure rather than a fixture that could not be constructed.
+        /// </para>
         /// </remarks>
-        private static async ValueTask<bool> ReportDiscoveryFault(
+        private async ValueTask<bool> ReportDiscoveryFault(
             IXunitTestClass testClass,
             MethodInfo method,
             CallbackTracker tracker,
@@ -126,28 +160,162 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             Console.WriteLine($"[FixtureArgumentSets] ERROR: {summary} It was replaced by a failing test case. {exception}");
 
-            // The case stays on the class that failed, rather than on a class of its own, so that it
-            // is still selected by whatever namespace or class filter would have selected the tests it
-            // replaces, and it carries their traits so that a leg selecting by those cannot pass with
-            // the tests silently missing.
-            var errorTestMethod = new XunitTestMethod(
-                testClass,
-                method,
-                Array.Empty<object>(),
-                uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name));
+            foreach (IReadOnlyList<SingleFlag> combination in BuildFaultArgumentSetCombinations(ReadFaultArgumentSetValues(testClass)))
+            {
+                string displaySuffix = combination.Count == 0
+                    ? string.Empty
+                    : $": {string.Join(", ", combination.Select(flag => flag.EnumValue.ToString()))}";
+                string idSuffix = combination.Count == 0
+                    ? string.Empty
+                    : $"-{string.Join("-", combination.Select(flag => $"{flag.EnumValue.GetType().Name}.{flag.EnumValue}"))}";
 
-            // The test case is handed to xunit through the callback, which owns it from then on
-            // and disposes it with the rest of the discovered cases.
+                // The case stays on the class that failed - either the class itself, or the variant of
+                // it the lost tests would have run in - rather than on a class of its own, so that it
+                // is still selected by whatever namespace or class filter would have selected them,
+                // and it carries their traits so that a leg selecting by those cannot pass with the
+                // tests silently missing.
+                IXunitTestClass anchorClass = testClass;
+                if (combination.Count > 0)
+                {
+                    SingleFlag[] closedVariant = combination.ToArray();
+                    string classKey = BuildVariantClassKey(BuildVariantKey(testClass.TestCollection, closedVariant), testClass.Class);
+                    anchorClass = _variantClassCache.GetOrAdd(
+                        classKey,
+                        _ => new FixtureArgumentSetTestClass(
+                            testClass.Class,
+                            testClass.TestCollection,
+                            closedVariant,
+                            UniqueIDGenerator.ForTestClass(testClass.TestCollection.UniqueID, classKey)));
+                }
+
+                var errorTestMethod = new XunitTestMethod(
+                    anchorClass,
+                    method,
+                    Array.Empty<object>(),
+                    uniqueID: UniqueIDGenerator.ForTestMethod(anchorClass.UniqueID, method.Name));
+
+                // The test case is handed to xunit through the callback, which owns it from then on
+                // and disposes it with the rest of the discovered cases.
 #pragma warning disable CA2000
-            var errorTestCase = new DiscoveryErrorTestCase(
-                errorTestMethod,
-                $"{testClass.TestClassName}.{method.Name} (fixture argument set discovery)",
-                $"{testClass.UniqueID}-{method.Name}-fixture-argument-set-discovery-error",
-                errorMessage: $"{summary} {exception}",
-                traits: BuildFaultTraits(testClass, errorTestMethod));
+                var errorTestCase = new DiscoveryErrorTestCase(
+                    errorTestMethod,
+                    $"{testClass.TestClassName}.{method.Name} (fixture argument set discovery{displaySuffix})",
+                    $"{testClass.UniqueID}-{method.Name}-fixture-argument-set-discovery-error{idSuffix}",
+                    errorMessage: $"{summary} {exception}",
+                    traits: BuildFaultTraits(errorTestMethod, combination));
 #pragma warning restore CA2000
 
-            return await tracker.Invoke(errorTestCase);
+                if (!await tracker.Invoke(errorTestCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Closes the argument set values a failed class declared over each other, one dimension per
+        /// enum type, so that each combination can be reported as its own failure.
+        /// </summary>
+        /// <param name="argumentSetValues">Every argument set value read off the class, in any order.</param>
+        /// <returns>
+        /// One list per combination. A class declaring no argument set values yields a single empty
+        /// combination, so a fault is always reported at least once.
+        /// </returns>
+        /// <remarks>
+        /// Values are grouped by enum type because that is what a dimension is: an attribute takes one
+        /// flags enum per fixture constructor parameter, and the variants a class expands to are the
+        /// product of the single flags set within each. Reproducing that product here means a leg
+        /// selecting a variant by trait selects the failure standing in for it, and a leg excluding a
+        /// variant by trait excludes only that one and still sees the rest.
+        /// </remarks>
+        internal static IReadOnlyList<IReadOnlyList<SingleFlag>> BuildFaultArgumentSetCombinations(IEnumerable<SingleFlag> argumentSetValues)
+        {
+            EnsureArg.IsNotNull(argumentSetValues, nameof(argumentSetValues));
+
+            IEnumerable<IEnumerable<SingleFlag>> dimensions = argumentSetValues
+                .Where(flag => flag.EnumValue != null)
+                .GroupBy(flag => flag.EnumValue.GetType())
+                .OrderBy(dimension => dimension.Key.Name, StringComparer.Ordinal)
+                .Select(dimension => (IEnumerable<SingleFlag>)dimension
+                    .GroupBy(flag => flag.EnumValue)
+                    .Select(values => values.First())
+                    .ToArray())
+                .ToArray();
+
+            return CartesianProduct(dimensions)
+                .Select(combination => (IReadOnlyList<SingleFlag>)combination.ToArray())
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Reads every argument set value a class and its methods declare, for use in reporting a
+        /// discovery failure.
+        /// </summary>
+        /// <remarks>
+        /// This runs while handling a discovery failure, and reads the same attributes whose contents
+        /// may well be what caused it, so each attribute is read and expanded on its own and any
+        /// further exception costs only that one attribute's values. Reporting the failure with fewer
+        /// traits is worth more than not reporting it at all.
+        /// <para>
+        /// Every method's values are pooled, not just the anchor method's, because a class-level fault
+        /// loses every method. Pooling can only add combinations, and an extra combination reports the
+        /// fault once more rather than hiding it, whereas a missing one is a leg that passes with the
+        /// tests absent.
+        /// </para>
+        /// </remarks>
+        /// <param name="testClass">The class whose expansion failed.</param>
+        /// <returns>The declared values; empty when none could be read.</returns>
+        private static SingleFlag[] ReadFaultArgumentSetValues(IXunitTestClass testClass)
+        {
+            var attributes = new List<FixtureArgumentSetsAttribute>();
+
+            // Each attribute is read on its own so that the one whose contents may have caused the
+            // fault in the first place costs only its own values, rather than emptying the pool and
+            // leaving the failure with no traits for a leg's filter to select it by.
+            TryAdd(() => testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
+
+            foreach (MethodInfo method in testClass.Methods)
+            {
+                MethodInfo closedMethod = method;
+                TryAdd(() => closedMethod.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
+            }
+
+            return attributes
+                .SelectMany(SafeExpand)
+                .Where(flag => flag.EnumValue != null)
+                .ToArray();
+
+            void TryAdd(Func<FixtureArgumentSetsAttribute> read)
+            {
+                try
+                {
+                    if (read() is FixtureArgumentSetsAttribute attribute)
+                    {
+                        attributes.Add(attribute);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: some argument set traits of '{testClass.TestClassName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                }
+            }
+
+            IEnumerable<SingleFlag> SafeExpand(FixtureArgumentSetsAttribute attribute)
+            {
+                try
+                {
+                    return ExpandEnumFlagsFromAttributeData(attribute).SelectMany(dimension => dimension ?? Array.Empty<SingleFlag>()).ToArray();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: some argument set traits of '{testClass.TestClassName}' could not be expanded, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    return Array.Empty<SingleFlag>();
+                }
+            }
         }
 
         /// <summary>
@@ -159,19 +327,13 @@ namespace Microsoft.Health.Extensions.Xunit
         /// anchoring method itself, and CI legs combine them with argument set values in filters such
         /// as <c>(DataStore=CosmosDb)&amp;(Category=ExportLongRunning)</c>, so leaving either out lets
         /// the leg that would have run these tests pass without them. The argument set values are the
-        /// ones the expansion never got far enough to produce, so they have to be read back from the
-        /// attributes here.
-        /// <para>
-        /// This runs while handling a discovery failure, and reads the same attribute whose contents
-        /// may well be what caused it, so it treats any further exception as simply having no argument
-        /// set traits to offer. Reporting the failure with fewer traits is worth more than not
-        /// reporting it at all.
-        /// </para>
+        /// ones the expansion never got far enough to produce, so they are supplied by the caller from
+        /// the attributes rather than read off any discovered variant.
         /// </remarks>
-        /// <param name="testClass">The class whose expansion failed.</param>
         /// <param name="anchor">The method the failure is reported against.</param>
-        /// <returns>The traits, keyed by trait name; empty when none could be read.</returns>
-        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(IXunitTestClass testClass, XunitTestMethod anchor)
+        /// <param name="argumentSetCombination">The one combination of argument set values this failure stands for.</param>
+        /// <returns>The traits, keyed by trait name.</returns>
+        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(XunitTestMethod anchor, IReadOnlyList<SingleFlag> argumentSetCombination)
         {
             var traits = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -194,50 +356,52 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
             }
 
-            try
+            foreach (SingleFlag flag in argumentSetCombination)
             {
-                var attributes = new List<FixtureArgumentSetsAttribute>();
-
-                if (testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() is FixtureArgumentSetsAttribute classAttribute)
-                {
-                    attributes.Add(classAttribute);
-                }
-
-                foreach (MethodInfo method in testClass.Methods)
-                {
-                    if (method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() is FixtureArgumentSetsAttribute methodAttribute)
-                    {
-                        attributes.Add(methodAttribute);
-                    }
-                }
-
-                foreach (SingleFlag flag in attributes.SelectMany(ExpandEnumFlagsFromAttributeData).SelectMany(dimension => dimension ?? Array.Empty<SingleFlag>()))
-                {
-                    if (flag.EnumValue == null)
-                    {
-                        continue;
-                    }
-
-                    Add(flag.EnumValue.GetType().Name, flag.EnumValue.ToString());
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: the argument set traits of '{testClass.TestClassName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                Add(flag.EnumValue.GetType().Name, flag.EnumValue.ToString());
             }
 
             return traits;
         }
 
+        /// <summary>
+        /// Reads the fixture argument set attribute a method declares.
+        /// </summary>
+        /// <param name="method">The method to inspect.</param>
+        /// <returns>The attribute, or <c>null</c> when the method declares none.</returns>
+        private static FixtureArgumentSetsAttribute GetMethodArgumentSetsAttribute(MethodInfo method) =>
+            method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+
+        /// <summary>
+        /// Decides whether a class has to be expanded method by method rather than handed to xunit
+        /// unchanged.
+        /// </summary>
+        /// <param name="method">The method to inspect.</param>
+        /// <returns><c>true</c> when the method declares argument sets, or when reading them failed.</returns>
+        /// <remarks>
+        /// A method whose attribute cannot even be read answers <c>true</c> so that the class takes the
+        /// expansion path, where the same read is repeated inside the per-method loop and its failure
+        /// is reported against that one method. Swallowing the exception here rather than there is what
+        /// keeps one misdeclared method from costing the whole class its tests; it is not lost, only
+        /// deferred to the place that can attribute it.
+        /// </remarks>
+        private static bool RequiresPerMethodExpansion(MethodInfo method)
+        {
+            try
+            {
+                return GetMethodArgumentSetsAttribute(method) != null;
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
+
         private async ValueTask<bool> FindTestsForTypeCore(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, CallbackTracker tracker)
         {
             var attribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
-            var methodAttributes = testClass.Methods.ToDictionary(
-                method => method,
-                method => method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute);
 
-            if (attribute == null && methodAttributes.Values.All(value => value == null))
+            if (attribute == null && !testClass.Methods.Any(RequiresPerMethodExpansion))
             {
                 return await base.FindTestsForType(testClass, discoveryOptions, tracker.Invoke);
             }
@@ -259,17 +423,15 @@ namespace Microsoft.Health.Extensions.Xunit
                 // Each method is expanded on its own so that one method's misdeclared argument set
                 // costs only that method. Letting the failure out of the loop would leave the methods
                 // already published running while the methods after it disappeared, under a single
-                // failure claiming the whole class had not run.
+                // failure claiming the whole class had not run. The method's own attribute is read
+                // inside the try for the same reason: a method carrying two of them, or one whose
+                // constructor throws, is that method's fault and not the class's.
                 bool continueDiscovery;
                 try
                 {
-                    continueDiscovery = await FindTestsForMethodCore(testClass, method, attribute, methodAttributes[method], classLevelOpenParameterSets, classLevelClosedParameterSets, discoveryOptions, tracker);
+                    continueDiscovery = await FindTestsForMethodCore(testClass, method, attribute, GetMethodArgumentSetsAttribute(method), classLevelOpenParameterSets, classLevelClosedParameterSets, discoveryOptions, tracker);
                 }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex) when (!tracker.IsCallbackFailure(ex))
+                catch (Exception ex) when (!ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex)))
                 {
                     continueDiscovery = await ReportDiscoveryFault(
                         testClass,
@@ -371,7 +533,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
 
-                closedVariantTestMethod.UpdateArgumentsFromMethod();
+                closedVariantTestMethod.ApplyArgumentSetTraits();
 
                 // xUnit builds the display name from the class and method names only, so every
                 // variant of a method would otherwise be reported under an identical name and

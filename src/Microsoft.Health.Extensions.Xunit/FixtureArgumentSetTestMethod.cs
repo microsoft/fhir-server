@@ -14,30 +14,18 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     internal sealed class FixtureArgumentSetTestMethod : XunitTestMethod
     {
-        private static readonly FieldInfo TestMethodArgumentsField = GetRequiredField("testMethodArguments");
         private static readonly FieldInfo TraitsField = GetRequiredField("traits");
-        private static readonly FieldInfo UniqueIdField = GetRequiredField("uniqueID");
-        private static readonly FieldInfo MethodField = GetRequiredField("method");
 
-        private readonly FixtureArgumentSetTestClass _testClass;
-        private readonly MethodInfo _methodInfo;
         private readonly IReadOnlyList<SingleFlag> _fixtureArguments;
-        private readonly string _uniqueId;
 
         public FixtureArgumentSetTestMethod(FixtureArgumentSetTestClass testClass, MethodInfo methodInfo, IReadOnlyList<SingleFlag> fixtureArguments, string uniqueId)
-            : base(testClass, methodInfo, testMethodArguments: Array.Empty<object>(), uniqueId)
+            : base(testClass, methodInfo, testMethodArguments: BuildMethodArguments(fixtureArguments), uniqueId)
         {
             EnsureArg.IsNotNull(testClass, nameof(testClass));
             EnsureArg.IsNotNull(methodInfo, nameof(methodInfo));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
 
-            _testClass = testClass;
-            _methodInfo = methodInfo;
             _fixtureArguments = fixtureArguments;
-            _uniqueId = uniqueId;
-
-            UniqueIdField.SetValue(this, _uniqueId);
-            MethodField.SetValue(this, _methodInfo);
         }
 
 #pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
@@ -66,36 +54,41 @@ namespace Microsoft.Health.Extensions.Xunit
                     "which would silently change which tests the CI filters select. This usually means the xunit.v3 version changed.");
         }
 
-        private object[] CombineFixtureAndMethodArguments(object[] methodArguments)
+        /// <summary>
+        /// Builds the arguments the base type is constructed with, which are the fixture's argument
+        /// set values.
+        /// </summary>
+        /// <remarks>
+        /// These are supplied through the base constructor rather than written back over it
+        /// afterwards, so that the private field holding them is one less thing this type has to
+        /// reach into and one less way a change to xunit can go unnoticed.
+        /// </remarks>
+        /// <param name="fixtureArguments">The argument set values this variant stands for.</param>
+        /// <returns>The values as an argument array.</returns>
+        private static object[] BuildMethodArguments(IReadOnlyList<SingleFlag> fixtureArguments)
         {
-            if (_fixtureArguments.Count == 0)
+            EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
+
+            if (fixtureArguments.Count == 0)
             {
-                return methodArguments;
+                return Array.Empty<object>();
             }
 
-            var result = new object[_fixtureArguments.Count + methodArguments.Length];
-            for (int i = 0; i < _fixtureArguments.Count; i++)
+            var result = new object[fixtureArguments.Count];
+            for (int i = 0; i < fixtureArguments.Count; i++)
             {
-                result[i] = _fixtureArguments[i].EnumValue;
-            }
-
-            if (methodArguments.Length > 0)
-            {
-                Array.Copy(methodArguments, 0, result, _fixtureArguments.Count, methodArguments.Length);
+                result[i] = fixtureArguments[i].EnumValue;
             }
 
             return result;
         }
 
-        internal void UpdateArgumentsFromMethod()
+        internal void ApplyArgumentSetTraits()
         {
             if (_fixtureArguments.Count == 0)
             {
                 return;
             }
-
-            var combinedArguments = CombineFixtureAndMethodArguments(Array.Empty<object>());
-            TestMethodArgumentsField.SetValue(this, combinedArguments);
 
             var traits = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 #pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
