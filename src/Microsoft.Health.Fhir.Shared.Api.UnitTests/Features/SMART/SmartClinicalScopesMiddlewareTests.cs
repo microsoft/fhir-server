@@ -6,10 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -20,7 +24,6 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -177,11 +180,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -194,8 +204,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
             }
         }
 
@@ -214,11 +224,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -231,11 +248,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
-
-                Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
-                Assert.Equal(Api.Resources.MixedSMARTScopeContextsAreNotAllowed, exception.Message);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[] { Api.Resources.MixedSMARTScopeContextsAreNotAllowed });
             }
         }
 
@@ -254,11 +270,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -271,11 +294,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
-
-                Assert.Contains("modifiers are not supported", exception.Message);
-                Assert.Contains("unsupported modifier", exception.Message);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "modifiers are not supported",
+                        "unsupported modifier",
+                    },
+                    true);
             }
         }
 
@@ -294,11 +321,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -311,11 +345,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
-
-                Assert.Contains("Chained search parameters are not supported", exception.Message);
-                Assert.Contains("chained search parameter", exception.Message);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "Chained search parameters are not supported",
+                        "chained search parameter",
+                    },
+                    true);
             }
         }
 
@@ -334,11 +372,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -351,10 +396,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                var exception = await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
-
-                Assert.Contains("_include and _revinclude are not supported", exception.Message);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "_include and _revinclude are not supported",
+                    },
+                    true);
             }
         }
 
@@ -373,11 +422,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -390,8 +446,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
             }
         }
 
@@ -418,11 +474,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -435,8 +498,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
             }
         }
 
@@ -481,7 +544,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-            var fhirRequestContext = new DefaultFhirRequestContext();
+            var fhirRequestContext = new DefaultFhirRequestContext()
+            {
+                CorrelationId = Guid.NewGuid().ToString(),
+            };
 
             fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -504,8 +570,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-            await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            using var stream = new MemoryStream();
+            httpContext.Response.Body = stream;
+
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+            ValidateErrorResponse(httpContext);
         }
 
         [Fact]
@@ -847,7 +916,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-                        // Multiple scopes with search parameters
+            // Multiple scopes with search parameters
             yield return new object[]
             {
                 "patient/Patient.rs?name=john patient/Observation.s?code=44501&status=final",
@@ -858,7 +927,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-                        // Complex example with all SMART v2 granular permissions and search parameters
+            // Complex example with all SMART v2 granular permissions and search parameters
             yield return new object[]
             {
                 "user/Patient.cruds?name=Smith&birthdate=ge2000 user/Observation.rs?category=vital-signs",
@@ -1143,6 +1212,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var roleLoader = new RoleLoader(authConfig, hostEnvironment);
             await roleLoader.StartAsync(CancellationToken.None);
             return authConfig;
+        }
+
+        private static void ValidateErrorResponse(HttpContext context, string[] errorMessages = null, bool contain = false)
+        {
+            Assert.NotNull(context.Response);
+            Assert.Equal(HttpStatusCode.BadRequest, (HttpStatusCode)context.Response.StatusCode);
+
+            Assert.NotNull(context.Response.Body);
+            context.Response.Body.Seek(0, SeekOrigin.Begin);
+            using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+            var body = reader.ReadToEnd();
+            var options = new JsonSerializerOptions().ForFhir(typeof(OperationOutcome).Assembly);
+            var resource = JsonSerializer.Deserialize<OperationOutcome>(body, options);
+
+            Assert.NotNull(resource);
+            Assert.Single(
+                resource.Issue,
+                x =>
+                {
+                    Assert.Equal(OperationOutcome.IssueSeverity.Error, x.Severity);
+                    Assert.Equal(OperationOutcome.IssueType.Invalid, x.Code);
+                    if (errorMessages == null || errorMessages.Length == 0)
+                    {
+                        Assert.NotNull(x.Diagnostics);
+                    }
+                    else
+                    {
+                        if (contain)
+                        {
+                            foreach (var errorMessage in errorMessages)
+                            {
+                                Assert.Contains(errorMessage, x.Diagnostics);
+                            }
+                        }
+                        else
+                        {
+                            Assert.Equal(errorMessages[0], x.Diagnostics);
+                        }
+                    }
+
+                    Assert.NotEmpty(x.Diagnostics);
+                    return true;
+                });
         }
     }
 }
