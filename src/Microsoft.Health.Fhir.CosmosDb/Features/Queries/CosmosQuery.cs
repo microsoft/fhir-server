@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
                 if (fhirException == null)
                 {
-                    await _processor.ProcessErrorResponseAsync(ex.StatusCode, ex.Headers, ex.Message, token);
+                    await _processor.ProcessErrorResponseAsync(ex.StatusCode, CosmosResponseHeaders.Create(ex.Headers), ex.Message, token);
                 }
 
                 throw;
