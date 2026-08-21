@@ -161,20 +161,24 @@ namespace Microsoft.Health.Extensions.Xunit
                         // At most one bus is replayed. A failure this attempt saw supersedes anything held
                         // over from an earlier one, and replaying both would publish two results for a
                         // single test.
+                        bool continueRunning = true;
+
                         switch (outcome)
                         {
                             case NoResultOutcome.ReplayCurrentAttempt:
                                 pendingFailureBus?.DiscardDeferredMessages();
-                                interceptingBus.ReplayDeferredMessages();
+                                continueRunning = interceptingBus.ReplayDeferredMessages();
                                 break;
 
                             case NoResultOutcome.ReplayEarlierAttempt:
-                                pendingFailureBus.ReplayDeferredMessages();
+                                continueRunning = pendingFailureBus.ReplayDeferredMessages();
                                 break;
 
                             default:
                                 break;
                         }
+
+                        StopRunIfRequested(continueRunning, cancellationTokenSource);
 
                         if (lastException != null)
                         {
@@ -247,7 +251,7 @@ namespace Microsoft.Health.Extensions.Xunit
                             // retrying, so replay it now: the reporters derive their results
                             // solely from the message bus, and without this the failure would
                             // disappear from the test results entirely and the run would pass.
-                            interceptingBus.ReplayDeferredMessages();
+                            StopRunIfRequested(interceptingBus.ReplayDeferredMessages(), cancellationTokenSource);
 
                             if (lastException != null)
                             {
@@ -284,6 +288,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
                             pendingFailureBus.ReplayDeferredMessages();
 
+                            // The run is already cancelling, so there is nothing further to stop and
+                            // the replay result is deliberately ignored here.
                             if (lastException != null)
                             {
                                 aggregator.Add(lastException);
@@ -336,6 +342,24 @@ namespace Microsoft.Health.Extensions.Xunit
             Console.WriteLine($"[RetryFact] Reached the end of the retry loop unexpectedly for '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}'. Reporting the test as failed.");
             runSummary.Failed = 1;
             return runSummary;
+        }
+
+        /// <summary>
+        /// Cancels the run when the message bus asked for it to stop.
+        /// </summary>
+        /// <param name="continueRunning">The result of replaying deferred messages.</param>
+        /// <param name="cancellationTokenSource">The run's cancellation source.</param>
+        /// <remarks>
+        /// A deferred failure answers <c>true</c> to the runner when it is queued, because at that
+        /// point the test may still be retried. Replaying it is therefore the first and only chance
+        /// to honour a request to stop, such as the one <c>--stop-on-fail</c> makes.
+        /// </remarks>
+        private static void StopRunIfRequested(bool continueRunning, CancellationTokenSource cancellationTokenSource)
+        {
+            if (!continueRunning)
+            {
+                cancellationTokenSource.Cancel();
+            }
         }
 
         /// <summary>
@@ -510,15 +534,25 @@ namespace Microsoft.Health.Extensions.Xunit
             /// in their original order. Call this when the attempt will not be retried, otherwise
             /// the failure is never reported and the test silently vanishes from the results.
             /// </summary>
-            public void ReplayDeferredMessages()
+            /// <returns>
+            /// <c>false</c> when the underlying bus asked for the run to stop. Deferring a failure
+            /// forces a <c>true</c> back to the runner at the time it is queued, so this is the only
+            /// point at which a request to stop -- from --stop-on-fail, for instance -- can still be
+            /// honoured.
+            /// </returns>
+            public bool ReplayDeferredMessages()
             {
+                bool continueRunning = true;
+
                 foreach (IMessageSinkMessage message in _deferredMessages)
                 {
-                    _innerBus.QueueMessage(message);
+                    continueRunning &= _innerBus.QueueMessage(message);
                 }
 
                 _deferredMessages.Clear();
                 _deferring = false;
+
+                return continueRunning;
             }
 
             /// <summary>

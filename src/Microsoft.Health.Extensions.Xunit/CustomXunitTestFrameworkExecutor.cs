@@ -212,10 +212,23 @@ namespace Microsoft.Health.Extensions.Xunit
                     }
                 }
 
-                foreach (var resolvedArgument in resolvedArguments
-                    .Where(resolvedArgument => !cache.ContainsKey(resolvedArgument.Key)))
+                // The cache being written to is scoped to the collection, and the variants of a class
+                // share a collection so that an explicit [Collection] keeps its classes serialized.
+                // Every variant therefore writes over the previous one's arguments: adding only what
+                // is missing would leave the first variant's values in place and hand every later
+                // variant the wrong fixture. Types this class expects but could not resolve are
+                // evicted for the same reason -- a stale value is worse than no value, because it
+                // silently constructs a fixture for the wrong argument set.
+                foreach (Type parameterType in fixtureParameterTypes)
                 {
-                    cache[resolvedArgument.Key] = resolvedArgument.Value;
+                    if (resolvedArguments.TryGetValue(parameterType, out var resolvedValue))
+                    {
+                        cache[parameterType] = resolvedValue;
+                    }
+                    else
+                    {
+                        cache.Remove(parameterType);
+                    }
                 }
             }
 

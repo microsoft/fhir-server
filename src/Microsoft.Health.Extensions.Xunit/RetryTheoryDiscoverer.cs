@@ -31,7 +31,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
             var baseCases = await base.CreateTestCasesForDataRow(discoveryOptions, testMethod, theoryAttribute, dataRow, testMethodArguments);
             return baseCases
-                .Select(testCase => WrapTestCase(testMethod, testCase, attribute))
+                .Select(testCase => WrapTestCase(testCase, attribute))
                 .ToArray();
         }
 
@@ -44,11 +44,11 @@ namespace Microsoft.Health.Extensions.Xunit
 
             var baseCases = await base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute);
             return baseCases
-                .Select(testCase => WrapTestCase(testMethod, testCase, attribute))
+                .Select(testCase => WrapTestCase(testCase, attribute))
                 .ToArray();
         }
 
-        private static IXunitTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute)
+        private static IXunitTestCase WrapTestCase(IXunitTestCase testCase, RetryTheoryAttribute attribute)
         {
             if (testCase is not XunitTestCase xunitTestCase)
             {
@@ -61,8 +61,11 @@ namespace Microsoft.Health.Extensions.Xunit
                 return testCase;
             }
 
+            // The base case carries the method xUnit resolved for this row, including any generic
+            // arguments closed from the row's data. The method passed to the discoverer is still
+            // open, so using it here would discard that resolution.
             return new RetryTestCase(
-                testMethod,
+                xunitTestCase.TestMethod,
                 xunitTestCase.TestCaseDisplayName,
                 xunitTestCase.UniqueID,
                 xunitTestCase.Explicit,

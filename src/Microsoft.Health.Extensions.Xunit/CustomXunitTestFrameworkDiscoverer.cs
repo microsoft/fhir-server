@@ -22,8 +22,6 @@ namespace Microsoft.Health.Extensions.Xunit
     internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     {
         private static readonly FieldInfo TestCaseDisplayNameField = typeof(XunitTestCase).GetField("testCaseDisplayName", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        private readonly ConcurrentDictionary<string, FixtureArgumentSetTestCollection> _variantCollectionCache = new(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, FixtureArgumentSetTestClass> _variantClassCache = new(StringComparer.Ordinal);
 
         public CustomXunitTestFrameworkDiscoverer(Assembly assembly, IXunitTestCollectionFactory collectionFactory = null)
@@ -108,25 +106,33 @@ namespace Microsoft.Health.Extensions.Xunit
                     }
                 }
 
+                if (closedSets.Length == 0)
+                {
+                    // A dimension that contributes no flags -- an argument set of zero, a value that
+                    // names no single flag, or a null entry -- collapses the cartesian product to
+                    // nothing, and this method then produces no test cases at all. The run stays
+                    // green with the tests simply absent, so say so rather than let them vanish.
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: '{testClass.TestClassName}.{method.Name}' expanded to no fixture argument sets, so none of its tests will run. " +
+                        "Check that every argument set names at least one single-valued flag of a [Flags] enum.");
+                }
+
                 foreach (SingleFlag[] closedVariant in closedSets)
                 {
-                    // Key variant collections by the source xUnit collection identity. Default xUnit collections are
-                    // already per-class, while explicit [Collection] groups share one source UniqueID. Preserving that
-                    // identity keeps explicit collection serialization intact without forcing unrelated classes to run
-                    // serially.
-                    var variantKey = BuildVariantCollectionKey(testClass.TestCollection, closedVariant);
-                    var variantCollection = _variantCollectionCache.GetOrAdd(
-                        variantKey,
-                        _ => new FixtureArgumentSetTestCollection(testClass.TestCollection, closedVariant));
-
+                    // Every variant stays in the class's original collection. xUnit's unit of
+                    // parallelization is the collection, so giving each variant its own would let
+                    // classes an explicit [Collection] deliberately grouped together -- and the
+                    // variants of a single class -- start running concurrently. Only the identifiers
+                    // below carry the variant, so the collection keeps its original grouping.
+                    var variantKey = BuildVariantKey(testClass.TestCollection, closedVariant);
                     var classKey = BuildVariantClassKey(variantKey, testClass.Class);
                     var closedVariantTestClass = _variantClassCache.GetOrAdd(
                         classKey,
                         _ => new FixtureArgumentSetTestClass(
                             testClass.Class,
-                            variantCollection,
+                            testClass.TestCollection,
                             closedVariant,
-                            UniqueIDGenerator.ForTestClass(variantCollection.UniqueID, testClass.Class.FullName)));
+                            UniqueIDGenerator.ForTestClass(testClass.TestCollection.UniqueID, classKey)));
 
                     var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
 
@@ -195,7 +201,13 @@ namespace Microsoft.Health.Extensions.Xunit
             TestCaseDisplayNameField.SetValue(xunitTestCase, displayName + suffix);
         }
 
-        private static string BuildVariantCollectionKey(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> closedVariant)
+        /// <summary>
+        /// Builds a key that distinguishes one fixture argument set from another within a collection.
+        /// </summary>
+        /// <param name="sourceCollection">The collection the test class belongs to.</param>
+        /// <param name="closedVariant">The fixture arguments the variant was closed over.</param>
+        /// <returns>A stable key for the variant.</returns>
+        private static string BuildVariantKey(IXunitTestCollection sourceCollection, IReadOnlyList<SingleFlag> closedVariant)
         {
             var variantKey = string.Join(
                 ",",
@@ -204,9 +216,20 @@ namespace Microsoft.Health.Extensions.Xunit
             return $"{sourceCollection.UniqueID}|{variantKey}";
         }
 
-        private static string BuildVariantClassKey(string variantCollectionKey, Type testClass)
+        /// <summary>
+        /// Builds a key that identifies one variant of one test class.
+        /// </summary>
+        /// <param name="variantKey">The key returned by <see cref="BuildVariantKey"/>.</param>
+        /// <param name="testClass">The test class the variant was derived from.</param>
+        /// <returns>A stable key for the variant class, also used to seed its unique ID.</returns>
+        /// <remarks>
+        /// The variants of a class share a collection and a class name, so the class name alone no
+        /// longer separates them. Seeding the unique ID from this key instead keeps every variant
+        /// distinct to the runner and to the reporters.
+        /// </remarks>
+        private static string BuildVariantClassKey(string variantKey, Type testClass)
         {
-            return $"{variantCollectionKey}|{testClass.AssemblyQualifiedName}";
+            return $"{variantKey}|{testClass.AssemblyQualifiedName}";
         }
 
         private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)

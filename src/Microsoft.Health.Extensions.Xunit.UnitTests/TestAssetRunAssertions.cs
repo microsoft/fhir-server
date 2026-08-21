@@ -54,6 +54,14 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             Assert.True(actualEntries.SequenceEqual(expectedEntries, StringComparer.Ordinal), message);
         }
 
+        /// <summary>
+        /// Fails when the TRX report recorded runner-level errors.
+        /// </summary>
+        /// <remarks>
+        /// See <see cref="TestAssetRun.ErrorCount"/>: the pinned reporter writes this counter as a
+        /// constant zero, so this cannot fire today and is not what keeps these tests honest.
+        /// </remarks>
+        /// <param name="run">The run to assert on.</param>
         private static void EnsureNoRunnerErrors(TestAssetRun run)
         {
             string message = $"The run reported {run.ErrorCount} runner-level error(s). These are counted separately "

@@ -578,4 +578,3 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
-

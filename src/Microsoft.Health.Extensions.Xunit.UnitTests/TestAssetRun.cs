@@ -50,10 +50,16 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         public IReadOnlyList<TestAssetResult> Results { get; }
 
         /// <summary>
-        /// Gets the number of runner-level errors reported. These are counted separately from
-        /// failed tests and are not published as results, so a run can be wrong in ways that the
-        /// result list alone does not show.
+        /// Gets the number of runner-level errors the TRX report recorded, which are counted
+        /// separately from failed tests and are never published as results.
         /// </summary>
+        /// <remarks>
+        /// The Microsoft Testing Platform TRX reporter builds its summary from passed, failed,
+        /// skipped and timed-out counts only, and writes this counter as a constant zero, so today
+        /// this is a tripwire for a reporter that starts populating it rather than a check that can
+        /// currently fire. It is kept because a run that is wrong in this way shows nothing at all
+        /// in the result list, which is exactly the failure these tests would otherwise miss.
+        /// </remarks>
         public int ErrorCount { get; }
 
         /// <summary>
