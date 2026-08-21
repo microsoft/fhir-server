@@ -31,25 +31,123 @@ namespace Microsoft.Health.Extensions.Xunit
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
 
-        private sealed class FixtureArgumentSetAssemblyRunner : XunitTestAssemblyRunner
+        /// <summary>
+        /// The assembly runner context, extended to bound how many collections run at once.
+        /// </summary>
+        /// <remarks>
+        /// xunit applies the conservative parallel algorithm by acquiring a semaphore inside its own
+        /// context's collection dispatch. Substituting a collection runner means not going through
+        /// that dispatch, which would leave <c>MaxParallelThreads</c> unenforced and start every
+        /// collection at once. Its semaphore is private, so this context keeps an equivalent one of
+        /// its own and dispatches through it.
+        /// </remarks>
+        private sealed class FixtureArgumentSetAssemblyRunnerContext : XunitTestAssemblyRunnerContext
         {
-            protected override async ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
+            private SemaphoreSlim _parallelSemaphore;
+
+            public FixtureArgumentSetAssemblyRunnerContext(
+                IXunitTestAssembly testAssembly,
+                IReadOnlyCollection<IXunitTestCase> testCases,
+                IMessageSink executionMessageSink,
+                ITestFrameworkExecutionOptions executionOptions,
+                CancellationToken cancellationToken)
+                : base(testAssembly, testCases, executionMessageSink, executionOptions, cancellationToken)
+            {
+            }
+
+            public override void SetupParallelism()
+            {
+                base.SetupParallelism();
+
+                // The aggressive algorithm bounds concurrency with a synchronization context, which
+                // the base call has already installed and which applies to this dispatch too. Only
+                // the conservative algorithm needs a semaphore here.
+                if (MaxParallelThreads > 0 && ParallelAlgorithm == ParallelAlgorithm.Conservative)
+                {
+                    _parallelSemaphore = new SemaphoreSlim(initialCount: MaxParallelThreads);
+                }
+            }
+
+            public async ValueTask<RunSummary> RunFixtureArgumentSetCollection(
+                IXunitTestCollection testCollection,
+                IReadOnlyCollection<IXunitTestCase> testCases,
+                ITestCaseOrderer testCaseOrderer)
+            {
+                if (_parallelSemaphore != null)
+                {
+                    await _parallelSemaphore.WaitAsync(CancellationTokenSource.Token);
+                }
+
+                try
+                {
+                    var runner = new FixtureArgumentSetCollectionRunner();
+
+                    // ExceptionAggregator is a struct wrapping a mutable list, so passing this
+                    // context's own would give every collection a shared list to append to and
+                    // clear. Collections run concurrently, so one collection's fixture failure could
+                    // then surface against another, or be cleared before it was ever reported.
+                    return await runner.Run(
+                        testCollection,
+                        testCases,
+                        ExplicitOption,
+                        MessageBus,
+                        testCaseOrderer,
+                        Aggregator.Clone(),
+                        CancellationTokenSource,
+                        AssemblyFixtureMappings);
+                }
+                finally
+                {
+                    _parallelSemaphore?.Release();
+                }
+            }
+
+            public override async ValueTask DisposeAsync()
+            {
+                _parallelSemaphore?.Dispose();
+                await base.DisposeAsync();
+            }
+        }
+
+        private sealed class FixtureArgumentSetAssemblyRunner : XunitTestAssemblyRunnerBase<FixtureArgumentSetAssemblyRunnerContext, IXunitTestAssembly, IXunitTestCollection, IXunitTestCase>
+        {
+            public async ValueTask<RunSummary> Run(
+                IXunitTestAssembly testAssembly,
+                IReadOnlyCollection<IXunitTestCase> testCases,
+                IMessageSink executionMessageSink,
+                ITestFrameworkExecutionOptions executionOptions,
+                CancellationToken cancellationToken)
+            {
+                await using var context = new FixtureArgumentSetAssemblyRunnerContext(testAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
+                await context.InitializeAsync();
+
+                return await Run(context);
+            }
+
+            protected override ValueTask<RunSummary> RunTestCollection(FixtureArgumentSetAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
             {
                 var testCaseOrderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
-                var runner = new FixtureArgumentSetCollectionRunner();
-                var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
-                return summary;
+                return context.RunFixtureArgumentSetCollection(testCollection, testCases, testCaseOrderer);
             }
         }
 
         private sealed class FixtureArgumentSetCollectionRunner : XunitTestCollectionRunner
         {
-            protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
+            protected override ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
             {
+                if (testClass == null)
+                {
+                    // xunit reports cases with no class as failures with an explanatory message.
+                    // Substituting a class runner must not turn that into an argument exception.
+                    return base.RunTestClass(context, testClass, testCases);
+                }
+
                 var testCaseOrderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
                 var classRunner = new FixtureArgumentSetClassRunner();
-                var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
-                return summary;
+
+                // Cloned for the same reason as at the collection boundary: classes of a collection
+                // must not share one mutable list of exceptions.
+                return classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator.Clone(), context.CancellationTokenSource, context.CollectionFixtureMappings);
             }
         }
 

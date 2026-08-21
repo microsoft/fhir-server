@@ -44,6 +44,15 @@ namespace Microsoft.Health.Extensions.Xunit
 
             if (TraitsField.GetValue(this) is not Dictionary<string, HashSet<string>> existing)
             {
+                // The field is still there but no longer holds what it did, so the traits cannot be
+                // applied. Reporting the case without them is still worth more than not reporting it:
+                // an unfiltered run keeps the failure, and only a run selecting by trait loses it.
+                // Throwing instead would be worse - xunit reports an exception out of discovery only
+                // as a suppressed internal diagnostic and drops the class, which is silence again.
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] ERROR: XunitTestCase.traits holds '{TraitsField.GetValue(this)?.GetType().FullName ?? "null"}' rather than " +
+                    $"Dictionary<string, HashSet<string>>, so the failure standing in for '{testCaseDisplayName}' carries no traits and a run " +
+                    $"selecting tests by trait will not see it. This usually means the xunit.v3 version changed.");
                 return;
             }
 

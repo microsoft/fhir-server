@@ -35,14 +35,23 @@ namespace Microsoft.Health.Extensions.Xunit
             EnsureArg.IsNotNull(callback, nameof(callback));
             EnsureArg.IsNotNull(discoveryOptions, nameof(discoveryOptions));
 
+            var tracker = new CallbackTracker(callback);
+
             try
             {
-                return await FindTestsForTypeCore(testClass, discoveryOptions, callback);
+                return await FindTestsForTypeCore(testClass, discoveryOptions, tracker);
             }
             catch (OperationCanceledException)
             {
                 // A cancelled run is not a discovery fault. Reporting it as a failing test case would
                 // turn pressing Ctrl+C, or a runner-imposed timeout, into a test failure.
+                throw;
+            }
+            catch (Exception ex) when (tracker.IsCallbackFailure(ex))
+            {
+                // The caller's own sink threw. Describing that as a failure to expand this class would
+                // be wrong, and handing the caller a further test case is unlikely to fare any better,
+                // so it goes back to xunit to deal with as it would for any other class.
                 throw;
             }
             catch (Exception ex)
@@ -53,70 +62,137 @@ namespace Microsoft.Health.Extensions.Xunit
                 // success, so a broken expansion would look exactly like a class that has no tests.
                 // Reporting a test case that fails on execution instead puts the fault in the results
                 // and in the exit code, where it cannot be missed.
-                Console.WriteLine(
-                    $"[FixtureArgumentSets] ERROR: discovery of '{testClass.TestClassName}' failed, so its tests were replaced by a single failing test case. {ex}");
-
-                // The console line above is the authoritative record of the fault. The test case below
-                // puts the failure in the results and in the exit code, but it cannot be relied on to
-                // carry the cause: a case travels through the ordinary class runner, which builds the
-                // class's fixtures first, and a class using fixture argument sets has by definition a
-                // fixture taking an argument the failed expansion never produced. That fixture failure
-                // is aggregated ahead of this message and is what the report ends up showing. Both
-                // ways out of that were tried and are worse - anchoring the case to a class of its own
-                // takes it out of the namespace and class filters that would have selected the tests
-                // it replaces, and discarding the aggregated failure discards this message with it,
-                // leaving the fault unreported again.
-                MethodInfo firstMethod = testClass.Methods.FirstOrDefault();
+                //
+                // Reaching here means the failure was outside the per-method loop, which reports its
+                // own faults, so it belongs to the class as a whole and no method of it was expanded.
+                //
+                // testClass.Methods includes every public method, property accessors among them, so
+                // the anchor is chosen from those xunit would treat as tests: a fault reported
+                // against a property getter names nothing a reader can act on, and the getter carries
+                // none of the traits a CI leg selects the class's tests by.
+                MethodInfo firstMethod = testClass.Methods.FirstOrDefault(IsTestMethod) ?? testClass.Methods.FirstOrDefault();
                 if (firstMethod == null)
                 {
                     // Nothing to hang a test case off. Rethrowing keeps the original xunit behaviour,
-                    // which is all that is left, and the console line above is the only warning.
+                    // which is all that is left.
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] ERROR: discovery of '{testClass.TestClassName}' failed and it declares no method to report the failure against. {ex}");
                     throw;
                 }
 
-                // The case stays on the class that failed, rather than on a class of its own, so that
-                // it is still selected by whatever namespace or class filter would have selected the
-                // tests it replaces. FixtureArgumentSetClassRunner keeps the class's fixtures from
-                // pre-empting the message it carries.
-                // The case stays on the class that failed, rather than on a class of its own, so that
-                // it is still selected by whatever namespace or class filter would have selected the
-                // tests it replaces. It is given the argument set traits for the same reason, since a
-                // leg selecting by those would otherwise pass with the class silently missing.
-                var errorTestMethod = new XunitTestMethod(
+                return await ReportDiscoveryFault(
                     testClass,
                     firstMethod,
-                    Array.Empty<object>(),
-                    uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, firstMethod.Name));
-
-                // The test case is handed to xunit through the callback, which owns it from then on
-                // and disposes it with the rest of the discovered cases.
-#pragma warning disable CA2000
-                var errorTestCase = new DiscoveryErrorTestCase(
-                    errorTestMethod,
-                    $"{testClass.TestClassName} (fixture argument set discovery)",
-                    $"{testClass.UniqueID}-fixture-argument-set-discovery-error",
-                    errorMessage: $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran. {ex}",
-                    traits: BuildFaultTraits(testClass));
-#pragma warning restore CA2000
-
-                return await callback(errorTestCase);
+                    tracker,
+                    ex,
+                    $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran.");
             }
         }
 
         /// <summary>
-        /// Collects every argument set value the class asked for, so that a failure standing in for
-        /// its tests is selected by the same trait filters they would have been.
+        /// Determines whether xunit would treat a method as a test.
+        /// </summary>
+        /// <param name="method">The method to inspect.</param>
+        /// <returns><c>true</c> when the method carries a fact or theory attribute.</returns>
+        private static bool IsTestMethod(MethodInfo method) =>
+            method.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0;
+
+        /// <summary>
+        /// Reports a discovery failure as a test case that fails when the run reaches it.
+        /// </summary>
+        /// <param name="testClass">The class being discovered.</param>
+        /// <param name="method">The method to report the failure against.</param>
+        /// <param name="tracker">The callback discovered test cases are handed to.</param>
+        /// <param name="exception">The failure being reported.</param>
+        /// <param name="summary">A sentence saying what was lost, used to open the failure message.</param>
+        /// <returns>Whether discovery should continue, as the callback reported it.</returns>
+        /// <remarks>
+        /// The console line written here is the authoritative record of the fault. The test case puts
+        /// the failure in the results and in the exit code, but it cannot be relied on to carry the
+        /// cause: a case travels through the ordinary class runner, which builds the class's fixtures
+        /// first, and a class using fixture argument sets typically has a fixture taking an argument
+        /// the failed expansion never produced. That fixture failure is aggregated ahead of this
+        /// message and is what the report then shows. Both ways out of that were tried and are worse -
+        /// anchoring the case to a class of its own takes it out of the namespace and class filters
+        /// that would have selected the tests it replaces, and discarding the aggregated failure
+        /// discards this message with it, leaving the fault unreported again.
+        /// </remarks>
+        private static async ValueTask<bool> ReportDiscoveryFault(
+            IXunitTestClass testClass,
+            MethodInfo method,
+            CallbackTracker tracker,
+            Exception exception,
+            string summary)
+        {
+            Console.WriteLine($"[FixtureArgumentSets] ERROR: {summary} It was replaced by a failing test case. {exception}");
+
+            // The case stays on the class that failed, rather than on a class of its own, so that it
+            // is still selected by whatever namespace or class filter would have selected the tests it
+            // replaces, and it carries their traits so that a leg selecting by those cannot pass with
+            // the tests silently missing.
+            var errorTestMethod = new XunitTestMethod(
+                testClass,
+                method,
+                Array.Empty<object>(),
+                uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name));
+
+            // The test case is handed to xunit through the callback, which owns it from then on
+            // and disposes it with the rest of the discovered cases.
+#pragma warning disable CA2000
+            var errorTestCase = new DiscoveryErrorTestCase(
+                errorTestMethod,
+                $"{testClass.TestClassName}.{method.Name} (fixture argument set discovery)",
+                $"{testClass.UniqueID}-{method.Name}-fixture-argument-set-discovery-error",
+                errorMessage: $"{summary} {exception}",
+                traits: BuildFaultTraits(testClass, errorTestMethod));
+#pragma warning restore CA2000
+
+            return await tracker.Invoke(errorTestCase);
+        }
+
+        /// <summary>
+        /// Collects the traits a failure standing in for a method's tests must carry to be selected by
+        /// the same filters they would have been.
         /// </summary>
         /// <remarks>
+        /// Two kinds of trait matter. The ordinary ones the method and its class declare come from the
+        /// anchoring method itself, and CI legs combine them with argument set values in filters such
+        /// as <c>(DataStore=CosmosDb)&amp;(Category=ExportLongRunning)</c>, so leaving either out lets
+        /// the leg that would have run these tests pass without them. The argument set values are the
+        /// ones the expansion never got far enough to produce, so they have to be read back from the
+        /// attributes here.
+        /// <para>
         /// This runs while handling a discovery failure, and reads the same attribute whose contents
-        /// may well be what caused it, so it treats any further exception as simply having no traits
-        /// to offer. Reporting the failure without them is worth more than not reporting it at all.
+        /// may well be what caused it, so it treats any further exception as simply having no argument
+        /// set traits to offer. Reporting the failure with fewer traits is worth more than not
+        /// reporting it at all.
+        /// </para>
         /// </remarks>
         /// <param name="testClass">The class whose expansion failed.</param>
-        /// <returns>The traits, keyed by argument enum type name; empty when none could be read.</returns>
-        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(IXunitTestClass testClass)
+        /// <param name="anchor">The method the failure is reported against.</param>
+        /// <returns>The traits, keyed by trait name; empty when none could be read.</returns>
+        private static Dictionary<string, IReadOnlyCollection<string>> BuildFaultTraits(IXunitTestClass testClass, XunitTestMethod anchor)
         {
             var traits = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
+
+            void Add(string key, string value)
+            {
+                if (!traits.TryGetValue(key, out IReadOnlyCollection<string> values))
+                {
+                    values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    traits[key] = values;
+                }
+
+                ((HashSet<string>)values).Add(value);
+            }
+
+            foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in anchor.Traits)
+            {
+                foreach (string value in trait.Value)
+                {
+                    Add(trait.Key, value);
+                }
+            }
 
             try
             {
@@ -142,14 +218,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         continue;
                     }
 
-                    string key = flag.EnumValue.GetType().Name;
-                    if (!traits.TryGetValue(key, out IReadOnlyCollection<string> values))
-                    {
-                        values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                        traits[key] = values;
-                    }
-
-                    ((HashSet<string>)values).Add(flag.EnumValue.ToString());
+                    Add(flag.EnumValue.GetType().Name, flag.EnumValue.ToString());
                 }
             }
             catch (Exception ex)
@@ -161,7 +230,7 @@ namespace Microsoft.Health.Extensions.Xunit
             return traits;
         }
 
-        private async ValueTask<bool> FindTestsForTypeCore(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, Func<ITestCase, ValueTask<bool>> callback)
+        private async ValueTask<bool> FindTestsForTypeCore(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, CallbackTracker tracker)
         {
             var attribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
             var methodAttributes = testClass.Methods.ToDictionary(
@@ -170,7 +239,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
             if (attribute == null && methodAttributes.Values.All(value => value == null))
             {
-                return await base.FindTestsForType(testClass, discoveryOptions, callback);
+                return await base.FindTestsForType(testClass, discoveryOptions, tracker.Invoke);
             }
 
             SingleFlag[][] classLevelOpenParameterSets = Array.Empty<SingleFlag[]>();
@@ -187,99 +256,136 @@ namespace Microsoft.Health.Extensions.Xunit
 
             foreach (var method in testClass.Methods)
             {
-                var fixtureParameterAttribute = methodAttributes[method];
-
-                if (attribute == null && fixtureParameterAttribute == null)
+                // Each method is expanded on its own so that one method's misdeclared argument set
+                // costs only that method. Letting the failure out of the loop would leave the methods
+                // already published running while the methods after it disappeared, under a single
+                // failure claiming the whole class had not run.
+                bool continueDiscovery;
+                try
                 {
-                    var passthroughTestMethod = new XunitTestMethod(testClass, method, Array.Empty<object>(), uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name));
-                    if (!await FindTestsForMethod(passthroughTestMethod, discoveryOptions, callback))
-                    {
-                        return false;
-                    }
-
-                    continue;
+                    continueDiscovery = await FindTestsForMethodCore(testClass, method, attribute, methodAttributes[method], classLevelOpenParameterSets, classLevelClosedParameterSets, discoveryOptions, tracker);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (!tracker.IsCallbackFailure(ex))
+                {
+                    continueDiscovery = await ReportDiscoveryFault(
+                        testClass,
+                        method,
+                        tracker,
+                        ex,
+                        $"Discovering the fixture argument set variants of '{testClass.TestClassName}.{method.Name}' failed, so none of that method's tests ran. Other methods of the class were discovered normally.");
                 }
 
-                SingleFlag[][] closedSets = classLevelClosedParameterSets;
-
-                if (attribute == null)
+                if (!continueDiscovery)
                 {
-                    // Method-level parameter sets with no class-level fallback.
-                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private async ValueTask<bool> FindTestsForMethodCore(
+            IXunitTestClass testClass,
+            MethodInfo method,
+            FixtureArgumentSetsAttribute attribute,
+            FixtureArgumentSetsAttribute fixtureParameterAttribute,
+            SingleFlag[][] classLevelOpenParameterSets,
+            SingleFlag[][] classLevelClosedParameterSets,
+            ITestFrameworkDiscoveryOptions discoveryOptions,
+            CallbackTracker tracker)
+        {
+            if (attribute == null && fixtureParameterAttribute == null)
+            {
+                var passthroughTestMethod = new XunitTestMethod(testClass, method, Array.Empty<object>(), uniqueID: UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name));
+                return await FindTestsForMethod(passthroughTestMethod, discoveryOptions, tracker.Invoke);
+            }
+
+            SingleFlag[][] closedSets = classLevelClosedParameterSets;
+
+            if (attribute == null)
+            {
+                // Method-level parameter sets with no class-level fallback.
+                SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
+                closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+            }
+            else if (fixtureParameterAttribute != null)
+            {
+                // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
+                SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
+
+                bool hasOverride = false;
+                for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
+                {
+                    if (methodLevelOpenParameterSets[i]?.Length > 0)
+                    {
+                        hasOverride = true;
+                    }
+                    else
+                    {
+                        // means take the class-level set
+                        methodLevelOpenParameterSets[i] = classLevelOpenParameterSets[i];
+                    }
+                }
+
+                if (hasOverride)
+                {
+                    // convert to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
                     closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
                 }
-                else if (fixtureParameterAttribute != null)
+            }
+
+            if (closedSets.Length == 0)
+            {
+                // Reaching here means an argument set was declared, so a product of nothing is a
+                // misconfiguration -- an argument set of zero, a value naming no single flag, or a
+                // null entry -- and every test on this method would otherwise be absent from a run
+                // that still reported success. Throwing hands it to the handler in FindTestsForType,
+                // which reports it as a failing test case so it shows up in the results and in the
+                // exit code. Discovery over every test assembly in this repository produces no such
+                // case, so this only fires on a class that is genuinely misdeclared.
+                throw new InvalidOperationException(
+                    $"'{testClass.TestClassName}.{method.Name}' expanded to no fixture argument sets, so none of its tests would run. " +
+                    "Check that every argument set names at least one single-valued flag of a [Flags] enum.");
+            }
+
+            foreach (SingleFlag[] closedVariant in closedSets)
+            {
+                // Every variant stays in the class's original collection. xUnit's unit of
+                // parallelization is the collection, so giving each variant its own would let
+                // classes an explicit [Collection] deliberately grouped together -- and the
+                // variants of a single class -- start running concurrently. Only the identifiers
+                // below carry the variant, so the collection keeps its original grouping.
+                var variantKey = BuildVariantKey(testClass.TestCollection, closedVariant);
+                var classKey = BuildVariantClassKey(variantKey, testClass.Class);
+                var closedVariantTestClass = _variantClassCache.GetOrAdd(
+                    classKey,
+                    _ => new FixtureArgumentSetTestClass(
+                        testClass.Class,
+                        testClass.TestCollection,
+                        closedVariant,
+                        UniqueIDGenerator.ForTestClass(testClass.TestCollection.UniqueID, classKey)));
+
+                var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
+
+                closedVariantTestMethod.UpdateArgumentsFromMethod();
+
+                // xUnit builds the display name from the class and method names only, so every
+                // variant of a method would otherwise be reported under an identical name and
+                // a failure could not be attributed to a specific fixture argument set.
+                var variantArguments = closedVariant;
+                Func<ITestCase, ValueTask<bool>> variantCallback = testCase =>
                 {
-                    // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
+                    ApplyVariantDisplayName(testCase, variantArguments);
+                    return tracker.Invoke(testCase);
+                };
 
-                    bool hasOverride = false;
-                    for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
-                    {
-                        if (methodLevelOpenParameterSets[i]?.Length > 0)
-                        {
-                            hasOverride = true;
-                        }
-                        else
-                        {
-                            // means take the class-level set
-                            methodLevelOpenParameterSets[i] = classLevelOpenParameterSets[i];
-                        }
-                    }
-
-                    if (hasOverride)
-                    {
-                        // convert to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
-                        closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
-                    }
-                }
-
-                if (closedSets.Length == 0)
+                if (!await FindTestsForMethod(closedVariantTestMethod, discoveryOptions, variantCallback))
                 {
-                    // A dimension that contributes no flags -- an argument set of zero, a value that
-                    // names no single flag, or a null entry -- collapses the cartesian product to
-                    // nothing, and this method then produces no test cases at all. The run stays
-                    // green with the tests simply absent, so say so rather than let them vanish.
-                    Console.WriteLine(
-                        $"[FixtureArgumentSets] WARNING: '{testClass.TestClassName}.{method.Name}' expanded to no fixture argument sets, so none of its tests will run. " +
-                        "Check that every argument set names at least one single-valued flag of a [Flags] enum.");
-                }
-
-                foreach (SingleFlag[] closedVariant in closedSets)
-                {
-                    // Every variant stays in the class's original collection. xUnit's unit of
-                    // parallelization is the collection, so giving each variant its own would let
-                    // classes an explicit [Collection] deliberately grouped together -- and the
-                    // variants of a single class -- start running concurrently. Only the identifiers
-                    // below carry the variant, so the collection keeps its original grouping.
-                    var variantKey = BuildVariantKey(testClass.TestCollection, closedVariant);
-                    var classKey = BuildVariantClassKey(variantKey, testClass.Class);
-                    var closedVariantTestClass = _variantClassCache.GetOrAdd(
-                        classKey,
-                        _ => new FixtureArgumentSetTestClass(
-                            testClass.Class,
-                            testClass.TestCollection,
-                            closedVariant,
-                            UniqueIDGenerator.ForTestClass(testClass.TestCollection.UniqueID, classKey)));
-
-                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
-
-                    closedVariantTestMethod.UpdateArgumentsFromMethod();
-
-                    // xUnit builds the display name from the class and method names only, so every
-                    // variant of a method would otherwise be reported under an identical name and
-                    // a failure could not be attributed to a specific fixture argument set.
-                    var variantArguments = closedVariant;
-                    Func<ITestCase, ValueTask<bool>> variantCallback = testCase =>
-                    {
-                        ApplyVariantDisplayName(testCase, variantArguments);
-                        return callback(testCase);
-                    };
-
-                    if (!await FindTestsForMethod(closedVariantTestMethod, discoveryOptions, variantCallback))
-                    {
-                        return false;
-                    }
+                    return false;
                 }
             }
 
@@ -411,6 +517,41 @@ namespace Microsoft.Health.Extensions.Xunit
             return sequences.Aggregate(
                 emptyProduct,
                 (accumulator, sequence) => accumulator.SelectMany(a => sequence.Select(s => a.Concat(Enumerable.Repeat(s, 1)))));
+        }
+
+        /// <summary>
+        /// Wraps the callback discovered test cases are handed to, so that a failure inside it can be
+        /// told apart from a failure to expand fixture argument sets.
+        /// </summary>
+        /// <remarks>
+        /// The callback belongs to xunit rather than to this discoverer. Reporting a failure inside it
+        /// as a fixture argument set fault would name the wrong culprit, and would try to report that
+        /// through the very callback that has just thrown.
+        /// </remarks>
+        private sealed class CallbackTracker
+        {
+            private readonly Func<ITestCase, ValueTask<bool>> _callback;
+            private Exception _failure;
+
+            public CallbackTracker(Func<ITestCase, ValueTask<bool>> callback)
+            {
+                _callback = callback;
+            }
+
+            public async ValueTask<bool> Invoke(ITestCase testCase)
+            {
+                try
+                {
+                    return await _callback(testCase);
+                }
+                catch (Exception ex)
+                {
+                    _failure = ex;
+                    throw;
+                }
+            }
+
+            public bool IsCallbackFailure(Exception exception) => ReferenceEquals(exception, _failure);
         }
     }
 }

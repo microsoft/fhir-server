@@ -51,8 +51,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// runner takes on the command line. CI legs select their tests this way, so this is how a
         /// scenario checks that it is still selected when they do.
         /// </param>
+        /// <param name="maxThreads">
+        /// The value to pass as the runner's thread limit, in the form it takes on the command line.
+        /// Scenarios that observe how much runs at once set this so the expected bound is explicit.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null)
         {
             string assetsAssembly = ResolveAssetsAssembly();
             string resultsDirectory = Path.Combine(Path.GetTempPath(), "xunit-ext-assets", Guid.NewGuid().ToString("N"));
@@ -97,6 +101,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     arguments.Add("--filter-trait");
                     arguments.Add(filterTrait);
+                }
+
+                if (!string.IsNullOrEmpty(maxThreads))
+                {
+                    arguments.Add("--max-threads");
+                    arguments.Add(maxThreads);
                 }
 
                 (int exitCode, string output, TimeSpan duration) = Execute(arguments);

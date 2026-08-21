@@ -15,7 +15,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     /// </summary>
     public class DiscoveryFaultTests
     {
-        private const string ErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests (fixture argument set discovery)";
+        private const string ErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery)";
 
         /// <summary>
         /// xUnit reports an exception thrown out of discovery only as an internal diagnostic, which
