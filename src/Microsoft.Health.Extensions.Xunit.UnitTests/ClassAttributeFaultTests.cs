@@ -123,6 +123,84 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         }
 
         /// <summary>
+        /// The form the repository's SQL and Cosmos integration legs use: everything except one data
+        /// store's tests. Excluding a value one method declares must not drop the failures standing in
+        /// for the methods that never declared it.
+        /// </summary>
+        /// <remarks>
+        /// This is the exact hole a single per-class failure left. That failure would have carried
+        /// every method's values, <c>Cosmos</c> among them, so this filter would have dropped it and
+        /// the leg would have passed green with the entire class missing - the second method's Sql
+        /// variants included, which that leg was the only one to run.
+        /// </remarks>
+        [Fact]
+        public void GivenAClassLevelFault_WhenALegExcludesOneDataStore_ThenTheOtherMethodsFailuresSurvive()
+        {
+            TestAssetRun run = TestAssetRunner.Run("ClassAttributeFault", filterNotTrait: "AssetDataStore=Cosmos");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [FirstSqlCase] = "Failed",
+                    [FirstSqlSomeCase] = "Failed",
+                    [SecondSqlCase] = "Failed",
+                    [SecondSqlSomeCase] = "Failed",
+                });
+
+            Assert.NotEqual(0, run.ExitCode);
+        }
+
+        /// <summary>
+        /// The same exclusion written as a query, which is how the E2E legs spell it. A case carrying
+        /// no value for the trait at all satisfies <c>!=</c> as readily as one carrying a different
+        /// value, so this also pins that the failures carry their values rather than omitting them.
+        /// </summary>
+        [Fact]
+        public void GivenAClassLevelFault_WhenAQueryExcludesOneDataStore_ThenOnlyTheOtherFailuresAreReported()
+        {
+            TestAssetRun run = TestAssetRunner.Run(
+                "ClassAttributeFault",
+                filterQueryTraits: "(AssetDataStore!=Cosmos)");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [FirstSqlCase] = "Failed",
+                    [FirstSqlSomeCase] = "Failed",
+                    [SecondSqlCase] = "Failed",
+                    [SecondSqlSomeCase] = "Failed",
+                });
+
+            Assert.NotEqual(0, run.ExitCode);
+        }
+
+        /// <summary>
+        /// The shape the repository's E2E main leg uses: one argument set value selected positively
+        /// and a category excluded at the same time. It is the combination that matters - a failure
+        /// carrying the right data store but the excluded category is dropped, and one carrying
+        /// neither never matches - so this pins that each half is decided against the same case.
+        /// </summary>
+        [Fact]
+        public void GivenAClassLevelFault_WhenALegSelectsOneDataStoreAndExcludesACategory_ThenOnlyTheOtherMethodsFailuresAreReported()
+        {
+            TestAssetRun run = TestAssetRunner.Run(
+                "ClassAttributeFault",
+                filterQueryTraits: "(AssetDataStore=Sql)&(Category!=DeclaredFirst)");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [SecondSqlCase] = "Failed",
+                    [SecondSqlSomeCase] = "Failed",
+                });
+
+            Assert.NotEqual(0, run.ExitCode);
+        }
+
+        /// <summary>
         /// Two overloads that both fail discovery are two lost methods, so both have to be reported.
         /// Identifying a failure by its method name alone gave them one identity between them, and
         /// xunit kept a single case - leaving one method's loss invisible.

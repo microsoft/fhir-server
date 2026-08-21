@@ -16,16 +16,17 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.ClassAttributeF
     /// <remarks>
     /// The class carries two different fixture argument set attributes, so asking it for the single
     /// one it declares throws before the walk over its methods begins. That is what makes this a
-    /// class-level fault: every method is lost at once, and the one failure reported has to stand in
-    /// for all of them. The methods declare different traits so that a failure carrying only the
-    /// first method's traits can be told apart from one carrying every method's.
+    /// class-level fault: every method is lost at once, so each one gets its own failure standing in
+    /// for it. The methods declare different traits so that failures carrying only their own
+    /// declarations can be told apart from failures carrying every method's pooled together.
     /// </remarks>
     [AssetArgumentSets(AssetDataStore.Sql)]
     [TwoDimensionArgumentSets(AssetDataStore.Sql, AssetOtherDimension.Some)]
     public class ClassAttributeFaultTests
     {
         /// <summary>
-        /// Never runs, and is declared first, so it is the method the failure is anchored to.
+        /// Never runs. Being declared first, it is the method whose ordinary traits a pooled failure
+        /// would most plausibly have borrowed, which is what the assertions look for.
         /// </summary>
         [Fact]
         [Trait("Category", "DeclaredFirst")]

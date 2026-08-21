@@ -11,8 +11,8 @@ using Xunit.v3;
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
-    /// A test case standing in for a class whose fixture argument sets could not be expanded, carrying
-    /// the traits the expansion never got far enough to produce.
+    /// A test case standing in for one test that a failure to expand fixture argument sets lost,
+    /// carrying the traits the expansion never got far enough to produce.
     /// </summary>
     /// <remarks>
     /// A fixture argument set class is normally expanded into one variant per argument, and each

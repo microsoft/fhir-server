@@ -31,10 +31,10 @@ namespace Microsoft.Health.Extensions.Xunit
 #pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
         public FixtureArgumentSetTestMethod()
         {
-            // The de-serializer does not run either of the field's assignments, and the argument set
-            // values are recovered from the base type's method arguments rather than from this field.
-            // Leaving it null would turn any later read into a NullReferenceException reported as a
-            // test failure with no bearing on the test, so it starts empty as it does on the class.
+            // The de-serializer bypasses the constructor that assigns this field, and the argument set
+            // values are recovered from the base type's method arguments rather than from it. Leaving
+            // it null would turn any later read into a NullReferenceException reported as a test
+            // failure with no bearing on the test, so it starts empty as it does on the class.
             _fixtureArguments = Array.Empty<SingleFlag>();
         }
 #pragma warning restore CS0618

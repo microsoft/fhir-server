@@ -68,6 +68,19 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.ArgumentSetOver
         }
 
         /// <summary>
+        /// Declares fewer dimensions than the class, by carrying an attribute type that takes fewer
+        /// of them. The dimensions the method says nothing about are the class's, exactly as if it
+        /// had named them and left them empty - dropping them instead would leave these tests
+        /// running without the values, and so without the traits, that a CI leg selects them by.
+        /// </summary>
+        [Fact]
+        [AssetArgumentSets(AssetDataStore.Cosmos)]
+        public void DeclaresFewerDimensionsThanTheClass()
+        {
+            AssertFixtureMatchesDisplayName();
+        }
+
+        /// <summary>
         /// Ties the values the fixture was built from to the name the variant reports under.
         /// Asserting only that the fixture holds some valid value would hold for every variant
         /// alike, so a merge that produced the right number of variants from the wrong values -

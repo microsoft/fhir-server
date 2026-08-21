@@ -39,6 +39,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     [ScenarioClass + ".OverridesTheFirstDimensionOnly (Cosmos, Some)"] = "Passed",
                     [ScenarioClass + ".OverridesTheSecondDimensionOnly (Sql, Some)"] = "Passed",
                     [ScenarioClass + ".OverridesTheSecondDimensionOnly (Cosmos, Some)"] = "Passed",
+                    [ScenarioClass + ".DeclaresFewerDimensionsThanTheClass (Cosmos, Some)"] = "Passed",
                 });
 
             Assert.Equal(0, run.ExitCode);
@@ -62,6 +63,33 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [ScenarioClass + ".InheritsBothDimensions (Sql, Some)"] = "Passed",
                     [ScenarioClass + ".OverridesTheSecondDimensionOnly (Sql, Some)"] = "Passed",
+                });
+
+            Assert.Equal(0, run.ExitCode);
+        }
+
+        /// <summary>
+        /// A method whose attribute takes fewer dimensions than its class's says nothing about the
+        /// rest, and so inherits them. Selecting by an inherited dimension's trait is the only thing
+        /// that proves it: a dimension that was dropped instead of inherited takes its trait with
+        /// it, so the test would still run and pass under an unfiltered run while being invisible to
+        /// the CI leg that selects on that trait - a green leg with the test silently absent.
+        /// </summary>
+        [Fact]
+        public void GivenAMethodDeclaringFewerDimensions_WhenTestsAreSelectedByAnInheritedDimension_ThenItStillRuns()
+        {
+            TestAssetRun run = TestAssetRunner.Run("ArgumentSetOverride", filterTrait: "AssetOtherDimension=Some");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [ScenarioClass + ".InheritsBothDimensions (Sql, Some)"] = "Passed",
+                    [ScenarioClass + ".InheritsBothDimensions (Cosmos, Some)"] = "Passed",
+                    [ScenarioClass + ".OverridesTheFirstDimensionOnly (Cosmos, Some)"] = "Passed",
+                    [ScenarioClass + ".OverridesTheSecondDimensionOnly (Sql, Some)"] = "Passed",
+                    [ScenarioClass + ".OverridesTheSecondDimensionOnly (Cosmos, Some)"] = "Passed",
+                    [ScenarioClass + ".DeclaresFewerDimensionsThanTheClass (Cosmos, Some)"] = "Passed",
                 });
 
             Assert.Equal(0, run.ExitCode);

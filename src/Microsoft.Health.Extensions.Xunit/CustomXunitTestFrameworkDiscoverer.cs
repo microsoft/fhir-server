@@ -69,11 +69,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 // not agree on theirs. A failure carrying every method's traits is dropped by a leg
                 // excluding any one of them; a failure carrying only the first method's is invisible
                 // to a leg selecting by another's. Either way a leg passes green with tests missing.
-                MethodInfo[] lostMethods = testClass.Methods.Where(IsTestMethod).ToArray();
-                if (lostMethods.Length == 0)
-                {
-                    lostMethods = testClass.Methods.Take(1).ToArray();
-                }
+                MethodInfo[] lostMethods = TryReadMethodsToReportAgainst(testClass);
 
                 if (lostMethods.Length == 0)
                 {
@@ -90,6 +86,41 @@ namespace Microsoft.Health.Extensions.Xunit
                     tracker,
                     ex,
                     $"Discovering the fixture argument set variants of '{testClass.TestClassName}' failed, so none of its tests ran.");
+            }
+        }
+
+        /// <summary>
+        /// Reads the methods a class's discovery failure should be reported against.
+        /// </summary>
+        /// <remarks>
+        /// This runs inside the handler for a failure whose cause may be the class itself - a type
+        /// that cannot be loaded, or whose members cannot be reflected over. Reading its methods can
+        /// therefore throw the same way the discovery did, and an exception escaping a catch clause
+        /// replaces the original with one raised while handling it, losing the only description of
+        /// what actually went wrong. Returning nothing instead leaves the caller to rethrow the
+        /// original, which is the outcome when there is no method to report against anyway.
+        /// <para>
+        /// Property accessors and the like are preferred over nothing, but only after the methods
+        /// xunit would treat as tests: a failure reported against a getter names nothing a reader can
+        /// act on, and carries none of the traits a CI leg selects the class's tests by.
+        /// </para>
+        /// </remarks>
+        /// <param name="testClass">The class whose discovery failed.</param>
+        /// <returns>The methods to report against, empty if they could not be read.</returns>
+        private static MethodInfo[] TryReadMethodsToReportAgainst(IXunitTestClass testClass)
+        {
+            try
+            {
+                MethodInfo[] testMethods = testClass.Methods.Where(IsTestMethod).ToArray();
+
+                return testMethods.Length > 0 ? testMethods : testClass.Methods.Take(1).ToArray();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] ERROR: the methods of '{testClass.TestClassName}' could not be read while reporting a discovery failure against them. {ex}");
+
+                return Array.Empty<MethodInfo>();
             }
         }
 
@@ -120,19 +151,27 @@ namespace Microsoft.Health.Extensions.Xunit
         /// Determines whether xunit would treat a method as a test.
         /// </summary>
         /// <remarks>
+        /// The test is for <see cref="IFactAttribute"/>, which is what xunit itself discovers by, and
+        /// not for <see cref="FactAttribute"/>. An attribute may implement the interface without
+        /// deriving from that class, and such a method is every bit as much a test: matching only the
+        /// class would leave it out of the methods a failure is reported against, so the tests it
+        /// stands for would be missing from a run that still reported success - the one outcome this
+        /// mechanism exists to prevent. Matching the interface can only widen the set.
+        /// <para>
         /// This is asked while handling a discovery failure, over the very metadata that may have
         /// caused it, so a method whose attributes cannot be read is treated as not a test rather than
         /// allowed to throw. The caller then falls back to any method at all, which reports the failure
         /// against a less helpful name - still far better than letting the class vanish from a green
         /// run, which is what an escaping exception here would cause.
+        /// </para>
         /// </remarks>
         /// <param name="method">The method to inspect.</param>
         /// <returns><c>true</c> when the method carries a fact or theory attribute.</returns>
-        private static bool IsTestMethod(MethodInfo method)
+        internal static bool IsTestMethod(MethodInfo method)
         {
             try
             {
-                return method.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0;
+                return method.GetCustomAttributes(inherit: true).Any(attribute => attribute is IFactAttribute);
             }
             catch (Exception ex)
             {
@@ -191,7 +230,7 @@ namespace Microsoft.Health.Extensions.Xunit
             Exception exception,
             string summary)
         {
-            Console.WriteLine($"[FixtureArgumentSets] ERROR: {summary} It was replaced by a failing test case. {exception}");
+            Console.WriteLine($"[FixtureArgumentSets] ERROR: {summary} Each lost test was replaced by a failing test case. {exception}");
 
             foreach (MethodInfo method in lostMethods)
             {
@@ -215,7 +254,9 @@ namespace Microsoft.Health.Extensions.Xunit
             // give both cases the same unique ID and xunit would keep only one.
             string methodKey = BuildFaultMethodKey(method);
 
-            foreach (IReadOnlyList<SingleFlag> combination in BuildFaultArgumentSetCombinations(ReadFaultArgumentSetDimensions(testClass, method)))
+            IReadOnlyList<IReadOnlyList<SingleFlag>> combinations = BuildFaultArgumentSetCombinations(ReadFaultArgumentSetDimensions(testClass, method));
+
+            foreach (IReadOnlyList<SingleFlag> combination in combinations)
             {
                 string displaySuffix = combination.Count == 0
                     ? string.Empty
@@ -365,6 +406,24 @@ namespace Microsoft.Health.Extensions.Xunit
         /// method alone, and a value borrowed from a sibling is a value no test of this method would
         /// have carried, which an exclusion filter can then use to drop the failure entirely.
         /// </para>
+        /// <para>
+        /// A method's own attributes are read alongside its class's rather than merged over them the
+        /// way the successful path merges them. The merge cannot be trusted here - it is one of the
+        /// things that may have just failed - and the two directions of error are not equal. Reading
+        /// both over-reports: a method narrowing a dimension is also reported under the class's wider
+        /// values, so a leg sees a failure for a variant that would not have existed. Merging and
+        /// getting it wrong under-reports, and a leg then passes green with tests missing. The
+        /// over-reported failure is loud and traceable to this same declaration; the under-reported
+        /// one is silent, so the union is deliberate.
+        /// </para>
+        /// <para>
+        /// What this cannot do is invent values it could not read. When an attribute itself cannot be
+        /// read or expanded, the failure carries no argument set trait, and a leg selecting positively
+        /// on one - as the E2E and export legs do, with <c>(DataStore=SqlServer)&amp;(...)</c> - will
+        /// not select it. Such a leg sees no failure. The console output above still names the class,
+        /// and the legs that filter by exclusion still report it, but a positive filter cannot match a
+        /// trait that no longer exists and no arrangement of the remaining traits changes that.
+        /// </para>
         /// </remarks>
         /// <param name="testClass">The class whose expansion failed.</param>
         /// <param name="method">The lost method the failure stands in for.</param>
@@ -482,29 +541,49 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <remarks>
         /// The method's name alone is not unique: a class may overload a test method, and two failures
         /// sharing a unique ID leave xunit reporting only one of them - the other silently absent,
-        /// which is the outcome reporting these failures exists to prevent. The parameter types are
-        /// included to tell overloads apart, and are read defensively because this runs while handling
-        /// a failure that may itself be a type that cannot be loaded.
+        /// which is the outcome reporting these failures exists to prevent. The parameter types and
+        /// the generic arity are included to tell overloads apart - overloads may differ by arity
+        /// alone, as <c>Run&lt;T&gt;()</c> and <c>Run&lt;T, U&gt;()</c> do, and both take no parameters
+        /// - and are read defensively because this runs while handling a failure that may itself be a
+        /// type that cannot be loaded.
         /// </remarks>
         /// <param name="method">The method the failure is reported against.</param>
         /// <returns>A key identifying the method, falling back to its name alone.</returns>
-        private static string BuildFaultMethodKey(MethodInfo method)
+        internal static string BuildFaultMethodKey(MethodInfo method)
         {
             try
             {
+                string name = method.IsGenericMethodDefinition
+                    ? $"{method.Name}`{method.GetGenericArguments().Length}"
+                    : method.Name;
+
                 ParameterInfo[] parameters = method.GetParameters();
                 if (parameters.Length == 0)
                 {
-                    return method.Name;
+                    return name;
                 }
 
-                return $"{method.Name}({string.Join(",", parameters.Select(parameter => parameter.ParameterType.FullName ?? parameter.ParameterType.Name))})";
+                return $"{name}({string.Join(",", parameters.Select(parameter => parameter.ParameterType.FullName ?? parameter.ParameterType.Name))})";
             }
             catch (Exception ex)
             {
                 Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: the signature of '{method.Name}' could not be read, so a failure reported against an overload of it may be dropped as a duplicate. {ex}");
-                return method.Name;
+                    $"[FixtureArgumentSets] WARNING: the signature of '{method.Name}' could not be read, so its failure is identified by metadata token instead. {ex}");
+
+                try
+                {
+                    // The token distinguishes overloads within an assembly without reading any type
+                    // the failure may have been caused by being unable to load. Falling back to the
+                    // name alone would let two overloads share a unique ID, and xunit reports only
+                    // one of a colliding pair - losing the very failure this is reporting.
+                    return $"{method.Name}#{method.MetadataToken}";
+                }
+                catch (Exception tokenException)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: the metadata token of '{method.Name}' could not be read either, so a failure reported against an overload of it may be dropped as a duplicate. {tokenException}");
+                    return method.Name;
+                }
             }
         }
 
@@ -623,24 +702,39 @@ namespace Microsoft.Health.Extensions.Xunit
                 // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
                 SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
 
+                // The merge runs over every dimension either side declares, not just the ones the
+                // method does. A method carrying an attribute with fewer dimensions than its class -
+                // which happens when the two carry different attribute types - would otherwise have
+                // the class's trailing dimensions dropped rather than inherited, and its tests would
+                // then run without the values, and so without the traits, that a CI leg selects them
+                // by: the leg would pass with those tests silently absent.
+                int dimensionCount = Math.Max(methodLevelOpenParameterSets.Length, classLevelOpenParameterSets.Length);
+                var mergedOpenParameterSets = new SingleFlag[dimensionCount][];
+
                 bool hasOverride = false;
-                for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
+                for (int i = 0; i < dimensionCount; i++)
                 {
-                    if (methodLevelOpenParameterSets[i]?.Length > 0)
+                    SingleFlag[] methodLevelDimension = i < methodLevelOpenParameterSets.Length ? methodLevelOpenParameterSets[i] : null;
+
+                    if (methodLevelDimension?.Length > 0)
                     {
                         hasOverride = true;
+                        mergedOpenParameterSets[i] = methodLevelDimension;
                     }
                     else
                     {
-                        // means take the class-level set
-                        methodLevelOpenParameterSets[i] = classLevelOpenParameterSets[i];
+                        // means take the class-level set. A method declaring a dimension the class
+                        // does not have is a misconfiguration, and reading past the end here is what
+                        // surfaces it: the throw is caught by the handler in FindTestsForType and
+                        // reported as a failing test case rather than losing the method quietly.
+                        mergedOpenParameterSets[i] = classLevelOpenParameterSets[i];
                     }
                 }
 
                 if (hasOverride)
                 {
                     // convert to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
-                    closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+                    closedSets = CartesianProduct(mergedOpenParameterSets).Select(e => e.ToArray()).ToArray();
                 }
             }
 

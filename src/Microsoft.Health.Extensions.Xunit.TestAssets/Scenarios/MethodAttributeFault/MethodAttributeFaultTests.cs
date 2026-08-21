@@ -20,8 +20,8 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.MethodAttribute
     /// rather than while using it, which is the step that used to run for every method of the class at
     /// once and so cost the whole class its tests. The class takes no fixture, so nothing can fail
     /// ahead of the reported case and the message it carries is the discoverer's own. One sibling
-    /// declares an argument set of its own, so the class still has values to pool into the fault
-    /// case's traits once the failing method's cannot be read.
+    /// declares an argument set of its own, and a different one, so a fault case that borrowed a
+    /// sibling's values instead of using the failing method's can be told apart from one that did not.
     /// </remarks>
     public class MethodAttributeFaultTests
     {
