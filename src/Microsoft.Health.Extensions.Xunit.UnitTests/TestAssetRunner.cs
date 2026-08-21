@@ -154,7 +154,18 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             {
                 if (e.Data == null)
                 {
-                    complete.Set();
+                    try
+                    {
+                        complete.Set();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // The only way this event is disposed while a callback is still in flight is
+                        // that Execute has already abandoned the wait and is unwinding on the timeout
+                        // path. Nothing is listening for the signal any more, and letting it escape
+                        // would take down the whole test host from a thread pool thread, replacing the
+                        // timeout report with an unrelated crash.
+                    }
                 }
                 else
                 {
@@ -176,7 +187,16 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
             if (!process.WaitForExit((int)RunTimeout.TotalMilliseconds))
             {
-                process.Kill(entireProcessTree: true);
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // The child can exit on its own between the wait giving up and the kill landing.
+                    // Letting that race escape would replace the timeout report -- which carries the
+                    // child's output -- with an unrelated and far less useful exception.
+                }
 
                 // The child is still writing on its background threads, so the buffer has to be
                 // snapshotted under the same lock its callbacks take. Reading it directly here

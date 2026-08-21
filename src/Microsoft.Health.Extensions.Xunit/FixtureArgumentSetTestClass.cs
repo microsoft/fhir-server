@@ -13,6 +13,19 @@ using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// A test class bound to one fixture argument set, so that a single class type can be discovered
+    /// once per variant with a distinct identity.
+    /// </summary>
+    /// <remarks>
+    /// The fixture arguments are held in memory only. <see cref="XunitTestClass"/> implements
+    /// <c>IXunitSerializable</c> non-virtually, so a derived type has no way to add its own state to
+    /// the serialized form, and a runner that discovered tests in one process and ran them in another
+    /// would hand the executor a plain <see cref="XunitTestClass"/> rather than this type. Both the
+    /// Microsoft Testing Platform runner used by CI and the Visual Studio test explorer discover and
+    /// run in the same process, so the variant survives; a runner that did not would fall back to the
+    /// unvaried class rather than silently mixing variants up.
+    /// </remarks>
     internal sealed class FixtureArgumentSetTestClass : XunitTestClass
     {
         private static readonly FieldInfo UniqueIdField = typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic)

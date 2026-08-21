@@ -78,7 +78,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             // The published results and the exit code are reported through different paths, so a
             // child that writes a correct-looking report and then dies -- in a fixture teardown,
             // say -- would otherwise be indistinguishable from a clean run.
-            bool expectingFailures = expected.Values.Any(outcome => !string.Equals(outcome, "Passed", StringComparison.Ordinal));
+            //
+            // A skip is not a failure: the runner exits 0 for a run whose tests all passed or were
+            // skipped, so only a genuinely failing outcome may expect the failure exit code.
+            bool expectingFailures = expected.Values.Any(outcome =>
+                !string.Equals(outcome, "Passed", StringComparison.Ordinal)
+                && !string.Equals(outcome, "NotExecuted", StringComparison.Ordinal));
             int expectedExitCode = expectingFailures ? FailedTestsExitCode : SuccessExitCode;
 
             string message = $"The run exited with code {run.ExitCode}, but {expectedExitCode} was expected for these "

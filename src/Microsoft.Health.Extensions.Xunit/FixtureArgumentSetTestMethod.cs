@@ -36,7 +36,6 @@ namespace Microsoft.Health.Extensions.Xunit
             _fixtureArguments = fixtureArguments;
             _uniqueId = uniqueId;
 
-            UpdateMethodArguments(Array.Empty<object>());
             UniqueIdField.SetValue(this, _uniqueId);
             MethodField.SetValue(this, _methodInfo);
         }
@@ -129,55 +128,10 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
 
                 values.Add(enumValueText);
-
-                if (TryGetFixtureTraitName(enumValue, out var traitName))
-                {
-                    AddTrait(traits, traitName, enumValueText);
-                }
             }
 
             var typedTraits = traits.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyCollection<string>)kvp.Value, StringComparer.OrdinalIgnoreCase);
             TraitsField.SetValue(this, new Lazy<IReadOnlyDictionary<string, IReadOnlyCollection<string>>>(() => typedTraits));
-        }
-
-        private static void AddTrait(Dictionary<string, HashSet<string>> traits, string key, string value)
-        {
-            if (!traits.TryGetValue(key, out var values))
-            {
-                values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                traits[key] = values;
-            }
-
-            values.Add(value);
-        }
-
-        private static bool TryGetFixtureTraitName(Enum enumValue, out string traitName)
-        {
-            traitName = null;
-            if (enumValue == null)
-            {
-                return false;
-            }
-
-            var enumType = enumValue.GetType();
-            if (!string.Equals(enumType.Namespace, "Microsoft.Health.Fhir.Tests.Common.FixtureParameters", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (string.Equals(enumType.Name, "DataStore", StringComparison.Ordinal))
-            {
-                traitName = "DataStore";
-                return true;
-            }
-
-            if (string.Equals(enumType.Name, "Format", StringComparison.Ordinal))
-            {
-                traitName = "Format";
-                return true;
-            }
-
-            return false;
         }
     }
 }

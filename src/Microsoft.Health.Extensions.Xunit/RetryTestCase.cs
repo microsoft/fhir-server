@@ -152,21 +152,28 @@ namespace Microsoft.Health.Extensions.Xunit
                     // adds a second, orphaned result for a test that actually finished.
                     if (summary.Total == 0)
                     {
-                        bool hasObservedFailure = (pendingFailureBus?.HasDeferredFailure ?? false) || interceptingBus.HasDeferredFailure;
+                        NoResultOutcome outcome = DecideNoResultOutcome(
+                            currentAttemptObservedFailure: interceptingBus.HasDeferredFailure,
+                            earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
 
                         Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed result rather than a pass.");
 
-                        // Replay at most one bus. A failure this attempt already saw supersedes anything
-                        // held over from an earlier one, and replaying both would publish two results for
-                        // a single test.
-                        if (interceptingBus.HasDeferredFailure)
+                        // At most one bus is replayed. A failure this attempt saw supersedes anything held
+                        // over from an earlier one, and replaying both would publish two results for a
+                        // single test.
+                        switch (outcome)
                         {
-                            pendingFailureBus?.DiscardDeferredMessages();
-                            interceptingBus.ReplayDeferredMessages();
-                        }
-                        else
-                        {
-                            pendingFailureBus?.ReplayDeferredMessages();
+                            case NoResultOutcome.ReplayCurrentAttempt:
+                                pendingFailureBus?.DiscardDeferredMessages();
+                                interceptingBus.ReplayDeferredMessages();
+                                break;
+
+                            case NoResultOutcome.ReplayEarlierAttempt:
+                                pendingFailureBus.ReplayDeferredMessages();
+                                break;
+
+                            default:
+                                break;
                         }
 
                         if (lastException != null)
@@ -174,19 +181,9 @@ namespace Microsoft.Health.Extensions.Xunit
                             aggregator.Add(lastException);
                         }
 
-                        if (hasObservedFailure)
-                        {
-                            runSummary.Failed = 1;
-                        }
-                        else
-                        {
-                            // No attempt ever published a result for this test. Counting it as a pass would
-                            // claim an outcome that was never reported, so contribute nothing to the totals.
-                            runSummary.Total = 0;
-                            runSummary.Failed = 0;
-                        }
-
-                        return runSummary;
+                        RunSummary noResultSummary = CreateNoResultSummary(outcome);
+                        noResultSummary.Time = runSummary.Time;
+                        return noResultSummary;
                     }
 
                     // This attempt reported a real result, so a failure held over from an earlier
@@ -341,6 +338,41 @@ namespace Microsoft.Health.Extensions.Xunit
             return runSummary;
         }
 
+        /// <summary>
+        /// Decides how an attempt that published no result of its own should be accounted for.
+        /// </summary>
+        /// <param name="currentAttemptObservedFailure">Whether this attempt saw a failure before it was cut short.</param>
+        /// <param name="earlierAttemptObservedFailure">Whether an earlier attempt deferred a failure that has not been superseded.</param>
+        /// <returns>Which deferred failure, if any, should reach the results.</returns>
+        internal static NoResultOutcome DecideNoResultOutcome(bool currentAttemptObservedFailure, bool earlierAttemptObservedFailure)
+        {
+            if (currentAttemptObservedFailure)
+            {
+                return NoResultOutcome.ReplayCurrentAttempt;
+            }
+
+            return earlierAttemptObservedFailure
+                ? NoResultOutcome.ReplayEarlierAttempt
+                : NoResultOutcome.ReportNothing;
+        }
+
+        /// <summary>
+        /// Builds the summary for an attempt that published no result of its own.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <returns>The totals this test contributes to the run.</returns>
+        /// <remarks>
+        /// A replayed failure is a published result, so it counts as one failed test. When nothing
+        /// was ever published the test contributes nothing at all: counting it would claim an
+        /// outcome that no attempt reported, and a total of one with no failures reads as a pass.
+        /// </remarks>
+        internal static RunSummary CreateNoResultSummary(NoResultOutcome outcome)
+        {
+            return outcome == NoResultOutcome.ReportNothing
+                ? new RunSummary { Total = 0, Failed = 0 }
+                : new RunSummary { Total = 1, Failed = 1 };
+        }
+
         protected override void Serialize(IXunitSerializationInfo info)
         {
             base.Serialize(info);
@@ -453,15 +485,13 @@ namespace Microsoft.Health.Extensions.Xunit
                         ? string.Join(Environment.NewLine, failed.StackTraces)
                         : null;
 
-                    // Detect if this is an assertion failure by checking exception types
-                    // XUnit assertion exceptions typically have types containing "Xunit" or "Assert"
+                    // Detect if this is an assertion failure by checking exception types.
+                    // Every xUnit assertion exception lives under the Xunit.Sdk namespace, so the
+                    // namespace check already covers the individual assertion exception types.
                     IsAssertionFailure = failed.ExceptionTypes != null &&
                         failed.ExceptionTypes.Length > 0 &&
                         (failed.ExceptionTypes[0].Contains("Xunit", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("Assert", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("EqualException", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("TrueException", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("FalseException", StringComparison.Ordinal));
+                         failed.ExceptionTypes[0].Contains("Assert", StringComparison.Ordinal));
 
                     if (_deferFailures)
                     {
@@ -509,7 +539,19 @@ namespace Microsoft.Health.Extensions.Xunit
                 if (_deferredMessages.Count > 0)
                 {
                     Console.WriteLine($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
-                    ReplayDeferredMessages();
+
+                    try
+                    {
+                        ReplayDeferredMessages();
+                    }
+                    catch (Exception e)
+                    {
+                        // Dispose runs on the way out of the attempt, including while an exception is
+                        // already unwinding. Throwing from here would replace whatever actually went
+                        // wrong with a reporting error, so the failure to replay is logged and the
+                        // original exception is left to propagate.
+                        Console.WriteLine($"[RetryFact] Failed to replay {_deferredMessages.Count} deferred test message(s): {e.GetType().FullName}: {e.Message}");
+                    }
                 }
             }
         }
