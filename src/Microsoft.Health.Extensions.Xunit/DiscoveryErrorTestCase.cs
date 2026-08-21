@@ -25,9 +25,12 @@ namespace Microsoft.Health.Extensions.Xunit
     /// filter matches a case when <em>any</em> value under the named trait matches, and an exclusion
     /// filter is the negation of that, so a single case declaring both <c>DataStore=CosmosDb</c> and
     /// <c>DataStore=SqlServer</c> would be excluded by both <c>--filter-not-trait
-    /// DataStore=SqlServer</c> and <c>--filter-not-trait DataStore=CosmosDb</c> - that is, by every
-    /// leg this repository runs. The discoverer therefore reports one of these per combination, so
-    /// each leg selects exactly the case that stands for the tests it lost.
+    /// DataStore=SqlServer</c> and <c>--filter-not-trait DataStore=CosmosDb</c> - that is, by both of
+    /// the integration legs this repository runs, which select by exclusion alone. The discoverer
+    /// therefore reports one of these per combination, so each leg selects exactly the case that
+    /// stands for the tests it lost. The export and E2E legs instead require a positive
+    /// <c>DataStore</c>, and a case can only reach them by carrying that leg's value, which is the
+    /// same reason the combinations are reported separately rather than pooled.
     /// </para>
     /// </remarks>
     internal sealed class DiscoveryErrorTestCase : ExecutionErrorTestCase

@@ -215,15 +215,16 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <param name="summary">A sentence saying what was lost, used to open the failure message.</param>
         /// <returns>Whether discovery should continue, as the callback reported it.</returns>
         /// <remarks>
-        /// The console line written here is the authoritative record of the fault. The test case puts
-        /// the failure in the results and in the exit code, but it cannot be relied on to carry the
-        /// cause: a case travels through the ordinary class runner, which builds the class's fixtures
-        /// first, and a class using fixture argument sets typically has a fixture taking an argument
-        /// the failed expansion never produced. That fixture failure is aggregated ahead of this
-        /// message and is what the report then shows. Both ways out of that were tried and are worse -
-        /// anchoring the case to a class of its own takes it out of the namespace and class filters
-        /// that would have selected the tests it replaces, and discarding the aggregated failure
-        /// discards this message with it, leaving the fault unreported again.
+        /// The console line written here is the record of the fault that does not depend on anything
+        /// downstream. The test case is what puts the failure in the results and in the exit code, and
+        /// it does normally carry the cause - see the last paragraph - but only because it is anchored
+        /// to the variant class whose fixture can still be built. A case travels through the ordinary
+        /// class runner, which builds the class's fixtures first, so anchoring it anywhere the
+        /// fixture's argument is unavailable would aggregate a fixture failure ahead of this message
+        /// and report that instead. Both ways out of that were tried and are worse - anchoring the case
+        /// to a class of its own takes it out of the namespace and class filters that would have
+        /// selected the tests it replaces, and discarding the aggregated failure discards this message
+        /// with it, leaving the fault unreported again.
         /// <para>
         /// Every failure reported here stands for exactly one thing that would have run: one method,
         /// under one combination of argument set values. Nothing is merged, because a case carrying
@@ -829,9 +830,11 @@ namespace Microsoft.Health.Extensions.Xunit
                 // variant of a method would otherwise be reported under an identical name and
                 // a failure could not be attributed to a specific fixture argument set.
                 var variantArguments = closedVariant;
+                var variantMethod = closedVariantTestMethod;
                 Func<ITestCase, ValueTask<bool>> variantCallback = testCase =>
                 {
                     ApplyVariantDisplayName(testCase, variantArguments);
+                    ApplyVariantTraits(testCase, variantMethod);
                     return tracker.Invoke(testCase);
                 };
 
@@ -885,6 +888,53 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             TestCaseDisplayNameField.SetValue(xunitTestCase, displayName + suffix);
+        }
+
+        /// <summary>
+        /// Copies the variant's traits onto a discovered test case that did not get them.
+        /// </summary>
+        /// <remarks>
+        /// A test case built from a method normally carries that method's traits, so for a healthy
+        /// test this adds nothing. The case that matters is the one xunit builds for a test it cannot
+        /// run - a fact declaring parameters, a theory with no data - which it reports as an
+        /// <c>ExecutionErrorTestCase</c> constructed with no traits at all. Without them that failure
+        /// is invisible to any leg selecting on a trait: this repository's E2E and export legs each
+        /// require a positive <c>DataStore</c>, and a filter cannot match a trait that is absent. The
+        /// malformed test would then be missing from those legs and they would report success, which
+        /// is precisely the outcome the rest of this class exists to prevent.
+        /// <para>
+        /// Traits are merged rather than replaced so that anything the discovery already attached -
+        /// a theory row's own traits, say - survives.
+        /// </para>
+        /// </remarks>
+        /// <param name="testCase">The discovered test case.</param>
+        /// <param name="variantMethod">The variant method the test case was discovered from.</param>
+        private static void ApplyVariantTraits(ITestCase testCase, FixtureArgumentSetTestMethod variantMethod)
+        {
+            if (testCase is not XunitTestCase xunitTestCase)
+            {
+                // ApplyVariantDisplayName has already reported the type, so this only adds what else
+                // is lost by it: nothing here can reach a case type this class does not know how to
+                // write to, and a case with no traits is one a filtering leg cannot see.
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the fixture argument set traits of '{testCase.TestCaseDisplayName}' could NOT be applied, " +
+                    "so a CI leg selecting on them will not run it.");
+                return;
+            }
+
+            foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in variantMethod.Traits)
+            {
+                if (!xunitTestCase.Traits.TryGetValue(trait.Key, out HashSet<string> values))
+                {
+                    values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    xunitTestCase.Traits[trait.Key] = values;
+                }
+
+                foreach (string value in trait.Value)
+                {
+                    values.Add(value);
+                }
+            }
         }
 
         /// <summary>
