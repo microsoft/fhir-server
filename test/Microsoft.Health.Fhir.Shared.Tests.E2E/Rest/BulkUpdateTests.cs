@@ -162,22 +162,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 // Create resources of different types with the same tag
                 // Use StructureDefinition resources which are excluded from bulk update but don't have
                 // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
-                var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
+                var structureDefinition = CreateTemporaryStructureDefinition("StructureDefinition-us-core-birthsex");
                 structureDefinition.Meta = new Meta();
                 structureDefinition.Meta.Tag.Add(tag);
                 createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
 
-                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-ethnicity");
+                structureDefinition = CreateTemporaryStructureDefinition("StructureDefinition-us-core-ethnicity");
                 structureDefinition.Meta = new Meta();
                 structureDefinition.Meta.Tag.Add(tag);
                 createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
 
-                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
+                structureDefinition = CreateTemporaryStructureDefinition("StructureDefinition-us-core-race");
                 structureDefinition.Meta = new Meta();
                 structureDefinition.Meta.Tag.Add(tag);
                 createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
 
-                structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
+                structureDefinition = CreateTemporaryStructureDefinition("StructureDefinition-us-core-careplan");
                 structureDefinition.Meta = new Meta();
                 structureDefinition.Meta.Tag.Add(tag);
                 createdResources.Add(await _fhirClient.CreateAsync(structureDefinition));
@@ -817,6 +817,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+        }
+
+        private static StructureDefinition CreateTemporaryStructureDefinition(string sampleName)
+        {
+            StructureDefinition structureDefinition = Samples.GetJsonSample<StructureDefinition>(sampleName);
+            string id = $"bulk-update-{Guid.NewGuid():N}";
+            structureDefinition.Id = id;
+            structureDefinition.Url = $"http://example.org/fhir/StructureDefinition/{id}";
+            return structureDefinition;
         }
 
         private async Task<HttpResponseMessage> SendBulkUpdateRequest(

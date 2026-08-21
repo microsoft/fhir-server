@@ -33,8 +33,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [CollectionDefinition(Categories.BulkDelete, DisableParallelization = true)]
+    [Collection(Categories.BulkDelete)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.BulkDelete)]
+    [Trait(Traits.Category, Categories.RequiresIsolation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BulkDeleteTests : IClassFixture<HttpIntegrationTestFixture>
     {
