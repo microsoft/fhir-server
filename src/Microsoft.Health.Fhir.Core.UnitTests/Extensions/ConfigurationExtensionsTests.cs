@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         [InlineData("\t\r\n")]
         public void GivenAnEmptyRuntimeStateConfiguration_WhenGettingRuntimeState_ThenActiveIsReturned(string configuredRuntimeState)
         {
-            FhirRuntimeState actual = ConfigurationExtensions.GetRuntimeStateConfiguration(configuredRuntimeState);
+            FhirRuntimeState actual = ConfigurationExtensions.ParseRuntimeStateConfiguration(configuredRuntimeState);
 
             Assert.Equal(FhirRuntimeState.Active, actual);
         }
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             string configuredRuntimeState,
             FhirRuntimeState expected)
         {
-            FhirRuntimeState actual = ConfigurationExtensions.GetRuntimeStateConfiguration(configuredRuntimeState);
+            FhirRuntimeState actual = ConfigurationExtensions.ParseRuntimeStateConfiguration(configuredRuntimeState);
 
             Assert.Equal(expected, actual);
         }
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         [InlineData("2")]
         public void GivenAnInvalidRuntimeStateConfiguration_WhenGettingRuntimeState_ThenActiveIsReturned(string configuredRuntimeState)
         {
-            FhirRuntimeState actual = ConfigurationExtensions.GetRuntimeStateConfiguration(configuredRuntimeState);
+            FhirRuntimeState actual = ConfigurationExtensions.ParseRuntimeStateConfiguration(configuredRuntimeState);
 
             Assert.Equal(FhirRuntimeState.Active, actual);
         }

@@ -4,13 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ConfigurationExtensions
     {
-        public static FhirRuntimeState GetRuntimeStateConfiguration(string configuredRuntimeState)
+        /// <summary>
+        /// Gets the FHIR runtime state configuration.
+        /// </summary>
+        /// <remarks>Active is assumed as the default runtime state for invalid inputs.</remarks>
+        public static FhirRuntimeState GetRuntimeStateConfiguration(CoreFeatureConfiguration coreFeatureConfiguration)
+        {
+            return ParseRuntimeStateConfiguration(coreFeatureConfiguration?.RuntimeState);
+        }
+
+        /// <summary>
+        /// Parses the FHIR runtime state configuration.
+        /// </summary>
+        /// <remarks>Active is assumed as the default runtime state for invalid inputs.</remarks>
+        public static FhirRuntimeState ParseRuntimeStateConfiguration(string configuredRuntimeState)
         {
             if (string.IsNullOrWhiteSpace(configuredRuntimeState))
             {

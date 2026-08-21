@@ -442,6 +442,7 @@
     <EmbeddedResource Include="TestFiles\R4\servicerequest-example.json" />
     <EmbeddedResource Include="TestFiles\R4\slot-example.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartCommon.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartCompartmentLeak.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientA.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientB.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientD.json" />
