@@ -29,13 +29,9 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var attribute = (RetryTheoryAttribute)theoryAttribute;
 
-            var maxRetries = attribute.MaxRetries;
-            var delayMs = attribute.DelayBetweenRetriesMs;
-            var retryOnAssertionFailure = attribute.RetryOnAssertionFailure;
-
             var baseCases = await base.CreateTestCasesForDataRow(discoveryOptions, testMethod, theoryAttribute, dataRow, testMethodArguments);
             return baseCases
-                .Select(testCase => WrapTestCase(testMethod, testCase, attribute, maxRetries, delayMs, retryOnAssertionFailure))
+                .Select(testCase => WrapTestCase(testMethod, testCase, attribute))
                 .ToArray();
         }
 
@@ -46,17 +42,13 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var attribute = (RetryTheoryAttribute)theoryAttribute;
 
-            var maxRetries = attribute.MaxRetries;
-            var delayMs = attribute.DelayBetweenRetriesMs;
-            var retryOnAssertionFailure = attribute.RetryOnAssertionFailure;
-
             var baseCases = await base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute);
             return baseCases
-                .Select(testCase => WrapTestCase(testMethod, testCase, attribute, maxRetries, delayMs, retryOnAssertionFailure))
+                .Select(testCase => WrapTestCase(testMethod, testCase, attribute))
                 .ToArray();
         }
 
-        private static IXunitTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute, int maxRetries, int delayMs, bool retryOnAssertionFailure)
+        private static IXunitTestCase WrapTestCase(IXunitTestMethod testMethod, IXunitTestCase testCase, RetryTheoryAttribute attribute)
         {
             if (testCase is not XunitTestCase xunitTestCase)
             {
@@ -79,14 +71,14 @@ namespace Microsoft.Health.Extensions.Xunit
                 xunitTestCase.SkipType,
                 xunitTestCase.SkipUnless,
                 xunitTestCase.SkipWhen,
-                new Dictionary<string, HashSet<string>>(xunitTestCase.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value))),
+                xunitTestCase.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)),
                 xunitTestCase.TestMethodArguments,
                 xunitTestCase.SourceFilePath,
                 xunitTestCase.SourceLineNumber,
                 xunitTestCase.Timeout == 0 ? null : xunitTestCase.Timeout,
-                maxRetries,
-                delayMs,
-                retryOnAssertionFailure);
+                attribute.MaxRetries,
+                attribute.DelayBetweenRetriesMs,
+                attribute.RetryOnAssertionFailure);
         }
     }
 }

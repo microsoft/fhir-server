@@ -24,12 +24,14 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// The number of runner-level errors reported, which are counted separately from failed
         /// tests and do not appear as results.
         /// </param>
-        public TestAssetRun(int exitCode, string output, IReadOnlyList<TestAssetResult> results, int errorCount)
+        /// <param name="duration">The wall-clock time the runner process took.</param>
+        public TestAssetRun(int exitCode, string output, IReadOnlyList<TestAssetResult> results, int errorCount, TimeSpan duration)
         {
             ExitCode = exitCode;
             Output = output;
             Results = results;
             ErrorCount = errorCount;
+            Duration = duration;
         }
 
         /// <summary>
@@ -55,13 +57,20 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         public int ErrorCount { get; }
 
         /// <summary>
+        /// Gets the wall-clock time the runner process took. A scenario that cancels its own run
+        /// asserts on this to show the run was actually cut short, rather than reaching the same
+        /// outcome by running every attempt to completion.
+        /// </summary>
+        public TimeSpan Duration { get; }
+
+        /// <summary>
         /// Renders the run for use in assertion messages.
         /// </summary>
         /// <returns>The exit code, every result, and the runner output.</returns>
         public override string ToString()
         {
             var lines = Results.Select(r => $"  {r.Outcome} :: {r.Name ?? "<no name>"}");
-            return $"exit code {ExitCode}, {Results.Count} result(s), {ErrorCount} runner error(s):{Environment.NewLine}"
+            return $"exit code {ExitCode}, {Results.Count} result(s), {ErrorCount} runner error(s), took {Duration.TotalSeconds:F1}s:{Environment.NewLine}"
                 + string.Join(Environment.NewLine, lines)
                 + $"{Environment.NewLine}--- runner output ---{Environment.NewLine}{Output}";
         }

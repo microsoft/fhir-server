@@ -15,6 +15,9 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     /// </summary>
     public static class TestAssetRunAssertions
     {
+        private const int SuccessExitCode = 0;
+        private const int FailedTestsExitCode = 2;
+
         /// <summary>
         /// Asserts that a run published exactly the expected results and nothing else.
         /// </summary>
@@ -32,6 +35,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             EnsureNoRunnerErrors(run);
             EnsureNoOrphanedResults(run);
+            EnsureExitCodeMatchesResults(run, expected);
 
             string[] actualEntries = run.Results
                 .Select(r => $"{r.Outcome} :: {r.Name}")
@@ -67,6 +71,21 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 + $"attributed to a test the runner had already finished.{Environment.NewLine}Actual: {run}";
 
             Assert.True(orphaned == 0, message);
+        }
+
+        private static void EnsureExitCodeMatchesResults(TestAssetRun run, IReadOnlyDictionary<string, string> expected)
+        {
+            // The published results and the exit code are reported through different paths, so a
+            // child that writes a correct-looking report and then dies -- in a fixture teardown,
+            // say -- would otherwise be indistinguishable from a clean run.
+            bool expectingFailures = expected.Values.Any(outcome => !string.Equals(outcome, "Passed", StringComparison.Ordinal));
+            int expectedExitCode = expectingFailures ? FailedTestsExitCode : SuccessExitCode;
+
+            string message = $"The run exited with code {run.ExitCode}, but {expectedExitCode} was expected for these "
+                + $"results. An unexpected code means the run ended for a reason its published results do not "
+                + $"show.{Environment.NewLine}Actual: {run}";
+
+            Assert.True(run.ExitCode == expectedExitCode, message);
         }
     }
 }

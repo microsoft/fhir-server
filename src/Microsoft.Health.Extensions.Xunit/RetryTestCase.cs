@@ -156,15 +156,36 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed result rather than a pass.");
 
-                        pendingFailureBus?.ReplayDeferredMessages();
-                        interceptingBus.ReplayDeferredMessages();
+                        // Replay at most one bus. A failure this attempt already saw supersedes anything
+                        // held over from an earlier one, and replaying both would publish two results for
+                        // a single test.
+                        if (interceptingBus.HasDeferredFailure)
+                        {
+                            pendingFailureBus?.DiscardDeferredMessages();
+                            interceptingBus.ReplayDeferredMessages();
+                        }
+                        else
+                        {
+                            pendingFailureBus?.ReplayDeferredMessages();
+                        }
 
                         if (lastException != null)
                         {
                             aggregator.Add(lastException);
                         }
 
-                        runSummary.Failed = hasObservedFailure ? 1 : 0;
+                        if (hasObservedFailure)
+                        {
+                            runSummary.Failed = 1;
+                        }
+                        else
+                        {
+                            // No attempt ever published a result for this test. Counting it as a pass would
+                            // claim an outcome that was never reported, so contribute nothing to the totals.
+                            runSummary.Total = 0;
+                            runSummary.Failed = 0;
+                        }
+
                         return runSummary;
                     }
 
@@ -288,7 +309,10 @@ namespace Microsoft.Health.Extensions.Xunit
                         }
                         else if (summary.Failed > 0)
                         {
-                            // Add an exception with captured failure details if test failed but no exception was captured
+                            // Defensive only: a failing attempt always has an exception synthesized
+                            // for it above, so reaching this means that invariant has been broken.
+                            // Reporting something generic is still better than reporting a failure
+                            // with nothing attached to explain it.
                             aggregator.Add(new InvalidOperationException($"Test failed after {_maxRetries} attempts but no exception was captured"));
                         }
 

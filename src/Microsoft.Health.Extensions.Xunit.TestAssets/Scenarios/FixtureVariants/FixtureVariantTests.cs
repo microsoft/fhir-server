@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Xunit;
 
 namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.FixtureVariants
@@ -26,16 +27,20 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.FixtureVariants
         }
 
         /// <summary>
-        /// Passes for every variant. The harness asserts on the reported display names, which
-        /// must carry the fixture argument set as a suffix, and on the fixture actually
-        /// receiving its argument.
+        /// Passes for every variant, and ties the reported name to the fixture it actually got.
+        /// Asserting only that the fixture holds some valid store would hold equally for both
+        /// variants, so a transposed mapping - or the same value injected into both - would go
+        /// unnoticed while the display names still looked right.
         /// </summary>
         [Fact]
         public void EachVariantIsReportedUnderItsOwnName()
         {
-            Assert.True(
-                _fixture.DataStore == AssetDataStore.Sql || _fixture.DataStore == AssetDataStore.Cosmos,
-                $"ASSET: fixture received an unexpected data store: {_fixture.DataStore}");
+            string displayName = TestContext.Current.Test.TestDisplayName;
+
+            Assert.Contains(
+                $"({_fixture.DataStore})",
+                displayName,
+                StringComparison.Ordinal);
         }
     }
 }

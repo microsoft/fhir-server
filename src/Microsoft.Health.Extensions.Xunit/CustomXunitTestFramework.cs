@@ -12,8 +12,9 @@ namespace Microsoft.Health.Extensions.Xunit
     /// An XunitTestFramework implementation that allows parameterizing class fixtures with combinations of argument values.
     /// To use, decorate the test assembly with
     /// [assembly: TestFramework(typeof(CustomXunitTestFramework))]
-    /// Also allows an assembly to declare one or more <see cref="Xunit.AssemblyFixtureAttribute"/>, which are created before any tests
-    /// are executed and disposed at the end of the test run.
+    /// Assembly fixtures declared with <see cref="Xunit.AssemblyFixtureAttribute"/> are created before any tests run and
+    /// disposed at the end of the run. That is xUnit v3 behaviour inherited from the base framework, not something this
+    /// class adds: it previously needed a local implementation, which this assembly no longer carries.
     /// </summary>
     public sealed class CustomXunitTestFramework : XunitTestFramework
     {

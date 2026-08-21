@@ -29,7 +29,8 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
-        /// Gets or sets the maximum number of retry attempts (default is 3).
+        /// Gets or sets the maximum number of attempts, including the first run (default is 3).
+        /// A value of 3 therefore runs a failing test three times in total, not four.
         /// </summary>
         public int MaxRetries { get; set; } = 3;
 

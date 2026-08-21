@@ -77,7 +77,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     arguments.Add("on");
                 }
 
-                (int exitCode, string output) = Execute(arguments);
+                (int exitCode, string output, TimeSpan duration) = Execute(arguments);
 
                 string trxPath = Path.Combine(resultsDirectory, trxFileName);
                 if (!File.Exists(trxPath))
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                         $"The '{scenario}' test asset run published no TRX report. Exit code {exitCode}.{Environment.NewLine}{output}");
                 }
 
-                return ParseTrx(trxPath, exitCode, output);
+                return ParseTrx(trxPath, exitCode, output, duration);
             }
             finally
             {
@@ -94,9 +94,11 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     Directory.Delete(resultsDirectory, recursive: true);
                 }
-                catch (IOException)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                     // A leaked temp directory is not worth failing an otherwise good test over.
+                    // Windows in particular reports a file still held open as an access violation
+                    // rather than an IO error, so both have to be tolerated here.
                 }
             }
         }
@@ -123,7 +125,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             return path;
         }
 
-        private static (int ExitCode, string Output) Execute(IReadOnlyList<string> arguments)
+        private static (int ExitCode, string Output, TimeSpan Duration) Execute(IReadOnlyList<string> arguments)
         {
             var startInfo = new ProcessStartInfo("dotnet")
             {
@@ -170,23 +172,46 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
+            long startedAt = Stopwatch.GetTimestamp();
+
             if (!process.WaitForExit((int)RunTimeout.TotalMilliseconds))
             {
                 process.Kill(entireProcessTree: true);
+
+                // The child is still writing on its background threads, so the buffer has to be
+                // snapshotted under the same lock its callbacks take. Reading it directly here
+                // would race those appends and surface as an obscure StringBuilder crash instead
+                // of the timeout that actually happened.
+                string captured;
+                lock (output)
+                {
+                    captured = output.ToString();
+                }
+
                 throw new TimeoutException(
-                    $"A test asset run did not finish within {RunTimeout}.{Environment.NewLine}{output}");
+                    $"A test asset run did not finish within {RunTimeout}.{Environment.NewLine}{captured}");
             }
 
-            outputComplete.Wait(RunTimeout);
-            errorComplete.Wait(RunTimeout);
+            TimeSpan duration = Stopwatch.GetElapsedTime(startedAt);
+
+            // Exit does not imply the redirected streams have been drained. Waiting for the EOF
+            // signal on each is what makes the captured output complete; if that wait itself times
+            // out the output is truncated, which would otherwise quietly weaken every diagnostic
+            // built from it.
+            bool drained = outputComplete.Wait(RunTimeout) & errorComplete.Wait(RunTimeout);
 
             lock (output)
             {
-                return (process.ExitCode, output.ToString());
+                if (!drained)
+                {
+                    output.AppendLine("[TestAssetRunner] The child process output was not fully drained before this run was read, so the text above may be truncated.");
+                }
+
+                return (process.ExitCode, output.ToString(), duration);
             }
         }
 
-        private static TestAssetRun ParseTrx(string trxPath, int exitCode, string output)
+        private static TestAssetRun ParseTrx(string trxPath, int exitCode, string output, TimeSpan duration)
         {
             XNamespace trx = TrxNamespace;
             XDocument document = XDocument.Load(trxPath);
@@ -198,12 +223,22 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
             // Runner-level errors are counted here and nowhere else: they never become results, so
             // a run that mishandled its own bookkeeping still looks tidy in the result list.
-            int errorCount = document
+            //
+            // A missing counter is not the same as a count of zero. Defaulting it to zero would
+            // turn the guard built on it into a no-op the moment the report shape changed, and the
+            // guard would keep passing while checking nothing.
+            XAttribute errorAttribute = document
                 .Descendants(trx + "Counters")
-                .Select(e => (int?)e.Attribute("error") ?? 0)
-                .FirstOrDefault();
+                .Select(e => e.Attribute("error"))
+                .FirstOrDefault(a => a != null);
 
-            return new TestAssetRun(exitCode, output, results, errorCount);
+            if (errorAttribute == null)
+            {
+                throw new InvalidOperationException(
+                    $"The TRX report at '{trxPath}' has no Counters/@error attribute, so runner-level errors cannot be read from it.");
+            }
+
+            return new TestAssetRun(exitCode, output, results, (int)errorAttribute, duration);
         }
     }
 }

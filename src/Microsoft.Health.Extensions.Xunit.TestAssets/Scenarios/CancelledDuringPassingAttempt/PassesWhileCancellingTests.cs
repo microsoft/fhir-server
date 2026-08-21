@@ -34,8 +34,14 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuring
                 Assert.Fail("ASSET: first attempt fails so a failure is deferred");
             }
 
-            // Stay in the second attempt while the sibling collection cancels the run.
+            // Stay in the second attempt while the sibling collection cancels the run, then prove
+            // that is really what happened. Without this the attempt simply passes on its own and
+            // the scenario would report the expected result while exercising nothing.
             Thread.Sleep(3000);
+
+            Assert.True(
+                TestContext.Current.CancellationToken.IsCancellationRequested,
+                "ASSET: the run was not cancelled while this attempt was running, so this scenario did not exercise a pass during cancellation.");
         }
     }
 }
