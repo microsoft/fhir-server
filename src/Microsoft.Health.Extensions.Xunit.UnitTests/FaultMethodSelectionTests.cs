@@ -84,6 +84,52 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         }
 
         /// <summary>
+        /// A method whose attributes throw while being read is not known to be a test, and must not
+        /// be reported as known not to be one: the two answers lead to opposite decisions below.
+        /// </summary>
+        [Fact]
+        public void GivenAMethodWhoseAttributesCannotBeRead_WhenItIsInspected_ThenItsTestNessIsUnknown()
+        {
+            MethodInfo method = typeof(Subject).GetMethod(nameof(Subject.AttributesCannotBeRead));
+
+            Assert.Null(CustomXunitTestFrameworkDiscoverer.IsTestMethod(method));
+        }
+
+        /// <summary>
+        /// The attributes that cannot be read are very often the ones that caused the failure being
+        /// reported, so a method whose test-ness is unknown is kept. Dropping it would leave a real
+        /// test with no failure standing in for it, and a leg selecting by a trait only that method
+        /// carried would pass green with it absent - the presence of a readable sibling is exactly
+        /// what would hide it, because the fallback never fires.
+        /// </summary>
+        [Fact]
+        public void GivenAMethodWhoseAttributesCannotBeReadAlongsideAReadableTest_WhenTheMethodsAreSelected_ThenItIsKept()
+        {
+            MethodInfo unreadable = typeof(Subject).GetMethod(nameof(Subject.AttributesCannotBeRead));
+            MethodInfo readable = typeof(Subject).GetMethod(nameof(Subject.MarkedByInterfaceOnly));
+
+            MethodInfo[] selected = CustomXunitTestFrameworkDiscoverer.SelectMethodsToReportAgainst(new[] { readable, unreadable });
+
+            Assert.Equal(new[] { readable, unreadable }, selected);
+        }
+
+        /// <summary>
+        /// With nothing that is, or may be, a test there is still a failure to report, so the first
+        /// method the class declares stands in for it. Reporting nowhere would put the class back to
+        /// vanishing from a green run.
+        /// </summary>
+        [Fact]
+        public void GivenNoMethodIsATest_WhenTheMethodsAreSelected_ThenTheFirstMethodIsUsed()
+        {
+            MethodInfo first = typeof(Subject).GetMethod(nameof(Subject.NotATest));
+            MethodInfo second = typeof(Subject).GetMethod(nameof(Subject.Overload), new[] { typeof(int) });
+
+            MethodInfo[] selected = CustomXunitTestFrameworkDiscoverer.SelectMethodsToReportAgainst(new[] { first, second });
+
+            Assert.Equal(new[] { first }, selected);
+        }
+
+        /// <summary>
         /// An attribute that marks a test the way xunit recognises one - by implementing the interface -
         /// without deriving from <see cref="FactAttribute"/>.
         /// </summary>
@@ -112,6 +158,19 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         }
 
         /// <summary>
+        /// An attribute whose construction throws, standing in for one whose type cannot be loaded -
+        /// reading the attributes of a method carrying it throws rather than answering.
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+        private sealed class UnreadableAttribute : Attribute
+        {
+            public UnreadableAttribute()
+            {
+                throw new InvalidOperationException("This attribute cannot be constructed.");
+            }
+        }
+
+        /// <summary>
         /// The methods the assertions above reflect over. None of them is discovered as a test: they
         /// are inspected directly.
         /// </summary>
@@ -123,6 +182,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             }
 
             public void NotATest()
+            {
+            }
+
+            [InterfaceOnlyFact]
+            [Unreadable]
+            public void AttributesCannotBeRead()
             {
             }
 

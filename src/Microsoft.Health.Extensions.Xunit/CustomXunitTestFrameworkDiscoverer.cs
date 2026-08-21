@@ -99,11 +99,6 @@ namespace Microsoft.Health.Extensions.Xunit
         /// replaces the original with one raised while handling it, losing the only description of
         /// what actually went wrong. Returning nothing instead leaves the caller to rethrow the
         /// original, which is the outcome when there is no method to report against anyway.
-        /// <para>
-        /// Property accessors and the like are preferred over nothing, but only after the methods
-        /// xunit would treat as tests: a failure reported against a getter names nothing a reader can
-        /// act on, and carries none of the traits a CI leg selects the class's tests by.
-        /// </para>
         /// </remarks>
         /// <param name="testClass">The class whose discovery failed.</param>
         /// <returns>The methods to report against, empty if they could not be read.</returns>
@@ -111,9 +106,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             try
             {
-                MethodInfo[] testMethods = testClass.Methods.Where(IsTestMethod).ToArray();
-
-                return testMethods.Length > 0 ? testMethods : testClass.Methods.Take(1).ToArray();
+                return SelectMethodsToReportAgainst(testClass.Methods);
             }
             catch (Exception ex)
             {
@@ -159,15 +152,19 @@ namespace Microsoft.Health.Extensions.Xunit
         /// mechanism exists to prevent. Matching the interface can only widen the set.
         /// <para>
         /// This is asked while handling a discovery failure, over the very metadata that may have
-        /// caused it, so a method whose attributes cannot be read is treated as not a test rather than
-        /// allowed to throw. The caller then falls back to any method at all, which reports the failure
-        /// against a less helpful name - still far better than letting the class vanish from a green
-        /// run, which is what an escaping exception here would cause.
+        /// caused it, so a method whose attributes cannot be read answers that its test-ness is
+        /// unknown rather than throwing, and rather than claiming it is not a test. Those are not the
+        /// same answer: the attributes that cannot be read are very often the ones that caused the
+        /// failure being reported, and answering "not a test" there would drop the method from the
+        /// set a failure stands in for.
         /// </para>
         /// </remarks>
         /// <param name="method">The method to inspect.</param>
-        /// <returns><c>true</c> when the method carries a fact or theory attribute.</returns>
-        internal static bool IsTestMethod(MethodInfo method)
+        /// <returns>
+        /// <c>true</c> when the method carries a fact or theory attribute, <c>false</c> when it
+        /// certainly does not, and <c>null</c> when its attributes could not be read.
+        /// </returns>
+        internal static bool? IsTestMethod(MethodInfo method)
         {
             try
             {
@@ -176,9 +173,36 @@ namespace Microsoft.Health.Extensions.Xunit
             catch (Exception ex)
             {
                 Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: the attributes of '{method.Name}' could not be read while choosing a method to report a discovery failure against. {ex}");
-                return false;
+                    $"[FixtureArgumentSets] WARNING: the attributes of '{method.Name}' could not be read while choosing the methods to report a discovery failure against, so it is treated as a test. {ex}");
+                return null;
             }
+        }
+
+        /// <summary>
+        /// Chooses the methods a class's discovery failure is reported against.
+        /// </summary>
+        /// <remarks>
+        /// A method whose test-ness could not be determined is kept rather than dropped. The two
+        /// mistakes are not equal: reporting a failure against a helper is noise a reader can see and
+        /// dismiss, while dropping a method that really was a test means no failure stands in for it,
+        /// and a leg selecting by a trait only that method carried passes green with it absent.
+        /// <para>
+        /// Only when no method is a test, or may be one, does this fall back to whatever the class
+        /// declares first, so that a failure is still reported somewhere rather than not at all. A
+        /// failure reported against a property accessor names nothing a reader can act on, which is
+        /// why it is the last resort rather than part of the set.
+        /// </para>
+        /// </remarks>
+        /// <param name="methods">The methods the class declares.</param>
+        /// <returns>The methods to report against.</returns>
+        internal static MethodInfo[] SelectMethodsToReportAgainst(IEnumerable<MethodInfo> methods)
+        {
+            EnsureArg.IsNotNull(methods, nameof(methods));
+
+            MethodInfo[] all = methods as MethodInfo[] ?? methods.ToArray();
+            MethodInfo[] testMethods = all.Where(method => IsTestMethod(method) != false).ToArray();
+
+            return testMethods.Length > 0 ? testMethods : all.Take(1).ToArray();
         }
 
         /// <summary>
@@ -718,15 +742,42 @@ namespace Microsoft.Health.Extensions.Xunit
 
                     if (methodLevelDimension?.Length > 0)
                     {
+                        SingleFlag[] classLevelDimension = i < classLevelOpenParameterSets.Length ? classLevelOpenParameterSets[i] : null;
+                        if (classLevelDimension?.Length > 0)
+                        {
+                            Type methodLevelType = methodLevelDimension[0].EnumValue?.GetType();
+                            Type classLevelType = classLevelDimension[0].EnumValue?.GetType();
+
+                            if (methodLevelType != classLevelType)
+                            {
+                                // Dimensions are matched by position, but the fixture's constructor
+                                // arguments are matched by enum type. A method whose attribute takes a
+                                // different enum in this position is therefore not overriding the
+                                // class's dimension but replacing it with an unrelated one, and the
+                                // variants would carry no value - and so no trait - for the dimension
+                                // the class declared. A leg selecting on it would then run none of
+                                // this method's tests and still pass. Only the convention that a class
+                                // and its methods use argument set attributes taking the same enums in
+                                // the same order keeps that from happening, so it is checked rather
+                                // than assumed.
+                                throw new InvalidOperationException(
+                                    $"'{testClass.TestClassName}.{method.Name}' declares '{methodLevelType}' where its class declares '{classLevelType}' in argument set dimension {i}. " +
+                                    "A method-level fixture argument set attribute must take the same enums, in the same order, as the class-level one it overrides.");
+                            }
+                        }
+
                         hasOverride = true;
                         mergedOpenParameterSets[i] = methodLevelDimension;
                     }
                     else
                     {
-                        // means take the class-level set. A method declaring a dimension the class
-                        // does not have is a misconfiguration, and reading past the end here is what
-                        // surfaces it: the throw is caught by the handler in FindTestsForType and
-                        // reported as a failing test case rather than losing the method quietly.
+                        // Take the class-level set: this position is either one the method left empty
+                        // or one it says nothing about at all. Reading past the end of the class's
+                        // dimensions throws, which happens for a method that declares more dimensions
+                        // than its class and leaves the extra one empty - it is asking to inherit a
+                        // dimension that does not exist. That throw is caught by the per-method
+                        // handler in FindTestsForTypeCore and reported as a failing test case
+                        // standing in for this method, rather than losing the method quietly.
                         mergedOpenParameterSets[i] = classLevelOpenParameterSets[i];
                     }
                 }
@@ -743,10 +794,11 @@ namespace Microsoft.Health.Extensions.Xunit
                 // Reaching here means an argument set was declared, so a product of nothing is a
                 // misconfiguration -- an argument set of zero, a value naming no single flag, or a
                 // null entry -- and every test on this method would otherwise be absent from a run
-                // that still reported success. Throwing hands it to the handler in FindTestsForType,
-                // which reports it as a failing test case so it shows up in the results and in the
-                // exit code. Discovery over every test assembly in this repository produces no such
-                // case, so this only fires on a class that is genuinely misdeclared.
+                // that still reported success. Throwing hands it to the per-method handler in
+                // FindTestsForTypeCore, which reports it as a failing test case so it shows up in
+                // the results and in the exit code. Discovery over every test assembly in this
+                // repository produces no such case, so this only fires on a class that is genuinely
+                // misdeclared.
                 throw new InvalidOperationException(
                     $"'{testClass.TestClassName}.{method.Name}' expanded to no fixture argument sets, so none of its tests would run. " +
                     "Check that every argument set names at least one single-valued flag of a [Flags] enum.");
