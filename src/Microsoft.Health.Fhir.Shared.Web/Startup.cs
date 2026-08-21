@@ -124,7 +124,8 @@ namespace Microsoft.Health.Fhir.Web
             string dataStore = configuration["DataStore"];
             if (KnownDataStores.IsCosmosDbDataStore(dataStore))
             {
-                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(GetRuntimeState(configuration));
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(
+                    RuntimeStateConfigurationExtensions.GetRuntimeStateConfiguration(configuration));
             }
             else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
@@ -138,13 +139,6 @@ namespace Microsoft.Health.Fhir.Web
             fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
 
             return runtimeConfiguration;
-        }
-
-        private static FhirRuntimeState GetRuntimeState(IConfiguration configuration)
-        {
-            string configuredRuntimeState = configuration["FhirServer:CoreFeatures:RuntimeState"];
-
-            return Core.Extensions.ConfigurationExtensions.ParseRuntimeStateConfiguration(configuredRuntimeState);
         }
 
         private void AddTaskHostingService(IServiceCollection services)
