@@ -17,6 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
     public interface IUrlResolver
     {
         /// <summary>
+        /// Gets a value indicating whether the resolver can generate URLs in the current context.
+        /// Returns <c>false</c> when called outside an HTTP request pipeline (e.g., background tasks).
+        /// </summary>
+        bool CanResolve { get; }
+
+        /// <summary>
         /// Resolves the URL for the server metadata.
         /// </summary>
         /// <param name="includeSystemQueryString">A indicator if the system query string parameter should be included</param>
