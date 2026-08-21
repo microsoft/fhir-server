@@ -2,20 +2,20 @@
 
 ## Status
 
-Agreed baseline for implementation. This document defines the SQL contract, security boundary, operational limits, validation requirements, and repository ownership split. It does not select a Geneva action, PaaS API, or direct-SQL caller.
+Agreed baseline for implementation. This document defines an opt-in background worker that emits Azure SQL Query Store diagnostics from inside the FHIR server, the enablement model, the emitted contracts, the disclosure boundary, and the repository ownership split.
+
+This specification **supersedes an earlier pull-based design** in which three stored procedures were called by an external caller. See [Rejected alternative](#rejected-alternative-caller-invoked-stored-procedures).
 
 ## Problem
 
-FHIR Azure SQL performance investigations currently require privileged, manual access to Query Store plans, runtime metrics, wait statistics, and statistics metadata. Although Azure SQL can export `QueryStoreWaitStatistics` to Log Analytics, the SQL diagnostics intentionally include plan-level waits so direct SQL and future Geneva callers receive one self-contained slow-query result with runtime metrics, waits, query text, and plan IDs without joining Log Analytics. Support engineers still need a bounded way to:
+FHIR Azure SQL performance investigations currently require privileged, manual access to Query Store plans, runtime metrics, wait statistics, and statistics metadata. Support engineers need a bounded way to:
 
 - identify expensive or regressed query plans;
-- retrieve an SSMS-viewable Query Store Showplan;
+- obtain an SSMS-viewable Showplan for a slow plan;
 - compare runtime and wait metrics; and
 - inspect statistics freshness, sampling, and cardinality metadata.
 
-The baseline is a self-contained, read-only SQL interface. Filtering, validation, redaction, paging, permissions, and auditing must live in SQL so the procedures can be used by an authorized direct SQL connection or wrapped by future operational tooling.
-
-The canonical database objects belong to the OSS `fhir-server` schema because that repository owns the versioned SQL migration chain consumed by FHIR PaaS. PaaS owns how authorized operators invoke the contract and handle its results.
+Azure SQL diagnostic settings can already export `QueryStoreRuntimeStatistics`, `QueryStoreWaitStatistics`, and `AutomaticTuning` to Log Analytics. What that stream does **not** carry is the Query Store **query text** and the **Showplan XML**, which are the two artifacts an investigation actually needs in order to reason about a regression. This feature closes that gap.
 
 Related internal guidance:
 
@@ -24,526 +24,227 @@ Related internal guidance:
 - `Health.wiki/Home/Olympus-Team/DRI/TSGs/SQL-Latency-Issues/SQL-Statistics-Overview.md`
 - `Health.wiki/Home/Olympus-Team/Development/SQL-Performance-Automation.md`
 
-## Goals
+## Design
 
-1. Identify slow or resource-intensive query plans over a bounded time range.
-2. Return full Query Store query text to authorized diagnostic callers.
-3. Return an SSMS-viewable Query Store Showplan after removing parameter-value metadata.
-4. Include Query Store wait statistics in slow-query results when capture is available.
-5. Report statistics freshness, sampling, and filter metadata without returning histogram values.
-6. Provide an execute-only database role for least-privilege callers.
-7. Keep the SQL contract independent of any API, Geneva action, or other caller implementation.
-
-## Non-goals
-
-- Retrieving or capturing an actual execution plan.
-- Reconstructing or executing SQL from Query Store.
-- Returning statistics histograms, density vectors, or sampled column values.
-- Clearing the procedure cache, updating statistics, forcing plans, or changing Query Store configuration.
-- Providing caller concurrency control, circuit breaking, command timeouts, artifact retention, or download policy.
-- Supporting on-premises SQL Server or self-hosted deployments in the baseline.
-- Versioning the result contracts independently of the FHIR database schema.
-
-## Platform and disclosure boundary
-
-### Azure SQL Database
-
-The baseline targets Azure SQL Database and uses only Query Store catalog columns guaranteed across the supported Azure SQL deployment fleet at implementation time. Optional columns that may be rolling out regionally must not be referenced until they are universally available.
-
-### Query Store wait-stat observability
-
-When `sys.database_query_store_options.wait_stats_capture_mode_desc` is `ON`, the slow-query procedure reads `sys.query_store_wait_stats` directly. `WaitStatsStatus` is `Available` for `ON`, `Disabled` for `OFF`, and `Unavailable` for any other value. This lets authorized direct SQL and future Geneva callers retrieve the complete slow-query diagnostic payload—runtime metrics, waits, query text, and plan IDs—from one interface. Azure SQL may also export `QueryStoreWaitStatistics` to Log Analytics, but that stream does not provide the query text or Showplan XML returned by these procedures.
-
-`DatabaseWaitStatistics`, when enabled, remains separate database-level telemetry. It is not plan-level data and is not a substitute for the Query Store wait statistics returned with each slow-query plan.
-
-### Query Store plans are estimated plans
-
-`sys.query_store_plan.query_plan` contains the compile-time Showplan, equivalent to `SET SHOWPLAN_XML ON`. Query Store combines this plan with aggregated runtime statistics; it does not retain an actual plan for every execution.
-
-The baseline reserves the future procedure name:
+A **watchdog** — the repository's existing leased background-worker pattern — periodically reads Query Store and statistics metadata and **pushes** the results out as metrics notifications. It runs inside the FHIR server process on the server's **existing** SQL identity.
 
 ```text
-dbo.GetLastActualQueryPlanDiagnostics
+FHIR server instance (lease holder)
+  └── QueryStoreDiagnosticsWatchdog        every PeriodSec, default 3600s
+        ├── sys.database_query_store_options      state check, read-only
+        ├── sys.query_store_*                     slow plans + query text
+        ├── sys.query_store_wait_stats            best effort
+        ├── sys.stats / sys.dm_db_stats_properties
+        └── QueryPlanSanitizer (C#)               strips parameter values
+              │
+              └── IMediator.PublishAsync(IMetricsNotification)
+                    └── host-supplied handler (PaaS -> Geneva / Log Analytics)
 ```
 
-This is documentation only. No stub procedure, shared output contract, permission grant, Query Store text execution, `LAST_QUERY_PLAN_STATS` enablement, or plan-cache lookup is included.
+The critical property is that **nothing new connects inbound to the database**. The work is done by the service that already holds a connection, so the feature introduces no new authentication path, no new database principal, and no new grant.
 
-## Implementation simplifications
+### Why a watchdog
 
-- Plan-type and Parameter Sensitive Plan dispatcher/query-variant metadata are intentionally not read. Those Azure SQL catalog fields are not stable across the supported deployment fleet, so both Query Store procedures omit them rather than returning speculative NULL/status fields or attempting version-specific fallback logic.
-- `GetStatisticsHealth` reports database-level `sys.dm_db_stats_properties` metadata for each statistics object. It does not expand incremental statistics into partition-level property rows; unavailable properties remain `NULL` and are explicitly marked `PropertiesUnavailable`. Its table-name input is materialized as `nvarchar(128)`, rather than the type-equivalent `sysname` alias, because the existing schema C# model generator interprets `sysname` as a table-valued parameter.
+`Watchdog<T>` already provides everything this feature needs, and every one of these behaviours would otherwise have to be reinvented:
 
-### Accepted query and plan content
+- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans.
+- **Runtime-tunable period.** `PeriodSec` is seeded into `dbo.Parameters` on first run and re-read from there, so the interval can be changed on a live database without a redeploy.
+- **An established runtime override.** `DefragWatchdog` already uses a `{Name}.IsEnabled` row in `dbo.Parameters` as an operational switch. This feature reuses that idiom.
+- **A precedent for emitting SQL telemetry.** `GeoReplicationLagWatchdog` reads a SQL view on a timer and publishes an `IMetricsNotification`; the host binds a handler that forwards it. This feature is the same shape.
+
+### Enablement
+
+The feature is **off by default** and is gated by two independent switches. Both must be true before any Query Store read occurs.
+
+| Gate | Location | Purpose |
+| --- | --- | --- |
+| `FhirServer:Watchdog:QueryStoreDiagnostics:Enabled` | Host configuration | Deployment-time gate. When false the watchdog is never started by `WatchdogsBackgroundService`. |
+| `QueryStoreDiagnosticsWatchdog.IsEnabled` | `dbo.Parameters` | Runtime gate. Lets a single account be switched on or off against a live database without a redeploy or restart. |
+
+This two-gate arrangement is what makes the feature safe to ship dark: the configuration gate keeps it off for the fleet, and the `dbo.Parameters` gate lets an investigation be turned on for one affected account and turned off again afterwards.
+
+### Configuration
+
+`WatchdogConfiguration.QueryStoreDiagnostics`, bound from `FhirServer:Watchdog:QueryStoreDiagnostics`. Note that `Watchdog` is a sibling of `Operations` under `FhirServer`, not nested inside it:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `Enabled` | `false` | Deployment-time gate described above. |
+| `PeriodSec` | `3600` | Interval between collections. Seeds `dbo.Parameters`; the live value is read from there. Also used as the Query Store lookback window. |
+| `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
+| `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. |
+| `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
+| `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
+| `StatisticsHealthCount` | `20` | Number of statistics rows to report per tick. |
+
+The lookback window is the live `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
+
+## Emitted contracts
+
+Three notification types implement `IMetricsNotification`, each reporting `FhirOperation` `query-store-diagnostics` and `ResourceType` `System`. Hosts bind handlers to route them; the OSS repository does not prescribe a sink.
+
+### `SlowQueryNotification`
+
+One per slow plan per tick. Carries `QueryId`, `PlanId`, execution count, total/average/maximum duration, total/average CPU, total/average logical reads, total/average wait time, top wait category, the Query Store query text, and the collection window bounds.
+
+`QueryId` and `PlanId` are the join keys back into Query Store, and into the `QueryStoreRuntimeStatistics` stream already exported to Log Analytics, so a responder can correlate an emitted slow query with the existing diagnostic-settings telemetry.
+
+### `QueryPlanNotification`
+
+One per reported plan per tick when `IncludeQueryPlans` is set. Carries `QueryId`, `PlanId`, the sanitized Showplan XML, a truncation flag, the raw and sanitized plan lengths, and a sanitization status.
+
+Notifications are emitted for unsuccessful sanitization as well, with null XML and a status of `PlanXmlUnavailable`, `InvalidXml`, or `VerificationFailed`, so a sanitization failure is observable rather than silent.
+
+### `StatisticsHealthNotification`
+
+One per statistics object per tick when `IncludeStatisticsHealth` is set. Carries schema, table, and statistics name, last-updated timestamp, rows, rows sampled, modification counter, modification percentage, and the auto-created / user-created / from-index / filtered flags.
+
+### Field size
+
+Query text and sanitized plan XML are capped at **32 KB** per field, matching the field limit of the downstream telemetry pipeline. Values exceeding the cap are truncated and flagged (`QueryTextTruncated`, `QueryPlanTruncated`).
+
+The pre-truncation length is reported alongside each flag so the loss is quantifiable rather than merely visible: `QueryTextLength` for query text, and `SanitizedQueryPlanLength` for plan XML. Plans additionally report `OriginalQueryPlanLength`, the raw length as read from Query Store — the two plan lengths differ by whatever sanitization removed, so reporting only the raw length would overstate how much truncation itself discarded.
+
+Truncation is applied **after** sanitization and verification, never before, so a truncated plan can never be a partially sanitized one.
+
+## Behaviour
+
+### Query Store state
+
+The watchdog reads `sys.database_query_store_options` and proceeds only when `actual_state_desc` is `READ_WRITE`. Any other state, or no row at all, is logged as a warning naming the state and `readonly_reason`, and the tick is skipped.
+
+**The watchdog never issues `ALTER DATABASE`.** Turning Query Store on is a database-scoped configuration change with its own permission and blast-radius considerations, and it is on by default in Azure SQL Database. Enabling it stays an explicit operator action.
+
+### Slow-query aggregation
+
+Runtime statistics are aggregated across every Query Store interval overlapping the lookback window, restricted to `execution_type = 0` so that only regular completed executions contribute. Averages are weighted by `count_executions` before being combined across intervals, because Query Store stores per-interval averages and an unweighted mean across intervals of unequal execution counts is wrong.
+
+Query Store records durations and CPU in **microseconds**; the emitted contract is in milliseconds.
+
+Results are ordered by total duration descending and limited to `SlowQueryCount`, so the reported set is the aggregate-cost hot list rather than the worst single execution.
+
+### Self-exclusion
+
+The watchdog's own Query Store reads are excluded by filtering out query text referencing the Query Store catalog views. An earlier iteration attempted to tag the queries with a marker comment; SQL Server does **not** preserve those comments in `query_sql_text`, so text matching on the view names is the pragmatic mechanism.
+
+### Wait statistics
+
+Wait statistics are collected by a **separate, best-effort** query and merged in C#. A failure — most commonly `sys.query_store_wait_stats` being unavailable, or wait capture being off — is logged at debug level and leaves the wait fields null. Runtime results are still emitted.
+
+Wait capture is retained locally, rather than deferred entirely to the `QueryStoreWaitStatistics` Log Analytics stream, so that a single emitted slow-query record is self-contained: runtime metrics, waits, query text, and plan identity arrive together without a join against a second telemetry source.
+
+### Statistics health
+
+Statistics are read from `sys.stats` with an `OUTER APPLY` to `sys.dm_db_stats_properties`, so a statistics object remains visible even when its properties cannot be read. The scan is restricted to user tables and excludes temporal history tables. Rows are ordered by staleness — modification counter over row count — and limited to `StatisticsHealthCount`.
+
+Modification percentage is left null when the row count is null or zero rather than being reported as zero, so "no data" is distinguishable from "not stale". Percentages above 100 are preserved; they are a legitimate signal that a table has churned more than its cardinality.
+
+### Failure containment
+
+`WatchdogsBackgroundService` cancels **every** watchdog if any one of them fails. A diagnostic feature must never be able to take down transaction or cleanup watchdogs, so the collection body contains its own failures: missing views and permission denials are logged and the tick returns rather than propagating.
+
+## Sanitization
+
+Showplan sanitization is performed **in C#** by `QueryPlanSanitizer`, not in T-SQL. The previous design did this with 236 lines of XML DML inside a stored procedure; the C# implementation is materially more reliable and easier to test with a fixture corpus.
+
+The sanitizer:
+
+1. parses with an `XmlReader` configured with `DtdProcessing.Prohibit` and a null resolver, so a hostile or malformed plan cannot trigger entity resolution;
+2. removes every `ParameterList` element and every `ParameterCompiledValue` and `ParameterRuntimeValue` attribute, matching on local name so that Showplan namespace differences between SQL versions cannot cause a miss;
+3. re-serializes without formatting;
+4. **verifies** that none of those three names survive anywhere in the serialized output, and returns `VerificationFailed` with null XML if any do; and
+5. only then truncates to the field cap.
+
+Step 4 is defence in depth: the plan is never emitted on the strength of the removal logic alone.
+
+### Disclosure boundary
 
 Query text, statement text, scalar expressions, non-parameter constants, object names, missing-index recommendations, warnings, memory grants, and optimizer statistics usage are permitted diagnostic output.
 
-This intentionally accepts that ad hoc or non-parameterized query text and plan constants may contain literal values. The protected content is parameter-value metadata contained in Showplan `ParameterList` elements, including compiled and runtime parameter values.
+This intentionally accepts that ad hoc or non-parameterized query text and plan constants may contain literal values. The protected content is parameter-value metadata in Showplan `ParameterList` elements, including compiled and runtime values.
 
-Statistics histogram values remain excluded because `range_high_key` contains actual indexed-column values.
+Statistics histogram values are never read, because `range_high_key` contains actual indexed-column values.
+
+## Security model
+
+The watchdog runs on the FHIR server's existing SQL connection and requires no additional database principal, role, or grant. Reading the Query Store catalog views requires `VIEW DATABASE STATE`, which the service identity already holds; where it does not, the permission denial is contained and logged rather than being fatal.
+
+Because this is an outbound push from a process that is already trusted with the data, the previous design's audit requirements do not apply. There is no external caller to attribute, and the emitted notifications are themselves the operational record.
 
 ## Repository ownership
 
 ### OSS `fhir-server`
 
-The OSS repository owns the persistent database contract:
+- the watchdog, its inline SQL, and the C# sanitizer;
+- the configuration class and its defaults;
+- the three notification contracts;
+- unit tests for sanitization and integration tests against a live SQL Server; and
+- this specification.
 
-- stored procedure definitions;
-- `FhirDiagnosticsReader`;
-- individual procedure grants;
-- schema version and migration scripts;
-- SQL aggregation, sanitization, permission, and compatibility tests; and
-- the canonical SQL interface documentation.
-
-These objects must be part of the normal `Microsoft.Health.Fhir.SqlServer` schema artifacts and applied by `Microsoft.Health.Fhir.SchemaManager`. A database at the corresponding schema version must not depend on a separate PaaS rollout to acquire them.
-
-Although the supported operational scenario is FHIR PaaS on Azure SQL Database, the OSS migration must remain safe for databases that consume the OSS SQL schema. PaaS-specific identities, storage accounts, APIs, and rollout mechanisms must not be embedded in the OSS procedures.
+Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout mechanism is embedded in it. A self-hosted deployment can enable the feature and bind its own handler.
 
 ### `fhir-paas`
 
-The PaaS repository owns the operational integration:
+- binding notification handlers and routing the emissions to Geneva or Log Analytics;
+- setting the configuration gate per environment and ring;
+- operating the `dbo.Parameters` runtime override during an investigation;
+- retention, access control, and downstream handling of emitted query text and plans; and
+- any responder-facing tooling built on top of the emitted stream.
 
-- selecting the initial caller surface, such as direct support tooling, Script Runner, Geneva, or a PaaS administrative operation;
-- mapping an approved managed identity or support principal to `FhirDiagnosticsReader`;
-- caller authentication and authorization;
-- operation-level concurrency control, circuit breaking, and command timeout;
-- invoking the OSS stored procedures without caller-supplied SQL;
-- formatting, transporting, retaining, and auditing downloaded result artifacts; and
-- coordinating deployment after the required OSS package/schema version is available.
+### Rollout
 
-PaaS must consume the procedures through the OSS `Microsoft.Health.Fhir.SqlServer` and `Microsoft.Health.Fhir.SchemaManager` packages. It must not maintain a second PaaS-only schema version or duplicate production `CREATE OR ALTER PROCEDURE` definitions.
+1. Merge the OSS change. The feature ships disabled.
+2. Bind a handler and configure routing in `fhir-paas`.
+3. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
+4. Enable per account through the `dbo.Parameters` override during investigations.
 
-The PaaS Script Runner may be used for a temporary read-only prototype or to invoke the deployed stored procedures. It must not be the production installation mechanism for these persistent objects. Otherwise a database could report the current OSS schema version while silently lacking the diagnostic procedures or role.
+Because there is **no schema change**, there is no migration ordering dependency and no package/schema-version synchronization step. This is the single largest operational simplification relative to the rejected design.
 
-### Rollout dependency
+## Simplifications and deferred work
 
-The rollout order is:
+Recorded deliberately; each is a candidate for a follow-up.
 
-1. merge and release the OSS schema change;
-2. update `fhir-paas` to consume the OSS package containing that schema version;
-3. allow the existing PaaS schema manager flow to apply the migration;
-4. provision approved role membership; and
-5. enable the PaaS invocation and artifact-handling workflow.
+- **No schema version bump.** The SQL is inline in the watchdog rather than in versioned stored procedures. This removes a schema version, a 944-line migration diff, a database role, migration-sync risk, and the unresolved `dbo.LogEvent` audit-registration question. The cost is that the SQL is not independently hotfixable through a schema migration, and is reviewed as C# rather than as `.sql`. The SQL is kept in clearly formatted, commented `const` blocks to preserve readability.
+- **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
+- **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
+- **Truncation is a hard cut.** A plan exceeding 32 KB is truncated to invalid XML and flagged. It is not chunked, compressed, or externalized to blob storage. Compression would likely bring most large plans under the cap and is the obvious next step if truncation proves common.
+- **No actual execution plans.** `sys.query_store_plan.query_plan` is the compile-time Showplan, equivalent to `SET SHOWPLAN_XML ON`. Actual-plan capture via `LAST_QUERY_PLAN_STATS` remains future work.
+- **Plan-type and Parameter Sensitive Plan variant metadata are not read**, because those catalog fields are not stable across the supported Azure SQL fleet.
+- **Statistics are reported at database level.** Incremental statistics are not expanded into partition-level rows.
 
-## Stored procedures
+## Rejected alternative: caller-invoked stored procedures
 
-All procedures:
+The original design exposed `dbo.GetQueryStoreSlowQueries`, `dbo.GetQueryStorePlanDiagnostics`, and `dbo.GetStatisticsHealth` behind a `FhirDiagnosticsReader` execute-only role, to be called by an external operational caller.
 
-- use `WITH EXECUTE AS 'dbo'`;
-- use `SET NOCOUNT ON`;
-- use no dynamic SQL;
-- create no explicit transaction;
-- do not change session isolation level, `LOCK_TIMEOUT`, or `XACT_ABORT`;
-- return exactly one result set;
-- use repository-standard `THROW` errors for invalid calls and unavailable prerequisites; and
-- write Start, End, and Error events through `dbo.LogEvent`.
+It was rejected because it requires an **outside principal to connect to the FHIR database and execute procedures**, which is an entirely new inbound permission model for this service. That model would have to be provisioned, granted, audited, rotated, and defended in every environment, for a diagnostic feature. The watchdog design achieves the same investigative outcome using a trust relationship that already exists.
 
-### 1. `dbo.GetQueryStoreSlowQueries`
+Secondary benefits of the change:
 
-Returns one row per `query_id + plan_id` for regular executions in Query Store runtime intervals overlapping the requested time range.
-
-#### Inputs
-
-| Parameter | Behavior |
-|---|---|
-| `@StartTime datetimeoffset = NULL` | Defaults to one hour before the resolved `@EndTime`. |
-| `@EndTime datetimeoffset = NULL` | Defaults to `SYSUTCDATETIME()`. |
-| `@Top int = 20` | Must be between 1 and 100. |
-| `@Offset int = 0` | Must be between 0 and 10,000. `@Offset = 10000` may still return up to 100 rows. |
-| `@OrderBy varchar(32) = 'TotalDuration'` | Case-insensitive allowlist described below. |
-| `@MinExecutions bigint = 1` | Must be a positive `bigint`. |
-| `@QueryTextContains nvarchar(256) = NULL` | Optional literal substring filter. After trimming, it must contain 3-256 characters. |
-
-`@StartTime` and `@EndTime` accept explicit offsets and are normalized to UTC. The start must precede the end, and the requested range must not exceed 24 hours.
-
-`@QueryTextContains`:
-
-- is the only query-content filter;
-- is matched under the database collation;
-- may contain any caller-supplied text;
-- is treated as a literal substring, not a caller-defined `LIKE` pattern;
-- escapes `~`, `%`, `_`, and `[` and uses an explicit `ESCAPE N'~'` clause;
-- rejects whitespace-only values; and
-- is never written to `dbo.LogEvent`.
-
-The `@OrderBy` allowlist is:
-
-- `TotalDuration`
-- `AverageDuration`
-- `MaximumDuration`
-- `TotalCpu`
-- `AverageCpu`
-- `LogicalReads`
-- `Executions`
-- `TotalWait`
-
-Unknown order values fail explicitly. Ordering uses a static `CASE` expression rather than dynamic SQL. Diagnostic metrics sort descending, NULL wait totals sort last, and `query_id ASC, plan_id ASC` are deterministic tie-breakers.
-
-There is no execution-type input in the baseline. Runtime and wait metrics include regular executions only. The implementation should contain a focused comment identifying where execution-type support could be added later.
-
-#### Time-window semantics
-
-Query Store runtime rows are interval aggregates. The procedure includes every interval that overlaps the half-open requested range `[StartTime, EndTime)`. Edge intervals may therefore include executions immediately outside the requested timestamps. The result does not repeat the resolved request window or interval boundaries.
-
-#### Runtime aggregation
-
-Query Store can expose multiple in-memory and persisted rows for the active interval. Runtime data must first collapse rows by:
-
-```text
-plan_id + execution_type + runtime_stats_interval_id
-```
-
-It is then rolled up by `query_id + plan_id`.
-
-Weighted totals and averages use `decimal(38,4)` intermediates:
-
-```text
-total duration = SUM(avg_duration * count_executions)
-average duration = total duration / SUM(count_executions)
-```
-
-The same weighting applies to CPU, reads, writes, and row count. Totals are returned as `decimal(38,0)` and averages as `decimal(38,4)`.
-
-Minimum values use the minimum of interval minima. Maximum values use the maximum of interval maxima. Last values come from the row with the latest execution time, using runtime interval ID and runtime-statistics row ID descending as deterministic tie-breakers.
-
-Query-level compile count and last compile time are repeated on each plan row and must be clearly named as query-level metadata.
-
-Plans with fewer than `@MinExecutions` regular executions in the selected window are excluded. The diagnostic procedures' own Query Store entries are also excluded. All other object-bound and ad hoc Query Store entries are eligible.
-
-#### Wait statistics
-
-Wait statistics are aggregated for the same regular-execution population and overlapping intervals as runtime metrics.
-
-Each result row contains:
-
-- `TotalWaitMilliseconds`
-- `AverageWaitMilliseconds`
-- `WaitStatsStatus`
-- `WaitStatsXml`
-
-`WaitStatsXml` contains one element per wait category, ordered by total wait descending, with:
-
-- category name;
-- total wait milliseconds;
-- average wait milliseconds; and
-- maximum wait milliseconds.
-
-Zero-wait categories are omitted. When wait capture is available but a plan has no waits, the value is an empty typed root such as `<WaitStats />`. When wait capture is disabled or unavailable, `WaitStatsXml` and scalar wait metrics are NULL and `WaitStatsStatus` explains the condition. Other runtime results still return.
-
-If `@OrderBy = 'TotalWait'` while wait capture is disabled or unavailable, rows still return. NULL wait totals sort last.
-
-#### Output
-
-The single result set includes:
-
-- `query_id`
-- `plan_id`
-- `query_hash`
-- `query_plan_hash`
-- full `query_sql_text`
-- `object_id`
-- `object_name`, without a separate schema-name column
-- regular execution count
-- total, average, minimum, maximum, and last duration in explicitly named microsecond columns
-- total and average CPU in explicitly named microsecond columns
-- total and average logical reads
-- total and average physical reads
-- total and average logical writes
-- average and maximum row count
-- first and last execution time in UTC
-- query-level compile count and last compile time
-- forced-plan state and available force-failure metadata
-- other universally available diagnostic plan metadata; plan-type, dispatcher, and query-variant metadata are omitted
-- total and average wait milliseconds
-- `WaitStatsStatus`
-- `WaitStatsXml`
-
-Physical reads and writes are output metrics but are not ordering options. Query context/handle metadata and execution type are omitted.
-
-Readable Query Store `READ_WRITE` and `READ_ONLY` states return available data. The actual state and read-only reason are logged. `OFF`, `ERROR`, or otherwise unreadable states fail explicitly. A readable store with no qualifying rows returns no rows.
-
-### 2. `dbo.GetQueryStorePlanDiagnostics`
-
-Accepts one required `@PlanId bigint` and returns one row containing Query Store metadata, full query text, and a parameter-redacted Showplan.
-
-An unknown or evicted plan ID fails explicitly with a stable "plan not found or no longer retained" error. The procedure does not fall back to another plan or constrain the plan by a time range.
-
-#### Output
-
-The result includes:
-
-- `PlanId`
-- `QueryId`
-- `QueryHash`
-- `QueryPlanHash`
-- full `QuerySqlText`
-- engine and compatibility versions
-- compile metadata
-- trivial, parallel, forced-plan, and force-failure metadata
-- first and last execution metadata when available
-- `SanitizationStatus`
-- `SanitizationErrorCode`
-- `SanitizedShowPlanXml`
-
-The entire multi-statement Showplan document is preserved. There is no separate allowlisted `PlanDiagnosticsXml`.
-Plan-type, dispatcher, and query-variant metadata are unavailable on the baseline catalog and are omitted.
-
-#### Showplan sanitization
-
-The raw Query Store plan must never be returned. The procedure:
-
-1. copies `query_plan` into a local `xml` variable;
-2. counts all elements whose local name is `ParameterList`, regardless of namespace;
-3. removes every such element in a single XML DML operation;
-4. verifies structurally that no `ParameterList` element and no `ParameterCompiledValue` or `ParameterRuntimeValue` attribute remains;
-5. serializes the result and performs a case-insensitive textual check for those forbidden names; and
-6. returns the XML only when every verification succeeds.
-
-Unknown Showplan namespaces are processed using the same namespace-agnostic removal and verification. All content other than `ParameterList` elements is preserved, including statement text, non-parameter constants, object/index names, missing-index recommendations, warnings, memory grants, optimizer statistics usage, and plan shape.
-
-There is no serialized plan-size cap.
-
-#### Partial availability
-
-If the plan row exists but `query_plan` is NULL, return the safe metadata with:
-
-- `SanitizedShowPlanXml = NULL`;
-- `SanitizationStatus = 'PlanXmlUnavailable'`; and
-- a stable non-sensitive error code.
-
-If the XML cannot be parsed or redaction verification fails, return safe metadata only with:
-
-- `SanitizedShowPlanXml = NULL`;
-- `SanitizationStatus = 'InvalidXml'` or `'VerificationFailed'`; and
-- a stable non-sensitive error code.
-
-Detailed parser messages must not be returned because they may echo plan content. These conditions also write an Error audit event. Raw or partially sanitized XML is never returned as a fallback.
-
-### 3. `dbo.GetStatisticsHealth`
-
-Returns one row per statistics object for user tables.
-
-#### Inputs
-
-| Parameter | Behavior |
-|---|---|
-| `@TableName nvarchar(128) = NULL` | Optional exact table-name filter under the database collation. |
-| `@Top int = 20` | Must be between 1 and 100. |
-| `@Offset int = 0` | Must be between 0 and 10,000. |
-| `@OrderBy varchar(32) = 'ModificationPercent'` | Case-insensitive allowlist described below. |
-
-There is no statistics-name filter and no minimum modification count/percentage filter.
-
-A supplied table name must be nonblank and resolve to exactly one user table. Unknown names fail explicitly. The baseline assumes FHIR operational tables do not span multiple schemas, so table-name input and output omit schema.
-
-Database-wide results exclude temporal history tables. An exact `@TableName` request may explicitly select a temporal history table.
-
-The `@OrderBy` allowlist is:
-
-- `ModificationCount`
-- `ModificationPercent`
-- `LastUpdated`
-- `SamplingPercent`
-- `Rows`
-
-Unknown values fail explicitly. Modification count, modification percentage, sampling percentage, and rows sort descending. `LastUpdated` places NULL values first and then sorts oldest first. Table name and statistics name ascending are deterministic tie-breakers.
-
-#### Sources
-
-- `sys.tables`
-- `sys.stats`
-- `sys.stats_columns`
-- `sys.columns`
-- `sys.indexes`
-- `sys.dm_db_stats_properties`
-
-The procedure includes index, user-created, and auto-created statistics. Memory-optimized tables are included when compatible metadata is available. Microsoft-shipped and internal tables are excluded.
-
-#### Output
-
-The result includes:
-
-- table name
-- statistics name
-- statistics ID
-- ordered typed XML containing each statistics-column ordinal and name
-- auto-created and user-created flags
-- incremental, persisted-sample, and no-recompute flags
-- filtered-statistics flag and full `filter_definition`
-- associated index ID, name, and type description
-- disabled and hypothetical index flags
-- last update time in UTC
-- decimal `HoursSinceLastUpdate`
-- row and unfiltered-row counts
-- sampled rows
-- sampling percentage
-- histogram step count, but not histogram contents
-- modification counter
-- uncapped modification percentage calculated as `modification_counter / rows`
-- `StatisticsStatus`
-
-Sampling and modification percentages are NULL when their denominator is zero or required properties are unavailable. Modification percentages may exceed 100 percent.
-
-If `sys.dm_db_stats_properties` returns no row, the statistics object remains in the result with property fields NULL and `StatisticsStatus = 'PropertiesUnavailable'`.
-
-Incremental statistics expose only the incremental flag. Partition-level properties are out of scope.
-
-The procedure must not call `DBCC SHOW_STATISTICS`, `sys.dm_db_stats_histogram`, or any source that returns histogram keys or density vectors.
-
-## Security model
-
-### Database role
-
-Create the database role:
-
-```sql
-CREATE ROLE FhirDiagnosticsReader;
-```
-
-Grant the role `EXECUTE` individually on:
-
-- `dbo.GetQueryStoreSlowQueries`
-- `dbo.GetQueryStorePlanDiagnostics`
-- `dbo.GetStatisticsHealth`
-
-Future diagnostic procedures require an explicit reviewed grant. Do not grant schema-level execution on `dbo`.
-
-The role receives no:
-
-- `db_datareader`;
-- direct `SELECT` on FHIR tables;
-- direct Query Store catalog access;
-- `VIEW DATABASE STATE`;
-- arbitrary command execution; or
-- direct `EXECUTE` permission on `dbo.LogEvent`.
-
-Existing database administrators can use the procedures immediately through their existing privileges. The role is available for future least-privilege callers, with membership controlled independently in each environment.
-
-The "Reader" name describes the externally observable diagnostic behavior. Internal audit writes do not alter Query Store, statistics, plan cache, FHIR data, or schema.
-
-### Caller integration
-
-The initial caller remains undecided. A direct SQL connection, PaaS administrative operation, Geneva action, or other approved tool may invoke the same SQL contract.
-
-Caller authentication, authorization, concurrency control, circuit breaking, command timeout, result retention, and download policy are caller responsibilities. Returned query text and sanitized Showplan are treated as operational metadata, but full artifacts must not be written to general logs, metrics dimensions, or `dbo.LogEvent`.
-
-For the managed PaaS service, these caller responsibilities are implemented in `fhir-paas`; they are not added to the OSS schema migration.
-
-## Resource controls
-
-SQL enforces:
-
-- a default one-hour and hard maximum 24-hour slow-query window;
-- `@Top <= 100`;
-- `@Offset <= 10000`;
-- a positive `@MinExecutions`;
-- a 3-256-character literal query-text substring;
-- one plan per plan-diagnostics call;
-- static SQL only;
-- regular-execution-only runtime and wait aggregation; and
-- exclusion of the diagnostic procedures' own Query Store entries.
-
-Limits are hard-coded in the procedures. There is no `dbo.Parameters` kill switch, SQL concurrency gate, plan-size cap, total-count query, continuation token, or `HasMoreRows` result.
-
-## Audit and observability
-
-Every procedure follows the existing `dbo.LogEvent` pattern and writes Start, End, and Error events, including successful calls.
-
-Audit records include:
-
-- `ORIGINAL_LOGIN()`;
-- effective database principal from `USER_NAME()`;
-- procedure name;
-- bounded request metadata;
-- elapsed milliseconds;
-- returned row count; and
-- sanitized XML size for successful plan retrieval.
-
-Slow-query audit metadata includes resolved UTC window, ordering mode, `@Top`, `@Offset`, `@MinExecutions`, Query Store state/read-only reason, wait-statistics capture mode, and query-text filter presence/length, but never the filter text or wait payload.
-
-Plan audit metadata includes `plan_id`, sanitization status, stable error code, and result size, but never query text or XML.
-
-Statistics audit metadata includes the exact validated table name when supplied, ordering mode, `@Top`, and `@Offset`.
-
-Audit records must not contain:
-
-- query text;
-- `@QueryTextContains`;
-- Showplan XML;
-- parameter values;
-- histogram values; or
-- every query/plan ID returned by a page.
-
-If Start, End, or Error logging fails, the diagnostic call fails. Callers do not receive direct permission to invoke `dbo.LogEvent`.
+- plan sanitization moves from T-SQL to C#, where it is more reliable and far easier to test;
+- the persistent SQL surface, the database role, and the schema version all disappear; and
+- results are pushed into telemetry continuously rather than requiring someone to be connected and asking at the moment the problem is happening.
 
 ## Testing requirements
 
-**Deferred prototype validation:** The prototype has one representative SQL-backed end-to-end path. Exhaustive matrix validation remains future work, including negative validation, fail-closed audit behavior, permissions, a malformed-fixture corpus, and wait-disabled cases.
+### Sanitization, unit tested
 
-### Slow-query aggregation
+1. Fixtures cover single- and multi-statement plans; compiled values; runtime values; multiple `ParameterList` elements; plans with no parameters; unusual or unknown namespaces; large and deeply nested plans; and malformed XML.
+2. Fixtures contain PHI-shaped parameter values.
+3. Serialized output contains no `ParameterList`, `ParameterCompiledValue`, or `ParameterRuntimeValue`.
+4. Statement text, non-parameter constants, missing-index recommendations, and warnings survive unchanged.
+5. Null, malformed, and verification-failing input yields the correct status and null XML.
+6. Raw or partially sanitized XML is never returned.
+7. Truncation sets the flag and reports the original length, and only ever occurs after successful verification.
 
-1. Duplicate active-interval in-memory/persisted rows are collapsed before rollup.
-2. Weighted totals and averages use the agreed decimal precision.
-3. Minimum, maximum, and deterministic last-value calculations are correct.
-4. Only regular executions contribute to runtime and wait metrics.
-5. Overlapping Query Store interval semantics are verified at both window boundaries.
-6. Time, row, offset, minimum-execution, query-text, and order allowlists cannot be bypassed.
-7. Literal query-text matching correctly escapes `~`, `%`, `_`, and `[`.
-8. Query Store `READ_WRITE` and readable `READ_ONLY` states return data.
-9. Query Store `OFF`, `ERROR`, and unreadable states fail with actionable errors.
-10. Wait capture available, disabled, unavailable, empty, and `TotalWait` ordering cases are covered.
-11. Diagnostic procedures exclude their own Query Store entries.
+### Collection, integration tested against live SQL
 
-### Showplan sanitization
-
-1. Fixtures include single- and multi-statement plans.
-2. Fixtures include compiled values, runtime values, multiple `ParameterList` elements, plans without parameters, unusual namespaces/extensions, PSP/variant plans when available, large/deep plans, and malformed XML.
-3. Fixtures contain PHI-shaped parameter values.
-4. Serialized output contains no `ParameterList`, `ParameterCompiledValue`, or `ParameterRuntimeValue`.
-5. Statement text, non-parameter constants, missing-index recommendations, warnings, and other non-parameter content remain unchanged.
-6. Unknown namespaces sanitize successfully when verification passes.
-7. NULL, malformed, and verification-failing XML returns metadata only with the correct stable status/code.
-8. Raw or partially sanitized XML is never returned.
-9. Representative sanitized plans are manually verified to open in the SSMS graphical plan viewer.
-
-### Statistics
-
-1. All statistics types are returned with correct ordered column XML.
-2. Filter definitions, index metadata, disabled/hypothetical flags, and missing-property status are correct.
-3. Sampling/modification percentage zero-denominator behavior is correct.
-4. Modification percentages above 100 percent are preserved.
-5. Database-wide temporal-history exclusion and explicit history-table inclusion are covered.
-6. Histogram keys and density vectors never appear.
-
-### Permissions and integration
-
-1. A principal with `FhirDiagnosticsReader` can execute all three procedures.
-2. Procedures use `EXECUTE AS 'dbo'` and capture both original and effective identities.
-3. Start, End, and Error audit behavior is verified, including fail-closed logging failures.
-4. Procedures remain read-only except for required audit events.
-5. Deterministic fixture tests are supplemented by Azure SQL integration tests for live catalog compatibility.
-6. OSS tests verify the persistent SQL contract without depending on PaaS assemblies or infrastructure.
-7. PaaS tests verify package/schema-version synchronization, role provisioning, stored-procedure invocation, and artifact handling without duplicating the SQL implementation.
-
-## Schema and rollout
-
-### OSS schema change
-
-- Add all three procedures under `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Sprocs`.
-- Add an idempotent role and individual permission migration.
-- Introduce all three procedures and the role in one database schema version and migration diff.
-- Include the objects in the generated full schema and packaged SchemaManager resources.
-- Keep the migration additive and compatible with the previous application release.
-- Use normal repository code review and automated/manual validation. No separate security-review gate is required.
-- Keep actual-plan diagnostics as a documented future feature only.
-
-### PaaS integration change
-
-- Update the OSS FHIR package versions and synchronized target schema version through the existing `fhir-paas` dependency flow.
-- Do not copy the stored procedure or role DDL into PaaS Script Runner scripts.
-- Add role membership only for the approved operational identity.
-- Implement the selected caller, result transport, artifact storage, and operational authorization in `fhir-paas`.
-- Deploy schema/package consumption before enabling the caller.
-- Control caller rollout and role membership independently in each environment.
+1. With Query Store enabled and a deliberately slow query executed, a `SlowQueryNotification` is emitted carrying a matching `QueryId`/`PlanId`.
+2. A `QueryPlanNotification` is emitted for that plan with status `Sanitized`.
+3. `StatisticsHealthNotification` rows are emitted for user tables.
+4. The watchdog performs no work when either gate is off.
+5. A non-`READ_WRITE` Query Store state is handled without error and without emission.
+6. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted.
+7. The watchdog does not report its own Query Store queries.
 
 ## References
 
@@ -555,7 +256,5 @@ If Start, End, or Error logging fails, the diagnostic call fails. Callers do not
 - [`sys.query_store_query`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-query-transact-sql)
 - [`sys.query_store_query_text`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-query-store-query-text-transact-sql)
 - [`sys.database_query_store_options`](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-database-query-store-options-transact-sql)
-- [`sys.dm_exec_query_plan_stats`](https://learn.microsoft.com/sql/relational-databases/system-dynamic-management-views/sys-dm-exec-query-plan-stats-transact-sql)
 - [`sys.dm_db_stats_properties`](https://learn.microsoft.com/sql/relational-databases/system-dynamic-management-views/sys-dm-db-stats-properties-transact-sql)
-- [`sys.dm_db_stats_histogram`](https://learn.microsoft.com/sql/relational-databases/system-dynamic-management-views/sys-dm-db-stats-histogram-transact-sql)
 - [Showplan XML schemas](https://schemas.microsoft.com/sqlserver/2004/07/showplan/)
