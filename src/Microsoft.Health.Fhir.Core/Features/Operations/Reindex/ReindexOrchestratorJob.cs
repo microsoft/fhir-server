@@ -690,7 +690,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _result.SucceededResources += succeededResourceCount;
                         _result.FailedResources += def.ResourceCount.Count - succeededResourceCount;
 
-                        var msg = $"Processing job = {job.Id} failed. Resource type = {def.ResourceType}{(result == null ? ". " : ": Error = " + result.Error)}";
+                        var msg = $"Processing job = {job.Id} failed. Resource type = {def.ResourceType}{(result == null ? "." : " Error = " + result.Error)}";
                         _logger.LogJobError(_jobInfo, msg);
                         AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
 
