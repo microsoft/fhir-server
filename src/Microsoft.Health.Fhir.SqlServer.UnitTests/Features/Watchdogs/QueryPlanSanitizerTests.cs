@@ -198,13 +198,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
-        public void GivenPlanThatFailsVerification_WhenSanitized_ThenNeverReturnsRawXml()
+        public void GivenPlanWhoseStatementTextContainsTheLiteralParameterList_WhenSanitized_ThenStillSanitizesSuccessfully()
         {
             // Arrange
-            const string queryPlan = @"<ShowPlanXML><StmtSimple StatementText=""ParameterList"" /></ShowPlanXML>";
+            // Showplan embeds the original SQL in StatementText. A serialized-text scan would treat this plan as
+            // unverifiable and drop it silently; structural verification must not.
+            const string queryPlan = @"<ShowPlanXML xmlns=""http://schemas.microsoft.com/sqlserver/2004/07/showplan""><BatchSequence><Batch><Statements><StmtSimple StatementText=""SELECT ParameterList, ParameterCompiledValue, ParameterRuntimeValue FROM dbo.ParameterList"" StatementType=""SELECT""><QueryPlan><RelOp NodeId=""0"" PhysicalOp=""Clustered Index Scan"" /></QueryPlan></StmtSimple></Statements></Batch></BatchSequence></ShowPlanXML>";
 
             // Act
-            QueryPlanSanitizationResult result = QueryPlanSanitizer.Sanitize(queryPlan, 1);
+            QueryPlanSanitizationResult result = QueryPlanSanitizer.Sanitize(queryPlan, QueryStoreDiagnosticsWatchdog.MaxFieldLength);
+
+            // Assert
+            Assert.Equal(QueryPlanSanitizer.SanitizedStatus, result.Status);
+            Assert.NotNull(result.Xml);
+            Assert.False(result.Truncated);
+            Assert.Contains("FROM dbo.ParameterList", result.Xml, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(@"<ShowPlanXML><StmtSimple ParameterList=""N'Mikael W'"" /></ShowPlanXML>")]
+        [InlineData(@"<ShowPlanXML><ParameterCompiledValue Value=""N'Mikael W'"" /></ShowPlanXML>")]
+        [InlineData(@"<ShowPlanXML><StmtSimple><ParameterRuntimeValue>N'MRN-12345'</ParameterRuntimeValue></StmtSimple></ShowPlanXML>")]
+        public void GivenSensitiveNameThatSurvivesRemoval_WhenSanitized_ThenFailsVerificationAndNeverReturnsXml(string queryPlan)
+        {
+            // Act
+            QueryPlanSanitizationResult result = QueryPlanSanitizer.Sanitize(queryPlan, QueryStoreDiagnosticsWatchdog.MaxFieldLength);
 
             // Assert
             Assert.Equal(QueryPlanSanitizer.VerificationFailedStatus, result.Status);
@@ -212,7 +230,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             Assert.False(result.Truncated);
             Assert.Equal(queryPlan.Length, result.OriginalLength);
             Assert.True(result.SanitizedLength > 0);
-            Assert.NotEqual(queryPlan, result.Xml);
         }
 
         private static void AssertNoParameterMetadata(string queryPlan)

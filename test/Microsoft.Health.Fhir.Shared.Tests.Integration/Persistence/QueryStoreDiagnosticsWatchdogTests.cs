@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
@@ -30,6 +31,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private const int QueryExecutionCount = 2;
         private const int QueryStorePollAttempts = 15;
+
+        // Wall-clock timing on the client is coarser than Query Store's own measurement, and the first execution pays
+        // for compilation, so the upper bound gets a fixed allowance on top of the measured elapsed time.
+        private const double ProbeTimingToleranceMilliseconds = 5000;
+
         private static readonly TimeSpan QueryStorePollInterval = TimeSpan.FromSeconds(1);
         private readonly SqlServerFhirStorageTestsFixture _fixture;
 
@@ -47,6 +53,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             CaptureNotifications(mediator, notifications);
             var watchdog = CreateWatchdog(mediator, enabled: true);
             string tableName = $"DiagProbe_{Guid.NewGuid():N}";
+
+            // Query Store does not preserve comments in query_sql_text, so the probe cannot be tagged with a marker
+            // comment. A GUID-derived result-column alias is preserved and makes the probe query self-identifying.
             string queryAlias = $"probe_{Guid.NewGuid():N}";
 
             await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
@@ -57,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await EnableAndVerifyQueryStoreAsync(connection, CancellationToken.None);
                 await SetWatchdogParametersAsync(connection, isEnabled: 1, periodSeconds: 300, CancellationToken.None);
                 await CreateProbeTableAsync(connection, tableName, CancellationToken.None);
-                await ExecuteProbeQueryAsync(connection, tableName, queryAlias, CancellationToken.None);
+                double probeElapsedMilliseconds = await ExecuteProbeQueryAsync(connection, tableName, queryAlias, CancellationToken.None);
                 await WaitForQueryStoreCaptureAsync(connection, queryAlias, CancellationToken.None);
 
                 // Act
@@ -71,6 +80,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.True(slowQuery.QueryId > 0);
                 Assert.True(slowQuery.PlanId > 0);
                 Assert.True(slowQuery.QueryTextLength > 0);
+
+                // The probe runs a fixed number of times under a GUID alias, so the rollup across Query Store
+                // intervals must sum to exactly that count.
+                Assert.Equal(QueryExecutionCount, slowQuery.ExecutionCount);
+
+                // Query Store records microseconds and the contract is milliseconds. The probe runs at MAXDOP 1 and
+                // is timed on the client, so the reported totals must sit inside the wall clock plus a tolerance. A
+                // missing /1000.0 would inflate these by three orders of magnitude and break the upper bound; a
+                // doubly applied one would sink them below MinDurationMilliseconds and the query would never appear.
+                double durationUpperBoundMilliseconds = probeElapsedMilliseconds + ProbeTimingToleranceMilliseconds;
+                Assert.InRange(slowQuery.TotalDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+                Assert.InRange(slowQuery.AverageDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+                Assert.InRange(slowQuery.MaxDurationMilliseconds, 1, durationUpperBoundMilliseconds);
+                Assert.InRange(slowQuery.TotalCpuMilliseconds, 0, durationUpperBoundMilliseconds);
+                Assert.InRange(slowQuery.AverageCpuMilliseconds, 0, durationUpperBoundMilliseconds);
+                Assert.Equal(slowQuery.TotalDurationMilliseconds / QueryExecutionCount, slowQuery.AverageDurationMilliseconds, 3);
+                Assert.True(slowQuery.TotalLogicalReads > 0);
+
+                // Wait collection is best-effort and its failure is swallowed so that runtime metrics still publish.
+                // A status other than Failed is therefore the only proof that the wait SQL actually executed.
+                Assert.Contains(
+                    slowQuery.WaitStatisticsStatus,
+                    new[] { QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsUnavailableStatus });
+                if (string.Equals(slowQuery.WaitStatisticsStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, StringComparison.Ordinal))
+                {
+                    Assert.NotNull(slowQuery.TotalWaitMilliseconds);
+                    Assert.NotNull(slowQuery.AverageWaitMilliseconds);
+                    Assert.False(string.IsNullOrEmpty(slowQuery.TopWaitCategory));
+                }
+                else
+                {
+                    Assert.Null(slowQuery.TotalWaitMilliseconds);
+                }
 
                 QueryPlanNotification queryPlan = Assert.Single(
                     notifications.FindAll(notification => notification is QueryPlanNotification)
@@ -171,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await ExecuteNonQueryAsync(
                 connection,
-                "ALTER DATABASE CURRENT SET QUERY_STORE (OPERATION_MODE = READ_WRITE, QUERY_CAPTURE_MODE = ALL);",
+                "ALTER DATABASE CURRENT SET QUERY_STORE (OPERATION_MODE = READ_WRITE, QUERY_CAPTURE_MODE = ALL, WAIT_STATS_CAPTURE_MODE = ON);",
                 cancellationToken);
 
             Assert.Equal("READ_WRITE", await GetQueryStoreStateAsync(connection, cancellationToken), ignoreCase: true);
@@ -226,15 +268,21 @@ WHERE Id IN ('QueryStoreDiagnosticsWatchdog.IsEnabled', 'QueryStoreDiagnosticsWa
             await ExecuteNonQueryAsync(connection, $"DROP TABLE IF EXISTS dbo.[{tableName}];", cancellationToken);
         }
 
-        private static async Task ExecuteProbeQueryAsync(SqlConnection connection, string tableName, string queryAlias, CancellationToken cancellationToken)
+        private static async Task<double> ExecuteProbeQueryAsync(SqlConnection connection, string tableName, string queryAlias, CancellationToken cancellationToken)
         {
+            // MAXDOP 1 keeps CPU time comparable with elapsed time, so the millisecond assertions have a meaningful
+            // upper bound rather than one inflated by an unknown degree of parallelism.
+            var stopwatch = Stopwatch.StartNew();
             for (int execution = 0; execution < QueryExecutionCount; execution++)
             {
                 await using SqlCommand command = connection.CreateCommand();
-                command.CommandText = $"SELECT SUM(CONVERT(bigint, firstProbe.Id) * secondProbe.Id * thirdProbe.Id) AS [{queryAlias}] FROM dbo.[{tableName}] AS firstProbe CROSS JOIN dbo.[{tableName}] AS secondProbe CROSS JOIN dbo.[{tableName}] AS thirdProbe;";
+                command.CommandText = $"SELECT SUM(CONVERT(bigint, firstProbe.Id) * secondProbe.Id * thirdProbe.Id) AS [{queryAlias}] FROM dbo.[{tableName}] AS firstProbe CROSS JOIN dbo.[{tableName}] AS secondProbe CROSS JOIN dbo.[{tableName}] AS thirdProbe OPTION (MAXDOP 1);";
                 object result = await command.ExecuteScalarAsync(cancellationToken);
                 Assert.NotNull(result);
             }
+
+            stopwatch.Stop();
+            return stopwatch.Elapsed.TotalMilliseconds;
         }
 
         private static async Task WaitForQueryStoreCaptureAsync(SqlConnection connection, string queryAlias, CancellationToken cancellationToken)
@@ -244,8 +292,11 @@ WHERE Id IN ('QueryStoreDiagnosticsWatchdog.IsEnabled', 'QueryStoreDiagnosticsWa
                 await ExecuteNonQueryAsync(connection, "EXEC sys.sp_query_store_flush_db;", cancellationToken);
 
                 await using SqlCommand command = connection.CreateCommand();
+
+                // Wait for every execution to be persisted, not merely the first, so the execution-count assertion
+                // cannot race the flush.
                 command.CommandText = @"
-SELECT COUNT_BIG(*)
+SELECT ISNULL(SUM(runtimeStats.count_executions), 0)
 FROM sys.query_store_runtime_stats AS runtimeStats
 INNER JOIN sys.query_store_plan AS queryPlan
     ON runtimeStats.plan_id = queryPlan.plan_id
@@ -257,8 +308,8 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
     AND runtimeStats.execution_type = 0;";
                 command.Parameters.Add("@QueryTextPattern", SqlDbType.NVarChar, 256).Value = $"%{queryAlias}%";
 
-                long capturedRuntimeStatisticsCount = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
-                if (capturedRuntimeStatisticsCount > 0)
+                long capturedExecutionCount = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
+                if (capturedExecutionCount >= QueryExecutionCount)
                 {
                     return;
                 }
@@ -266,7 +317,7 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
                 await Task.Delay(QueryStorePollInterval, cancellationToken);
             }
 
-            Assert.Fail("Query Store did not persist regular runtime statistics for the GUID-alias probe query after the supported flush and polling window.");
+            Assert.Fail("Query Store did not persist regular runtime statistics for every execution of the GUID-alias probe query after the supported flush and polling window.");
         }
 
         private static async Task ExecuteNonQueryAsync(SqlConnection connection, string commandText, CancellationToken cancellationToken)

@@ -78,6 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
         public string TopWaitCategory { get; set; }
 
         /// <summary>
+        /// Gets or sets the outcome of wait-statistics collection, so that absent wait fields are self-describing:
+        /// <c>Available</c> when wait statistics were read for this plan, <c>Unavailable</c> when the wait query
+        /// succeeded but returned no row for this plan (typically wait capture is off, or the plan accrued no waits),
+        /// and <c>Failed</c> when the wait query itself threw. <c>Failed</c> means the wait fields are missing because
+        /// collection is broken, not because there was nothing to report.
+        /// </summary>
+        public string WaitStatisticsStatus { get; set; }
+
+        /// <summary>
         /// Gets or sets the query text, limited to the diagnostics field-length cap.
         /// </summary>
         public string QueryText { get; set; }

@@ -24,13 +24,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     {
         internal const int MaxFieldLength = 32 * 1024;
 
+        /// <summary>Wait statistics were read for the plan.</summary>
+        internal const string WaitStatisticsAvailableStatus = "Available";
+
+        /// <summary>The wait query succeeded but returned no row for the plan.</summary>
+        internal const string WaitStatisticsUnavailableStatus = "Unavailable";
+
+        /// <summary>The wait query itself failed, so wait fields are missing because collection is broken.</summary>
+        internal const string WaitStatisticsFailedStatus = "Failed";
+
         private const string QueryStoreStateSql = @"
+-- readonly_reason is a bitmask, and it is int here while neighbouring Query Store columns (query_id, plan_id,
+-- count_executions, rows, rows_sampled, modification_counter) are bigint. That inconsistency is the trap: reading
+-- this column with GetInt64 throws InvalidCastException at runtime, which no compiler or unit test will catch.
 SELECT actual_state_desc, readonly_reason
 FROM sys.database_query_store_options;";
 
         private const string SlowQueriesSql = @"
--- Query Store duration and CPU values are recorded in microseconds.
--- Aggregate interval averages with their execution counts before converting to milliseconds.
+-- Query Store duration and CPU values are recorded in MICROSECONDS while the emitted contract is in MILLISECONDS,
+-- which is what every /1000.0 below is for. Query Store also stores PER-INTERVAL averages, so combining intervals
+-- requires weighting each interval average by its count_executions first; an unweighted mean across intervals with
+-- unequal execution counts is mathematically wrong.
 ;WITH PlanRuntimeStatistics AS
 (
     SELECT
@@ -63,6 +77,8 @@ SELECT TOP (@Top)
     queryText.query_sql_text,
     runtimeRollup.interval_start,
     runtimeRollup.interval_end
+-- 'statistics' is a RESERVED T-SQL keyword and cannot be used as a table alias, which is why the rollup CTE is
+-- aliased runtimeRollup rather than statistics.
 FROM PlanRuntimeStatistics AS runtimeRollup
 INNER JOIN sys.query_store_plan AS queryStorePlan
     ON runtimeRollup.plan_id = queryStorePlan.plan_id
@@ -72,7 +88,9 @@ INNER JOIN sys.query_store_query_text AS queryText
     ON queryStoreQuery.query_text_id = queryText.query_text_id
 WHERE runtimeRollup.execution_count > 0
     AND runtimeRollup.total_duration_microseconds / runtimeRollup.execution_count / 1000.0 >= @MinDurationMilliseconds
-    -- SQL Server does not preserve diagnostic marker comments in query_sql_text, so exclude every watchdog statement by catalog name.
+    -- Query Store does NOT preserve comments in query_sql_text, so a marker comment cannot be used to identify a
+    -- statement. The watchdog therefore excludes its own statements by catalog name, and the integration tests
+    -- identify their probe query by a GUID-derived result-column alias, which Query Store does preserve.
     -- The explicit case-insensitive collation also keeps the comparison correct on case-sensitive databases.
     AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%query_store%'
     AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%dm_db_stats_properties%'
@@ -144,6 +162,8 @@ SELECT TOP (@Top)
     statisticsObject.user_created,
     CONVERT(bit, CASE WHEN queryIndex.index_id IS NULL THEN 0 ELSE 1 END) AS is_from_index,
     statisticsObject.has_filter
+-- 'statistics' is a RESERVED T-SQL keyword and cannot be used as a table alias, which is why sys.stats is
+-- aliased statisticsObject rather than statistics.
 FROM sys.stats AS statisticsObject
 INNER JOIN sys.objects AS queryObject
     ON statisticsObject.object_id = queryObject.object_id
@@ -152,7 +172,6 @@ INNER JOIN sys.tables AS queryTable
 LEFT JOIN sys.indexes AS queryIndex
     ON statisticsObject.object_id = queryIndex.object_id
         AND statisticsObject.stats_id = queryIndex.index_id
--- OUTER APPLY retains statistics when dm_db_stats_properties has no row.
 OUTER APPLY sys.dm_db_stats_properties(statisticsObject.object_id, statisticsObject.stats_id) AS statisticsProperties
 WHERE queryObject.is_ms_shipped = 0
     AND queryObject.type = 'U'
@@ -233,15 +252,31 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                 }
 
                 var lookbackPeriodSec = Math.Clamp(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken), 60d, 86400d);
-                var startTime = DateTimeOffset.UtcNow.AddSeconds(-lookbackPeriodSec);
+                var collectionTime = DateTimeOffset.UtcNow;
+                var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
                 var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
-                if (queryStoreState == null || !string.Equals(queryStoreState.ActualState, "READ_WRITE", StringComparison.OrdinalIgnoreCase))
+                if (queryStoreState == null)
                 {
                     _logger.LogWarning(
-                        "QueryStoreDiagnosticsWatchdog: Query Store is unavailable for diagnostics. State={QueryStoreState}, ReadonlyReason={ReadonlyReason}",
-                        queryStoreState?.ActualState ?? "unavailable",
-                        queryStoreState?.ReadonlyReason);
+                        "QueryStoreDiagnosticsWatchdog: sys.database_query_store_options returned no row, so Query Store is not configured on this database. Skipping collection.");
                     return;
+                }
+
+                if (!string.Equals(queryStoreState.ActualState, "READ_WRITE", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog: Query Store is unavailable for diagnostics. State={QueryStoreState}, ReadonlyReason={ReadonlyReason}, ReadonlyReasonDescription={ReadonlyReasonDescription}",
+                        queryStoreState.ActualState,
+                        queryStoreState.ReadonlyReason,
+                        DescribeReadonlyReason(queryStoreState.ReadonlyReason));
+                    return;
+                }
+
+                if (_configuration.SlowQueryCount <= 0)
+                {
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog: SlowQueryCount is {SlowQueryCount}, which disables slow-query collection. Configure a positive value to collect slow queries.",
+                        _configuration.SlowQueryCount);
                 }
 
                 var slowQueries = await GetSlowQueriesAsync(startTime, cancellationToken);
@@ -249,7 +284,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
 
                 foreach (var slowQuery in slowQueries)
                 {
-                    waitStatistics.TryGetValue(slowQuery.PlanId, out var wait);
+                    waitStatistics.Waits.TryGetValue(slowQuery.PlanId, out var wait);
                     var queryText = Truncate(slowQuery.QueryText);
                     await _mediator.PublishAsync(
                         new SlowQueryNotification
@@ -267,6 +302,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                             TotalWaitMilliseconds = wait?.TotalWaitMilliseconds,
                             AverageWaitMilliseconds = wait == null ? null : wait.TotalWaitMilliseconds / slowQuery.ExecutionCount,
                             TopWaitCategory = wait?.TopWaitCategory,
+                            WaitStatisticsStatus = GetWaitStatisticsStatus(waitStatistics.Failed, wait),
                             QueryText = queryText.Value,
                             QueryTextTruncated = queryText.Truncated,
                             QueryTextLength = queryText.OriginalLength,
@@ -276,19 +312,50 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                         cancellationToken);
                 }
 
-                if (_configuration.IncludeQueryPlans && slowQueries.Count > 0)
+                var queryPlanCount = 0;
+                if (!_configuration.IncludeQueryPlans)
                 {
-                    await PublishQueryPlansAsync(slowQueries, cancellationToken);
+                    _logger.LogInformation("QueryStoreDiagnosticsWatchdog: query plan collection is turned off by configuration (IncludeQueryPlans).");
+                }
+                else if (slowQueries.Count > 0)
+                {
+                    queryPlanCount = await PublishQueryPlansAsync(slowQueries, cancellationToken);
                 }
 
-                if (_configuration.IncludeStatisticsHealth && _configuration.StatisticsHealthCount > 0)
+                var statisticsHealthCount = 0;
+                if (!_configuration.IncludeStatisticsHealth)
                 {
-                    await PublishStatisticsHealthAsync(cancellationToken);
+                    _logger.LogInformation("QueryStoreDiagnosticsWatchdog: statistics health collection is turned off by configuration (IncludeStatisticsHealth).");
                 }
+                else if (_configuration.StatisticsHealthCount <= 0)
+                {
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog: StatisticsHealthCount is {StatisticsHealthCount}, which disables statistics health collection. Configure a positive value to collect statistics health.",
+                        _configuration.StatisticsHealthCount);
+                }
+                else
+                {
+                    statisticsHealthCount = await PublishStatisticsHealthAsync(cancellationToken);
+                }
+
+                // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
+                // dead for three days" and "there were no slow queries" are indistinguishable downstream.
+                _logger.LogInformation(
+                    "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}",
+                    startTime,
+                    collectionTime,
+                    slowQueries.Count,
+                    queryPlanCount,
+                    statisticsHealthCount,
+                    waitStatistics.Failed);
             }
             catch (SqlException ex) when (ex.Number == 208)
             {
-                _logger.LogDebug(ex, "QueryStoreDiagnosticsWatchdog: Query Store diagnostics views are unavailable.");
+                // This filter covers the whole method body rather than each read, which loses the ability to name the
+                // failing statement. That is the accepted trade-off: the watchdog only runs when an operator enabled
+                // it in both configuration and dbo.Parameters, so "the views you asked me to read do not exist" is
+                // always operator-actionable and permanent, and per-read catches would be more churn than value.
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: Query Store diagnostics views are unavailable, so no diagnostics can be collected.");
             }
             catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262)
             {
@@ -299,6 +366,12 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
         private async Task<QueryStoreState> GetQueryStoreStateAsync(CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(QueryStoreStateSql);
+
+            // Every diagnostics read binds to the primary: isReadOnly would route to a read-only secondary when
+            // SupportsSqlReplicas is on, and Query Store state is primary-scoped, so a secondary reports READ_ONLY
+            // and the state gate below would silently disable collection forever. Replica routing is also decided
+            // per call, so the state check and the data reads could otherwise land on different servers and produce
+            // torn results. The cost is negligible: one collection per period, hourly by default.
             var states = await _sqlRetryService.ExecuteReaderAsync(
                 command,
                 reader => new QueryStoreState(
@@ -306,8 +379,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1)),
                 _logger,
                 "Failed to read Query Store state",
-                cancellationToken,
-                isReadOnly: true);
+                cancellationToken);
 
             return states.Count == 0 ? null : states[0];
         }
@@ -339,18 +411,17 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                 },
                 _logger,
                 "Failed to read Query Store slow queries",
-                cancellationToken,
-                isReadOnly: true);
+                cancellationToken);
         }
 
-        private async Task<Dictionary<long, WaitStatistics>> GetWaitStatisticsAsync(
+        private async Task<(Dictionary<long, WaitStatistics> Waits, bool Failed)> GetWaitStatisticsAsync(
             DateTimeOffset startTime,
             IReadOnlyList<SlowQueryResult> slowQueries,
             CancellationToken cancellationToken)
         {
             if (slowQueries.Count == 0)
             {
-                return new Dictionary<long, WaitStatistics>();
+                return (new Dictionary<long, WaitStatistics>(), false);
             }
 
             try
@@ -367,19 +438,22 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                         reader.IsDBNull(2) ? null : reader.GetString(2)),
                     _logger,
                     "Failed to read Query Store wait statistics",
-                    cancellationToken,
-                    isReadOnly: true);
+                    cancellationToken);
 
-                return waits.ToDictionary(wait => wait.PlanId);
+                return (waits.ToDictionary(wait => wait.PlanId), false);
             }
             catch (SqlException ex)
             {
-                _logger.LogDebug(ex, "QueryStoreDiagnosticsWatchdog: Query Store wait statistics are unavailable for this collection.");
-                return new Dictionary<long, WaitStatistics>();
+                // SqlException is caught broadly on purpose: a transient wait-query failure must never abort the tick
+                // and suppress the runtime metrics, which are the primary signal. The cost of that breadth is that
+                // timeouts, deadlocks, permission denials and missing views all look alike here, so the failure is
+                // logged as a warning and surfaced on every notification as WaitStatisticsStatus = Failed.
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: Query Store wait statistics could not be read for this collection. Wait fields will be empty.");
+                return (new Dictionary<long, WaitStatistics>(), true);
             }
         }
 
-        private async Task PublishQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
+        private async Task<int> PublishQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(QueryPlansSql);
             command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
@@ -391,14 +465,23 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     reader.IsDBNull(1) ? null : reader.GetString(1)),
                 _logger,
                 "Failed to read Query Store plans",
-                cancellationToken,
-                isReadOnly: true);
+                cancellationToken);
             var plansById = plans.ToDictionary(plan => plan.PlanId);
 
             foreach (var slowQuery in slowQueries)
             {
                 plansById.TryGetValue(slowQuery.PlanId, out var queryPlan);
                 var sanitizedPlan = QueryPlanSanitizer.Sanitize(queryPlan?.QueryPlan, MaxFieldLength);
+                if (!string.Equals(sanitizedPlan.Status, QueryPlanSanitizer.SanitizedStatus, StringComparison.Ordinal))
+                {
+                    // Without this, systematic sanitizer breakage looks exactly like "plans are simply unavailable"
+                    // unless a downstream handler happens to surface SanitizationStatus.
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog: query plan was not emitted because sanitization did not succeed. PlanId={PlanId}, SanitizationStatus={SanitizationStatus}",
+                        slowQuery.PlanId,
+                        sanitizedPlan.Status);
+                }
+
                 await _mediator.PublishAsync(
                     new QueryPlanNotification
                     {
@@ -412,9 +495,11 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     },
                     cancellationToken);
             }
+
+            return slowQueries.Count;
         }
 
-        private async Task PublishStatisticsHealthAsync(CancellationToken cancellationToken)
+        private async Task<int> PublishStatisticsHealthAsync(CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(StatisticsHealthSql);
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
@@ -438,8 +523,7 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                 },
                 _logger,
                 "Failed to read statistics health",
-                cancellationToken,
-                isReadOnly: true);
+                cancellationToken);
 
             foreach (var statistic in statisticsHealth)
             {
@@ -461,12 +545,76 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     },
                     cancellationToken);
             }
+
+            return statisticsHealth.Count;
         }
 
         private async Task<bool> IsEnabledAsync(CancellationToken cancellationToken)
         {
             var value = await GetNumberParameterByIdAsync(IsEnabledId, cancellationToken);
             return value == 1;
+        }
+
+        /// <summary>
+        /// Decodes the <c>sys.database_query_store_options.readonly_reason</c> bitmask into a readable reason list,
+        /// so an operator sees the cause rather than an integer to look up. Exposed as internal only for unit testing.
+        /// </summary>
+        /// <param name="readonlyReason">The bitmask value, or null when no value was reported.</param>
+        /// <returns>A comma-separated description of the set bits.</returns>
+        internal static string DescribeReadonlyReason(int? readonlyReason)
+        {
+            if (readonlyReason == null)
+            {
+                return "not reported";
+            }
+
+            if (readonlyReason.Value == 0)
+            {
+                return "none";
+            }
+
+            var reasons = new List<string>();
+            if ((readonlyReason.Value & 1) != 0)
+            {
+                reasons.Add("database is in read-only mode");
+            }
+
+            if ((readonlyReason.Value & 2) != 0)
+            {
+                reasons.Add("database is in single-user mode");
+            }
+
+            if ((readonlyReason.Value & 4) != 0)
+            {
+                reasons.Add("database is in emergency mode");
+            }
+
+            if ((readonlyReason.Value & 8) != 0)
+            {
+                reasons.Add("database is a secondary replica");
+            }
+
+            if ((readonlyReason.Value & 65536) != 0)
+            {
+                reasons.Add("Query Store has reached its size limit (MAX_STORAGE_SIZE_MB)");
+            }
+
+            if ((readonlyReason.Value & 131072) != 0)
+            {
+                reasons.Add("Query Store has reached the limit on the number of statements");
+            }
+
+            return reasons.Count == 0 ? "unrecognized reason" : string.Join(", ", reasons);
+        }
+
+        private static string GetWaitStatisticsStatus(bool waitStatisticsFailed, WaitStatistics wait)
+        {
+            if (waitStatisticsFailed)
+            {
+                return WaitStatisticsFailedStatus;
+            }
+
+            return wait == null ? WaitStatisticsUnavailableStatus : WaitStatisticsAvailableStatus;
         }
 
         private static TruncatedField Truncate(string value)
@@ -534,7 +682,10 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
 
         private sealed class QueryStoreState
         {
-            // sys.database_query_store_options.readonly_reason is int, not bigint.
+            // Trap: sys.database_query_store_options.readonly_reason is int, NOT bigint, even though the neighbouring
+            // Query Store columns this watchdog reads (query_id, plan_id, SUM(count_executions), rows, rows_sampled,
+            // modification_counter) genuinely are bigint. Reading it with GetInt64 compiles and only fails at runtime
+            // with InvalidCastException, so it must be read with GetInt32 and held as int.
             internal QueryStoreState(string actualState, int? readonlyReason)
             {
                 ActualState = actualState;

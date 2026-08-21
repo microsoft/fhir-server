@@ -11,6 +11,10 @@ using System.Xml.Linq;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
+    /// <summary>
+    /// Removes Showplan parameter metadata, which can carry literal values taken from patient data, and verifies
+    /// that none of it survived before the plan is allowed out of the process.
+    /// </summary>
     internal static class QueryPlanSanitizer
     {
         internal const string SanitizedStatus = "Sanitized";
@@ -18,11 +22,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         internal const string InvalidXmlStatus = "InvalidXml";
         internal const string VerificationFailedStatus = "VerificationFailed";
 
+        /// <summary>
+        /// Removes parameter metadata from a Showplan document, verifies the removal, and caps the result.
+        /// </summary>
+        /// <param name="queryPlanXml">The raw Showplan XML as read from Query Store.</param>
+        /// <param name="maxLength">The maximum length of the returned XML.</param>
+        /// <returns>The sanitization outcome. The XML is null unless removal was verified to have succeeded.</returns>
         internal static QueryPlanSanitizationResult Sanitize(string queryPlanXml, int maxLength)
         {
             if (string.IsNullOrEmpty(queryPlanXml))
             {
-                return new QueryPlanSanitizationResult(PlanXmlUnavailableStatus, null, false, 0, 0);
+                return QueryPlanSanitizationResult.PlanXmlUnavailable();
             }
 
             try
@@ -55,31 +65,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                 var sanitizedXml = document.ToString(SaveOptions.DisableFormatting);
                 var sanitizedLength = sanitizedXml.Length;
-                if (ContainsSensitiveParameterData(sanitizedXml))
+
+                // Verification re-inspects the tree after removal and fails closed. It is deliberately structural:
+                // Showplan embeds the original SQL in StatementText, so a text scan would drop any plan whose own
+                // query text happens to contain the literal string "ParameterList".
+                if (ContainsSensitiveParameterData(document))
                 {
-                    return new QueryPlanSanitizationResult(VerificationFailedStatus, null, false, queryPlanXml.Length, sanitizedLength);
+                    return QueryPlanSanitizationResult.VerificationFailed(queryPlanXml.Length, sanitizedLength);
                 }
 
                 maxLength = Math.Max(0, maxLength);
-                var truncated = sanitizedXml.Length > maxLength;
-                if (truncated)
+                if (sanitizedXml.Length > maxLength)
                 {
                     sanitizedXml = sanitizedXml.Substring(0, maxLength);
                 }
 
-                return new QueryPlanSanitizationResult(SanitizedStatus, sanitizedXml, truncated, queryPlanXml.Length, sanitizedLength);
+                return QueryPlanSanitizationResult.Sanitized(sanitizedXml, queryPlanXml.Length, sanitizedLength);
             }
             catch (XmlException)
             {
-                return new QueryPlanSanitizationResult(InvalidXmlStatus, null, false, queryPlanXml.Length, 0);
+                return QueryPlanSanitizationResult.InvalidXml(queryPlanXml.Length);
             }
         }
 
-        private static bool ContainsSensitiveParameterData(string xml)
+        private static bool ContainsSensitiveParameterData(XDocument document)
         {
-            return xml.Contains("ParameterList", StringComparison.OrdinalIgnoreCase) ||
-                xml.Contains("ParameterCompiledValue", StringComparison.OrdinalIgnoreCase) ||
-                xml.Contains("ParameterRuntimeValue", StringComparison.OrdinalIgnoreCase);
+            // Matching is by local name and namespace-agnostic, exactly as the removal above, so a Showplan namespace
+            // change between SQL versions cannot let parameter data pass verification.
+            return document.Root != null &&
+                document.Root.DescendantsAndSelf().Any(element =>
+                    IsSensitiveName(element.Name.LocalName) ||
+                    element.Attributes().Any(attribute => IsSensitiveName(attribute.Name.LocalName)));
+        }
+
+        private static bool IsSensitiveName(string localName)
+        {
+            return string.Equals(localName, "ParameterList", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(localName, "ParameterCompiledValue", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(localName, "ParameterRuntimeValue", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

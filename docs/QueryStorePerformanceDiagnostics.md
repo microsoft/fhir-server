@@ -31,7 +31,7 @@ A **watchdog** — the repository's existing leased background-worker pattern �
 ```text
 FHIR server instance (lease holder)
   └── QueryStoreDiagnosticsWatchdog        every PeriodSec, default 3600s
-        ├── sys.database_query_store_options      state check, read-only
+        ├── sys.database_query_store_options      state gate, always primary
         ├── sys.query_store_*                     slow plans + query text
         ├── sys.query_store_wait_stats            best effort
         ├── sys.stats / sys.dm_db_stats_properties
@@ -85,7 +85,9 @@ Three notification types implement `IMetricsNotification`, each reporting `FhirO
 
 ### `SlowQueryNotification`
 
-One per slow plan per tick. Carries `QueryId`, `PlanId`, execution count, total/average/maximum duration, total/average CPU, total/average logical reads, total/average wait time, top wait category, the Query Store query text, and the collection window bounds.
+One per slow plan per tick. Carries `QueryId`, `PlanId`, execution count, total/average/maximum duration, total/average CPU, total/average logical reads, total/average wait time, top wait category, `WaitStatisticsStatus`, the Query Store query text, and the collection window bounds.
+
+`WaitStatisticsStatus` describes why the wait fields look the way they do: `Available` when wait statistics were read for the plan, `Unavailable` when the wait query succeeded but returned no row for it (wait capture off, or no waits accrued), and `Failed` when the wait query itself threw. Without it, "wait capture is switched off" and "the wait query has been failing for a month" are indistinguishable, because both leave the wait fields null.
 
 `QueryId` and `PlanId` are the join keys back into Query Store, and into the `QueryStoreRuntimeStatistics` stream already exported to Log Analytics, so a responder can correlate an emitted slow query with the existing diagnostic-settings telemetry.
 
@@ -129,7 +131,9 @@ The watchdog's own Query Store reads are excluded by filtering out query text re
 
 ### Wait statistics
 
-Wait statistics are collected by a **separate, best-effort** query and merged in C#. A failure — most commonly `sys.query_store_wait_stats` being unavailable, or wait capture being off — is logged at debug level and leaves the wait fields null. Runtime results are still emitted.
+Wait statistics are collected by a **separate, best-effort** query and merged in C#. A failure — most commonly `sys.query_store_wait_stats` being unavailable, or wait capture being off — is logged as a warning, leaves the wait fields null, and sets `WaitStatisticsStatus` to `Failed`. Runtime results are still emitted.
+
+`SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime metrics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the notification carries the status.
 
 Wait capture is retained locally, rather than deferred entirely to the `QueryStoreWaitStatistics` Log Analytics stream, so that a single emitted slow-query record is self-contained: runtime metrics, waits, query text, and plan identity arrive together without a join against a second telemetry source.
 
@@ -143,6 +147,22 @@ Modification percentage is left null when the row count is null or zero rather t
 
 `WatchdogsBackgroundService` cancels **every** watchdog if any one of them fails. A diagnostic feature must never be able to take down transaction or cleanup watchdogs, so the collection body contains its own failures: missing views and permission denials are logged and the tick returns rather than propagating.
 
+That containment covers **per-tick collection only**. `Watchdog<T>.ExecuteAsync` awaits `InitParamsAsync` *before* and *outside* `FhirTimer`'s per-tick catch, so a throw during initialization — seeding the `dbo.Parameters` rows — still faults the watchdog task, and `WatchdogsBackgroundService` cancels the rest. This is a **pre-existing property of the shared watchdog framework**, not something this feature introduces: `DefragWatchdog` initializes with the identical insert pattern. It is documented here rather than worked around, because changing the shared framework is out of scope for a diagnostics feature.
+
+### Reading the primary
+
+Every diagnostics read binds to the **primary**, not to a read-only replica, even though these are all read-only queries.
+
+Query Store state is primary-scoped: on a secondary the database is read-only, so `sys.database_query_store_options.actual_state_desc` reports `READ_ONLY`, the `READ_WRITE` state gate rejects it, and the tick returns having emitted nothing — silently, forever, with both gates on and no exception raised. Replica routing is also decided per call against a process-global counter, so a single tick could otherwise check state on the primary and read data from a secondary, harvesting plan identifiers on one server and looking them up on another.
+
+The cost is one collection per period against the primary — hourly by default — which is negligible next to the failure mode it removes.
+
+### Configuration that disables collection
+
+A non-positive `SlowQueryCount` or `StatisticsHealthCount` reduces the corresponding query to `TOP (0)` or skips the section entirely, which is indistinguishable from a healthy empty result. Both cases are logged as a warning once per tick, and a section turned off deliberately through `IncludeQueryPlans` or `IncludeStatisticsHealth` is logged at information level. Misconfiguration is never fatal: a diagnostics feature must not fail the host.
+
+A completed tick logs one information-level line carrying the collection window and the counts of slow queries, plans and statistics rows published, **including zeros**, so that "the watchdog has been dead for three days" is distinguishable from "there were no slow queries".
+
 ## Sanitization
 
 Showplan sanitization is performed **in C#** by `QueryPlanSanitizer`, not in T-SQL. The previous design did this with 236 lines of XML DML inside a stored procedure; the C# implementation is materially more reliable and easier to test with a fixture corpus.
@@ -152,10 +172,12 @@ The sanitizer:
 1. parses with an `XmlReader` configured with `DtdProcessing.Prohibit` and a null resolver, so a hostile or malformed plan cannot trigger entity resolution;
 2. removes every `ParameterList` element and every `ParameterCompiledValue` and `ParameterRuntimeValue` attribute, matching on local name so that Showplan namespace differences between SQL versions cannot cause a miss;
 3. re-serializes without formatting;
-4. **verifies** that none of those three names survive anywhere in the serialized output, and returns `VerificationFailed` with null XML if any do; and
+4. **verifies** structurally — by re-walking the parsed tree after removal and checking element and attribute local names, not by scanning the serialized text — that none of those three names survive, and returns `VerificationFailed` with null XML if any do; and
 5. only then truncates to the field cap.
 
-Step 4 is defence in depth: the plan is never emitted on the strength of the removal logic alone.
+Step 4 is defence in depth: the plan is never emitted on the strength of the removal logic alone. It is structural because Showplan embeds the original SQL in `StatementText`, so a text scan would drop — silently and permanently — any plan whose own query text happens to contain the literal string `ParameterList`.
+
+`QueryPlanSanitizationResult` is constructed only through static factories, so "not verified but populated" is unconstructable rather than merely unused: every failure factory forces the XML to null, the success factory refuses a null document, and the truncation flag is derived from the payload rather than supplied alongside it.
 
 ### Disclosure boundary
 
@@ -243,8 +265,9 @@ Secondary benefits of the change:
 3. `StatisticsHealthNotification` rows are emitted for user tables.
 4. The watchdog performs no work when either gate is off.
 5. A non-`READ_WRITE` Query Store state is handled without error and without emission.
-6. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted.
+6. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted, and `WaitStatisticsStatus` reports which of the three outcomes occurred.
 7. The watchdog does not report its own Query Store queries.
+8. Emitted content is asserted, not merely emission: the execution count matches the number of probe executions, and duration and CPU sit in a plausible millisecond range, which is what catches a regression in the weighted rollup or in the microsecond-to-millisecond conversion.
 
 ## References
 
