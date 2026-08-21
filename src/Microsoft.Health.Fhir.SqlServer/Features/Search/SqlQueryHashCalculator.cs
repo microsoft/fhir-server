@@ -5,7 +5,7 @@
 
 using System;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -19,14 +19,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         // This method negates effect of the AddParametersHash(). This is done this way to keep current SQL generator logic.
         internal static string RemoveParametersHash(string query)
         {
-            var hashStartIndex = query.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.OrdinalIgnoreCase);
+            if (query == null)
+            {
+                throw new BadRequestException(nameof(query));
+            }
+
+            var hashStartIndex = query.IndexOf(SqlSearchConstants.ParametersHashStart, StringComparison.OrdinalIgnoreCase);
             if (hashStartIndex < 0) // no parameters hash
             {
                 return query;
             }
 
-            var hashEndIndex = query[hashStartIndex..].IndexOf(SqlQueryGenerator.ParametersHashEnd, StringComparison.OrdinalIgnoreCase);
-            var hashLine = query[hashStartIndex..(hashStartIndex + hashEndIndex + SqlQueryGenerator.ParametersHashStart.Length)];
+            var hashEndIndex = query[hashStartIndex..].IndexOf(SqlSearchConstants.ParametersHashEnd, StringComparison.OrdinalIgnoreCase);
+            var hashLine = query[hashStartIndex..(hashStartIndex + hashEndIndex + SqlSearchConstants.ParametersHashEnd.Length)];
             return query.Replace(hashLine, string.Empty, StringComparison.OrdinalIgnoreCase);
         }
     }

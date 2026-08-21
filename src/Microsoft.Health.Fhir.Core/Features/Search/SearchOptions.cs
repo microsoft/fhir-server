@@ -57,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
             ContainsIterativeInclude = other.ContainsIterativeInclude;
+            QueryParams = new Dictionary<string, IList<string>>(other.QueryParams);
         }
 
         /// <summary>
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the collection of search parameters used for filtering and querying resources.
         /// </summary>
-        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
+        public IList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.
@@ -186,6 +187,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+#pragma warning disable CA2227 // Collection properties should be read only
+        public IDictionary<string, IList<string>> QueryParams { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
 
         /// <summary>
         /// Gets or sets a value indicating whether the search contains iterative includes.

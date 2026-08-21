@@ -130,10 +130,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool setDefaultBundleTotal = true;
             var notReferencedSearches = new List<string>();
 
+            searchOptions.QueryParams = new Dictionary<string, IList<string>>();
+
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
             foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
+                if (!string.IsNullOrEmpty(query.Item1))
+                {
+                    if (searchOptions.QueryParams.TryGetValue(query.Item1, out var values))
+                    {
+                        values.Add(query.Item2);
+                    }
+                    else
+                    {
+                        searchOptions.QueryParams[query.Item1] = new List<string>() { query.Item2 };
+                    }
+                }
+
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
                     // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
@@ -391,6 +405,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
+            var singleResourceTypesString = string.Join(",", resourceTypesString);
+            searchOptions.QueryParams.Remove("_type");
+
+            if (!singleResourceTypesString.Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
+            {
+                searchOptions.QueryParams.Add("_type", new List<string> { singleResourceTypesString });
+            }
+
             // Form all the include revinclude expressions before for the Smart queries access control check
             // Collect all the resource types required by the include/revinclude expressions
             var includeRevincludeSearchExpressions = new List<IncludeExpression>();
@@ -398,12 +420,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
             var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
 
+            var invalidRevIncludeParameters = searchParams.RevInclude.Where(x => x.Item2 != IncludeModifier.None && x.Item1.Contains('*', StringComparison.OrdinalIgnoreCase));
+            foreach (var invalidRevInclude in invalidRevIncludeParameters)
+            {
+                var paramName = KnownQueryParameterNames.ReverseInclude + (invalidRevInclude.Item2 != IncludeModifier.None ? ":" + invalidRevInclude.Item2.ToString().ToLowerInvariant() : string.Empty);
+                searchOptions.QueryParams[paramName].Remove(invalidRevInclude.Item1);
+            }
+
             // Add the parsed resource types to the required resource types for access control check
             // Now it contains all the resource types that are requested by the search,
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
+
+            // Add fine-grained access control resource type restrictions to QueryParams for the SQL parser
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                var allowedActions = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions;
+                if (allowedActions != null && !allowedActions.Any(a => a.Resource == KnownResourceTypes.All))
+                {
+                    var allowedTypes = allowedActions.Select(a => a.Resource).Distinct().ToList();
+                    if (allowedTypes.Any())
+                    {
+                        searchOptions.QueryParams["_fhirScopeAllowedTypes"] = allowedTypes;
+                    }
+                    else
+                    {
+                        // No resource types allowed — block all queries
+                        searchOptions.QueryParams["_fhirScopeAllowedTypes"] = new List<string> { "none" };
+                    }
+                }
+            }
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
@@ -430,6 +478,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 catch (SearchParameterNotSupportedException)
                 {
                     unsupportedSearchParameters.Add(q);
+                    searchOptions.QueryParams.Remove(q.Item1);
 
                     return null;
                 }
@@ -468,6 +517,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
                     }
+
+                    // Add compartment info to QueryParams so the SQL parser can generate compartment joins
+                    searchOptions.QueryParams["_compartmentType"] = new List<string> { compartmentType };
+                    searchOptions.QueryParams["_compartmentId"] = new List<string> { compartmentId };
                 }
                 else
                 {
@@ -493,6 +546,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, resourceTypesString));
                     }
+
+                    // Add SMART compartment info to QueryParams so the SQL parser can generate SMART compartment joins
+                    searchOptions.QueryParams["_smartCompartmentType"] = new List<string> { smartCompartmentType };
+                    searchOptions.QueryParams["_smartCompartmentId"] = new List<string> { smartCompartmentId };
                 }
                 else
                 {
@@ -595,6 +652,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
                 {
+                    if (!string.IsNullOrEmpty(unsupported.Item1))
+                    {
+                        searchOptions.QueryParams.Remove(unsupported.Item1);
+                    }
+
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 
@@ -824,7 +886,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                             foreach (var param in restriction.SearchParameters.Parameters)
                             {
-                               searchParams.Add(param.Item1, param.Item2);
+                                searchParams.Add(param.Item1, param.Item2);
                             }
                         }
 
