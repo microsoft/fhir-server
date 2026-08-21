@@ -264,24 +264,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return toMarkDeleted;
         }
 
-        internal static async Task<List<SearchParameterInfo>> GetCustomSearchParamsWithoutResourcesAsync(
-            string resourceType,
-            ISearchParameterOperations searchParamOperations,
-            ISearchParameterDefinitionManager searchParamDefinitionManager,
-            CancellationToken cancellationToken)
+        internal static async Task<List<SearchParameterInfo>> GetCustomSearchParamsWithoutResources(string resourceType, ISearchParameterOperations operations, ISearchParameterDefinitionManager manager, CancellationToken cancel)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-            EnsureArg.IsNotNull(searchParamOperations, nameof(searchParamOperations));
-            EnsureArg.IsNotNull(searchParamDefinitionManager, nameof(searchParamDefinitionManager));
-
-            var customSearchParams = searchParamDefinitionManager.GetSearchParameters(resourceType).Where(p => !p.IsSystemDefined).ToList();
-            var customSearchParamUrls = customSearchParams.Select(p => p.Url.OriginalString).ToList();
-
-            var activeSearchParamResources = await searchParamOperations.GetSearchParametersByUrlsAsync(customSearchParamUrls, cancellationToken);
-
-            var customSearchParamsWithoutResources = customSearchParams.Where(p => !activeSearchParamResources.ContainsKey(p.Url.OriginalString)).ToList();
-
-            return customSearchParamsWithoutResources;
+            var searchParams = manager.GetSearchParameters(resourceType).Where(p => !p.IsSystemDefined).ToList();
+            var withResources = await operations.GetSearchParametersByUrlsAsync([.. searchParams.Select(p => p.Url.OriginalString)], cancel);
+            var invalid = searchParams.Where(p => !withResources.ContainsKey(p.Url.OriginalString)).ToList();
+            return invalid;
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync()
@@ -296,29 +284,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Get all URIs that have at least one entry with a valid status
             // Exclude search parameters marked as deleted during cleanup
-            var initialMinusDeleted = initial
-                                        .Where(s => targetStatuses.Contains(s.Status))
-                                        .Where(s => !deleted.Contains(s.Uri.OriginalString))
-                                        .GroupBy(s => s.Uri.OriginalString, StringComparer.Ordinal)
-                                        .ToDictionary(g => g.Key, g => g.First().Status, StringComparer.Ordinal);
+            var initialMinusDeleted = initial.Where(_ => targetStatuses.Contains(_.Status) && !deleted.Contains(_.Uri.OriginalString))
+                                             .ToDictionary(_ => _.Uri.OriginalString, _ => _.Status);
 
             // Filter to only those search parameters which have valid definitions
             var targetParams = new List<SearchParameterInfo>();
-            foreach (var validUri in initialMinusDeleted.Keys)
+            foreach (var validUrl in initialMinusDeleted.Keys)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var param))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUrl, out var param))
                 {
                     targetParams.Add(param);
-                    var msg = $"status={param.SearchParameterStatus} uri={validUri}";
+                    var msg = $"status={param.SearchParameterStatus} for url={validUrl}";
                     _logger.LogJobInformation(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null);
                 }
                 else
                 {
-                    // TODO: We should throw here in the next phase otherwise we will reindex incorrectly
-                    var msg = $"status=null uri={validUri}";
-                    _logger.LogJobWarning(_jobInfo, msg);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Error", msg, null);
+                    var msg = $"status=null for url={validUrl}";
+                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
+                    throw new JobExecutionException(msg, _result, false);
                 }
             }
 
@@ -346,6 +330,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, string.Format(Core.Resources.ReindexingNoSearchParameterstoReindex, _jobInfo.Id));
                 return new List<long>();
+            }
+
+            // check cache consistency
+            foreach (var resourceType in resourceTypes)
+            {
+                var invalid = await GetCustomSearchParamsWithoutResources(resourceType, _searchParameterOperations, _searchParameterDefinitionManager, _cancellationToken);
+                if (invalid.Any())
+                {
+                    var msg = $"Cache contains search params without resources for resource type={resourceType}: {string.Join(", ", invalid.Select(p => p.Url.OriginalString))}";
+                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
+                    throw new JobExecutionException(msg, _result, false);
+                }
             }
 
             if (!_isSql) // only cosmos needs resource counts to support chunking

@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -125,6 +126,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_result);
         }
 
+        private async Task CheckSearchParamCache(string resourceType)
+        {
+            var invalid = await ReindexOrchestratorJob.GetCustomSearchParamsWithoutResources(resourceType, _searchParameterOperations, _searchParameterDefinitionManager, _cancellationToken);
+            if (invalid.Any())
+            {
+                var msg = $"Cache contains search params without resources for resource type={resourceType}: {string.Join(", ", invalid.Select(p => p.Url.OriginalString))}";
+                _result.Error = msg;
+                throw new JobExecutionSoftFailureException(msg, _result, false);
+            }
+        }
+
         private async Task CheckSearchParamHash()
         {
             var resourceType = _definition.ResourceType;
@@ -137,8 +149,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckSearchParamHash", "Error", msg, null);
+
+                await CheckSearchParamCache(resourceType);
+
                 _result.Error = msg;
-                throw new JobExecutionSoftFailureException(_result.Error, _result, null, false);
+                throw new JobExecutionSoftFailureException(_result.Error, _result, false);
             }
             else
             {

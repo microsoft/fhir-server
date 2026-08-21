@@ -9,6 +9,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -155,6 +157,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     null,
                     null,
                     null));
+        }
+
+        private SearchParameterInfo CreateSearchParameterInfo(string resourceType, string url, bool isSystemDefined = false)
+        {
+            return new SearchParameterInfo(
+                resourceType,
+                "name",
+                ValueSets.SearchParamType.String,
+                url: new Uri(url),
+                baseResourceTypes: new List<string> { resourceType })
+            {
+                IsSearchable = true,
+                IsSystemDefined = isSystemDefined,
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
         }
 
         [Fact]
@@ -729,6 +746,98 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Local={staleHash}", exception.Message);
+        }
+
+        [Fact]
+        public async Task CheckDiscrepancies_WhenHashMismatchAndCustomParamResourceMissing_ThrowsCacheError()
+        {
+            var expectedResourceType = "Account";
+            var requestedHash = "orchestratorHash";
+            var staleHash = "staleHash";
+            var customParam = CreateSearchParameterInfo(expectedResourceType, "http://example.org/fhir/SearchParameter/account-custom");
+
+            var job = new ReindexProcessingJobDefinition
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex
+                {
+                    Count = _mockedSearchCount,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
+                },
+                SearchParameterHash = requestedHash,
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(staleHash);
+            _searchParameterDefinitionManager.GetSearchParameters(expectedResourceType).Returns(new List<SearchParameterInfo> { customParam });
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, ITypedElement>());
+
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Contains($"Cache contains search params without resources for resource type={expectedResourceType}", exception.Message);
+            Assert.Contains(customParam.Url.OriginalString, exception.Message);
+        }
+
+        [Fact]
+        public async Task CheckDiscrepancies_WhenHashMismatchAndCustomParamResourceExists_ThrowsHashMismatch()
+        {
+            var expectedResourceType = "Account";
+            var requestedHash = "orchestratorHash";
+            var staleHash = "staleHash";
+            var customParam = CreateSearchParameterInfo(expectedResourceType, "http://example.org/fhir/SearchParameter/account-custom");
+
+            var job = new ReindexProcessingJobDefinition
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex
+                {
+                    Count = _mockedSearchCount,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
+                },
+                SearchParameterHash = requestedHash,
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(staleHash);
+            _searchParameterDefinitionManager.GetSearchParameters(expectedResourceType).Returns(new List<SearchParameterInfo> { customParam });
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, ITypedElement> { [customParam.Url.OriginalString] = Substitute.For<ITypedElement>() });
+
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Local={staleHash}", exception.Message);
+            await _searchParameterOperations.Received(1).GetSearchParametersByUrlsAsync(
+                Arg.Is<IReadOnlyCollection<string>>(u => u.Count == 1 && u.Contains(customParam.Url.OriginalString)),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
