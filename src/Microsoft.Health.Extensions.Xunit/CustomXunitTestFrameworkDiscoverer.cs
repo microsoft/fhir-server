@@ -1273,7 +1273,30 @@ namespace Microsoft.Health.Extensions.Xunit
 
         private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)
         {
-            return attribute.GetArgumentSets()
+            IReadOnlyList<Enum> argumentSets = attribute.GetArgumentSets();
+
+            // Dimensions are declared by position but bound to the fixture's constructor by enum
+            // type, and xUnit's own fixture cache is keyed by type as well, so two dimensions of the
+            // same type cannot be told apart. The second one is dropped when the fixture is built,
+            // yet the variant is still named and traited for both: every combination would be
+            // reported as having run with values the fixture never received, and the combinations
+            // that were supposed to differ would all be the same run. That is a test suite reporting
+            // coverage it does not have, so the declaration is refused here.
+            Type duplicated = argumentSets
+                .Where(argument => argument != null)
+                .GroupBy(argument => argument.GetType())
+                .FirstOrDefault(group => group.Count() > 1)
+                ?.Key;
+
+            if (duplicated != null)
+            {
+                throw new InvalidOperationException(
+                    $"'{attribute.GetType().Name}' declares more than one fixture argument set dimension of type '{duplicated}'. " +
+                    "Fixture arguments are matched to a fixture constructor by their enum type, so dimensions sharing a type cannot be told apart: " +
+                    "each variant would be built with the first value alone while being reported under every combination. Give each dimension its own enum type.");
+            }
+
+            return argumentSets
                 .Select(e => GetSingleValuedFlags(e).ToArray())
                 .ToArray();
         }
