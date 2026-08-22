@@ -54,6 +54,39 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 $"definition class and leave the traits where they were declared.{Environment.NewLine}{stringBuilder}");
         }
 
+        /// <summary>
+        /// Fails when the assembly does not declare the test framework its tests are written for.
+        /// </summary>
+        /// <param name="assembly">Assembly under analysis.</param>
+        /// <param name="expectedFrameworkType">The test framework the assembly must declare.</param>
+        /// <remarks>
+        /// The custom framework is what expands fixture argument sets into variants, and the variants
+        /// are what carry the <c>DataStore</c> trait every E2E and export leg selects positively on.
+        /// Lose the declaration and nothing throws: the classes are discovered as ordinary xUnit
+        /// tests, carry no data store trait, and are filtered out of every leg. A class that is
+        /// filtered out never constructs its fixture, so no connection is attempted and nothing
+        /// errors - the leg runs whatever handful of tests declared their traits by hand, reports
+        /// success, and the entire suite is missing. This check turns that into a failure.
+        /// </remarks>
+        public static void EnsureTestFrameworkIsDeclared(Assembly assembly, Type expectedFrameworkType)
+        {
+            TestFrameworkAttribute[] declared = assembly.GetCustomAttributes<TestFrameworkAttribute>().ToArray();
+
+            if (declared.Length == 1 && declared[0].FrameworkType == expectedFrameworkType)
+            {
+                return;
+            }
+
+            string found = declared.Length == 0
+                ? "none"
+                : string.Join(", ", declared.Select(attribute => attribute.FrameworkType?.FullName ?? "<null>"));
+
+            Assert.Fail(
+                $"Assembly '{assembly}' must declare exactly one test framework, '{expectedFrameworkType.FullName}', but declares: {found}. " +
+                $"Without it the fixture argument sets are never expanded, so the tests carry no data store trait, every leg that selects positively on one " +
+                $"filters them out, and the leg passes with the suite missing rather than failing.");
+        }
+
         private static void AssertTestClasses(Assembly currentAssembly, string traitName, IEnumerable<Type> types)
         {
             if (types == null || !types.Any())

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -48,6 +49,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E
         public void GivenCurrentAssembly_WhenScanned_EnsureNoSharedCollectionDefinitionCarriesTraits()
         {
             AssemblyValidationsTester.EnsureNoSharedCollectionDefinitionCarriesTraits(_currentAssembly);
+        }
+
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureTheCustomTestFrameworkIsDeclared()
+        {
+            AssemblyValidationsTester.EnsureTestFrameworkIsDeclared(_currentAssembly, typeof(CustomXunitTestFramework));
         }
     }
 }
