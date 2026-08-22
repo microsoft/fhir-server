@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 await EnableAndVerifyQueryStoreAsync(connection, CancellationToken.None);
-                await SetWatchdogParametersAsync(connection, isEnabled: 1, periodSeconds: 300, CancellationToken.None);
                 await CreateProbeTableAsync(connection, tableName, CancellationToken.None);
                 double probeElapsedMilliseconds = await ExecuteProbeQueryAsync(connection, tableName, queryAlias, CancellationToken.None);
                 await WaitForQueryStoreCaptureAsync(connection, queryAlias, CancellationToken.None);
@@ -155,7 +154,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 await DropProbeTableAsync(connection, tableName, CancellationToken.None);
-                await DeleteWatchdogParametersAsync(connection, CancellationToken.None);
             }
         }
 
@@ -174,27 +172,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenRuntimeGateDisabled_WhenRun_ThenPublishesNothing()
+        public async Task GivenTheWatchdogIsStarted_WhenItRuns_ThenItNeitherSeedsNorReadsAnyDboParametersRow()
         {
             // Arrange
+            // The feature is configured exclusively through configuration, so starting it must leave dbo.Parameters
+            // untouched. Only a live database can show that: the seeding insert and the period read this watchdog no
+            // longer performs both happened at startup, before the first tick, and neither is visible to a test that
+            // invokes the collection directly.
             var mediator = Substitute.For<IMediator>();
-            var watchdog = CreateWatchdog(mediator, enabled: true);
+
+            // A one-second period keeps the randomized start-up delay inside the test's own budget. The lease's first
+            // acquire attempt is a full lease period away, so no tick of this watchdog reaches a collection here —
+            // which is the point: what is under test is what running it costs the database before it collects
+            // anything.
+            var watchdog = CreateWatchdog(mediator, enabled: true, periodSec: 1);
+
             await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             await connection.OpenAsync(CancellationToken.None);
-            await SetWatchdogParametersAsync(connection, isEnabled: 0, periodSeconds: 300, CancellationToken.None);
 
+            // A database this test has run the pre-refactor code against still holds the rows it seeded, and they
+            // would make the assertion below pass for the wrong reason.
+            await DeleteWatchdogParametersAsync(connection, CancellationToken.None);
+
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            // Act
             try
             {
-                // Act
-                await watchdog.RunWorkForTestingAsync(CancellationToken.None);
-
-                // Assert
-                Assert.Empty(mediator.ReceivedCalls());
+                await watchdog.ExecuteAsync(cancellationTokenSource.Token);
             }
-            finally
+            catch (OperationCanceledException)
             {
-                await DeleteWatchdogParametersAsync(connection, CancellationToken.None);
+                // Expected whenever the token trips while a randomized start-up delay is still pending, which is the
+                // usual case. Cancelling between ticks instead returns normally, so neither outcome is asserted on.
             }
+
+            // Assert
+            // Had the watchdog seeded anything, the rows would be here. Had it read a period or an enablement flag
+            // from a row it did not seed, it would have thrown InvalidOperationException out of ExecuteAsync rather
+            // than being cancelled, because no such row exists.
+            Assert.Equal(0, await CountWatchdogParametersAsync(connection, CancellationToken.None));
         }
 
         private static void AssertStatisticsHealthOrdinals(List<IMetricsNotification> notifications, string probeTableName)
@@ -259,11 +276,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.False(filteredIndexStatistics.IsUserCreated);
         }
 
-        private QueryStoreDiagnosticsWatchdog CreateWatchdog(IMediator mediator, bool enabled)
+        private QueryStoreDiagnosticsWatchdog CreateWatchdog(IMediator mediator, bool enabled, double periodSec = 300)
         {
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = enabled;
-            configuration.QueryStoreDiagnostics.PeriodSec = 300;
+            configuration.QueryStoreDiagnostics.PeriodSec = periodSec;
             configuration.QueryStoreDiagnostics.SlowQueryCount = 100;
             configuration.QueryStoreDiagnostics.MinDurationMilliseconds = 1;
             configuration.QueryStoreDiagnostics.IncludeQueryPlans = true;
@@ -313,33 +330,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (string)await command.ExecuteScalarAsync(cancellationToken);
         }
 
-        private static async Task SetWatchdogParametersAsync(SqlConnection connection, int isEnabled, int periodSeconds, CancellationToken cancellationToken)
-        {
-            await SetParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.IsEnabled", isEnabled, cancellationToken);
-            await SetParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.PeriodSec", periodSeconds, cancellationToken);
-        }
-
-        private static async Task SetParameterAsync(SqlConnection connection, string id, double value, CancellationToken cancellationToken)
-        {
-            await using SqlCommand command = connection.CreateCommand();
-            command.CommandText = @"
-UPDATE dbo.Parameters SET Number = @Value WHERE Id = @Id;
-IF @@ROWCOUNT = 0
-BEGIN
-    INSERT INTO dbo.Parameters (Id, Number) VALUES (@Id, @Value);
-END";
-            command.Parameters.AddWithValue("@Id", id);
-            command.Parameters.AddWithValue("@Value", value);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-
         private static async Task DeleteWatchdogParametersAsync(SqlConnection connection, CancellationToken cancellationToken)
         {
             await using SqlCommand command = connection.CreateCommand();
-            command.CommandText = @"
-DELETE FROM dbo.Parameters
-WHERE Id IN ('QueryStoreDiagnosticsWatchdog.IsEnabled', 'QueryStoreDiagnosticsWatchdog.PeriodSec');";
+            command.CommandText = "DELETE FROM dbo.Parameters WHERE Id LIKE 'QueryStoreDiagnosticsWatchdog%';";
             await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private static async Task<int> CountWatchdogParametersAsync(SqlConnection connection, CancellationToken cancellationToken)
+        {
+            // Matched by prefix rather than by the two names the watchdog used to seed, so a row this feature has no
+            // business creating is caught whatever it is called.
+            await using SqlCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM dbo.Parameters WHERE Id LIKE 'QueryStoreDiagnosticsWatchdog%';";
+            return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
         }
 
         private static async Task CreateProbeTableAsync(SqlConnection connection, string tableName, CancellationToken cancellationToken)

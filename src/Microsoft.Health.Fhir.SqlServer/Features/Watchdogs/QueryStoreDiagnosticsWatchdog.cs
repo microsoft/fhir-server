@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,9 +21,23 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal sealed class QueryStoreDiagnosticsWatchdog : Watchdog<QueryStoreDiagnosticsWatchdog>
+    /// <summary>
+    /// Collects Azure SQL Query Store and statistics diagnostics on a timer and publishes them as metrics
+    /// notifications. Deliberately does not derive from <see cref="Watchdog{T}"/>: that base class seeds and then
+    /// re-reads its period from <c>dbo.Parameters</c> on every start, from a private non-virtual initialization step
+    /// with no override hook, and this feature is configured exclusively through configuration and must write
+    /// nothing to the database. The timer and the lease the base class would have supplied are owned directly
+    /// instead, so the single-collector guarantee is unchanged.
+    /// </summary>
+    internal sealed class QueryStoreDiagnosticsWatchdog
     {
         internal const int MaxFieldLength = 32 * 1024;
+
+        /// <summary>
+        /// The configuration key that sets the collection period, named in the warnings that report the period
+        /// being unusable or clamped so the remedy does not have to be looked up.
+        /// </summary>
+        internal const string PeriodSecConfigurationKey = "FhirServer:Watchdog:QueryStoreDiagnostics:PeriodSec";
 
         /// <summary>Wait statistics were read for the plan.</summary>
         internal const string WaitStatisticsAvailableStatus = "Available";
@@ -35,6 +50,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         /// <summary>The collection interval used when configuration does not supply a usable one.</summary>
         private const double DefaultPeriodSec = 3600;
+
+        /// <summary>
+        /// The lease renewal interval. Ten minutes lets the lease be picked up promptly after a replica dies without
+        /// expiring in the middle of a collection. It is an internal coordination knob rather than an operator
+        /// setting — nothing an operator can observe changes with it — so it is deliberately not on the
+        /// configuration surface.
+        /// </summary>
+        private const double LeasePeriodSec = 600;
+
+        /// <summary>
+        /// Whether the lease may be handed to another replica to balance watchdogs across a deployment. Matches what
+        /// every other watchdog asks for.
+        /// </summary>
+        private const bool AllowLeaseRebalance = true;
+
+        /// <summary>
+        /// The cap on the randomized start-up delay. A period longer than an hour would otherwise leave a restarted
+        /// host collecting nothing for most of a period before its first tick.
+        /// </summary>
+        private const double MaxInitialDelaySec = 3600;
 
         /// <summary>The shortest lookback window a collection is allowed to use.</summary>
         private const double MinLookbackPeriodSec = 60;
@@ -199,11 +234,8 @@ ORDER BY
         private readonly ILogger<QueryStoreDiagnosticsWatchdog> _logger;
         private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
-
-        // The period this instance actually asked for, which is the configured value unless that value was unusable
-        // and the default was substituted for it. The divergence check at initialization compares against this rather
-        // than against configuration, so a rejected value cannot also be reported as overridden by the stored row.
-        private readonly double _configuredPeriodSec;
+        private readonly FhirTimer _fhirTimer;
+        private readonly WatchdogLease<QueryStoreDiagnosticsWatchdog> _watchdogLease;
 
         // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
         // first observation, so that the state a process starts in is always reported once and an operator never has
@@ -212,26 +244,32 @@ ORDER BY
         // synchronization.
         private RunWindowState? _lastRunWindowState;
 
+        // When the per-tick duration was last reported at information level, so that a short period cannot turn that
+        // line into noise. Written only from the tick, which FhirTimer runs sequentially.
+        private DateTime _lastTickReported;
+
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
             IMediator mediator,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
-            : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
+            _fhirTimer = new FhirTimer(_logger);
+            _watchdogLease = new WatchdogLease<QueryStoreDiagnosticsWatchdog>(_sqlRetryService, _logger);
 
-            // PeriodSec reaches PeriodicTimer through the shared watchdog framework (Watchdog.ExecuteAsync ->
+            // PeriodSec reaches PeriodicTimer through the timer this watchdog now owns (ExecuteAsync ->
             // FhirTimer.ExecuteAsync -> new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec))), which rejects a
-            // non-positive period. That rejection would fault this watchdog's task, and WatchdogsBackgroundService
-            // cancels the token shared by every watchdog as soon as one of their tasks completes — so a single
-            // mistyped value in an off-by-default diagnostics feature would take the transaction and cleanup
-            // watchdogs down with it. A diagnostics feature degrades instead of failing the host: keep the class
-            // default and name the rejected value. Non-finite values are rejected on the same grounds, because
-            // TimeSpan.FromSeconds rejects them for the same reason and with the same blast radius.
+            // non-positive period. Owning the timer does not contain that rejection: it would fault this watchdog's
+            // task, and WatchdogsBackgroundService cancels the token shared by every watchdog as soon as one of
+            // their tasks completes — so a single mistyped value in an off-by-default diagnostics feature would
+            // still take the transaction and cleanup watchdogs down with it. A diagnostics feature degrades instead
+            // of failing the host: keep the class default and name the rejected value. Non-finite values are
+            // rejected on the same grounds, because TimeSpan.FromSeconds rejects them for the same reason and with
+            // the same blast radius.
             if (_configuration.PeriodSec > 0 && double.IsFinite(_configuration.PeriodSec))
             {
                 PeriodSec = _configuration.PeriodSec;
@@ -240,18 +278,11 @@ ORDER BY
             {
                 PeriodSec = DefaultPeriodSec;
                 _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure a positive value to change the interval.",
+                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure a positive value in '{PeriodSecConfigurationKey}' to change the interval.",
                     _configuration.PeriodSec,
-                    DefaultPeriodSec);
+                    DefaultPeriodSec,
+                    PeriodSecConfigurationKey);
             }
-
-            _configuredPeriodSec = PeriodSec;
-        }
-
-        internal QueryStoreDiagnosticsWatchdog()
-            : base()
-        {
-            // this is used to get param names for testing
         }
 
         /// <summary>
@@ -271,14 +302,18 @@ ORDER BY
             AfterWindow,
         }
 
-        internal string IsEnabledId => $"{Name}.IsEnabled";
+        /// <summary>
+        /// Gets the name this watchdog reports itself under in logs and in the lease it takes. Held as a literal
+        /// rather than <c>GetType().Name</c> — identical for a sealed class — so that renaming the type surfaces as
+        /// a deliberate change to a name that appears in operator-facing logs.
+        /// </summary>
+        public string Name => nameof(QueryStoreDiagnosticsWatchdog);
 
-        // Ten minutes allows the lease to recover promptly without expiring during a diagnostics collection.
-        public override double LeasePeriodSec { get; internal set; } = 600;
-
-        public override bool AllowRebalance { get; internal set; } = true;
-
-        public override double PeriodSec { get; internal set; } = DefaultPeriodSec;
+        /// <summary>
+        /// Gets the interval, in seconds, between collections. Set once from configuration at construction, because
+        /// that is the only source for it and <see cref="IOptions{T}"/> does not reload in place.
+        /// </summary>
+        public double PeriodSec { get; }
 
         /// <summary>
         /// Exposes RunWorkAsync for unit testing purposes.
@@ -287,30 +322,72 @@ ORDER BY
         /// <returns>A task representing the asynchronous operation.</returns>
         internal Task RunWorkForTestingAsync(CancellationToken cancellationToken) => RunWorkAsync(cancellationToken);
 
-        protected override async Task InitAdditionalParamsAsync()
+        /// <summary>
+        /// Runs the collection timer and the lease until the supplied token is cancelled. Called by
+        /// <see cref="WatchdogsBackgroundService"/>, which only starts this watchdog when the feature is enabled in
+        /// configuration.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand(@"
-INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
-            command.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
-            await command.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
+            _logger.LogDebug("{WatchdogName}.ExecuteAsync: starting...", Name);
 
-            // By the time this hook runs, the base class has already overwritten PeriodSec with the value stored in
-            // dbo.Parameters. That store is write-once in practice: the seeding INSERT is a silent no-op on a database
-            // that already holds the row, because dbo.Parameters has IGNORE_DUP_KEY = ON. So a deployment that changes
-            // the configured period on an existing database gets no effect and no error. Surface the divergence rather
-            // than leaving it to be inferred from collection timestamps.
-            WarnIfStoredPeriodSecOverridesConfiguration();
-
-            // A run window that was mistyped produces no collection and no error, which is indistinguishable from a
-            // window that simply has not opened yet. Report it at startup instead of at the moment it fails to take
-            // effect, which may be weeks away or never.
+            // Reported once per process rather than once per tick. A mistyped window collects nothing and raises
+            // nothing, which is indistinguishable from a window that has simply not opened yet, so it has to be
+            // stated at startup — repeating it hourly for the weeks until the window was meant to open would bury
+            // it. Nothing here touches the database, so it needs no initialization step to hang off.
             ReportConfiguredRunWindow();
+
+            // The timer and the lease run concurrently and neither returns until the token is cancelled. The initial
+            // delay is randomized up to one period and capped at an hour so that replicas started together do not
+            // all collect on the same second, and so that a long period does not leave a restarted host silent for
+            // most of it.
+            await Task.WhenAll(
+                _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken, PeriodSec > MaxInitialDelaySec ? MaxInitialDelaySec : PeriodSec),
+                _watchdogLease.ExecuteAsync($"{Name}Lease", AllowLeaseRebalance, LeasePeriodSec, cancellationToken));
+
+            _logger.LogDebug("{WatchdogName}.ExecuteAsync: completed.", Name);
         }
 
         /// <summary>
-        /// Reports the configured run window at initialization: a window that can never open as a warning, and any
-        /// configured window as its effective UTC bounds. Separated from <see cref="InitAdditionalParamsAsync"/>,
-        /// which cannot run without a live database, so the branches are reachable from unit tests.
+        /// Runs one tick, on the replica that holds the lease.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task OnNextTickAsync(CancellationToken cancellationToken)
+        {
+            if (!_watchdogLease.IsLeaseHolder)
+            {
+                // The lease is what keeps one collection per period rather than one per replica: without this gate
+                // an eight-instance deployment would issue eight concurrent Query Store scans an hour and emit
+                // eight copies of every notification.
+                _logger.LogDebug("{WatchdogName}.OnNextTickAsync: skipping because this instance does not hold the lease.", Name);
+                return;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+
+            await RunWorkAsync(cancellationToken);
+
+            // Reports that a tick happened at all, which the collection summary inside RunWorkAsync cannot: a tick
+            // that returned early — outside the run window, or with Query Store unavailable — logs its reason but
+            // nothing about the timer still being alive. Throttled to hourly at information level so that a short
+            // configured period cannot turn it into noise.
+            if (DateTime.UtcNow - _lastTickReported > TimeSpan.FromHours(1))
+            {
+                _lastTickReported = DateTime.UtcNow;
+                _logger.LogInformation("{WatchdogName}.OnNextTickAsync ran in {ElapsedMilliseconds} ms.", Name, stopwatch.ElapsedMilliseconds);
+            }
+            else
+            {
+                _logger.LogDebug("{WatchdogName}.OnNextTickAsync ran in {ElapsedMilliseconds} ms.", Name, stopwatch.ElapsedMilliseconds);
+            }
+        }
+
+        /// <summary>
+        /// Reports the configured run window at startup: a window that can never open as a warning, and any
+        /// configured window as its effective UTC bounds. Exposed as internal only for unit testing.
         /// </summary>
         internal void ReportConfiguredRunWindow()
         {
@@ -343,54 +420,37 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
         }
 
         /// <summary>
-        /// Reports the stored <c>dbo.Parameters</c> period silently overriding the one this instance was configured
-        /// with. Separated from <see cref="InitAdditionalParamsAsync"/>, which cannot run without a live database,
-        /// so the branch is reachable from unit tests.
+        /// Clamps the configured collection period into the supported lookback range, reporting what the clamp costs
+        /// when it changes the value. Takes the period as a parameter rather than reading
+        /// <see cref="PeriodSec"/> directly so that both clamp directions are reachable from a unit test.
+        /// Exposed as internal only for unit testing.
         /// </summary>
-        internal void WarnIfStoredPeriodSecOverridesConfiguration()
-        {
-            // Exact comparison is correct here and an epsilon would not be: dbo.Parameters.Number is SQL float, which
-            // is IEEE-754 double, so a value that originated as a double round-trips losslessly.
-            if (PeriodSec != _configuredPeriodSec)
-            {
-                _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec} but the stored value in dbo.Parameters is {StoredPeriodSec}, which takes precedence and also sets the lookback window. Update the '{PeriodSecId}' row to change it.",
-                    _configuredPeriodSec,
-                    PeriodSec,
-                    PeriodSecId);
-            }
-        }
-
-        /// <summary>
-        /// Clamps the stored collection period into the supported lookback range, reporting what the clamp costs when
-        /// it changes the value. Exposed as internal only for unit testing.
-        /// </summary>
-        /// <param name="storedPeriodSec">The collection period as stored in <c>dbo.Parameters</c>.</param>
+        /// <param name="configuredPeriodSec">The collection period this instance is running at.</param>
         /// <returns>The lookback window, in seconds, to use for this collection.</returns>
-        internal double GetLookbackPeriodSec(double storedPeriodSec)
+        internal double GetLookbackPeriodSec(double configuredPeriodSec)
         {
-            var lookbackPeriodSec = Math.Clamp(storedPeriodSec, MinLookbackPeriodSec, MaxLookbackPeriodSec);
+            var lookbackPeriodSec = Math.Clamp(configuredPeriodSec, MinLookbackPeriodSec, MaxLookbackPeriodSec);
 
-            // The tick interval is the stored period unclamped, and it is fixed once at initialization, so whenever the
-            // clamp bites the two decouple permanently and silently. The initialization warning does not cover this
-            // case: there the configured and stored values agree, so it stays quiet.
-            if (lookbackPeriodSec < storedPeriodSec)
+            // The tick interval is the configured period unclamped, so whenever the clamp bites the interval and the
+            // window it covers decouple permanently and silently — every tick after the first inherits the same gap
+            // or the same overlap.
+            if (lookbackPeriodSec < configuredPeriodSec)
             {
                 _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: the stored PeriodSec of {StoredPeriodSec} seconds exceeds the maximum lookback window, so every collection looks back only {LookbackPeriodSec} seconds and {UnexaminedPeriodSec} seconds of each interval are never examined. Set the '{PeriodSecId}' row to at most {MaxLookbackPeriodSec} seconds.",
-                    storedPeriodSec,
+                    "QueryStoreDiagnosticsWatchdog: the configured PeriodSec of {ConfiguredPeriodSec} seconds exceeds the maximum lookback window, so every collection looks back only {LookbackPeriodSec} seconds and {UnexaminedPeriodSec} seconds of each interval are never examined. Set '{PeriodSecConfigurationKey}' to at most {MaxLookbackPeriodSec} seconds.",
+                    configuredPeriodSec,
                     lookbackPeriodSec,
-                    storedPeriodSec - lookbackPeriodSec,
-                    PeriodSecId,
+                    configuredPeriodSec - lookbackPeriodSec,
+                    PeriodSecConfigurationKey,
                     MaxLookbackPeriodSec);
             }
-            else if (lookbackPeriodSec > storedPeriodSec)
+            else if (lookbackPeriodSec > configuredPeriodSec)
             {
                 _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: the stored PeriodSec of {StoredPeriodSec} seconds is below the minimum lookback window, so every collection looks back {LookbackPeriodSec} seconds and consecutive collections overlap and re-report the same plans. Set the '{PeriodSecId}' row to at least {MinLookbackPeriodSec} seconds.",
-                    storedPeriodSec,
+                    "QueryStoreDiagnosticsWatchdog: the configured PeriodSec of {ConfiguredPeriodSec} seconds is below the minimum lookback window, so every collection looks back {LookbackPeriodSec} seconds and consecutive collections overlap and re-report the same plans. Set '{PeriodSecConfigurationKey}' to at least {MinLookbackPeriodSec} seconds.",
+                    configuredPeriodSec,
                     lookbackPeriodSec,
-                    PeriodSecId,
+                    PeriodSecConfigurationKey,
                     MinLookbackPeriodSec);
             }
 
@@ -480,25 +540,19 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             }
         }
 
-        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
+        private async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             try
             {
                 if (!_configuration.Enabled)
                 {
+                    // Unreachable in the host as it stands: WatchdogsBackgroundService reads the same configuration
+                    // snapshot and never starts this watchdog when the feature is off, and IOptions<T> does not
+                    // reload in place. It is kept because the watchdog is registered AsSelf and this is the only
+                    // place the opt-out is enforced at the unit of work — any future call site that executes a
+                    // collection directly would otherwise read Query Store on a deployment that opted out. One bool
+                    // read per period is not a cost worth trading that away for.
                     _logger.LogInformation("QueryStoreDiagnosticsWatchdog is disabled by configuration. Exiting...");
-                    return;
-                }
-
-                if (!await IsEnabledAsync(cancellationToken))
-                {
-                    // Warning, not information: WatchdogsBackgroundService only starts this watchdog when the feature
-                    // is enabled in configuration, so reaching this line always means an operator opted in and the
-                    // opt-in is having no effect because the runtime row was never armed. The remedy is inline so it
-                    // does not have to be looked up.
-                    _logger.LogWarning(
-                        "QueryStoreDiagnosticsWatchdog is enabled in configuration but not armed in dbo.Parameters, so no diagnostics are being collected. Exiting... Arm it with: UPDATE dbo.Parameters SET Number = 1 WHERE Id = '{IsEnabledId}'",
-                        IsEnabledId);
                     return;
                 }
 
@@ -511,12 +565,12 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     // would mean faulting or completing this watchdog's task, and WatchdogsBackgroundService cancels
                     // the token shared by EVERY watchdog as soon as one task completes — so self-terminating an
                     // off-by-default diagnostics feature would take the transaction and cleanup watchdogs down with
-                    // it. PeriodSec and timer faults propagate through the same shared framework for the same reason.
-                    // A clock comparison once an hour costs nothing; the alternative costs the host.
+                    // it. PeriodSec and timer faults propagate the same way for the same reason. A clock comparison
+                    // once an hour costs nothing; the alternative costs the host.
                     return;
                 }
 
-                var lookbackPeriodSec = GetLookbackPeriodSec(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken));
+                var lookbackPeriodSec = GetLookbackPeriodSec(PeriodSec);
                 var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
                 var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
                 if (queryStoreState == null)
@@ -542,8 +596,8 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             {
                 // This filter covers the whole method body rather than each read, which loses the ability to name the
                 // failing statement. That is the accepted trade-off: the watchdog only runs when an operator enabled
-                // it in both configuration and dbo.Parameters, so "the views you asked me to read do not exist" is
-                // always operator-actionable and permanent, and per-read catches would be more churn than value.
+                // it in configuration, so "the views you asked me to read do not exist" is always operator-actionable
+                // and permanent, and per-read catches would be more churn than value.
                 // Because the filter spans every read, the missing view can be the last one, after slow queries and
                 // plans have already been published; the message is therefore deliberately worded to be true of a
                 // partial tick as well as of one that emitted nothing.
@@ -556,12 +610,9 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
         }
 
         /// <summary>
-        /// Runs the collection itself, once the configuration, runtime and Query Store state gates have all passed.
-        /// Separated from <see cref="RunWorkAsync"/> so that the reads and the notifications they produce are
-        /// reachable from unit tests: the gates above read <c>dbo.Parameters</c> through
-        /// <see cref="SqlCommandExtensions.ExecuteScalarAsync(SqlCommand, ISqlRetryService, ILogger, CancellationToken, string, bool, bool)"/>,
-        /// which materializes its value inside a callback executed against a live <see cref="SqlCommand"/> and so
-        /// cannot be substituted. Exception handling deliberately stays in the caller.
+        /// Runs the collection itself, once the configuration, run-window and Query Store state gates have all
+        /// passed. Separated from <see cref="RunWorkAsync"/> so that the reads and the notifications they produce
+        /// are reachable from unit tests, and so that exception handling stays in one place in the caller.
         /// </summary>
         /// <param name="startTime">The start of the collection window.</param>
         /// <param name="collectionTime">The end of the collection window.</param>
@@ -848,12 +899,6 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             }
 
             return statisticsHealth.Count;
-        }
-
-        private async Task<bool> IsEnabledAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(IsEnabledId, cancellationToken);
-            return value == 1;
         }
 
         /// <summary>

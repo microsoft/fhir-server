@@ -13,13 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class QueryStoreDiagnosticsConfiguration
     {
         /// <summary>
-        /// Gets or sets a value indicating whether the Query Store diagnostics watchdog can run.
-        /// The database runtime override must also be enabled.
+        /// Gets or sets a value indicating whether the Query Store diagnostics watchdog runs. This is the only
+        /// switch: the feature has no database-side enablement and writes no configuration to the database.
         /// </summary>
         public bool Enabled { get; set; } = false;
 
         /// <summary>
-        /// Gets or sets the interval, in seconds, between diagnostics collections.
+        /// Gets or sets the interval, in seconds, between diagnostics collections. Also used, clamped to
+        /// [60, 86400], as the Query Store lookback window each collection covers.
         /// </summary>
         public double PeriodSec { get; set; } = 3600;
 

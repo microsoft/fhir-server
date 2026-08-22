@@ -272,8 +272,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                 Substitute.For<IMediator>(),
                 Options.Create(configuration));
 
-            // The shared base constructs a WatchdogLease, which logs through this same logger, so construction is not
-            // silent. Dropping that here keeps every assertion below a statement about what the run window reported.
+            // Constructing the watchdog constructs its WatchdogLease, which logs through this same logger, so
+            // construction is not silent. Dropping that here keeps every assertion below a statement about what the
+            // run window reported.
             logger.Clear();
 
             return watchdog;

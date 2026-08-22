@@ -45,31 +45,27 @@ The critical property is that **nothing new connects inbound to the database**. 
 
 ### Why a watchdog
 
-`Watchdog<T>` already provides everything this feature needs, and every one of these behaviours would otherwise have to be reinvented:
+`WatchdogsBackgroundService` and `WatchdogLease<T>` already provide what this feature needs, and each of these would otherwise have to be reinvented:
 
-- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans.
-- **Runtime-tunable period.** `PeriodSec` is seeded into `dbo.Parameters` on first run and re-read from there, so the interval can be changed on a live database without a redeploy.
-- **An established runtime override.** `DefragWatchdog` already uses a `{Name}.IsEnabled` row in `dbo.Parameters` as an operational switch. This feature reuses that idiom.
+- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans and emit eight copies of every notification. The lease is invisible runtime coordination rather than configuration: it holds nothing an operator sets, and it lives in `dbo.WatchdogLeases` behind `dbo.AcquireWatchdogLease`, shared with every other watchdog.
+- **A managed background timer.** `FhirTimer` supplies the randomized start-up stagger that keeps replicas from collecting on the same second, and catches whatever a tick throws so that a failed collection costs one tick rather than the process.
 - **A precedent for emitting SQL telemetry.** `GeoReplicationLagWatchdog` reads a SQL view on a timer and publishes an `IMetricsNotification`; the host binds a handler that forwards it. This feature is the same shape.
+
+**It deliberately does not derive from `Watchdog<T>`.** That base class inserts `{Name}.PeriodSec` and `{Name}.LeasePeriodSec` into `dbo.Parameters` on every start and then reads the period back **over** the configured value, from a private, non-virtual initialization step with no override hook. This feature is configured exclusively from configuration and writes nothing to the database, so it owns a `FhirTimer` and a `WatchdogLease<T>` directly and reproduces the rest of what the base class did — the lease-holder gate, the capped randomized stagger, and the per-tick timing line — in its own `ExecuteAsync` and tick handler. `WatchdogLease<T>` uses its type argument only to derive the lease resource name from `typeof(T).Name`; its former `T : Watchdog<T>` constraint restricted nothing it actually used, so it was relaxed to admit a self-scheduling component. Every other caller passes a `Watchdog<T>` and is unaffected, and the timer and base class are used unmodified.
 
 ### Enablement
 
-The feature is **off by default** and is gated by two independent switches. Both must be true before any Query Store read occurs.
+The feature is **off by default** and is gated by one switch, in configuration.
 
 | Gate | Location | Purpose |
 | --- | --- | --- |
-| `FhirServer:Watchdog:QueryStoreDiagnostics:Enabled` | Host configuration | Deployment-time gate. When false the watchdog is never started by `WatchdogsBackgroundService`. |
-| `QueryStoreDiagnosticsWatchdog.IsEnabled` | `dbo.Parameters` | Runtime gate. Lets a single account be switched on or off against a live database without a redeploy or restart. |
+| `FhirServer:Watchdog:QueryStoreDiagnostics:Enabled` | Host configuration | When false the watchdog is never started by `WatchdogsBackgroundService`, and no Query Store read occurs. |
 
-This two-gate arrangement is what makes the feature safe to ship dark: the configuration gate keeps it off for the fleet, and the `dbo.Parameters` gate lets an investigation be turned on for one affected account and turned off again afterwards.
+**All configuration for this feature lives in configuration, and the feature writes none of it to the database.** There is no row to seed, arm, or update: no `IsEnabled` row, no `PeriodSec` row, no `LeasePeriodSec` row. Turning the feature on, tuning it, and turning it off are configuration changes plus a restart — no `UPDATE` against a live database, and no possibility of a database holding a value that disagrees with the deployment's configuration.
 
-**Setting the configuration gate alone collects nothing.** The runtime gate is seeded to `0` by `InitAdditionalParamsAsync` and has no configuration binding, so it cannot be set through `appsettings.json` or an environment variable — arming it is deliberately a separate, deliberate act against the database:
+The watchdog also re-reads `Enabled` at the start of every tick and returns without collecting when it is false. That check cannot be reached with the value false as the host is wired today: `WatchdogsBackgroundService` gates startup on the same configuration snapshot, and `IOptions<T>` does not reload in place. It is kept because the watchdog is registered `AsSelf` and this is the only place the opt-out is enforced at the unit of work, so a future call site that executes a collection directly cannot bypass it. The cost is one boolean read per period.
 
-```sql
-UPDATE dbo.Parameters SET Number = 1 WHERE Id = 'QueryStoreDiagnosticsWatchdog.IsEnabled'
-```
-
-Until that row is `1` the watchdog logs, at **warning** level, `QueryStoreDiagnosticsWatchdog is enabled in configuration but not armed in dbo.Parameters, so no diagnostics are being collected. Exiting...` once per tick, with the arming statement above included inline, and returns. It is a warning rather than information because the watchdog is only ever started when the configuration gate is on, so reaching that line always means an opt-in that is having no effect. That log line is the thing to look for when the feature appears to be doing nothing.
+The only database row this feature causes to exist is its **lease**, in `dbo.WatchdogLeases` through `dbo.AcquireWatchdogLease`. That is what stops every replica collecting and emitting the same diagnostics every period; it holds no configuration and is the same mechanism every other watchdog uses. That shared stored procedure does consult `dbo.Parameters` for the fleet-wide watchdog lease-holder include and exclude patterns, which is noted under [Configuration](#configuration): it is shared framework behaviour that this feature neither sets nor reads for itself.
 
 ### Configuration
 
@@ -77,8 +73,8 @@ Until that row is `1` the watchdog logs, at **warning** level, `QueryStoreDiagno
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `Enabled` | `false` | Deployment-time gate described above. |
-| `PeriodSec` | `3600` | Interval between collections. **Seeds `dbo.Parameters` once**; thereafter the live value is read from there. Also used as the Query Store lookback window. A non-positive or non-finite value is rejected with a warning and the `3600` default is used, because the shared watchdog timer would otherwise throw and fault every watchdog in the process. |
+| `Enabled` | `false` | The gate described above. |
+| `PeriodSec` | `3600` | Interval between collections, and — clamped to `[60, 86400]` seconds — the Query Store lookback window each collection covers. A non-positive or non-finite value is rejected with a warning and the `3600` default is used, because `PeriodicTimer` would otherwise throw and fault every watchdog in the process. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
@@ -87,19 +83,13 @@ Until that row is `1` the watchdog logs, at **warning** level, `QueryStoreDiagno
 | `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
 | `RunEndDate` | `null` (unset) | **Exclusive** end of the optional run window. Ticks at or after it collect nothing. `null` means no upper bound. |
 
-The lookback window is the live `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
+The lookback window is `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
 
-**`PeriodSec` is write-once per database.** `Watchdog.InitParamsAsync` inserts it into `dbo.Parameters`, but that table's primary key is declared `WITH (IGNORE_DUP_KEY = ON)`, so on a database that already holds the row the insert is silently a no-op — and the next line reads the stored value back over the configured one. Changing the configured `PeriodSec` on an already-initialized database therefore has **no effect**; the stored row wins, and it governs both the tick interval and the lookback window. This is shared framework behaviour, not specific to this watchdog. To actually change the period, update the row:
+The watchdog warns on every tick where the clamp changed the value, naming the effective window and what the clamp costs, and pointing at `FhirServer:Watchdog:QueryStoreDiagnostics:PeriodSec` as the thing to change. The tick interval itself is **not** clamped, so whenever the clamp bites the interval and the window it covers are permanently decoupled: a period above the cap leaves the excess of every interval unexamined, and one below the floor makes consecutive collections overlap and re-report the same plans.
 
-```sql
-UPDATE dbo.Parameters SET Number = 900 WHERE Id = 'QueryStoreDiagnosticsWatchdog.PeriodSec'
-```
+**Every setting takes effect on restart, on every database.** All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so nothing reloads in place: editing configuration on a running host changes nothing until it restarts. `PeriodSec` is read once, at construction, because it is handed to the timer for the life of the process; the rest are read from configuration on each tick, which makes no observable difference while the values cannot change underneath. None of them is read from or written to the database, so a deployment behaves identically against a database it created a minute ago and one it has been running against for a year — there is no first-run state for its settings to diverge from.
 
-**That `UPDATE` only takes full effect after a restart, and the two values diverge until then.** The lookback window is re-read from `dbo.Parameters` at the start of *every* tick, but the tick interval is read once, at initialization, and handed to the timer for the life of the process. So the statement above shortens the lookback immediately while collections keep firing at the old interval — going from `3600` to `900` on a running host means each tick then looks back 15 minutes out of the 60 minutes it covers, leaving 45 minutes of every hour unexamined until the process restarts. Lengthening the value has the mirror effect: consecutive ticks overlap and re-report the same plans. Restart the host after changing the row, or accept the gap in the interim.
-
-The watchdog also warns on every tick where the stored period had to be clamped into the supported lookback range of `[60, 86400]` seconds, naming the effective window and what the clamp costs, because in that case the interval and the lookback are permanently decoupled — the initialization warning below cannot see it, since the configured and stored values agree.
-
-Because this override is silent, the watchdog logs a warning at initialization whenever the stored period differs from the configured one, so a deployment that believes it changed the interval is not left to discover otherwise from collection timestamps. The other eight settings are read from configuration on every tick and have no `dbo.Parameters` equivalent, so they take effect on restart. All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so no setting reloads in place.
+One piece of pre-existing database state can still suppress collection, and it belongs to the shared lease rather than to this feature: `dbo.AcquireWatchdogLease` honours `WatchdogLeaseHolderIncludePattern` and `WatchdogLeaseHolderExcludePattern` rows in `dbo.Parameters`, plus the per-watchdog `...For<name>` variants — where the name is `QueryStoreDiagnosticsWatchdog`. A worker excluded by such a row never becomes lease holder, so its ticks skip and nothing is collected. That applies identically to every watchdog in the process and is not something this feature sets, seeds, or reads itself, but it is the one thing to check on a long-lived database when the feature is enabled and silent.
 
 ### Run window
 
@@ -111,9 +101,9 @@ Because this override is silent, the watchdog logs a warning at initialization w
 
 - **`RunStartDate` is inclusive, `RunEndDate` is exclusive.** The instant that equals the end is already outside the window, so adjacent windows tile without overlapping.
 - **`null` means unbounded**, not "now": an unset start collects from the first tick, an unset end collects indefinitely.
-- **A start that is not before the end is an empty window** — including a start exactly equal to the end — and nothing will ever be collected. That configuration is logged as a warning at initialization naming both values, because nothing downstream will ever complain about it.
+- **A start that is not before the end is an empty window** — including a start exactly equal to the end — and nothing will ever be collected. That configuration is logged as a warning once at startup naming both values, because nothing downstream will ever complain about it.
 
-The window is evaluated **after** both enablement gates, so a deployment that is outside its window still gets the warning telling it that the `dbo.Parameters` runtime gate was never armed.
+The window is evaluated inside the tick, after the configuration gate and after the lease-holder check, so a host that is outside its window still holds the lease and keeps ticking — it simply collects nothing and says so once, when the state changes.
 
 **Set the offset explicitly.** A value without one — `2026-03-01T00:00:00` — is bound in the **host's local timezone**, which is invisible in the configured text and is rarely what was intended. Use ISO-8601 with a `Z` suffix, `2026-03-01T00:00:00Z`. As an environment variable:
 
@@ -122,7 +112,7 @@ FhirServer__Watchdog__QueryStoreDiagnostics__RunStartDate=2026-03-01T00:00:00Z
 FhirServer__Watchdog__QueryStoreDiagnostics__RunEndDate=2026-03-08T00:00:00Z
 ```
 
-Whenever either bound is set, the watchdog logs the effective window **converted to UTC** at initialization, so an operator who typed a local time without an offset sees the resolved instant immediately rather than waiting for a window that silently opens hours late — or, for a short window, never visibly opens at all.
+Whenever either bound is set, the watchdog logs the effective window **converted to UTC** once at startup — before the first tick, and not repeated per tick — so an operator who typed a local time without an offset sees the resolved instant immediately rather than waiting for a window that silently opens hours late — or, for a short window, never visibly opens at all.
 
 A **malformed** value is not silently ignored and does not silently disable the window: configuration binding throws `InvalidOperationException` naming the offending key. This matches every other typed setting in this section — `PeriodSec`, `SlowQueryCount` and `Enabled` all reject an unparseable value the same way — so a date bound introduces no failure mode the existing settings do not already have. An empty value binds as `null`, which is how a bound is removed rather than mistyped.
 
@@ -130,7 +120,7 @@ A **malformed** value is not silently ignored and does not silently disable the 
 
 The window state is logged **only when it changes** — not open yet, open, closed — at information level. At the default hourly period a window that opens in a month would otherwise produce roughly 720 identical skip lines before collecting anything. The state a process starts in is always logged once, so the reason for silence is available immediately after a restart.
 
-**The window boundaries take effect without a restart, but the configured values do not.** These settings bind through `IOptions<T>`, so the *values* are read once at process start and editing configuration afterwards has no effect until the host restarts — the same as the other non-`PeriodSec` settings. What changes without a restart is the *clock*: a window configured before the host started will open and close on schedule while the process keeps running, because each tick re-evaluates the fixed boundaries against the current time. Changing a boundary on a running host still requires a restart.
+**The window boundaries take effect without a restart, but the configured values do not.** These settings bind through `IOptions<T>`, so the *values* are read once at process start and editing configuration afterwards has no effect until the host restarts — the same as every other setting in this feature. What changes without a restart is the *clock*: a window configured before the host started will open and close on schedule while the process keeps running, because each tick re-evaluates the fixed boundaries against the current time. Changing a boundary on a running host still requires a restart.
 
 ## Emitted contracts
 
@@ -204,13 +194,15 @@ Modification percentage is left null when the row count is null or zero rather t
 
 The missing-view handler spans the whole collection rather than each individual read, so the aborting read can be the last one, after slow queries and plans have already been published. Its warning is worded to hold in that case too: it reports that collection was aborted and that whatever had already been emitted was still published, rather than claiming that nothing was collected.
 
-That containment covers **per-tick collection only**. `Watchdog<T>.ExecuteAsync` awaits `InitParamsAsync` *before* and *outside* `FhirTimer`'s per-tick catch, so a throw during initialization — seeding the `dbo.Parameters` rows — still faults the watchdog task, and `WatchdogsBackgroundService` cancels the rest. This is a **pre-existing property of the shared watchdog framework**, not something this feature introduces: `DefragWatchdog` initializes with the identical insert pattern. It is documented here rather than worked around, because changing the shared framework is out of scope for a diagnostics feature.
+That containment covers **per-tick collection**, which is where all of this feature's own database work happens: `FhirTimer` catches whatever a tick throws and keeps ticking, so a failed collection costs one tick. The lease renewal is the only other database call, and it runs on the lease's own `FhirTimer` with the same per-tick catch. There is no initialization step left to fail outside either catch. Watchdogs that derive from `Watchdog<T>` do have one — `ExecuteAsync` awaits `InitParamsAsync`, which seeds `dbo.Parameters`, *before* and *outside* the per-tick catch, so a throw there faults the watchdog task and `WatchdogsBackgroundService` cancels the rest — and not deriving from it removes that failure mode here along with the writes.
+
+What remains outside the catch is the period itself: `PeriodicTimer` throws on a non-positive or non-finite interval, and that throw would happen before the first tick. This is why the configured `PeriodSec` is validated at construction and replaced with the default rather than passed through, and why the run-window check skips a tick rather than ending the timer.
 
 ### Reading the primary
 
 Every diagnostics read binds to the **primary**, not to a read-only replica, even though these are all read-only queries.
 
-Query Store state is primary-scoped: on a secondary the database is read-only, so `sys.database_query_store_options.actual_state_desc` reports `READ_ONLY`, the `READ_WRITE` state gate rejects it, and the tick returns having emitted nothing — silently, forever, with both gates on and no exception raised. Replica routing is also decided per call against a process-global counter, so a single tick could otherwise check state on the primary and read data from a secondary, harvesting plan identifiers on one server and looking them up on another.
+Query Store state is primary-scoped: on a secondary the database is read-only, so `sys.database_query_store_options.actual_state_desc` reports `READ_ONLY`, the `READ_WRITE` state gate rejects it, and the tick returns having emitted nothing — silently, forever, with the feature enabled and no exception raised. Replica routing is also decided per call against a process-global counter, so a single tick could otherwise check state on the primary and read data from a secondary, harvesting plan identifiers on one server and looking them up on another.
 
 The cost is one collection per period against the primary — hourly by default — which is negligible next to the failure mode it removes.
 
@@ -266,7 +258,7 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 
 - binding notification handlers and routing the emissions to Geneva or Log Analytics;
 - setting the configuration gate per environment and ring;
-- operating the `dbo.Parameters` runtime override during an investigation;
+- setting the collection settings, including the run window, for an investigation;
 - retention, access control, and downstream handling of emitted query text and plans; and
 - any responder-facing tooling built on top of the emitted stream.
 
@@ -275,9 +267,9 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 1. Merge the OSS change. The feature ships disabled.
 2. Bind a handler and configure routing in `fhir-paas`.
 3. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
-4. Enable per account through the `dbo.Parameters` override during investigations.
+4. Enable it for the deployment under investigation through configuration — bounding it with `RunStartDate` and `RunEndDate` when the investigation is time-boxed — and restart that deployment for the change to take effect.
 
-Because there is **no schema change**, there is no migration ordering dependency and no package/schema-version synchronization step. This is the single largest operational simplification relative to the rejected design.
+Because there is **no schema change**, there is no migration ordering dependency and no package/schema-version synchronization step. This is the single largest operational simplification relative to the rejected design. Nothing has to be written to a database to turn the feature on, so there is also no per-database state to seed, clean up, or reconcile against configuration.
 
 ## Simplifications and deferred work
 
@@ -320,7 +312,7 @@ Secondary benefits of the change:
 1. With Query Store enabled and a deliberately slow query executed, a `SlowQueryNotification` is emitted carrying a matching `QueryId`/`PlanId`.
 2. A `QueryPlanNotification` is emitted for that plan with status `Sanitized`.
 3. `StatisticsHealthNotification` rows are emitted for user tables.
-4. The watchdog performs no work when either gate is off.
+4. The watchdog performs no work when the configuration gate is off, and starting it creates no `dbo.Parameters` row and reads none.
 5. A non-`READ_WRITE` Query Store state is handled without error and without emission.
 6. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted, and `WaitStatisticsStatus` reports which of the three outcomes occurred.
 7. The watchdog does not report its own Query Store queries.

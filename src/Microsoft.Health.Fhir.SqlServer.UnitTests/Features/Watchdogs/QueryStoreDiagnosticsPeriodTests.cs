@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 {
     /// <summary>
     /// Covers the collection period, which is the one setting whose misconfiguration reaches outside this feature:
-    /// it is handed to the shared watchdog timer, it is silently overridden by <c>dbo.Parameters</c>, and it is
-    /// clamped independently when it is used as the Query Store lookback window. None of those paths is reachable
-    /// from the integration tests, which call the collection directly and never run initialization.
+    /// it is handed to the timer this watchdog owns, and it is clamped independently when it is used as the Query
+    /// Store lookback window. Neither path is reachable from the integration tests, which call the collection
+    /// directly and never start the timer.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
@@ -74,115 +74,66 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
-        public void GivenAStoredPeriodDifferentFromTheConfiguredOne_WhenInitialized_ThenTheSilentOverrideIsReported()
+        public void GivenAConfiguredPeriodAboveTheLookbackCap_WhenDerivingTheLookback_ThenTheUnexaminedWindowIsReported()
         {
             // Arrange
+            const double configuredPeriodSec = 604800; // one week
             var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: DefaultPeriodSec);
-
-            // dbo.Parameters is write-once in practice, so the base class overwrites the configured period with the
-            // stored one during initialization. This is that overwrite.
-            watchdog.PeriodSec = 900;
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec);
 
             // Act
-            watchdog.WarnIfStoredPeriodSecOverridesConfiguration();
-
-            // Assert
-            string warning = Assert.Single(logger.WarningMessages);
-            Assert.Contains(Format(DefaultPeriodSec), warning, StringComparison.Ordinal);
-            Assert.Contains(Format(900d), warning, StringComparison.Ordinal);
-            Assert.Contains(watchdog.PeriodSecId, warning, StringComparison.Ordinal);
-        }
-
-        [Fact]
-        public void GivenAStoredPeriodEqualToTheConfiguredOne_WhenInitialized_ThenNothingIsReported()
-        {
-            // Arrange
-            var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: 900);
-
-            // Act
-            watchdog.WarnIfStoredPeriodSecOverridesConfiguration();
-
-            // Assert
-            Assert.Empty(logger.WarningMessages);
-        }
-
-        [Fact]
-        public void GivenAnUnusableConfiguredPeriod_WhenInitialized_ThenTheSubstitutedDefaultIsNotReportedAsAnOverride()
-        {
-            // Arrange
-            // The rejected value was already reported at construction, and the default that replaced it is what got
-            // seeded into dbo.Parameters, so reporting it again as an override would contradict the first warning.
-            var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: 0);
-            logger.Clear();
-
-            // Act
-            watchdog.WarnIfStoredPeriodSecOverridesConfiguration();
-
-            // Assert
-            Assert.Empty(logger.WarningMessages);
-        }
-
-        [Fact]
-        public void GivenAStoredPeriodAboveTheLookbackCap_WhenDerivingTheLookback_ThenTheUnexaminedWindowIsReported()
-        {
-            // Arrange
-            const double storedPeriodSec = 604800; // one week
-            var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: DefaultPeriodSec);
-
-            // Act
-            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(storedPeriodSec);
+            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(watchdog.PeriodSec);
 
             // Assert
             Assert.Equal(86400d, lookbackPeriodSec);
 
-            // The tick interval stays at the stored period, so the difference is a permanent coverage gap and the
+            // The tick interval stays at the configured period, so the difference is a permanent coverage gap and the
             // warning has to name it rather than leave it to be worked out from the clamp.
             string warning = Assert.Single(logger.WarningMessages);
-            Assert.Contains(Format(storedPeriodSec), warning, StringComparison.Ordinal);
+            Assert.Contains(Format(configuredPeriodSec), warning, StringComparison.Ordinal);
             Assert.Contains(Format(86400d), warning, StringComparison.Ordinal);
-            Assert.Contains(Format(storedPeriodSec - 86400d), warning, StringComparison.Ordinal);
-            Assert.Contains(watchdog.PeriodSecId, warning, StringComparison.Ordinal);
+            Assert.Contains(Format(configuredPeriodSec - 86400d), warning, StringComparison.Ordinal);
+
+            // The remedy names the configuration key, because there is no longer a database row to update.
+            Assert.Contains(QueryStoreDiagnosticsWatchdog.PeriodSecConfigurationKey, warning, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void GivenAStoredPeriodBelowTheLookbackFloor_WhenDerivingTheLookback_ThenTheOverlapIsReported()
+        public void GivenAConfiguredPeriodBelowTheLookbackFloor_WhenDerivingTheLookback_ThenTheOverlapIsReported()
         {
             // Arrange
-            const double storedPeriodSec = 30;
+            const double configuredPeriodSec = 30;
             var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: DefaultPeriodSec);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec);
 
             // Act
-            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(storedPeriodSec);
+            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(watchdog.PeriodSec);
 
             // Assert
             Assert.Equal(60d, lookbackPeriodSec);
 
             string warning = Assert.Single(logger.WarningMessages);
-            Assert.Contains(Format(storedPeriodSec), warning, StringComparison.Ordinal);
+            Assert.Contains(Format(configuredPeriodSec), warning, StringComparison.Ordinal);
             Assert.Contains(Format(60d), warning, StringComparison.Ordinal);
             Assert.Contains("overlap", warning, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(QueryStoreDiagnosticsWatchdog.PeriodSecConfigurationKey, warning, StringComparison.Ordinal);
         }
 
         [Theory]
         [InlineData(60d)]
         [InlineData(3600d)]
         [InlineData(86400d)]
-        public void GivenAStoredPeriodWithinTheLookbackRange_WhenDerivingTheLookback_ThenItIsUsedUnchangedAndNothingIsReported(double storedPeriodSec)
+        public void GivenAConfiguredPeriodWithinTheLookbackRange_WhenDerivingTheLookback_ThenItIsUsedUnchangedAndNothingIsReported(double configuredPeriodSec)
         {
             // Arrange
             var logger = new CapturingLogger();
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec: DefaultPeriodSec);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, configuredPeriodSec);
 
             // Act
-            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(storedPeriodSec);
+            double lookbackPeriodSec = watchdog.GetLookbackPeriodSec(watchdog.PeriodSec);
 
             // Assert
-            Assert.Equal(storedPeriodSec, lookbackPeriodSec);
+            Assert.Equal(configuredPeriodSec, lookbackPeriodSec);
             Assert.Empty(logger.WarningMessages);
         }
 
@@ -224,8 +175,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             {
                 _entries.Add((logLevel, formatter(state, exception)));
             }
-
-            internal void Clear() => _entries.Clear();
         }
     }
 }
