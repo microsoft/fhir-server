@@ -512,6 +512,23 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <summary>
         /// Determines if an exception should trigger a retry.
         /// </summary>
+        /// <remarks>
+        /// The whole exception tree is searched, not just the outermost exception or a chain of
+        /// single-inner aggregates. An assertion that fails inside <c>Task.WhenAll</c>, a parallel
+        /// helper, or any teardown that runs alongside it arrives wrapped in an
+        /// <see cref="AggregateException"/> that may hold several inner exceptions, and stopping at
+        /// the first fork would classify it as an ordinary exception and retry it - the very thing
+        /// <see cref="RetryOnAssertionFailure"/> was set to prevent. This matches how the message bus
+        /// classifies the same failure, which reads the full chain of reported type names; the two
+        /// have to agree, or whether the policy is honoured would depend on which of them happened to
+        /// see the failure first.
+        /// <para>
+        /// A timeout needs no carve-out here. The bus classifies by type name and so has to exclude
+        /// <c>Xunit.Sdk.TestTimeoutException</c> explicitly, but that type derives from
+        /// <see cref="Exception"/> rather than <see cref="XunitException"/>, so it never matches the
+        /// test below and is retried, which is what a timeout deserves.
+        /// </para>
+        /// </remarks>
         private bool ShouldRetry(Exception ex)
         {
             // If exception is null, we should retry (something went wrong with exception capture)
@@ -521,14 +538,8 @@ namespace Microsoft.Health.Extensions.Xunit
                 return true; // Retry when we can't determine the exception type
             }
 
-            // Unwrap aggregate exceptions
-            while (ex is AggregateException aggEx && aggEx.InnerExceptions.Count == 1)
-            {
-                ex = aggEx.InnerException;
-            }
-
             // Don't retry assertion failures unless explicitly configured
-            if (ex is XunitException)
+            if (ContainsAssertionFailure(ex))
             {
                 Trace.WriteLine($"RetryFact: {(_retryOnAssertionFailure ? "Retrying" : "Not retrying")} XunitException because _retryOnAssertionFailure is {_retryOnAssertionFailure.ToString().ToLowerInvariant()}");
                 return _retryOnAssertionFailure;
@@ -537,6 +548,54 @@ namespace Microsoft.Health.Extensions.Xunit
             // Retry everything else (network, timeout, SQL transient, etc.)
             Trace.WriteLine($"RetryFact: Retrying non-assertion exception of type {ex.GetType().FullName}");
             return true;
+        }
+
+        /// <summary>
+        /// Reports whether an exception is, or contains anywhere within it, an assertion failure.
+        /// </summary>
+        /// <remarks>
+        /// Separate and internal so the decision can be pinned directly. In a real run the message bus
+        /// almost always classifies the failure first, because xunit reports failures through the bus
+        /// rather than letting them out of the attempt, which leaves this path reachable but rarely
+        /// taken - and a rarely taken path that disagrees with the common one is exactly the kind of
+        /// difference that only shows up as an unexplained retry long after the fact.
+        /// </remarks>
+        /// <param name="exception">The exception to classify.</param>
+        /// <returns><c>true</c> if an assertion failure appears anywhere in the exception tree.</returns>
+        internal static bool ContainsAssertionFailure(Exception exception) =>
+            exception != null && EnumerateExceptionTree(exception).Any(inner => inner is XunitException);
+
+        /// <summary>
+        /// Walks an exception and everything nested inside it, including every branch of an
+        /// <see cref="AggregateException"/>.
+        /// </summary>
+        /// <param name="exception">The exception to walk.</param>
+        /// <returns>The exception followed by each exception nested within it.</returns>
+        private static IEnumerable<Exception> EnumerateExceptionTree(Exception exception)
+        {
+            var pending = new Stack<Exception>();
+            pending.Push(exception);
+
+            while (pending.Count > 0)
+            {
+                Exception current = pending.Pop();
+                yield return current;
+
+                if (current is AggregateException aggregate)
+                {
+                    foreach (Exception inner in aggregate.InnerExceptions)
+                    {
+                        if (inner != null)
+                        {
+                            pending.Push(inner);
+                        }
+                    }
+                }
+                else if (current.InnerException != null)
+                {
+                    pending.Push(current.InnerException);
+                }
+            }
         }
 
         /// <summary>
