@@ -153,7 +153,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     if (summary.Total == 0)
                     {
                         NoResultOutcome outcome = DecideNoResultOutcome(
-                            currentAttemptObservedFailure: interceptingBus.HasDeferredFailure,
+                            currentAttemptObservedFailure: interceptingBus.HasObservedFailure,
                             earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
 
                         Console.WriteLine(
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     // path applies, so it is decided the same way here. Disposing replays whatever
                     // is still deferred, and the finally below does that for the current attempt.
                     NoResultOutcome disposition = DecideNoResultOutcome(
-                        currentAttemptObservedFailure: interceptingBus?.HasDeferredFailure ?? false,
+                        currentAttemptObservedFailure: interceptingBus?.HasObservedFailure ?? false,
                         earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
 
                     if (disposition == NoResultOutcome.ReplayEarlierAttempt)
@@ -557,6 +557,21 @@ namespace Microsoft.Health.Extensions.Xunit
             /// either discarded or replayed.
             /// </summary>
             public bool HasDeferredFailure => _deferredMessages.Count > 0;
+
+            /// <summary>
+            /// Gets a value indicating whether this attempt saw a failure at all, whether or not it
+            /// was deferred.
+            /// </summary>
+            /// <remarks>
+            /// This is not the same question as <see cref="HasDeferredFailure"/>, and the difference
+            /// falls exactly on the last attempt: that one is constructed with
+            /// <c>deferFailures: false</c>, so its failures go straight through to the inner bus and
+            /// it never has one deferred. Asking <see cref="HasDeferredFailure"/> whether the
+            /// current attempt failed therefore always answers no on the last attempt, and an
+            /// earlier attempt's held-over failure would then be replayed on top of the failure this
+            /// one already published - two results for a single test.
+            /// </remarks>
+            public bool HasObservedFailure => LastFailureMessage != null;
 
             public bool QueueMessage(IMessageSinkMessage message)
             {
