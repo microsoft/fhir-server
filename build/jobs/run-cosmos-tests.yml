@@ -143,6 +143,14 @@ jobs:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
+  - task: PowerShell@2
+    displayName: 'Reconcile retried integration failures'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-RetriedFailuresPassed.ps1'
+      arguments: '-ResultsDirectory "$(Agent.TempDirectory)/coverage"'
+    condition: succeeded()
+
   - task: PublishTestResults@2
     displayName: 'Publish integration test results'
     inputs:
@@ -154,9 +162,10 @@ jobs:
       # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
       # keeps a Failed record for a test that later passed, and mergeTestResults does not
       # resolve the two, so failing the task on published results would cancel out every
-      # retry. The runner's exit code is the retry-aware verdict -- 0 once an attempt passes,
-      # non-zero when they are exhausted -- and the step that runs the tests already fails on
-      # it, so the attempts are published for visibility only.
+      # retry. The step that runs the tests fails on the runner's exit code, and the step that
+      # follows it reconciles the attempts against each other, because that exit code counts a
+      # test that failed and then skipped as recovered. The attempts are published here for
+      # visibility only.
       failTaskOnFailedTests: false
       # A missing TRX means the run reported nothing; without this the publish step
       # succeeds silently and there is nothing to notice.

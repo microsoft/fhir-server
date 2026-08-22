@@ -69,8 +69,18 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// would have run the tests it stands for. The runner scopes the query to the scenario itself,
         /// because a query filter cannot be combined with the plain namespace filter used otherwise.
         /// </param>
+        /// <param name="retryFailedTests">
+        /// How many attempts the runner may make at the tests that failed, in the form it takes on the
+        /// command line. Every CI leg runs with this on, and it changes what a run reports rather than
+        /// only how long it takes, so a scenario that describes a retried run has to set it.
+        /// </param>
+        /// <param name="environment">
+        /// Extra environment variables for the child process. A scenario whose behaviour differs
+        /// between attempts needs somewhere to record that it has already run, and the attempts are
+        /// separate processes.
+        /// </param>
         /// <returns>The exit code, output and published results of the run.</returns>
-        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null, string filterNotTrait = null, string filterQueryTraits = null)
+        public static TestAssetRun Run(string scenario, bool stopOnFail = false, bool preEnumerateTheories = true, string filterTrait = null, string maxThreads = null, string filterNotTrait = null, string filterQueryTraits = null, string retryFailedTests = null, IReadOnlyDictionary<string, string> environment = null)
         {
             // The runner rejects a query filter outright once any plain filter has been added, so the
             // two forms cannot be mixed. Saying that here keeps a scenario that tries from failing as an
@@ -149,7 +159,13 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     arguments.Add(maxThreads);
                 }
 
-                (int exitCode, string output, TimeSpan duration) = Execute(arguments);
+                if (!string.IsNullOrEmpty(retryFailedTests))
+                {
+                    arguments.Add("--retry-failed-tests");
+                    arguments.Add(retryFailedTests);
+                }
+
+                (int exitCode, string output, TimeSpan duration) = Execute(arguments, environment);
 
                 string trxPath = Path.Combine(resultsDirectory, trxFileName);
                 if (!File.Exists(trxPath))
@@ -201,7 +217,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             return path;
         }
 
-        private static (int ExitCode, string Output, TimeSpan Duration) Execute(IReadOnlyList<string> arguments)
+        private static (int ExitCode, string Output, TimeSpan Duration) Execute(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment)
         {
             var startInfo = new ProcessStartInfo("dotnet")
             {
@@ -214,6 +230,14 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             foreach (string argument in arguments)
             {
                 startInfo.ArgumentList.Add(argument);
+            }
+
+            if (environment != null)
+            {
+                foreach (KeyValuePair<string, string> variable in environment)
+                {
+                    startInfo.Environment[variable.Key] = variable.Value;
+                }
             }
 
             // The pipeline sets this so its own test runs land in a known place. The child would
