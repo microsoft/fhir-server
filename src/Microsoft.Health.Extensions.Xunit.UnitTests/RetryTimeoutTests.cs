@@ -14,9 +14,11 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     /// <remarks>
     /// A timeout is the failure a retry harness exists for: a test that runs long because a
     /// dependency was slow once is the definition of flaky. It reaches the retry decision as
-    /// <c>Xunit.Sdk.TestTimeoutException</c>, and the decision is made by matching "Xunit" and
-    /// "Assert" against the exception type name, so a timeout is at risk of being read as a
-    /// deterministic assertion failure and denied the attempts it was configured for.
+    /// <c>Xunit.Sdk.TestTimeoutException</c>, whose name contains "Xunit" and so matches the
+    /// substring test that classifies deterministic assertion failures - which are deliberately not
+    /// retried. A timeout is carved out of that match for exactly this reason, and these tests are
+    /// what would notice if the carve-out were removed: without it a timeout is denied every attempt
+    /// it was configured for.
     /// </remarks>
     public class RetryTimeoutTests
     {

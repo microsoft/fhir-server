@@ -52,6 +52,88 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return notComplianceTestClass;
         }
 
+        /// <summary>
+        /// Looks for collection definitions that carry traits and are shared with other classes.
+        /// </summary>
+        /// <remarks>
+        /// A trait on a <c>[CollectionDefinition]</c> class is applied to every class that joins that
+        /// collection, which is not obvious at either end: the trait is written in one file and takes
+        /// effect in others, and nothing at the joining class says so. This repository's CI legs select
+        /// on traits, so a collection that quietly adds a <c>Category</c> can move its members out of a
+        /// leg that excludes that category - and a leg that runs fewer tests than it should still
+        /// passes. That is not hypothetical; it is what this check was written after.
+        /// <para>
+        /// A definition that carries traits but that no other class joins is left alone: it applies
+        /// them only to itself, which is the same as writing them on the class. The fix when this does
+        /// fire is the pattern already used elsewhere here - move the collection name onto a separate,
+        /// traitless definition class, and leave the traits on the test class that declared them.
+        /// </para>
+        /// </remarks>
+        /// <param name="assembly">Assembly under analysis.</param>
+        /// <returns>The offending definition types, each with the classes that join its collection.</returns>
+        public static IReadOnlyList<(Type Definition, IReadOnlyList<Type> Members)> ScanForTraitCarryingSharedCollectionDefinitions(Assembly assembly)
+        {
+            EnsureArg.IsNotNull(assembly, nameof(assembly));
+
+            Type[] classes = assembly.GetTypes().Where(t => t.IsClass).ToArray();
+
+            var offenders = new List<(Type, IReadOnlyList<Type>)>();
+
+            foreach (Type definition in classes)
+            {
+                CustomAttributeData definitionAttribute = definition.CustomAttributes
+                    .FirstOrDefault(a => a.AttributeType == typeof(CollectionDefinitionAttribute));
+
+                if (definitionAttribute == null ||
+                    !definition.CustomAttributes.Any(a => a.AttributeType == typeof(TraitAttribute)))
+                {
+                    continue;
+                }
+
+                // A collection definition can name its collection with a string or, since v3, be
+                // referenced by its own type. Both spellings have to be matched to find the members.
+                string collectionName = definitionAttribute.ConstructorArguments.Count > 0
+                    ? definitionAttribute.ConstructorArguments[0].Value as string
+                    : null;
+
+                List<Type> members = classes
+                    .Where(candidate => candidate != definition && JoinsCollection(candidate, collectionName, definition))
+                    .ToList();
+
+                if (members.Count > 0)
+                {
+                    offenders.Add((definition, members));
+                }
+            }
+
+            return offenders;
+        }
+
+        private static bool JoinsCollection(Type candidate, string collectionName, Type definition)
+        {
+            foreach (CustomAttributeData attribute in candidate.CustomAttributes.Where(a => a.AttributeType == typeof(CollectionAttribute)))
+            {
+                if (attribute.ConstructorArguments.Count == 0)
+                {
+                    continue;
+                }
+
+                object value = attribute.ConstructorArguments[0].Value;
+
+                if (value is string name && collectionName != null && string.Equals(name, collectionName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                if (value is Type referenced && referenced == definition)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool IsTestClass(Type type)
         {
             if (!type.IsClass)

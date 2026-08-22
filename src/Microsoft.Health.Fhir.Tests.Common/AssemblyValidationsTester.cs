@@ -27,6 +27,33 @@ namespace Microsoft.Health.Fhir.Tests.Common
             AssertTestClasses(assembly, Traits.OwningTeam, types);
         }
 
+        /// <summary>
+        /// Fails when a collection definition carrying traits is shared with other classes, because
+        /// those classes silently acquire the traits and the CI legs select on them.
+        /// </summary>
+        /// <param name="assembly">Assembly under analysis.</param>
+        public static void EnsureNoSharedCollectionDefinitionCarriesTraits(Assembly assembly)
+        {
+            IReadOnlyList<(Type Definition, IReadOnlyList<Type> Members)> offenders =
+                AssemblyChecker.ScanForTraitCarryingSharedCollectionDefinitions(assembly);
+
+            if (offenders.Count == 0)
+            {
+                return;
+            }
+
+            var stringBuilder = new StringBuilder();
+            foreach ((Type definition, IReadOnlyList<Type> members) in offenders)
+            {
+                stringBuilder.AppendLine($"{definition} applies its traits to: {string.Join(", ", members.Select(m => m.ToString()))}");
+            }
+
+            Assert.Fail(
+                $"Assembly '{assembly}' has collection definitions whose traits are applied to other classes. Those classes gain traits nothing at their declaration mentions, " +
+                $"and a CI leg selecting on traits will then run a different set of tests than it appears to - without failing. Move the collection name onto a separate traitless " +
+                $"definition class and leave the traits where they were declared.{Environment.NewLine}{stringBuilder}");
+        }
+
         private static void AssertTestClasses(Assembly currentAssembly, string traitName, IEnumerable<Type> types)
         {
             if (types == null || !types.Any())

@@ -152,9 +152,12 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         }
 
         /// <summary>
-        /// The same exclusion written as a query, which is how the E2E legs spell it. A case carrying
-        /// no value for the trait at all satisfies <c>!=</c> as readily as one carrying a different
-        /// value, so this also pins that the failures carry their values rather than omitting them.
+        /// The same exclusion written as a query rather than as <c>--filter-not-trait</c>. Both
+        /// spellings are used by this repository's CI - the integration legs exclude a data store with
+        /// the flag, and the E2E legs pass a query whose <c>Category</c> exclusions take this form. A
+        /// case carrying no value for the trait at all satisfies <c>!=</c> as readily as one carrying a
+        /// different value, so this also pins that the failures carry their values rather than
+        /// omitting them.
         /// </summary>
         [Fact]
         public void GivenAClassLevelFault_WhenAQueryExcludesOneDataStore_ThenOnlyTheOtherFailuresAreReported()

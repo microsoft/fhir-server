@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -26,6 +26,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Common
         public void GivenCurrentAssembly_WhenScanned_EnsureAllTestsHaveOwningTeamTrait()
         {
             AssemblyValidationsTester.EnsureAllTestsHaveOwningTeamTrait(_currentAssembly);
+        }
+
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureNoSharedCollectionDefinitionCarriesTraits()
+        {
+            AssemblyValidationsTester.EnsureNoSharedCollectionDefinitionCarriesTraits(_currentAssembly);
         }
     }
 }
