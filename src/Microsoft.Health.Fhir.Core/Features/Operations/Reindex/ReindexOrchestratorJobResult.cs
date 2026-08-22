@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         public int CompletedJobs { get; set; }
 
+        public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
+
         [JsonProperty(JobRecordProperties.Error)]
         public IReadOnlyCollection<OperationOutcomeIssue> Error { get; set; } = new List<OperationOutcomeIssue>();
     }
