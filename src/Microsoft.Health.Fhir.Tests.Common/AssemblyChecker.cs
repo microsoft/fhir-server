@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using EnsureThat;
 using Xunit;
+using Xunit.v3;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
@@ -84,8 +85,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 CustomAttributeData definitionAttribute = definition.CustomAttributes
                     .FirstOrDefault(a => a.AttributeType == typeof(CollectionDefinitionAttribute));
 
+                // Any ITraitAttribute propagates, not just the [Trait] spelling of one, so ask the
+                // question xUnit asks rather than naming a single attribute type. The scan above is
+                // deliberately narrower: it reads a trait's name out of the first constructor
+                // argument, which is a shape only TraitAttribute guarantees.
                 if (definitionAttribute == null ||
-                    !definition.CustomAttributes.Any(a => a.AttributeType == typeof(TraitAttribute)))
+                    !definition.CustomAttributes.Any(a => typeof(ITraitAttribute).IsAssignableFrom(a.AttributeType)))
                 {
                     continue;
                 }
