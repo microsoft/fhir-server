@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,6 +42,16 @@ namespace Microsoft.Health.Extensions.Xunit
                 timeout: null,
                 baseDisplayName: null);
 
+            // xunit builds a test case's traits with an OrdinalIgnoreCase comparer, and the argument
+            // set traits are merged into them on the same terms, so the copy is made on those terms
+            // too. Filtering does not depend on it - the runner compares trait names itself - but a
+            // copy that compared differently from the dictionary it came from would let the same
+            // trait be held twice under two spellings.
+            var traits = testMethod.Traits.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
             var testCase = new RetryTestCase(
                 details.ResolvedTestMethod,
                 details.TestCaseDisplayName,
@@ -51,7 +62,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 skipType: details.SkipType,
                 skipUnless: details.SkipUnless,
                 skipWhen: details.SkipWhen,
-                traits: testMethod.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)),
+                traits: traits,
                 testMethodArguments: null,
                 sourceFile: details.SourceFilePath,
                 sourceLine: details.SourceLineNumber,

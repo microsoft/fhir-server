@@ -89,7 +89,10 @@ namespace Microsoft.Health.Extensions.Xunit
                 xunitTestCase.SkipType,
                 xunitTestCase.SkipUnless,
                 xunitTestCase.SkipWhen,
-                xunitTestCase.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)),
+                xunitTestCase.Traits.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                    StringComparer.OrdinalIgnoreCase),
                 xunitTestCase.TestMethodArguments,
                 xunitTestCase.SourceFilePath,
                 xunitTestCase.SourceLineNumber,
