@@ -861,7 +861,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
@@ -890,8 +890,10 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 // Create the updated wrapper from the original resource that has the outdated version
                 (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
 
-                // Attempt to reindex the resource
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None));
+                // Attempt to reindex the resource. Both data stores handle the version conflict
+                // gracefully by logging and continuing, rather than throwing an exception.
+                ResourceWrapper result = await _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None);
+                Assert.NotNull(result);
             }
             finally
             {
@@ -910,7 +912,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
@@ -929,8 +931,10 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
                 await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                // Attempt to reindex the version of the resource that hasn't been deleted
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None));
+                // Attempt to reindex the version of the resource that hasn't been deleted.
+                // Both data stores handle the version conflict gracefully by logging and continuing.
+                ResourceWrapper result = await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
+                Assert.NotNull(result);
             }
             finally
             {
@@ -1015,7 +1019,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -1057,8 +1061,9 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
                 var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
 
-                // Attempt to reindex resources with the old versions
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+                // Attempt to reindex resources with the old versions. Both data stores handle
+                // version conflicts gracefully by logging and continuing, rather than throwing.
+                await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
             }
             finally
             {
@@ -1077,7 +1082,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -1104,7 +1109,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
                 // Attempt to reindex both resources, one of which has since been deleted and has a version that is out of date.
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+                // Both data stores handle this conflict gracefully by logging and continuing, rather than throwing.
+                await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
             }
             finally
             {
@@ -1289,8 +1295,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("status", "status", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-status")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("final")) };
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
-            wrapper.SearchParameterHash = "hash";
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
 
             return wrapper;
         }
@@ -1302,8 +1307,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue("alpha")) };
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
-            wrapper.SearchParameterHash = "hash";
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
 
             return wrapper;
         }
