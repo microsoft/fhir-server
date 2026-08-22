@@ -155,6 +155,9 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      # Around 2000 cases across the FHIR versions. A floor of 1000 leaves room for version
+      # differences and removed tests while failing a leg that has quietly lost its traits.
+      minimumExpectedTests: '1000'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -175,6 +178,8 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
+        # Around 52 cases. A floor of 25 fails a leg that has lost most of them.
+        minimumExpectedTests: '25'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -195,3 +200,5 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
+        # Around 35 cases. A floor of 15 fails a leg that has lost most of them.
+        minimumExpectedTests: '15'

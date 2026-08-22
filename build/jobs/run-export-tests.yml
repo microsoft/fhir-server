@@ -104,10 +104,32 @@ jobs:
         }
 
         # Positive on DataStore, so a case missing that trait is invisible here rather than failing.
-        # The floor makes a filter or trait regression that empties this leg fail instead of pass.
-        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
+        # Count what the filter selects before running, so a regression that empties this leg fails
+        # it. The floor cannot ride on --minimum-expected-tests: that is re-applied to the smaller
+        # pass --retry-failed-tests starts, so a floor above a retry pass fails a recovered flake.
+        # Around 3 cases run here, so 2 is below any legitimate count and above an emptied leg.
+        $filterQuery = '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]'
+        $minimumExpectedTests = 2
 
-        Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=CosmosDb)&(Category=ExportLongRunning)]"
+        $listOutput = & dotnet $dll.FullName --list-tests --filter-query $filterQuery
+        if ($LASTEXITCODE -ne 0) {
+          throw "Listing tests for filter $filterQuery failed with exit code $LASTEXITCODE"
+        }
+
+        $found = $listOutput | Select-String -Pattern 'found\s+(\d+)\s+test' | Select-Object -First 1
+        if (-not $found) {
+          throw "Could not read a discovered test count for filter $filterQuery from the runner's output."
+        }
+
+        $discovered = [int]$found.Matches[0].Groups[1].Value
+        Write-Host "Discovered $discovered test(s) for filter $filterQuery (floor $minimumExpectedTests)"
+        if ($discovered -lt $minimumExpectedTests) {
+          throw "Filter $filterQuery selected $discovered test(s), below this leg's floor of $minimumExpectedTests. The leg would have run a fraction of its tests and reported success."
+        }
+
+        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
+
+        Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
         & dotnet $dll.FullName @args
 
         if ($LASTEXITCODE -ne 0) {
@@ -258,10 +280,32 @@ jobs:
         }
 
         # Positive on DataStore, so a case missing that trait is invisible here rather than failing.
-        # The floor makes a filter or trait regression that empties this leg fail instead of pass.
-        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
+        # Count what the filter selects before running, so a regression that empties this leg fails
+        # it. The floor cannot ride on --minimum-expected-tests: that is re-applied to the smaller
+        # pass --retry-failed-tests starts, so a floor above a retry pass fails a recovered flake.
+        # Around 5 cases run here, so 3 is below any legitimate count and above an emptied leg.
+        $filterQuery = '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]'
+        $minimumExpectedTests = 3
 
-        Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=SqlServer)&(Category=ExportLongRunning)]"
+        $listOutput = & dotnet $dll.FullName --list-tests --filter-query $filterQuery
+        if ($LASTEXITCODE -ne 0) {
+          throw "Listing tests for filter $filterQuery failed with exit code $LASTEXITCODE"
+        }
+
+        $found = $listOutput | Select-String -Pattern 'found\s+(\d+)\s+test' | Select-Object -First 1
+        if (-not $found) {
+          throw "Could not read a discovered test count for filter $filterQuery from the runner's output."
+        }
+
+        $discovered = [int]$found.Matches[0].Groups[1].Value
+        Write-Host "Discovered $discovered test(s) for filter $filterQuery (floor $minimumExpectedTests)"
+        if ($discovered -lt $minimumExpectedTests) {
+          throw "Filter $filterQuery selected $discovered test(s), below this leg's floor of $minimumExpectedTests. The leg would have run a fraction of its tests and reported success."
+        }
+
+        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
+
+        Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
         & dotnet $dll.FullName @args
 
         if ($LASTEXITCODE -ne 0) {

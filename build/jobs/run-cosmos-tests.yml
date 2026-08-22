@@ -165,6 +165,9 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'CosmosDb'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      # Around 1350 cases across the FHIR versions. A floor of 700 leaves room for version
+      # differences and removed tests while failing a leg that has quietly lost its traits.
+      minimumExpectedTests: '700'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'cosmosE2eTests_Reindex'
@@ -185,3 +188,5 @@ jobs:
         appServiceType: 'CosmosDb'
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
+        # Around 52 cases. A floor of 25 fails a leg that has lost most of them.
+        minimumExpectedTests: '25'
