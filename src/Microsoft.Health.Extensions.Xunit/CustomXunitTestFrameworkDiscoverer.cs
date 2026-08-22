@@ -741,9 +741,16 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
                 catch (Exception ex)
                 {
+                    // Reading the attributes constructs all of them, so one constructor that throws
+                    // costs this declaration every trait it named - including traits belonging to
+                    // attributes that are perfectly sound, and including the case where the throwing
+                    // attribute is not a trait attribute at all. Losing the lot is what makes the
+                    // failure invisible to a leg selecting positively on a trait, so fall back to
+                    // constructing them one type at a time and keep whichever ones can be read.
                     Console.WriteLine(
-                        $"[FixtureArgumentSets] WARNING: the trait attributes of '{declaration.Name}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
-                    continue;
+                        $"[FixtureArgumentSets] WARNING: the trait attributes of '{declaration.Name}' could not all be read together, so they are being read one at a time. {ex}");
+
+                    traitAttributes = ReadTraitAttributesIndividually(declaration);
                 }
 
                 foreach (ITraitAttribute traitAttribute in traitAttributes)
@@ -762,6 +769,57 @@ namespace Microsoft.Health.Extensions.Xunit
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Reads a declaration's trait attributes one type at a time, keeping the ones that can be
+        /// constructed.
+        /// </summary>
+        /// <remarks>
+        /// This runs only when reading them together has already failed. The attribute types are
+        /// taken from metadata, which names them without constructing anything, so a constructor
+        /// that throws costs only the attributes of its own type rather than every attribute on the
+        /// declaration. Attributes inherited from a base declaration are not enumerated here: doing
+        /// so means walking the hierarchy by hand, and the ordinary read - which this only stands in
+        /// for - already covers them.
+        /// </remarks>
+        /// <param name="declaration">The collection definition, class, or method being read.</param>
+        /// <returns>The trait attributes that could be constructed, which may be none.</returns>
+        private static ITraitAttribute[] ReadTraitAttributesIndividually(MemberInfo declaration)
+        {
+            List<Type> traitAttributeTypes;
+
+            try
+            {
+                traitAttributeTypes = declaration.CustomAttributes
+                    .Select(attribute => attribute.AttributeType)
+                    .Where(type => typeof(ITraitAttribute).IsAssignableFrom(type))
+                    .Distinct()
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the trait attributes of '{declaration.Name}' could not be named, so a trait filter may not select the failure standing in for its tests. {ex}");
+                return Array.Empty<ITraitAttribute>();
+            }
+
+            var traitAttributes = new List<ITraitAttribute>();
+
+            foreach (Type traitAttributeType in traitAttributeTypes)
+            {
+                try
+                {
+                    traitAttributes.AddRange(Attribute.GetCustomAttributes(declaration, traitAttributeType, inherit: true).OfType<ITraitAttribute>());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: the trait attribute '{traitAttributeType.Name}' of '{declaration.Name}' could not be constructed, so a filter naming the traits it declares may not select the failure standing in for its tests. {ex}");
+                }
+            }
+
+            return traitAttributes.ToArray();
         }
 
         /// <summary>
