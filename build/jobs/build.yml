@@ -30,6 +30,12 @@ steps:
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.unitTest, 'true') }}:
+  - task: PowerShell@2
+    displayName: 'Assert the unit test projects were found'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -MinimumExpectedProjects 20'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
     inputs:
@@ -70,6 +76,12 @@ steps:
     condition: succeededOrFailed()
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
+  - task: PowerShell@2
+    displayName: 'Assert the unit test projects were found'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -MinimumExpectedProjects 20'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test with coverage'
     inputs:
