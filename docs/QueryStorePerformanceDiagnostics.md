@@ -63,6 +63,14 @@ The feature is **off by default** and is gated by two independent switches. Both
 
 This two-gate arrangement is what makes the feature safe to ship dark: the configuration gate keeps it off for the fleet, and the `dbo.Parameters` gate lets an investigation be turned on for one affected account and turned off again afterwards.
 
+**Setting the configuration gate alone collects nothing.** The runtime gate is seeded to `0` by `InitAdditionalParamsAsync` and has no configuration binding, so it cannot be set through `appsettings.json` or an environment variable — arming it is deliberately a separate, deliberate act against the database:
+
+```sql
+UPDATE dbo.Parameters SET Number = 1 WHERE Id = 'QueryStoreDiagnosticsWatchdog.IsEnabled'
+```
+
+Until that row is `1` the watchdog logs `QueryStoreDiagnosticsWatchdog is not enabled. Exiting...` once per tick and returns. That log line is the thing to look for when the feature appears to be doing nothing.
+
 ### Configuration
 
 `WatchdogConfiguration.QueryStoreDiagnostics`, bound from `FhirServer:Watchdog:QueryStoreDiagnostics`. Note that `Watchdog` is a sibling of `Operations` under `FhirServer`, not nested inside it:
@@ -70,7 +78,7 @@ This two-gate arrangement is what makes the feature safe to ship dark: the confi
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `false` | Deployment-time gate described above. |
-| `PeriodSec` | `3600` | Interval between collections. Seeds `dbo.Parameters`; the live value is read from there. Also used as the Query Store lookback window. |
+| `PeriodSec` | `3600` | Interval between collections. **Seeds `dbo.Parameters` once**; thereafter the live value is read from there. Also used as the Query Store lookback window. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
@@ -78,6 +86,14 @@ This two-gate arrangement is what makes the feature safe to ship dark: the confi
 | `StatisticsHealthCount` | `20` | Number of statistics rows to report per tick. |
 
 The lookback window is the live `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
+
+**`PeriodSec` is write-once per database.** `Watchdog.InitParamsAsync` inserts it into `dbo.Parameters`, but that table's primary key is declared `WITH (IGNORE_DUP_KEY = ON)`, so on a database that already holds the row the insert is silently a no-op — and the next line reads the stored value back over the configured one. Changing the configured `PeriodSec` on an already-initialized database therefore has **no effect**; the stored row wins, and it governs both the tick interval and the lookback window. This is shared framework behaviour, not specific to this watchdog. To actually change the period, update the row:
+
+```sql
+UPDATE dbo.Parameters SET Number = 900 WHERE Id = 'QueryStoreDiagnosticsWatchdog.PeriodSec'
+```
+
+Because this override is silent, the watchdog logs a warning at initialization whenever the stored period differs from the configured one, so a deployment that believes it changed the interval is not left to discover otherwise from collection timestamps. The other six settings are read from configuration on every tick and have no `dbo.Parameters` equivalent, so they take effect on restart. All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so no setting reloads in place.
 
 ## Emitted contracts
 

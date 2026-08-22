@@ -233,6 +233,20 @@ ORDER BY
 INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             command.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
             await command.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
+
+            // By the time this hook runs, the base class has already overwritten PeriodSec with the value stored in
+            // dbo.Parameters. That store is write-once in practice: the seeding INSERT is a silent no-op on a database
+            // that already holds the row, because dbo.Parameters has IGNORE_DUP_KEY = ON. So a deployment that changes
+            // the configured period on an existing database gets no effect and no error. Surface the divergence rather
+            // than leaving it to be inferred from collection timestamps.
+            if (PeriodSec != _configuration.PeriodSec)
+            {
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec} but the stored value in dbo.Parameters is {StoredPeriodSec}, which takes precedence and also sets the lookback window. Update the '{PeriodSecId}' row to change it.",
+                    _configuration.PeriodSec,
+                    PeriodSec,
+                    PeriodSecId);
+            }
         }
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
