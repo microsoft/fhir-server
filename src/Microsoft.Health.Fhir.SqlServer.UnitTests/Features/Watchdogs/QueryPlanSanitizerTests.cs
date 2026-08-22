@@ -177,6 +177,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
+        public void GivenPlanXmlWithADtdEntityDeclaration_WhenSanitized_ThenTheDtdIsRefusedAndNoXmlIsReturned()
+        {
+            // Arrange
+            // Parsing is configured with DtdProcessing.Prohibit and no resolver, so a Showplan carrying a DTD is
+            // rejected outright rather than having its entities expanded. The assertion that matters as much as the
+            // status is that nothing comes back with it: this input never reaches removal or verification, so a
+            // payload here would be an unsanitized payload.
+            const string queryPlan = @"<?xml version=""1.0""?><!DOCTYPE ShowPlanXML [<!ENTITY phi ""N'Mikael W'"">]><ShowPlanXML><StmtSimple StatementText=""SELECT &phi;"" /></ShowPlanXML>";
+
+            // Act
+            QueryPlanSanitizationResult result = QueryPlanSanitizer.Sanitize(queryPlan, QueryStoreDiagnosticsWatchdog.MaxFieldLength);
+
+            // Assert
+            Assert.Equal(QueryPlanSanitizer.InvalidXmlStatus, result.Status);
+            Assert.Null(result.Xml);
+            Assert.False(result.Truncated);
+            Assert.Equal(queryPlan.Length, result.OriginalLength);
+            Assert.Equal(0, result.SanitizedLength);
+        }
+
+        [Fact]
         public void GivenSanitizedPlanExceedingFieldCap_WhenSanitized_ThenReturnsVerifiedTruncatedXml()
         {
             // Arrange

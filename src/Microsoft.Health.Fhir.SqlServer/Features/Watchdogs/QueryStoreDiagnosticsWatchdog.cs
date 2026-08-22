@@ -33,6 +33,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// <summary>The wait query itself failed, so wait fields are missing because collection is broken.</summary>
         internal const string WaitStatisticsFailedStatus = "Failed";
 
+        /// <summary>The collection interval used when configuration does not supply a usable one.</summary>
+        private const double DefaultPeriodSec = 3600;
+
+        /// <summary>The shortest lookback window a collection is allowed to use.</summary>
+        private const double MinLookbackPeriodSec = 60;
+
+        /// <summary>The longest lookback window a collection is allowed to use.</summary>
+        private const double MaxLookbackPeriodSec = 86400;
+
         private const string QueryStoreStateSql = @"
 -- readonly_reason is a bitmask, and it is int here while neighbouring Query Store columns (query_id, plan_id,
 -- count_executions, rows, rows_sampled, modification_counter) are bigint. That inconsistency is the trap: reading
@@ -191,6 +200,11 @@ ORDER BY
         private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
 
+        // The period this instance actually asked for, which is the configured value unless that value was unusable
+        // and the default was substituted for it. The divergence check at initialization compares against this rather
+        // than against configuration, so a rejected value cannot also be reported as overridden by the stored row.
+        private readonly double _configuredPeriodSec;
+
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
@@ -202,7 +216,29 @@ ORDER BY
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
-            PeriodSec = _configuration.PeriodSec;
+
+            // PeriodSec reaches PeriodicTimer through the shared watchdog framework (Watchdog.ExecuteAsync ->
+            // FhirTimer.ExecuteAsync -> new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec))), which rejects a
+            // non-positive period. That rejection would fault this watchdog's task, and WatchdogsBackgroundService
+            // cancels the token shared by every watchdog as soon as one of their tasks completes — so a single
+            // mistyped value in an off-by-default diagnostics feature would take the transaction and cleanup
+            // watchdogs down with it. A diagnostics feature degrades instead of failing the host: keep the class
+            // default and name the rejected value. Non-finite values are rejected on the same grounds, because
+            // TimeSpan.FromSeconds rejects them for the same reason and with the same blast radius.
+            if (_configuration.PeriodSec > 0 && double.IsFinite(_configuration.PeriodSec))
+            {
+                PeriodSec = _configuration.PeriodSec;
+            }
+            else
+            {
+                PeriodSec = DefaultPeriodSec;
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure a positive value to change the interval.",
+                    _configuration.PeriodSec,
+                    DefaultPeriodSec);
+            }
+
+            _configuredPeriodSec = PeriodSec;
         }
 
         internal QueryStoreDiagnosticsWatchdog()
@@ -218,7 +254,7 @@ ORDER BY
 
         public override bool AllowRebalance { get; internal set; } = true;
 
-        public override double PeriodSec { get; internal set; } = 3600;
+        public override double PeriodSec { get; internal set; } = DefaultPeriodSec;
 
         /// <summary>
         /// Exposes RunWorkAsync for unit testing purposes.
@@ -239,14 +275,62 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             // that already holds the row, because dbo.Parameters has IGNORE_DUP_KEY = ON. So a deployment that changes
             // the configured period on an existing database gets no effect and no error. Surface the divergence rather
             // than leaving it to be inferred from collection timestamps.
-            if (PeriodSec != _configuration.PeriodSec)
+            WarnIfStoredPeriodSecOverridesConfiguration();
+        }
+
+        /// <summary>
+        /// Reports the stored <c>dbo.Parameters</c> period silently overriding the one this instance was configured
+        /// with. Separated from <see cref="InitAdditionalParamsAsync"/>, which cannot run without a live database,
+        /// so the branch is reachable from unit tests.
+        /// </summary>
+        internal void WarnIfStoredPeriodSecOverridesConfiguration()
+        {
+            // Exact comparison is correct here and an epsilon would not be: dbo.Parameters.Number is SQL float, which
+            // is IEEE-754 double, so a value that originated as a double round-trips losslessly.
+            if (PeriodSec != _configuredPeriodSec)
             {
                 _logger.LogWarning(
                     "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec} but the stored value in dbo.Parameters is {StoredPeriodSec}, which takes precedence and also sets the lookback window. Update the '{PeriodSecId}' row to change it.",
-                    _configuration.PeriodSec,
+                    _configuredPeriodSec,
                     PeriodSec,
                     PeriodSecId);
             }
+        }
+
+        /// <summary>
+        /// Clamps the stored collection period into the supported lookback range, reporting what the clamp costs when
+        /// it changes the value. Exposed as internal only for unit testing.
+        /// </summary>
+        /// <param name="storedPeriodSec">The collection period as stored in <c>dbo.Parameters</c>.</param>
+        /// <returns>The lookback window, in seconds, to use for this collection.</returns>
+        internal double GetLookbackPeriodSec(double storedPeriodSec)
+        {
+            var lookbackPeriodSec = Math.Clamp(storedPeriodSec, MinLookbackPeriodSec, MaxLookbackPeriodSec);
+
+            // The tick interval is the stored period unclamped, and it is fixed once at initialization, so whenever the
+            // clamp bites the two decouple permanently and silently. The initialization warning does not cover this
+            // case: there the configured and stored values agree, so it stays quiet.
+            if (lookbackPeriodSec < storedPeriodSec)
+            {
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: the stored PeriodSec of {StoredPeriodSec} seconds exceeds the maximum lookback window, so every collection looks back only {LookbackPeriodSec} seconds and {UnexaminedPeriodSec} seconds of each interval are never examined. Set the '{PeriodSecId}' row to at most {MaxLookbackPeriodSec} seconds.",
+                    storedPeriodSec,
+                    lookbackPeriodSec,
+                    storedPeriodSec - lookbackPeriodSec,
+                    PeriodSecId,
+                    MaxLookbackPeriodSec);
+            }
+            else if (lookbackPeriodSec > storedPeriodSec)
+            {
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: the stored PeriodSec of {StoredPeriodSec} seconds is below the minimum lookback window, so every collection looks back {LookbackPeriodSec} seconds and consecutive collections overlap and re-report the same plans. Set the '{PeriodSecId}' row to at least {MinLookbackPeriodSec} seconds.",
+                    storedPeriodSec,
+                    lookbackPeriodSec,
+                    PeriodSecId,
+                    MinLookbackPeriodSec);
+            }
+
+            return lookbackPeriodSec;
         }
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
@@ -261,11 +345,17 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
 
                 if (!await IsEnabledAsync(cancellationToken))
                 {
-                    _logger.LogInformation("QueryStoreDiagnosticsWatchdog is not enabled. Exiting...");
+                    // Warning, not information: WatchdogsBackgroundService only starts this watchdog when the feature
+                    // is enabled in configuration, so reaching this line always means an operator opted in and the
+                    // opt-in is having no effect because the runtime row was never armed. The remedy is inline so it
+                    // does not have to be looked up.
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog is enabled in configuration but not armed in dbo.Parameters, so no diagnostics are being collected. Exiting... Arm it with: UPDATE dbo.Parameters SET Number = 1 WHERE Id = '{IsEnabledId}'",
+                        IsEnabledId);
                     return;
                 }
 
-                var lookbackPeriodSec = Math.Clamp(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken), 60d, 86400d);
+                var lookbackPeriodSec = GetLookbackPeriodSec(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken));
                 var collectionTime = DateTimeOffset.UtcNow;
                 var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
                 var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
@@ -431,9 +521,20 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
         private async Task<IReadOnlyList<SlowQueryResult>> GetSlowQueriesAsync(DateTimeOffset startTime, CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(SlowQueriesSql);
+            var minDurationMilliseconds = Math.Max(0, _configuration.MinDurationMilliseconds);
+            if (_configuration.MinDurationMilliseconds < 0)
+            {
+                // Clamping to zero inverts the operator's intent — every query in the window becomes "slow" — so it
+                // is reported rather than absorbed, as its sibling thresholds already are.
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: MinDurationMilliseconds is {ConfiguredMinDurationMilliseconds}, which is negative and is being treated as {EffectiveMinDurationMilliseconds}, so every query in the collection window qualifies as slow. Configure a non-negative value.",
+                    _configuration.MinDurationMilliseconds,
+                    minDurationMilliseconds);
+            }
+
             command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
             command.Parameters.Add("@Top", SqlDbType.Int).Value = Math.Max(0, _configuration.SlowQueryCount);
-            command.Parameters.Add("@MinDurationMilliseconds", SqlDbType.Int).Value = Math.Max(0, _configuration.MinDurationMilliseconds);
+            command.Parameters.Add("@MinDurationMilliseconds", SqlDbType.Int).Value = minDurationMilliseconds;
 
             return await _sqlRetryService.ExecuteReaderAsync(
                 command,
@@ -504,19 +605,20 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
 
             var plans = await _sqlRetryService.ExecuteReaderAsync(
                 command,
-                reader => new QueryPlanResult(
-                    reader.GetInt64(0),
-                    reader.IsDBNull(1) ? null : reader.GetString(1)),
+                reader => (PlanId: reader.GetInt64(0), QueryPlanXml: reader.IsDBNull(1) ? null : reader.GetString(1)),
                 _logger,
                 "Failed to read Query Store plans",
                 cancellationToken);
-            var plansById = plans.ToDictionary(plan => plan.PlanId);
+
+            // Keyed by plan id and holding the plan XML itself: a plan with no row and a plan whose row carries NULL
+            // XML both yield null here, which is exactly what the sanitizer reports as PlanXmlUnavailable.
+            var plansById = plans.ToDictionary(plan => plan.PlanId, plan => plan.QueryPlanXml);
             var publishedPlanCount = 0;
 
             foreach (var slowQuery in slowQueries)
             {
                 plansById.TryGetValue(slowQuery.PlanId, out var queryPlan);
-                var sanitizedPlan = QueryPlanSanitizer.Sanitize(queryPlan?.QueryPlan, MaxFieldLength);
+                var sanitizedPlan = QueryPlanSanitizer.Sanitize(queryPlan, MaxFieldLength);
                 if (!string.Equals(sanitizedPlan.Status, QueryPlanSanitizer.SanitizedStatus, StringComparison.Ordinal))
                 {
                     // Without this, systematic sanitizer breakage looks exactly like "plans are simply unavailable"
@@ -732,19 +834,6 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             internal double TotalWaitMilliseconds { get; }
 
             internal string TopWaitCategory { get; }
-        }
-
-        private sealed class QueryPlanResult
-        {
-            internal QueryPlanResult(long planId, string queryPlan)
-            {
-                PlanId = planId;
-                QueryPlan = queryPlan;
-            }
-
-            internal long PlanId { get; }
-
-            internal string QueryPlan { get; }
         }
     }
 }

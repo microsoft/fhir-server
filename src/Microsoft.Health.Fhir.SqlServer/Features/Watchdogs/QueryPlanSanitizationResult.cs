@@ -20,13 +20,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </remarks>
     internal sealed class QueryPlanSanitizationResult
     {
-        private QueryPlanSanitizationResult(string status, string xml, bool truncated, int originalLength, int sanitizedLength)
+        private QueryPlanSanitizationResult(string status, string xml, int originalLength, int sanitizedLength)
         {
             Status = status;
             Xml = xml;
-            Truncated = truncated;
             OriginalLength = originalLength;
             SanitizedLength = sanitizedLength;
+
+            // Derived here rather than supplied by each factory, so the invariant "truncated exactly when the payload
+            // is shorter than the document it came from" has one implementation instead of four opportunities to
+            // contradict it. A failure result carries no payload and is therefore never truncated.
+            Truncated = xml != null && sanitizedLength > xml.Length;
         }
 
         /// <summary>
@@ -71,7 +75,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return new QueryPlanSanitizationResult(
                 QueryPlanSanitizer.SanitizedStatus,
                 xml,
-                sanitizedLength > xml.Length,
                 originalLength,
                 sanitizedLength);
         }
@@ -82,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// <returns>A result with null XML.</returns>
         internal static QueryPlanSanitizationResult PlanXmlUnavailable()
         {
-            return new QueryPlanSanitizationResult(QueryPlanSanitizer.PlanXmlUnavailableStatus, null, false, 0, 0);
+            return new QueryPlanSanitizationResult(QueryPlanSanitizer.PlanXmlUnavailableStatus, null, 0, 0);
         }
 
         /// <summary>
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             EnsureArg.IsGte(originalLength, 0, nameof(originalLength));
 
-            return new QueryPlanSanitizationResult(QueryPlanSanitizer.InvalidXmlStatus, null, false, originalLength, 0);
+            return new QueryPlanSanitizationResult(QueryPlanSanitizer.InvalidXmlStatus, null, originalLength, 0);
         }
 
         /// <summary>
@@ -108,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             EnsureArg.IsGte(originalLength, 0, nameof(originalLength));
             EnsureArg.IsGte(sanitizedLength, 0, nameof(sanitizedLength));
 
-            return new QueryPlanSanitizationResult(QueryPlanSanitizer.VerificationFailedStatus, null, false, originalLength, sanitizedLength);
+            return new QueryPlanSanitizationResult(QueryPlanSanitizer.VerificationFailedStatus, null, originalLength, sanitizedLength);
         }
     }
 }

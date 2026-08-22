@@ -69,7 +69,7 @@ This two-gate arrangement is what makes the feature safe to ship dark: the confi
 UPDATE dbo.Parameters SET Number = 1 WHERE Id = 'QueryStoreDiagnosticsWatchdog.IsEnabled'
 ```
 
-Until that row is `1` the watchdog logs `QueryStoreDiagnosticsWatchdog is not enabled. Exiting...` once per tick and returns. That log line is the thing to look for when the feature appears to be doing nothing.
+Until that row is `1` the watchdog logs, at **warning** level, `QueryStoreDiagnosticsWatchdog is enabled in configuration but not armed in dbo.Parameters, so no diagnostics are being collected. Exiting...` once per tick, with the arming statement above included inline, and returns. It is a warning rather than information because the watchdog is only ever started when the configuration gate is on, so reaching that line always means an opt-in that is having no effect. That log line is the thing to look for when the feature appears to be doing nothing.
 
 ### Configuration
 
@@ -78,9 +78,9 @@ Until that row is `1` the watchdog logs `QueryStoreDiagnosticsWatchdog is not en
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `false` | Deployment-time gate described above. |
-| `PeriodSec` | `3600` | Interval between collections. **Seeds `dbo.Parameters` once**; thereafter the live value is read from there. Also used as the Query Store lookback window. |
+| `PeriodSec` | `3600` | Interval between collections. **Seeds `dbo.Parameters` once**; thereafter the live value is read from there. Also used as the Query Store lookback window. A non-positive or non-finite value is rejected with a warning and the `3600` default is used, because the shared watchdog timer would otherwise throw and fault every watchdog in the process. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
-| `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. |
+| `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
 | `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
 | `StatisticsHealthCount` | `20` | Number of statistics rows to report per tick. |
@@ -92,6 +92,10 @@ The lookback window is the live `PeriodSec` clamped to `[60, 86400]` seconds, so
 ```sql
 UPDATE dbo.Parameters SET Number = 900 WHERE Id = 'QueryStoreDiagnosticsWatchdog.PeriodSec'
 ```
+
+**That `UPDATE` only takes full effect after a restart, and the two values diverge until then.** The lookback window is re-read from `dbo.Parameters` at the start of *every* tick, but the tick interval is read once, at initialization, and handed to the timer for the life of the process. So the statement above shortens the lookback immediately while collections keep firing at the old interval — going from `3600` to `900` on a running host means each tick then looks back 15 minutes out of the 60 minutes it covers, leaving 45 minutes of every hour unexamined until the process restarts. Lengthening the value has the mirror effect: consecutive ticks overlap and re-report the same plans. Restart the host after changing the row, or accept the gap in the interim.
+
+The watchdog also warns on every tick where the stored period had to be clamped into the supported lookback range of `[60, 86400]` seconds, naming the effective window and what the clamp costs, because in that case the interval and the lookback are permanently decoupled — the initialization warning below cannot see it, since the configured and stored values agree.
 
 Because this override is silent, the watchdog logs a warning at initialization whenever the stored period differs from the configured one, so a deployment that believes it changed the interval is not left to discover otherwise from collection timestamps. The other six settings are read from configuration on every tick and have no `dbo.Parameters` equivalent, so they take effect on restart. All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so no setting reloads in place.
 

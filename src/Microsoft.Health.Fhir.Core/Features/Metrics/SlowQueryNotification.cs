@@ -73,7 +73,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
         public double? AverageWaitMilliseconds { get; set; }
 
         /// <summary>
-        /// Gets or sets the wait category with the greatest observed wait time, when Query Store wait statistics are available.
+        /// Gets or sets the wait category with the greatest observed wait time. This can be null even when
+        /// <see cref="WaitStatisticsStatus"/> is <c>Available</c>, because Query Store itself reports no category
+        /// for some waits; <c>Available</c> means a wait row was read for the plan, not that it named a category.
         /// </summary>
         public string TopWaitCategory { get; set; }
 

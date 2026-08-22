@@ -50,18 +50,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     document = XDocument.Load(xmlReader, LoadOptions.PreserveWhitespace);
                 }
 
-                var elements = document.Root?.DescendantsAndSelf()
+                // A document with no root element is handled here and only here, because it is the one condition that
+                // would otherwise both skip removal (there is nothing to descend from) and satisfy verification
+                // (nothing sensitive is found in an empty tree), and so would emit the document verbatim. XDocument.Load
+                // rejects a rootless document today, which makes this unreachable; a PHI boundary must nevertheless
+                // have no condition under which sanitization is skipped and verification reports success.
+                if (document.Root == null)
+                {
+                    return QueryPlanSanitizationResult.VerificationFailed(queryPlanXml.Length, 0);
+                }
+
+                var elements = document.Root.DescendantsAndSelf()
                     .Where(element => string.Equals(element.Name.LocalName, "ParameterList", StringComparison.OrdinalIgnoreCase))
                     .ToList();
-                elements?.Remove();
+                elements.Remove();
 
-                var attributes = document.Root?.DescendantsAndSelf()
+                var attributes = document.Root.DescendantsAndSelf()
                     .Attributes()
                     .Where(attribute =>
                         string.Equals(attribute.Name.LocalName, "ParameterCompiledValue", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(attribute.Name.LocalName, "ParameterRuntimeValue", StringComparison.OrdinalIgnoreCase))
                     .ToList();
-                attributes?.Remove();
+                attributes.Remove();
 
                 var sanitizedXml = document.ToString(SaveOptions.DisableFormatting);
                 var sanitizedLength = sanitizedXml.Length;
@@ -91,11 +101,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private static bool ContainsSensitiveParameterData(XDocument document)
         {
             // Matching is by local name and namespace-agnostic, exactly as the removal above, so a Showplan namespace
-            // change between SQL versions cannot let parameter data pass verification.
-            return document.Root != null &&
-                document.Root.DescendantsAndSelf().Any(element =>
-                    IsSensitiveName(element.Name.LocalName) ||
-                    element.Attributes().Any(attribute => IsSensitiveName(attribute.Name.LocalName)));
+            // change between SQL versions cannot let parameter data pass verification. The root is known non-null:
+            // Sanitize fails a rootless document closed before reaching removal.
+            return document.Root.DescendantsAndSelf().Any(element =>
+                IsSensitiveName(element.Name.LocalName) ||
+                element.Attributes().Any(attribute => IsSensitiveName(attribute.Name.LocalName)));
         }
 
         private static bool IsSensitiveName(string localName)
