@@ -442,12 +442,19 @@ namespace Microsoft.Health.Extensions.Xunit
         /// one is silent, so the union is deliberate.
         /// </para>
         /// <para>
-        /// What this cannot do is invent values it could not read. When an attribute itself cannot be
-        /// read or expanded, the failure carries no argument set trait, and a leg selecting positively
-        /// on one - as the E2E and export legs do, with <c>(DataStore=SqlServer)&amp;(...)</c> - will
-        /// not select it. Such a leg sees no failure. The console output above still names the class,
-        /// and the legs that filter by exclusion still report it, but a positive filter cannot match a
-        /// trait that no longer exists and no arrangement of the remaining traits changes that.
+        /// Reading an attribute runs its constructor, so an attribute whose constructor throws is both
+        /// a cause of a fault and, ordinarily, unreadable afterwards. The values it was given are still
+        /// in the assembly's metadata, which can be read without running anything, so that is the
+        /// fallback: the failure still carries the traits the lost tests would have had. This matters
+        /// because the E2E and export legs select positively on an argument set, with
+        /// <c>(DataStore=SqlServer)&amp;(...)</c>, and a positive filter cannot match a trait that is
+        /// not there - such a leg would match nothing and report success with a class missing.
+        /// </para>
+        /// <para>
+        /// What remains beyond reach is a declaration whose metadata cannot be read either, or whose
+        /// argument sets are not enum constants in the metadata at all. The failure then carries no
+        /// argument set trait and only the legs that filter by exclusion report it; the console output
+        /// above still names the class either way.
         /// </para>
         /// </remarks>
         /// <param name="testClass">The class whose expansion failed.</param>
@@ -457,12 +464,18 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var dimensions = new List<SingleFlag[][]>();
 
-            AddAll(() => testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false), testClass.TestClassName);
-            AddAll(() => method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false), $"{testClass.TestClassName}.{method.Name}");
+            AddAll(
+                () => testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false),
+                () => testClass.Class.GetCustomAttributesData(),
+                testClass.TestClassName);
+            AddAll(
+                () => method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false),
+                () => method.GetCustomAttributesData(),
+                $"{testClass.TestClassName}.{method.Name}");
 
             return dimensions;
 
-            void AddAll(Func<object[]> read, string owner)
+            void AddAll(Func<object[]> read, Func<IEnumerable<CustomAttributeData>> readMetadata, string owner)
             {
                 object[] attributes;
                 try
@@ -471,8 +484,16 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
                 catch (Exception ex)
                 {
+                    // Reading an attribute runs its constructor, and a constructor that throws is one
+                    // of the ways a class gets here in the first place. The values are still in the
+                    // assembly's metadata, which can be read without running anything, so the failure
+                    // standing in for these tests can still carry the traits a leg selects on. Without
+                    // this the failure would reach the runner bare, and the export and E2E legs select
+                    // positively on a data store, so they would match nothing and report success.
                     Console.WriteLine(
-                        $"[FixtureArgumentSets] WARNING: the argument set attributes of '{owner}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                        $"[FixtureArgumentSets] WARNING: the argument set attributes of '{owner}' could not be read, so their values are being taken from metadata instead. {ex}");
+
+                    AddAllFromMetadata(readMetadata, owner);
                     return;
                 }
 
@@ -491,6 +512,85 @@ namespace Microsoft.Health.Extensions.Xunit
                             $"[FixtureArgumentSets] WARNING: an argument set attribute of '{owner}' could not be expanded, so a trait filter may not select the failure standing in for its tests. {ex}");
                     }
                 }
+            }
+
+            void AddAllFromMetadata(Func<IEnumerable<CustomAttributeData>> readMetadata, string owner)
+            {
+                IEnumerable<CustomAttributeData> attributeData;
+                try
+                {
+                    attributeData = readMetadata()
+                        .Where(d => typeof(FixtureArgumentSetsAttribute).IsAssignableFrom(d.AttributeType))
+                        .ToArray();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: the argument set metadata of '{owner}' could not be read either, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    return;
+                }
+
+                foreach (CustomAttributeData data in attributeData)
+                {
+                    try
+                    {
+                        dimensions.Add(ExpandEnumFlagsFromMetadata(data));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"[FixtureArgumentSets] WARNING: an argument set attribute of '{owner}' could not be expanded from metadata, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Expands the argument sets an attribute declares by reading the assembly's metadata, without
+        /// constructing the attribute.
+        /// </summary>
+        /// <remarks>
+        /// This is the fault path's way round an attribute whose constructor throws. It reads the same
+        /// enum values the constructor would have been handed, so the dimensions it produces are the
+        /// ones the tests would have carried had the class expanded.
+        /// </remarks>
+        /// <param name="attributeData">The metadata of one argument set attribute.</param>
+        /// <returns>One array of single-valued flags per declared dimension.</returns>
+        private static SingleFlag[][] ExpandEnumFlagsFromMetadata(CustomAttributeData attributeData)
+        {
+            var dimensions = new List<SingleFlag[]>();
+
+            foreach (CustomAttributeTypedArgument argument in attributeData.ConstructorArguments)
+            {
+                // A derived attribute names its enums one per parameter, while the base takes them as
+                // a params array, so an argument is either an enum or a collection of them.
+                if (argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> elements)
+                {
+                    foreach (CustomAttributeTypedArgument element in elements)
+                    {
+                        AddDimension(element);
+                    }
+                }
+                else
+                {
+                    AddDimension(argument);
+                }
+            }
+
+            return dimensions.ToArray();
+
+            void AddDimension(CustomAttributeTypedArgument argument)
+            {
+                Type argumentType = argument.ArgumentType;
+
+                // Metadata stores an enum as its underlying value, so the declared type is what says
+                // which enum it was. Anything that is not an enum is not a dimension.
+                if (argumentType == null || !argumentType.IsEnum || argument.Value == null)
+                {
+                    return;
+                }
+
+                dimensions.Add(GetSingleValuedFlags((Enum)Enum.ToObject(argumentType, argument.Value)).ToArray());
             }
         }
 
@@ -983,33 +1083,38 @@ namespace Microsoft.Health.Extensions.Xunit
 
         private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)
         {
+            return attribute.GetArgumentSets()
+                .Select(e => GetSingleValuedFlags(e).ToArray())
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Splits a flags enum value into the single-valued flags it names.
+        /// </summary>
+        /// <param name="e">The value to split, which may be null.</param>
+        /// <returns>One <see cref="SingleFlag"/> per flag set in the value.</returns>
+        private static IEnumerable<SingleFlag> GetSingleValuedFlags(Enum e)
+        {
             bool IsPowerOfTwo(long x)
             {
                 return (x != 0) && ((x & (x - 1)) == 0);
             }
 
-            IEnumerable<SingleFlag> GetSingleValuedFlags(Enum e)
+            if (e is null)
             {
-                if (e is null)
-                {
-                    yield break;
-                }
-
-                var enumAsLong = Convert.ToInt64(e);
-
-                foreach (Enum value in Enum.GetValues(e.GetType()))
-                {
-                    var flagAsLong = Convert.ToInt64(value);
-                    if (IsPowerOfTwo(flagAsLong) && (enumAsLong & flagAsLong) != 0)
-                    {
-                        yield return new SingleFlag(value);
-                    }
-                }
+                yield break;
             }
 
-            return attribute.GetArgumentSets()
-                .Select(e => GetSingleValuedFlags(e).ToArray())
-                .ToArray();
+            var enumAsLong = Convert.ToInt64(e);
+
+            foreach (Enum value in Enum.GetValues(e.GetType()))
+            {
+                var flagAsLong = Convert.ToInt64(value);
+                if (IsPowerOfTwo(flagAsLong) && (enumAsLong & flagAsLong) != 0)
+                {
+                    yield return new SingleFlag(value);
+                }
+            }
         }
 
         /// <summary>
