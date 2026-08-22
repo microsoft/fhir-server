@@ -33,7 +33,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             Assert.True(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
                 new OperationCanceledException(),
-                isCallbackFailure: false));
+                isCallbackFailure: false,
+                isCancellationRequested: true));
         }
 
         /// <summary>
@@ -46,7 +47,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             Assert.True(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
                 new TaskCanceledException(),
-                isCallbackFailure: false));
+                isCallbackFailure: false,
+                isCancellationRequested: true));
         }
 
         /// <summary>
@@ -58,7 +60,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             Assert.True(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
                 new InvalidOperationException("the sink threw"),
-                isCallbackFailure: true));
+                isCallbackFailure: true,
+                isCancellationRequested: false));
         }
 
         /// <summary>
@@ -71,7 +74,36 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             Assert.False(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
                 new InvalidOperationException("the argument set was misdeclared"),
-                isCallbackFailure: false));
+                isCallbackFailure: false,
+                isCancellationRequested: false));
+        }
+
+        /// <summary>
+        /// An <see cref="OperationCanceledException"/> out of a run nobody cancelled did not come from
+        /// the runner: expansion reads the attributes declared on the class, and one of those is free
+        /// to throw it for reasons of its own. Rethrowing it would drop the class and leave the run
+        /// green with its tests missing, which is what reporting discovery faults exists to prevent.
+        /// </summary>
+        [Fact]
+        public void GivenACancellationExceptionButNoCancellation_WhenExpansionEnds_ThenItIsReportedAsATest()
+        {
+            Assert.False(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
+                new OperationCanceledException("an attribute gave up waiting"),
+                isCallbackFailure: false,
+                isCancellationRequested: false));
+        }
+
+        /// <summary>
+        /// The derived type gets the same treatment, because it is the one an attribute that awaits
+        /// anything with a timeout will actually throw.
+        /// </summary>
+        [Fact]
+        public void GivenATaskCancellationButNoCancellation_WhenExpansionEnds_ThenItIsReportedAsATest()
+        {
+            Assert.False(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
+                new TaskCanceledException("an attribute gave up waiting"),
+                isCallbackFailure: false,
+                isCancellationRequested: false));
         }
 
         /// <summary>
@@ -83,7 +115,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             Assert.True(CustomXunitTestFrameworkDiscoverer.ShouldRethrowRatherThanReport(
                 new OperationCanceledException(),
-                isCallbackFailure: true));
+                isCallbackFailure: true,
+                isCancellationRequested: true));
         }
     }
 }

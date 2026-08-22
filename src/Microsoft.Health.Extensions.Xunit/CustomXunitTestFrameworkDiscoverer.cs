@@ -41,7 +41,7 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 return await FindTestsForTypeCore(testClass, discoveryOptions, tracker);
             }
-            catch (Exception ex) when (ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex)))
+            catch (Exception ex) when (ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex), IsRunCancelled()))
             {
                 // Either the run was cancelled, or the caller's own sink threw. Neither is a failure
                 // to expand fixture argument sets, so neither is reported as one.
@@ -129,6 +129,15 @@ namespace Microsoft.Health.Extensions.Xunit
         /// with nothing wrong with it. A failure raised by xunit's own callback is not ours either,
         /// and the only way to report it would be to hand that same callback another test case.
         /// <para>
+        /// Cancellation is recognised by asking whether the run was actually cancelled, not by the
+        /// exception's type alone. The type on its own is not evidence: expansion runs the attributes
+        /// declared on the class, and one of those is free to throw
+        /// <see cref="OperationCanceledException"/> for reasons of its own - a timeout inside an
+        /// attribute that reaches out to something, say. Taking that for a cancelled run rethrows it,
+        /// drops the class, and leaves the run green with its tests missing, which is the exact outcome
+        /// this mechanism exists to prevent, reached through the one door left open for it.
+        /// </para>
+        /// <para>
         /// This is a separate function so that the decision can be pinned directly. Reached only
         /// through a catch clause, the cancellation case in particular needs a run to be cancelled at
         /// the moment a class is being expanded, which no scenario can arrange reliably.
@@ -136,9 +145,32 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </remarks>
         /// <param name="exception">The exception that ended the expansion.</param>
         /// <param name="isCallbackFailure">Whether the exception came from xunit's own callback.</param>
+        /// <param name="isCancellationRequested">Whether the run was actually cancelled.</param>
         /// <returns><c>true</c> to rethrow; <c>false</c> to report the failure as a test case.</returns>
-        internal static bool ShouldRethrowRatherThanReport(Exception exception, bool isCallbackFailure) =>
-            exception is OperationCanceledException || isCallbackFailure;
+        internal static bool ShouldRethrowRatherThanReport(Exception exception, bool isCallbackFailure, bool isCancellationRequested) =>
+            (exception is OperationCanceledException && isCancellationRequested) || isCallbackFailure;
+
+        /// <summary>
+        /// Reports whether the run has been cancelled, as far as it can be determined here.
+        /// </summary>
+        /// <remarks>
+        /// Discovery is not handed a cancellation token, so this reads the ambient one xunit keeps for
+        /// the run. If it cannot be read the answer is no, which reports a fault rather than dropping a
+        /// class: a spurious red test naming a class is visible and can be argued with, while a class
+        /// silently absent from a green run is neither.
+        /// </remarks>
+        private static bool IsRunCancelled()
+        {
+            try
+            {
+                return TestContext.Current?.CancellationToken.IsCancellationRequested ?? false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FixtureArgumentSets] WARNING: the run's cancellation state could not be read while handling a discovery failure, so it is treated as a fault. {ex}");
+                return false;
+            }
+        }
 
         /// <summary>
         /// Determines whether xunit would treat a method as a test.
@@ -846,7 +878,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     continueDiscovery = await FindTestsForMethodCore(testClass, method, attribute, GetMethodArgumentSetsAttribute(method), classLevelOpenParameterSets, classLevelClosedParameterSets, discoveryOptions, tracker);
                 }
-                catch (Exception ex) when (!ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex)))
+                catch (Exception ex) when (!ShouldRethrowRatherThanReport(ex, tracker.IsCallbackFailure(ex), IsRunCancelled()))
                 {
                     continueDiscovery = await ReportDiscoveryFault(
                         testClass,
