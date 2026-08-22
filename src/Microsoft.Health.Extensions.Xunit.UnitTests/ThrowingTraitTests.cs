@@ -71,5 +71,20 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 run,
                 BothFaultCases());
         }
+
+        /// <summary>
+        /// The argument set trait still selects the failure. This is the trait the E2E and export
+        /// legs filter positively on, so it is the one whose loss would let such a leg pass green
+        /// with the method missing - the outcome this whole path exists to prevent.
+        /// </summary>
+        [Fact]
+        public void GivenAMethodWithATraitAttributeThatThrows_WhenALegSelectsOnTheArgumentSet_ThenTheFailureIsStillSelected()
+        {
+            TestAssetRun run = TestAssetRunner.Run("ThrowingTrait", filterQueryTraits: "(AssetDataStore=Sql)");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                BothFaultCases());
+        }
     }
 }

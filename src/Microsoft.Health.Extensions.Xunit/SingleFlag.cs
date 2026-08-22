@@ -39,7 +39,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
         public bool Equals(SingleFlag other)
         {
-            return other.EnumValue.Equals(EnumValue);
+            // Not other.EnumValue.Equals(...): this is a struct, so default(SingleFlag) reaches here
+            // with a null EnumValue without ever passing through the constructor. GetHashCode already
+            // tolerates that, and an Equals that throws on the same value contradicts it.
+            return Equals(other.EnumValue, EnumValue);
         }
 
         public override bool Equals(object obj)
