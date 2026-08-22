@@ -101,8 +101,15 @@ namespace Microsoft.Health.Extensions.Xunit
                 : $"{TestMethod?.TestClass?.TestClassName}.{TestMethod?.MethodName}";
 
         /// <summary>
-        /// Runs the test case, retrying transient failures up to the configured number of attempts.
+        /// Runs the test case, retrying a failed attempt up to the configured number of attempts.
         /// </summary>
+        /// <remarks>
+        /// Nothing here decides whether a failure was transient. Every failure is retried except one
+        /// classified as an assertion failure, which is retried only when the test asks for it with
+        /// <c>RetryOnAssertionFailure</c> - see <see cref="ShouldRetry"/>. A deterministic failure is
+        /// therefore retried too, and fails every attempt, which costs time but reports the same
+        /// result. Read a passing retry as "this attempt passed", not as "the failure was transient".
+        /// </remarks>
         /// <param name="explicitOption">Whether explicit tests should be run.</param>
         /// <param name="messageBus">The message bus that test results are reported to.</param>
         /// <param name="constructorArguments">The arguments to pass to the test class constructor.</param>
@@ -701,14 +708,19 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 if (_deferring)
                 {
-                    // Once this attempt has held something back, everything after it is held too, so
-                    // a failure arriving here never reaches the capture below and never sets
-                    // LastFailureMessage. That under-reporting is deliberate. The only way to get
-                    // here is for an abstention to have been deferred first, and the outcome that
-                    // follows - the earlier attempt's failure being replayed - publishes a failure
-                    // either way, so the run stays loud. Capturing it here instead would make this
-                    // attempt look like a failure in its own right, and the two would be published
-                    // as separate results for one test.
+                    // This attempt is already holding messages back - either a failure it means to
+                    // retry, or an abstention that has to compete with an earlier failure - so
+                    // everything after it is held too, and is neither published now nor examined
+                    // below. The usual thing arriving here is the ITestFinished that follows a
+                    // deferred failure, and it must not reach the inner bus while the result it
+                    // belongs to is still being decided.
+                    //
+                    // A failure arriving here therefore never sets LastFailureMessage. On the retry
+                    // path that costs nothing, because the failure that started the deferral set it
+                    // already. On the abstention path it is deliberate: the outcome that follows
+                    // replays the earlier attempt's failure, so a failure is published either way,
+                    // and treating this attempt as a failure in its own right would publish two
+                    // results for one test.
                     _deferredMessages.Add(message);
                     return true;
                 }
