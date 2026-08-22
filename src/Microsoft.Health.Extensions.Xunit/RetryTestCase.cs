@@ -663,6 +663,15 @@ namespace Microsoft.Health.Extensions.Xunit
 
             public string LastFailureMessage { get; private set; }
 
+            /// <summary>
+            /// Gets or sets where this bus writes its own diagnostics, defaulting to the console.
+            /// </summary>
+            /// <remarks>
+            /// Exists so a test can read what was reported without redirecting the console, which is
+            /// process-wide state and would make any test doing it unsafe to run alongside others.
+            /// </remarks>
+            public Action<string> DiagnosticLog { get; set; } = Console.WriteLine;
+
             public string LastFailureStackTrace { get; private set; }
 
             public bool IsAssertionFailure { get; private set; }
@@ -692,6 +701,14 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 if (_deferring)
                 {
+                    // Once this attempt has held something back, everything after it is held too, so
+                    // a failure arriving here never reaches the capture below and never sets
+                    // LastFailureMessage. That under-reporting is deliberate. The only way to get
+                    // here is for an abstention to have been deferred first, and the outcome that
+                    // follows - the earlier attempt's failure being replayed - publishes a failure
+                    // either way, so the run stays loud. Capturing it here instead would make this
+                    // attempt look like a failure in its own right, and the two would be published
+                    // as separate results for one test.
                     _deferredMessages.Add(message);
                     return true;
                 }
@@ -835,7 +852,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     if (!_replayOnDisposeIsIntended)
                     {
-                        Console.WriteLine($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
+                        DiagnosticLog($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
                     }
 
                     try
@@ -848,7 +865,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         // already unwinding. Throwing from here would replace whatever actually went
                         // wrong with a reporting error, so the failure to replay is logged and the
                         // original exception is left to propagate.
-                        Console.WriteLine($"[RetryFact] Failed to replay {_deferredMessages.Count} deferred test message(s): {e.GetType().FullName}: {e.Message}");
+                        DiagnosticLog($"[RetryFact] Failed to replay {_deferredMessages.Count} deferred test message(s): {e.GetType().FullName}: {e.Message}");
                     }
                 }
             }

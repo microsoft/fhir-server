@@ -106,44 +106,29 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         public void GivenADeliberateHandoffToDisposal_WhenTheBusIsDisposed_ThenItPublishesWithoutClaimingAnInternalError()
         {
             var inner = new RecordingMessageBus();
+            var diagnostics = new List<string>();
             RetryTestCase.FailureInterceptingMessageBus current = DeferAbstention(inner);
+            current.DiagnosticLog = diagnostics.Add;
 
             RetryTestCase.ReportSingleResult(NoResultOutcome.ReportNothing, current, earlierAttempt: null);
-
-            string console = CaptureConsole(current.Dispose);
+            current.Dispose();
 
             Assert.Equal(new[] { nameof(ITestSkipped) }, inner.PublishedKinds);
-            Assert.DoesNotContain("Internal error", console, StringComparison.Ordinal);
+            Assert.DoesNotContain(diagnostics, d => d.Contains("Internal error", StringComparison.Ordinal));
         }
 
         [Fact]
         public void GivenMessagesNobodyResolved_WhenTheBusIsDisposed_ThenItStillPublishesAndSaysSo()
         {
             var inner = new RecordingMessageBus();
+            var diagnostics = new List<string>();
             RetryTestCase.FailureInterceptingMessageBus orphaned = DeferFailure(inner);
+            orphaned.DiagnosticLog = diagnostics.Add;
 
-            string console = CaptureConsole(orphaned.Dispose);
+            orphaned.Dispose();
 
             Assert.Equal(new[] { nameof(ITestFailed) }, inner.PublishedKinds);
-            Assert.Contains("Internal error", console, StringComparison.Ordinal);
-        }
-
-        private static string CaptureConsole(Action action)
-        {
-            System.IO.TextWriter original = Console.Out;
-            var captured = new System.IO.StringWriter();
-
-            try
-            {
-                Console.SetOut(captured);
-                action();
-            }
-            finally
-            {
-                Console.SetOut(original);
-            }
-
-            return captured.ToString();
+            Assert.Contains(diagnostics, d => d.Contains("Internal error", StringComparison.Ordinal));
         }
 
         private static RetryTestCase.FailureInterceptingMessageBus DeferFailure(RecordingMessageBus inner)

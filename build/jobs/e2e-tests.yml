@@ -78,6 +78,9 @@ steps:
 
         # Kept at 1 as a last-ditch check that the run itself published something. Anything higher
         # is unsafe here for the retry reason above; the real floor is the discovery check.
+        # --parallel none is not optional and must not be dropped: these tests share one server, and
+        # the xunit.runner.json that would otherwise disable parallelism is deliberately not copied
+        # to a published layout, so the command line is the only place this is guaranteed.
         $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
