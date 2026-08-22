@@ -27,12 +27,9 @@ namespace Microsoft.Health.Extensions.Xunit
             ITheoryDataRow dataRow,
             object[] testMethodArguments)
         {
-            var attribute = (RetryTheoryAttribute)theoryAttribute;
-
-            var baseCases = await base.CreateTestCasesForDataRow(discoveryOptions, testMethod, theoryAttribute, dataRow, testMethodArguments);
-            return baseCases
-                .Select(testCase => WrapTestCase(testCase, attribute))
-                .ToArray();
+            return WrapAll(
+                await base.CreateTestCasesForDataRow(discoveryOptions, testMethod, theoryAttribute, dataRow, testMethodArguments),
+                theoryAttribute);
         }
 
         protected override async ValueTask<IReadOnlyCollection<IXunitTestCase>> CreateTestCasesForTheory(
@@ -40,9 +37,16 @@ namespace Microsoft.Health.Extensions.Xunit
             IXunitTestMethod testMethod,
             ITheoryAttribute theoryAttribute)
         {
-            var attribute = (RetryTheoryAttribute)theoryAttribute;
+            return WrapAll(
+                await base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute),
+                theoryAttribute);
+        }
 
-            var baseCases = await base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute);
+        private static IXunitTestCase[] WrapAll(
+            IReadOnlyCollection<IXunitTestCase> baseCases,
+            ITheoryAttribute theoryAttribute)
+        {
+            var attribute = (RetryTheoryAttribute)theoryAttribute;
             return baseCases
                 .Select(testCase => WrapTestCase(testCase, attribute))
                 .ToArray();

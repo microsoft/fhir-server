@@ -1095,9 +1095,9 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 // A case whose traits cannot be written is one a filtering leg cannot see, which is
                 // the failure this class exists to prevent -- so fail discovery rather than let it
-                // through untagged. ApplyVariantDisplayName rejects the same case types, so in the
-                // current call order this is unreachable; it is kept because this method needs the
-                // guarantee on its own account, not because of the order it happens to be called in.
+                // through untagged. ApplyVariantDisplayName rejects the same case types, but it
+                // returns before that check when the variant closes no argument set, so this guard
+                // is reached rather than redundant.
                 throw new InvalidOperationException(
                     $"The fixture argument set traits of '{testCase.TestCaseDisplayName}' could not be applied because it is " +
                     $"{testCase.GetType().Name}, not {nameof(XunitTestCase)}. A CI leg selecting on those traits would not run it.");

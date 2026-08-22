@@ -11,13 +11,13 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.SkipAfterFailur
 {
     /// <summary>
     /// A retrying test that fails on its first attempt and skips itself on the second.
-    /// Expected: 1 result, skipped.
+    /// Expected: 1 result, failed.
     /// </summary>
     /// <remarks>
-    /// A skip is a definitive result, so it supersedes the earlier attempt's failure the same way a
-    /// pass does. This scenario exists to state that outcome rather than leave it to be discovered:
-    /// the first attempt's failure is discarded, so a test that fails and then decides it should not
-    /// have run is reported skipped, not failed.
+    /// A pass supersedes an earlier failure because it is a claim that the code works - that is what
+    /// retrying is for. A skip claims nothing: it says the attempt should not have run. Letting it
+    /// supersede would erase a failure the test really did show, so the skip is discarded instead and
+    /// the failure stands.
     /// </remarks>
     public class SkipAfterFailureTests
     {

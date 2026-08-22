@@ -530,16 +530,8 @@ namespace Microsoft.Health.Extensions.Xunit
             // Don't retry assertion failures unless explicitly configured
             if (ex is XunitException)
             {
-                if (!_retryOnAssertionFailure)
-                {
-                    Trace.WriteLine($"RetryFact: Not retrying XunitException because _retryOnAssertionFailure is false");
-                    return false;
-                }
-                else
-                {
-                    Trace.WriteLine($"RetryFact: Retrying XunitException because _retryOnAssertionFailure is true");
-                    return true;
-                }
+                Trace.WriteLine($"RetryFact: {(_retryOnAssertionFailure ? "Retrying" : "Not retrying")} XunitException because _retryOnAssertionFailure is {_retryOnAssertionFailure.ToString().ToLowerInvariant()}");
+                return _retryOnAssertionFailure;
             }
 
             // Retry everything else (network, timeout, SQL transient, etc.)
