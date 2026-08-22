@@ -11,7 +11,7 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryOutcomes
 {
     /// <summary>
     /// The full <see cref="RetryFactAttribute"/> outcome matrix, run without cancellation.
-    /// Expected: 7 results, 3 failed, 3 passed and 1 skipped, with exactly one result per test.
+    /// Expected: 8 results, 3 failed, 4 passed and 1 skipped, with exactly one result per test.
     /// </summary>
     public class RetryOutcomeTests
     {

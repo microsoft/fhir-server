@@ -505,7 +505,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     try
                     {
-                        dimensions.Add(ExpandEnumFlagsFromAttributeData(attribute));
+                        dimensions.Add(ExpandFaultEnumFlagsFromAttributeData(attribute));
                     }
                     catch (Exception ex)
                     {
@@ -560,6 +560,7 @@ namespace Microsoft.Health.Extensions.Xunit
         private static SingleFlag[][] ExpandEnumFlagsFromMetadata(CustomAttributeData attributeData)
         {
             var dimensions = new List<SingleFlag[]>();
+            var enumTypes = new List<Type>();
 
             foreach (CustomAttributeTypedArgument argument in attributeData.ConstructorArguments)
             {
@@ -578,7 +579,9 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
             }
 
-            return dimensions.ToArray();
+            // This path only ever runs while reporting a fault, so a declaration naming nothing is
+            // widened here for the same reason it is on the reflection path.
+            return WidenFaultDimensionsThatNameNothing(dimensions.ToArray(), enumTypes.ToArray());
 
             void AddDimension(CustomAttributeTypedArgument argument)
             {
@@ -592,6 +595,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
 
                 dimensions.Add(GetSingleValuedFlags((Enum)Enum.ToObject(argumentType, argument.Value)).ToArray());
+                enumTypes.Add(argumentType);
             }
         }
 
@@ -1152,6 +1156,95 @@ namespace Microsoft.Health.Extensions.Xunit
             return attribute.GetArgumentSets()
                 .Select(e => GetSingleValuedFlags(e).ToArray())
                 .ToArray();
+        }
+
+        /// <summary>
+        /// Expands an argument set declaration for the fault path, widening a dimension that names no
+        /// value to every value its type declares.
+        /// </summary>
+        /// <remarks>
+        /// A dimension naming no value expands to nothing, so the product of the dimensions is empty
+        /// and the failure standing in for the method carries no argument set trait at all. The E2E
+        /// and export legs select positively on that trait, so such a failure is invisible to them:
+        /// the leg reports success with the method's tests simply absent, which is the outcome this
+        /// whole path exists to prevent. The value is unknown but the type is not - a dimension is
+        /// declared as an enum whether or not it names any of its flags - so the failure is reported
+        /// once per value that type declares instead. That over-reports, in the same deliberate
+        /// direction as the rest of this path: a leg seeing a failure for a variant that would not
+        /// have existed is loud and traceable to this declaration, where a leg seeing nothing is not.
+        /// </remarks>
+        /// <param name="attribute">The declaration to expand.</param>
+        /// <returns>One dimension per argument set, each holding at least one value where the type is known.</returns>
+        private static SingleFlag[][] ExpandFaultEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)
+        {
+            IReadOnlyList<Enum> argumentSets = attribute.GetArgumentSets();
+            SingleFlag[][] dimensions = argumentSets
+                .Select(e => GetSingleValuedFlags(e).ToArray())
+                .ToArray();
+
+            return WidenFaultDimensionsThatNameNothing(dimensions, argumentSets.Select(e => e?.GetType()).ToArray());
+        }
+
+        /// <summary>
+        /// Replaces the dimensions of a declaration that names no value at all with every value their
+        /// types declare, so the failure standing in for the method can still be selected.
+        /// </summary>
+        /// <remarks>
+        /// This fires only when the declaration produces no combination whatsoever. A dimension that
+        /// names nothing alongside one that does is not this case: naming nothing in one position is
+        /// how a method asks to inherit that position from its class, and widening it would report
+        /// the failure under values the declaration never asked for.
+        /// </remarks>
+        /// <param name="dimensions">The dimensions as declared.</param>
+        /// <param name="enumTypes">The type of each dimension, positionally, with null where unknown.</param>
+        /// <returns>The dimensions to report the failure against.</returns>
+        private static SingleFlag[][] WidenFaultDimensionsThatNameNothing(SingleFlag[][] dimensions, Type[] enumTypes)
+        {
+            if (dimensions.Length == 0 || dimensions.Any(dimension => dimension.Length > 0))
+            {
+                return dimensions;
+            }
+
+            return dimensions
+                .Select((dimension, index) => AllSingleValuedFlagsOf(index < enumTypes.Length ? enumTypes[index] : null))
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Lists every single-valued flag an enum type declares, for reporting a failure whose own
+        /// declaration named none of them.
+        /// </summary>
+        /// <param name="enumType">The type to read, which may be null or not an enum.</param>
+        /// <returns>The type's single-valued flags, or nothing if they cannot be read.</returns>
+        private static SingleFlag[] AllSingleValuedFlagsOf(Type enumType)
+        {
+            if (enumType == null || !enumType.IsEnum)
+            {
+                return Array.Empty<SingleFlag>();
+            }
+
+            try
+            {
+                return Enum.GetValues(enumType)
+                    .Cast<Enum>()
+                    .Where(value =>
+                    {
+                        long asLong = Convert.ToInt64(value);
+                        return (asLong != 0) && ((asLong & (asLong - 1)) == 0);
+                    })
+                    .Select(value => new SingleFlag(value))
+                    .ToArray();
+            }
+            catch (Exception ex)
+            {
+                // Reading the type's values is the only thing that can fail here, and a failure leaves
+                // the dimension as it was: the failure is still reported, just without this trait.
+                // Losing the trait is the thing being guarded against, so it is said out loud.
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: '{enumType.FullName}' names no value in this declaration and its values could not be read, so the failure reported in the method's place carries no trait for that dimension and a leg selecting positively on it will not see the failure. {ex}");
+
+                return Array.Empty<SingleFlag>();
+            }
         }
 
         /// <summary>

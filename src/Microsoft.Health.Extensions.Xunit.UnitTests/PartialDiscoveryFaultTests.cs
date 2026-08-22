@@ -16,7 +16,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     public class PartialDiscoveryFaultTests
     {
         private const string ScenarioClass = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.PartialDiscoveryFault.PartialDiscoveryFaultTests";
-        private const string ErrorCaseName = ScenarioClass + ".NeverRuns (fixture argument set discovery)";
+        private const string ErrorCaseSql = ScenarioClass + ".NeverRuns (fixture argument set discovery: Sql)";
+        private const string ErrorCaseCosmos = ScenarioClass + ".NeverRuns (fixture argument set discovery: Cosmos)";
 
         /// <summary>
         /// Test cases are published to xUnit as the discoverer walks the class's methods, so a
@@ -36,7 +37,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [ScenarioClass + ".RunsBeforeTheFault"] = "Passed",
                     [ScenarioClass + ".RunsAfterTheFault"] = "Passed",
-                    [ErrorCaseName] = "Failed",
+                    [ErrorCaseSql] = "Failed",
+                    [ErrorCaseCosmos] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);
@@ -71,7 +73,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 run,
                 new Dictionary<string, string>
                 {
-                    [ErrorCaseName] = "Failed",
+                    [ErrorCaseSql] = "Failed",
+                    [ErrorCaseCosmos] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);

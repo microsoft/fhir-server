@@ -15,7 +15,15 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     /// </summary>
     public class EmptyArgumentSetTests
     {
-        private const string ErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.EmptyArgumentSet.EmptyArgumentSetTests.NeverRuns (fixture argument set discovery)";
+        private const string ErrorCaseSql = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.EmptyArgumentSet.EmptyArgumentSetTests.NeverRuns (fixture argument set discovery: Sql)";
+        private const string ErrorCaseCosmos = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.EmptyArgumentSet.EmptyArgumentSetTests.NeverRuns (fixture argument set discovery: Cosmos)";
+
+        private static Dictionary<string, string> BothErrorCases() =>
+            new Dictionary<string, string>
+            {
+                [ErrorCaseSql] = "Failed",
+                [ErrorCaseCosmos] = "Failed",
+            };
 
         /// <summary>
         /// An argument set naming no flag collapses the product of the declared dimensions to nothing,
@@ -29,11 +37,27 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         {
             TestAssetRun run = TestAssetRunner.Run("EmptyArgumentSet");
 
+            TestAssetRunAssertions.PublishedExactly(run, BothErrorCases());
+
+            Assert.NotEqual(0, run.ExitCode);
+        }
+
+        /// <summary>
+        /// The declaration names no value, so there is none to report the failure under - but it still
+        /// names a type, and the failure is reported once per value that type declares. Without this a
+        /// leg selecting positively on the argument set would see nothing and report success with the
+        /// method's tests absent, which is the outcome reporting these failures exists to prevent.
+        /// </summary>
+        [Fact]
+        public void GivenAnArgumentSetThatNamesNoValue_WhenALegSelectsOnTheArgumentSet_ThenTheFailureIsStillSelected()
+        {
+            TestAssetRun run = TestAssetRunner.Run("EmptyArgumentSet", filterQueryTraits: "(AssetDataStore=Sql)");
+
             TestAssetRunAssertions.PublishedExactly(
                 run,
                 new Dictionary<string, string>
                 {
-                    [ErrorCaseName] = "Failed",
+                    [ErrorCaseSql] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);
