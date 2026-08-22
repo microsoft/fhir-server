@@ -1389,14 +1389,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var results = await _searchService.Value.SearchAsync(resourceType, new List<Tuple<string, string>>(), cancellationToken);
             foreach (var result in results.Results)
             {
-                await _fixture.Mediator.DeleteResourceAsync(result.Resource.ToResourceKey(ignoreVersion: true), DeleteOperation.SoftDelete, cancellationToken);
+                await _fixture.Mediator.DeleteResourceAsync(result.Resource.ToResourceKey(true), DeleteOperation.SoftDelete, cancellationToken);
                 _output.WriteLine($"Deleted {resourceType} resource: {result.Resource.ResourceId}");
             }
         }
 
         private async Task DeleteTestResources(CancellationToken cancellationToken = default)
         {
-            _output.WriteLine("Starting DeleteTestResources cleanup");
+            _output.WriteLine("DeleteTestResources starting...");
 
             await CancelActiveReindexJobIfExists(cancellationToken);
 
@@ -1420,7 +1420,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await _searchParameterOperations2.GetAndApplySearchParameterUpdates(cancellationToken, true);
             }
 
-            _output.WriteLine("Completed DeleteTestResources cleanup");
+            _output.WriteLine("DeleteTestResources completed.");
         }
     }
 }

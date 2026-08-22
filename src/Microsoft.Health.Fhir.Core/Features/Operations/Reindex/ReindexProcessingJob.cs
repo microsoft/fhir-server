@@ -126,21 +126,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_result);
         }
 
-        private async Task CheckSearchParamCache(string resourceType)
-        {
-            var invalid = await ReindexOrchestratorJob.GetCustomSearchParamsWithoutResources(resourceType, _searchParameterOperations, _searchParameterDefinitionManager, _cancellationToken);
-            if (invalid.Any())
-            {
-                var msg = $"Cache contains search params without resources for resource type={resourceType}: {string.Join(", ", invalid.Select(p => p.Url.OriginalString))}";
-                _result.Error = msg;
-                throw new JobExecutionSoftFailureException(msg, _result, false);
-            }
-        }
-
         private async Task CheckSearchParamHash()
         {
             var resourceType = _definition.ResourceType;
-            LogCacheDiag(resourceType);
             var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
             var requestedSearchParameterHash = _definition.SearchParameterHash;
             var isBad = requestedSearchParameterHash != searchParameterHash;
@@ -149,8 +137,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckSearchParamHash", "Error", msg, null);
-
-                await CheckSearchParamCache(resourceType);
 
                 _result.Error = msg;
                 throw new JobExecutionSoftFailureException(_result.Error, _result, false);
@@ -162,14 +148,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             _searchParameterHash = searchParameterHash; // this is relevant for cosmos only
-        }
-
-        public void LogCacheDiag(string resourceType)
-        {
-            var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType).Where(_ => _.SearchParameterStatus == SearchParameterStatus.Supported || _.SearchParameterStatus == SearchParameterStatus.Enabled).ToList();
-            var systemCount = searchParameters.Count(_ => _.IsSystemDefined);
-            var urls = searchParameters.Where(_ => !_.IsSystemDefined).Select(_ => _.Url.ToString()).OrderBy(_ => _).ToList();
-            _logger.LogJobInformation(_jobInfo, $"SearchParam Cache: System={systemCount}, Custom={urls.Count}, CustomUrls=[{string.Join(",", urls)}]");
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(long count, string continuationToken)

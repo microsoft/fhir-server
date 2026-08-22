@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterCacheRefreshIntervalSeconds = coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds;
 
             // Determine support for surrogate ID ranging once
-            // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
+            // This is to ensure cosmos reindex still works as expected but we still maintain perf for SQL
             _isSql = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported; // TODO: replace.
             _logger.LogInformation(_isSql ? "Using SQL Server search service with surrogate ID ranging support" : "Using CosmosDb search service without surrogate ID ranging support");
         }
@@ -137,6 +137,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
+                await DeleteOrphans();
+
                 await RefreshSearchParameterCache(true);
 
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
@@ -238,69 +240,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<List<string>> CleanupMissingSearchParameterResourcesAsync(IReadOnlyCollection<ResourceSearchParameterStatus> allStatuses)
+        private async Task DeleteOrphans()
         {
-            _logger.LogJobInformation(_jobInfo, "Checking for search parameters in pending delete states with missing resources.");
+            _logger.LogJobInformation(_jobInfo, "DeleteOrphans: Starting...");
 
-            var pending = allStatuses.Where(sp => sp.Status == SearchParameterStatus.PendingDelete || sp.Status == SearchParameterStatus.PendingHardDelete).Select(sp => sp.Uri.OriginalString).ToList();
-            _logger.LogJobInformation(_jobInfo, "Found {Count} search parameter(s) in pending delete states. Checking if resources exist.", pending.Count);
+            var all = (await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)).Select(_ => _.Uri.OriginalString).ToList();
+            var systemDefined = new HashSet<string>(_searchParameterDefinitionManager.AllSearchParameters.Where(p => p.IsSystemDefined).Select(p => p.Url.OriginalString));
+            var custom = all.Where(_ => !systemDefined.Contains(_)).ToList();
+            _logger.LogJobInformation(_jobInfo, $"DeleteOrphans: Custom params total={custom.Count}.");
 
-            var searchParameters = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(pending, _cancellationToken));
+            var searchParamsWithResources = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(custom, _cancellationToken));
 
             var toMarkDeleted = new List<string>();
-            foreach (var url in pending.Where(url => !searchParameters.ContainsKey(url)))
+            foreach (var url in custom.Where(_ => !searchParamsWithResources.ContainsKey(_)))
             {
-                _logger.LogJobInformation(_jobInfo, "Search parameter resource '{Url}' not found - will mark as Deleted.", url);
+                _logger.LogJobWarning(_jobInfo, $"DeleteOrphans: {url} - Resource not found.");
                 toMarkDeleted.Add(url);
             }
 
             if (toMarkDeleted.Any())
             {
-                _logger.LogJobInformation(_jobInfo, "Marking {Count} search parameter(s) as Deleted due to missing resources.", toMarkDeleted.Count);
                 await _retries.ExecuteAsync(
                     async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, _cancellationToken, reindexId: _jobInfo.Id));
+                _logger.LogJobInformation(_jobInfo, $"DeleteOrphans: {toMarkDeleted.Count} search parameter(s) marked as Deleted.");
             }
 
-            return toMarkDeleted;
-        }
-
-        internal static async Task<List<SearchParameterInfo>> GetCustomSearchParamsWithoutResources(string resourceType, ISearchParameterOperations operations, ISearchParameterDefinitionManager manager, CancellationToken cancel)
-        {
-            var searchParams = manager.GetSearchParameters(resourceType).Where(p => !p.IsSystemDefined).ToList();
-            var withResources = await operations.GetSearchParametersByUrlsAsync([.. searchParams.Select(p => p.Url.OriginalString)], cancel);
-            var invalid = searchParams.Where(p => !withResources.ContainsKey(p.Url.OriginalString)).ToList();
-            return invalid;
+            _logger.LogJobInformation(_jobInfo, "DeleteOrphans: Completed.");
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync()
         {
-            // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             var targetStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
-            var initial = await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken);
-
-            // Clean up search parameters in pending delete states if resources don't exist
-            var deleted = await CleanupMissingSearchParameterResourcesAsync(initial);
-
-            // Get all URIs that have at least one entry with a valid status
-            // Exclude search parameters marked as deleted during cleanup
-            var initialMinusDeleted = initial.Where(_ => targetStatuses.Contains(_.Status) && !deleted.Contains(_.Uri.OriginalString))
-                                             .ToDictionary(_ => _.Uri.OriginalString, _ => _.Status);
+            var searchParams = (await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)).Where(_ => targetStatuses.Contains(_.Status)).ToList();
+            _logger.LogJobInformation(_jobInfo, $"CreateReindexProcessingJobsAsync: Get search param(s) for processing. Total={searchParams.Count}.");
 
             // Filter to only those search parameters which have valid definitions
             var targetParams = new List<SearchParameterInfo>();
-            foreach (var validUrl in initialMinusDeleted.Keys)
+            foreach (var validUrl in searchParams.Select(_ => _.Uri.OriginalString))
             {
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUrl, out var param))
                 {
                     targetParams.Add(param);
-                    var msg = $"status={param.SearchParameterStatus} for url={validUrl}";
+                    var msg = $"GetDefinitionFromCache: {validUrl} status={param.SearchParameterStatus}";
                     _logger.LogJobInformation(_jobInfo, msg);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Warn", msg, null);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}", "Warn", msg, null);
                 }
                 else
                 {
-                    var msg = $"status=null for url={validUrl}";
+                    var msg = $"GetDefinitionFromCache: {validUrl} not found in cache.";
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
                     throw new JobExecutionException(msg, _result, false);
                 }
@@ -317,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // to support no matching resources case register all resource types in the transient lookups
                 foreach (var resourceType in paramResourceTypes)
                 {
-                    PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, initialMinusDeleted[param.Url.OriginalString])], new List<long>());
+                    PopulateProcessingLookups(resourceType, [(param.Url.OriginalString, param.SearchParameterStatus)], new List<long>());
                 }
 
                 // exclude not used resource types from enqueueing. this also removes resource types which we do not have id mapping for (like Resource).
@@ -330,18 +318,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, string.Format(Core.Resources.ReindexingNoSearchParameterstoReindex, _jobInfo.Id));
                 return new List<long>();
-            }
-
-            // check cache consistency
-            foreach (var resourceType in resourceTypes)
-            {
-                var invalid = await GetCustomSearchParamsWithoutResources(resourceType, _searchParameterOperations, _searchParameterDefinitionManager, _cancellationToken);
-                if (invalid.Any())
-                {
-                    var msg = $"Cache contains search params without resources for resource type={resourceType}: {string.Join(", ", invalid.Select(p => p.Url.OriginalString))}";
-                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
-                    throw new JobExecutionException(msg, _result, false);
-                }
             }
 
             if (!_isSql) // only cosmos needs resource counts to support chunking
