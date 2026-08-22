@@ -569,11 +569,18 @@ namespace Microsoft.Health.Extensions.Xunit
                 if (message is ITestFailed failed)
                 {
                     // Capture failure details for diagnostics
-                    LastFailureMessage = failed.Messages != null && failed.Messages.Length > 0
-                        ? string.Join(Environment.NewLine, failed.Messages)
-                        : failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
-                            ? string.Join(", ", failed.ExceptionTypes)
-                            : "Unknown failure";
+                    if (failed.Messages != null && failed.Messages.Length > 0)
+                    {
+                        LastFailureMessage = string.Join(Environment.NewLine, failed.Messages);
+                    }
+                    else if (failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0)
+                    {
+                        LastFailureMessage = string.Join(", ", failed.ExceptionTypes);
+                    }
+                    else
+                    {
+                        LastFailureMessage = "Unknown failure";
+                    }
 
                     LastFailureStackTrace = failed.StackTraces != null && failed.StackTraces.Length > 0
                         ? string.Join(Environment.NewLine, failed.StackTraces)

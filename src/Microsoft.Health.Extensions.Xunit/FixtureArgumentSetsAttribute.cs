@@ -22,9 +22,10 @@ namespace Microsoft.Health.Extensions.Xunit
         /// Initializes a new instance of the <see cref="FixtureArgumentSetsAttribute"/> class.
         /// </summary>
         /// <param name="argumentSets">
-        /// The flags enum values to pass to the class fixture's constructor. Each distinct enum type
-        /// contributes one argument, and the test class is expanded into one variant per combination
-        /// of the flags set within each type.
+        /// The flags enum values to pass to the class fixture's constructor. Each value passed becomes
+        /// one dimension, and the test class is expanded into one variant per combination of the flags
+        /// set across the dimensions. By convention each dimension uses a distinct flags enum type, so
+        /// that a fixture constructor can tell its parameters apart.
         /// </param>
         protected FixtureArgumentSetsAttribute(params Enum[] argumentSets)
         {
