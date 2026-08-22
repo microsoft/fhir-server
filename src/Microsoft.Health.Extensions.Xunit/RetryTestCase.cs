@@ -85,6 +85,22 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
+        /// Names the test in diagnostics.
+        /// </summary>
+        /// <remarks>
+        /// The display name is used rather than the class and method names because those are not
+        /// unique: a method expanded over fixture argument sets, or a theory with several rows,
+        /// produces many test cases sharing them. Retry diagnostics are read when something has
+        /// already gone wrong, and messages that cannot say which variant retried, or failed after
+        /// exhausting its attempts, are worth little at that point. The display name carries the
+        /// variant and the row, and falls back to the class and method if it is not set.
+        /// </remarks>
+        private string TestDescription =>
+            !string.IsNullOrEmpty(TestCaseDisplayName)
+                ? TestCaseDisplayName
+                : $"{TestMethod?.TestClass?.TestClassName}.{TestMethod?.MethodName}";
+
+        /// <summary>
         /// Runs the test case, retrying transient failures up to the configured number of attempts.
         /// </summary>
         /// <param name="explicitOption">Whether explicit tests should be run.</param>
@@ -103,7 +119,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             // Trace output is only visible to an attached debugger, never in CI logs. Anything
             // that needs to show up in a pipeline log has to go to Console instead.
-            Trace.WriteLine($"RetryFact starting test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
+            Trace.WriteLine($"RetryFact starting test '{TestDescription}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
 
             var runSummary = new RunSummary { Total = 1 };
             Exception lastException = null;
@@ -118,7 +134,7 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 var isLastAttempt = attempt == _maxRetries;
 
-                Trace.WriteLine($"RetryFact attempt {attempt}/{_maxRetries} for test '{TestMethod.MethodName}'");
+                Trace.WriteLine($"RetryFact attempt {attempt}/{_maxRetries} for test '{TestDescription}'");
 
                 // Create a fresh aggregator for each attempt
                 var attemptAggregator = new ExceptionAggregator();
@@ -161,8 +177,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         Console.WriteLine(
                             outcome == NoResultOutcome.ReportNothing
-                                ? $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted), and no earlier attempt observed a failure, so there is nothing to report for it."
-                                : $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed failure rather than a pass.");
+                                ? $"[RetryFact] Test '{TestDescription}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted), and no earlier attempt observed a failure, so there is nothing to report for it."
+                                : $"[RetryFact] Test '{TestDescription}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed failure rather than a pass.");
 
                         // At most one bus is replayed. A failure this attempt saw supersedes anything held
                         // over from an earlier one, and replaying both would publish two results for a
@@ -210,7 +226,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         (pendingFailureBus?.HasDeferredFailure ?? false))
                     {
                         Console.WriteLine(
-                            $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' skipped itself on attempt {attempt}/{_maxRetries} after failing earlier. Reporting the failure rather than the skip.");
+                            $"[RetryFact] Test '{TestDescription}' skipped itself on attempt {attempt}/{_maxRetries} after failing earlier. Reporting the failure rather than the skip.");
 
                         // The abstention was held rather than published, so dropping it now leaves
                         // the replayed failure as the test's only result.
@@ -231,9 +247,9 @@ namespace Microsoft.Health.Extensions.Xunit
                     if (summary.Failed == 0)
                     {
                         // Test passed - success message already went through to Test Explorer
-                        Trace.WriteLine($"RetryFact test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' passed on attempt {attempt}/{_maxRetries}");
+                        Trace.WriteLine($"RetryFact test '{TestDescription}' passed on attempt {attempt}/{_maxRetries}");
                         messageBus.QueueMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' passed on attempt {attempt}/{_maxRetries}"));
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' passed on attempt {attempt}/{_maxRetries}"));
 
                         runSummary.Failed = 0;
 
@@ -285,9 +301,9 @@ namespace Microsoft.Health.Extensions.Xunit
 
                         if (!shouldRetry)
                         {
-                            Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed with a non-retriable exception on attempt {attempt}/{_maxRetries}. Skipping remaining retries.");
+                            Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed with a non-retriable exception on attempt {attempt}/{_maxRetries}. Skipping remaining retries.");
                             messageBus.QueueMessage(
-                                new DiagnosticMessage($"[RetryFact] Test '{TestMethod.MethodName}' failed with non-retriable exception. Skipping retries."));
+                                new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed with non-retriable exception. Skipping retries."));
 
                             // This attempt ran on the intercepting bus, which deferred the
                             // ITestFailed message so the test could be retried. We are not
@@ -315,9 +331,9 @@ namespace Microsoft.Health.Extensions.Xunit
                         // finally does not dispose it, which would replay the failure immediately.
                         interceptingBus = null;
 
-                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}, retrying after {_delayMs}ms. Error: {lastException?.Message ?? "No exception message"}");
+                        Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed on attempt {attempt}/{_maxRetries}, retrying after {_delayMs}ms. Error: {lastException?.Message ?? "No exception message"}");
                         messageBus.QueueMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
 
                         try
                         {
@@ -327,7 +343,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         {
                             // Cancelled while waiting to retry. The failure from this attempt is
                             // still deferred, so report it instead of letting the test vanish.
-                            Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' was cancelled during the retry delay after attempt {attempt}/{_maxRetries}. Reporting the failure from that attempt.");
+                            Console.WriteLine($"[RetryFact] Test '{TestDescription}' was cancelled during the retry delay after attempt {attempt}/{_maxRetries}. Reporting the failure from that attempt.");
 
                             pendingFailureBus.ReplayDeferredMessages();
 
@@ -345,9 +361,9 @@ namespace Microsoft.Health.Extensions.Xunit
                     else
                     {
                         // Last attempt - failure message already went through to Test Explorer
-                        Console.WriteLine($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed after all {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
+                        Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed after all {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
                         messageBus.QueueMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
 
                         if (lastException != null)
                         {
@@ -368,7 +384,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}': {ex.GetType().FullName}: {ex.Message}");
+                    Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestDescription}': {ex.GetType().FullName}: {ex.Message}");
 
                     // A crash must not swallow a failure an earlier attempt already produced, but at
                     // most one attempt's failure may reach the bus: replaying both would publish two
@@ -397,7 +413,7 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             // Should never reach here
-            Console.WriteLine($"[RetryFact] Reached the end of the retry loop unexpectedly for '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}'. Reporting the test as failed.");
+            Console.WriteLine($"[RetryFact] Reached the end of the retry loop unexpectedly for '{TestDescription}'. Reporting the test as failed.");
             runSummary.Failed = 1;
             return runSummary;
         }
