@@ -7,8 +7,8 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.ExecutionContex
 {
     /// <summary>
     /// A class fixture that writes to an <see cref="System.Threading.AsyncLocal{T}"/> from its
-    /// constructor, the way <c>FhirStorageTestsFixture</c> builds its <c>ResourceIdProvider</c>
-    /// there rather than in <c>InitializeAsync</c>.
+    /// constructor, the way <c>FhirRequestContextAccessor</c> holds its context, so that a fixture
+    /// built before the test runs decides what the test can read back.
     /// </summary>
     public sealed class AsyncLocalWritingFixture
     {

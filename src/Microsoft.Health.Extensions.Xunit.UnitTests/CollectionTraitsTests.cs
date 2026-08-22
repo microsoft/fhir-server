@@ -23,6 +23,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     {
         private const string ScenarioClass = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CollectionTraits.JoinsTheCollectionTests";
         private const string OutsiderClass = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CollectionTraits.StaysOutOfTheCollectionTests";
+        private const string VariantClass = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CollectionTraits.VariantsInTheCollectionTests";
 
         /// <summary>
         /// Unfiltered, the test in the collection runs.
@@ -38,6 +39,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [ScenarioClass + ".InheritsWhateverTheCollectionCarries"] = "Passed",
                     [OutsiderClass + ".CarriesNoCollectionTrait"] = "Passed",
+                    [VariantClass + ".CarriesBothTheCollectionTraitAndItsDataStore (Sql)"] = "Passed",
+                    [VariantClass + ".CarriesBothTheCollectionTraitAndItsDataStore (Cosmos)"] = "Passed",
                 });
         }
 
@@ -58,6 +61,26 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [OutsiderClass + ".CarriesNoCollectionTrait"] = "Passed",
+                });
+        }
+
+        /// <summary>
+        /// The shape the shipping suite actually uses: a class that both joins a trait-carrying
+        /// collection and is expanded into one variant per data store. A leg selecting positively on
+        /// the collection's category and one data store must still find that variant, which it can
+        /// only do if the injected data store trait is added to the collection's rather than either
+        /// one replacing the other.
+        /// </summary>
+        [Fact]
+        public void GivenVariantsInATraitCarryingCollection_WhenALegSelectsOnBothTraits_ThenTheMatchingVariantIsFound()
+        {
+            TestAssetRun run = TestAssetRunner.Run("CollectionTraits", filterQueryTraits: "(AssetDataStore=Sql)&(Category=CollectionOwned)");
+
+            TestAssetRunAssertions.PublishedExactly(
+                run,
+                new Dictionary<string, string>
+                {
+                    [VariantClass + ".CarriesBothTheCollectionTraitAndItsDataStore (Sql)"] = "Passed",
                 });
         }
     }
