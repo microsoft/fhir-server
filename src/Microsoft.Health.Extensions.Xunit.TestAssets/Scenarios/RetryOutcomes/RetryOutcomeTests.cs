@@ -17,6 +17,7 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryOutcomes
     {
         private static int _flakyAttempts;
         private static int _clampedAttempts;
+        private static int _clampedDelayAttempts;
 
         /// <summary>
         /// An assertion failure with retries disabled must be reported once and not retried.
@@ -83,13 +84,28 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryOutcomes
         }
 
         /// <summary>
-        /// A MaxRetries below one would skip the attempt loop and report nothing, and a negative
-        /// delay would make Task.Delay throw. Both are clamped, so the test runs exactly once.
+        /// A MaxRetries below one would skip the attempt loop and report nothing, so it is clamped
+        /// up to one and the test runs exactly once. This test cannot say anything about the delay:
+        /// clamping MaxRetries to one means no retry, and the delay is only ever reached before one.
         /// </summary>
-        [RetryFact(MaxRetries = 0, DelayBetweenRetriesMs = -500, RetryOnAssertionFailure = true)]
+        [RetryFact(MaxRetries = 0, DelayBetweenRetriesMs = 10, RetryOnAssertionFailure = true)]
         public void ClampedRetryConfiguration_RunsExactlyOnce()
         {
             Assert.Equal(1, Interlocked.Increment(ref _clampedAttempts));
+        }
+
+        /// <summary>
+        /// A negative delay would make Task.Delay throw, which would lose the retry this test needs
+        /// to pass. Reaching the delay at all takes a failed first attempt, so this fails once and
+        /// then succeeds: a passing result is the statement that the clamp held.
+        /// </summary>
+        [RetryFact(MaxRetries = 2, DelayBetweenRetriesMs = -500, RetryOnAssertionFailure = true)]
+        public void ClampedNegativeDelay_StillRetries()
+        {
+            if (Interlocked.Increment(ref _clampedDelayAttempts) == 1)
+            {
+                Assert.Fail("ASSET: failing so the retry delay is reached");
+            }
         }
     }
 }

@@ -423,8 +423,9 @@ namespace Microsoft.Health.Extensions.Xunit
         /// would have used, because declaring two is one of the ways the expansion fails: asking for
         /// the single attribute throws, and answering that with no values at all leaves the failure
         /// carrying none of the traits its own declaration named. A method declaring
-        /// <c>DataStore=SqlServer</c> twice over would then be reported to the Cosmos leg and not to
-        /// the SQL one - the leg that would have run it passing green without it.
+        /// <c>DataStore=SqlServer</c> twice over would then reach the SQL leg with no
+        /// <c>DataStore</c> trait at all, and that leg selects positively on one - so it would match
+        /// nothing, and pass green with the method missing.
         /// </para>
         /// <para>
         /// Only this method's own attributes are read, never a sibling's. The failure stands for this

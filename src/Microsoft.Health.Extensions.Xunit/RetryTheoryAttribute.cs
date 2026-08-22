@@ -40,9 +40,16 @@ namespace Microsoft.Health.Extensions.Xunit
         public int DelayBetweenRetriesMs { get; set; } = 5000;
 
         /// <summary>
-        /// Gets or sets whether to retry on assertion failures (XunitException).
+        /// Gets or sets whether to retry on assertion failures.
         /// Default is false - assertion failures usually indicate test bugs, not transient issues.
         /// Set to true for tests that validate eventually-consistent systems (e.g., cache refresh, reindex operations).
+        /// <para>
+        /// What counts as an assertion failure is decided from the reported exception's type name -
+        /// one containing "Xunit" or "Assert", so that assertion libraries used alongside xUnit are
+        /// recognised too - rather than from the exception type itself, which the message bus does
+        /// not receive. Timeouts are deliberately excluded: they match that name test but are the
+        /// canonical transient failure, so they are retried whatever this is set to.
+        /// </para>
         /// </summary>
         public bool RetryOnAssertionFailure { get; set; } = false;
     }

@@ -39,6 +39,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     [Prefix + "AlwaysPasses_IsReportedPassed"] = "Passed",
                     [Prefix + "SkippedAtRunTime_IsReportedSkipped"] = "NotExecuted",
                     [Prefix + "ClampedRetryConfiguration_RunsExactlyOnce"] = "Passed",
+                    [Prefix + "ClampedNegativeDelay_StillRetries"] = "Passed",
                 });
         }
     }
