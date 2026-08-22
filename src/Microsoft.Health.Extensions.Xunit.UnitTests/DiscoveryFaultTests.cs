@@ -18,6 +18,13 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         private const string SqlErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery: Sql)";
         private const string CosmosErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery: Cosmos)";
 
+        // The class declares one dimension and the method two, the second of which names nothing.
+        // The two declarations are closed over separately, so the class's contributes the cases
+        // above and the method's contributes these - its silent dimension widened to the only value
+        // its type declares, so the failure can be selected on that dimension as well as the other.
+        private const string SqlWidenedErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery: Sql, Some)";
+        private const string CosmosWidenedErrorCaseName = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.DiscoveryFault.DiscoveryFaultTests.NeverRuns (fixture argument set discovery: Cosmos, Some)";
+
         /// <summary>
         /// xUnit reports an exception thrown out of discovery only as a diagnostic message, which is
         /// suppressed unless the run was started with <c>--xunit-diagnostics</c>, and carries on
@@ -37,6 +44,8 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [SqlErrorCaseName] = "Failed",
                     [CosmosErrorCaseName] = "Failed",
+                    [SqlWidenedErrorCaseName] = "Failed",
+                    [CosmosWidenedErrorCaseName] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);
@@ -96,6 +105,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [SqlErrorCaseName] = "Failed",
+                    [SqlWidenedErrorCaseName] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);
@@ -119,6 +129,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 new Dictionary<string, string>
                 {
                     [CosmosErrorCaseName] = "Failed",
+                    [CosmosWidenedErrorCaseName] = "Failed",
                 });
 
             Assert.NotEqual(0, run.ExitCode);

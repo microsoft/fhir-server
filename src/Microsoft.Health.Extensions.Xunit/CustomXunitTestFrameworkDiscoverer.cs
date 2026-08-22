@@ -1284,14 +1284,16 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </summary>
         /// <remarks>
         /// A dimension naming no value expands to nothing, so the product of the dimensions is empty
-        /// and the failure standing in for the method carries no argument set trait at all. The E2E
-        /// and export legs select positively on that trait, so such a failure is invisible to them:
-        /// the leg reports success with the method's tests simply absent, which is the outcome this
-        /// whole path exists to prevent. The value is unknown but the type is not - a dimension is
-        /// declared as an enum whether or not it names any of its flags - so the failure is reported
-        /// once per value that type declares instead. That over-reports, in the same deliberate
-        /// direction as the rest of this path: a leg seeing a failure for a variant that would not
-        /// have existed is loud and traceable to this declaration, where a leg seeing nothing is not.
+        /// and the failure standing in for the method carries no argument set trait at all - or, when
+        /// another dimension does name a value, carries only that one and stays silent about this. The
+        /// E2E and export legs select positively on the data store trait, so such a failure is
+        /// invisible to them: the leg reports success with the method's tests simply absent, which is
+        /// the outcome this whole path exists to prevent. The value is unknown but the type is not - a
+        /// dimension is declared as an enum whether or not it names any of its flags - so the failure
+        /// is reported once per value that type declares instead. That over-reports, in the same
+        /// deliberate direction as the rest of this path: a leg seeing a failure for a variant that
+        /// would not have existed is loud and traceable to this declaration, where a leg seeing
+        /// nothing is not.
         /// </remarks>
         /// <param name="attribute">The declaration to expand.</param>
         /// <returns>One dimension per argument set, each holding at least one value where the type is known.</returns>
@@ -1306,27 +1308,39 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
-        /// Replaces the dimensions of a declaration that names no value at all with every value their
-        /// types declare, so the failure standing in for the method can still be selected.
+        /// Replaces each dimension that names no value with every value its type declares, so the
+        /// failure standing in for the method can still be selected on that dimension.
         /// </summary>
         /// <remarks>
-        /// This fires only when the declaration produces no combination whatsoever. A dimension that
-        /// names nothing alongside one that does is not this case: naming nothing in one position is
-        /// how a method asks to inherit that position from its class, and widening it would report
-        /// the failure under values the declaration never asked for.
+        /// A dimension naming nothing is widened whether or not the dimensions beside it name
+        /// anything. Naming nothing in one position may be how a method asks to inherit that
+        /// position from its class, but the class's own declaration is closed over separately and
+        /// contributes its combinations regardless, so nothing is lost by also reporting this
+        /// declaration across the position it left open - and a class that declares nothing leaves
+        /// the position open with no second declaration to fill it. Not widening it there is what
+        /// makes the failure carry the dimension that was declared and say nothing about the one
+        /// that was not, which a leg selecting positively on the silent dimension cannot match.
+        /// <para>
+        /// The alternative is the outcome this whole path exists to prevent: the method produces no
+        /// tests, the leg selects nothing standing in for them, and the run is green and empty. A
+        /// failure reported under a value the declaration did not name is loud and traceable back to
+        /// this declaration, which is the direction every trade-off on the fault path is made in.
+        /// </para>
         /// </remarks>
         /// <param name="dimensions">The dimensions as declared.</param>
         /// <param name="enumTypes">The type of each dimension, positionally, with null where unknown.</param>
         /// <returns>The dimensions to report the failure against.</returns>
         private static SingleFlag[][] WidenFaultDimensionsThatNameNothing(SingleFlag[][] dimensions, Type[] enumTypes)
         {
-            if (dimensions.Length == 0 || dimensions.Any(dimension => dimension.Length > 0))
+            if (dimensions.Length == 0 || dimensions.All(dimension => dimension.Length > 0))
             {
                 return dimensions;
             }
 
             return dimensions
-                .Select((dimension, index) => AllSingleValuedFlagsOf(index < enumTypes.Length ? enumTypes[index] : null))
+                .Select((dimension, index) => dimension.Length > 0
+                    ? dimension
+                    : AllSingleValuedFlagsOf(index < enumTypes.Length ? enumTypes[index] : null))
                 .ToArray();
         }
 
