@@ -509,6 +509,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenOrphanCustomSearchParam_AfterReindex_ThenStatusIsDeleted()
+        {
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var customSearchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
+
+            var customKey = new ResourceKey("SearchParameter", customSearchParam.Id);
+            var customResource = await _fixture.DataStore.GetAsync(customKey, CancellationToken.None);
+            Assert.NotNull(customResource);
+            await _fixture.DataStore.HardDeleteAsync(customKey, false, false, CancellationToken.None);
+            customResource = await _fixture.DataStore.GetAsync(customKey, CancellationToken.None);
+            Assert.Null(customResource);
+
+            var statusAfterDelete = (await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
+            Assert.NotNull(statusAfterDelete);
+            Assert.Equal(SearchParameterStatus.Supported, statusAfterDelete.Status);
+
+            var response = await SetUpForReindexing(new CreateReindexRequest(new List<string>(), new List<string>()));
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+
+            var customStatus = (await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
+            Assert.NotNull(customStatus);
+            Assert.Equal(SearchParameterStatus.Deleted, customStatus.Status);
+        }
+
+        [Fact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
