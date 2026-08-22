@@ -87,6 +87,52 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 $"filters them out, and the leg passes with the suite missing rather than failing.");
         }
 
+        /// <summary>
+        /// Fails when a test class is invisible to every leg that selects on a data store.
+        /// </summary>
+        /// <param name="assembly">Assembly under analysis.</param>
+        /// <param name="traitName">The trait the legs select on.</param>
+        /// <param name="argumentSetAttributeType">The attribute the framework expands into per-store variants.</param>
+        /// <param name="knownUnreachableClasses">
+        /// Classes already known to run in no leg, named in full. Each one is a test nobody runs; the
+        /// list exists so that state is written down and cannot grow without someone saying so.
+        /// </param>
+        public static void EnsureEveryTestClassIsSelectedBySomeLeg(
+            Assembly assembly,
+            string traitName,
+            Type argumentSetAttributeType,
+            IReadOnlyCollection<string> knownUnreachableClasses)
+        {
+            IReadOnlyList<Type> unreachable = AssemblyChecker.ScanForTestClassesNoStoreFilteredLegSelects(assembly, traitName, argumentSetAttributeType);
+
+            string[] unexpected = unreachable
+                .Select(type => type.FullName)
+                .Where(name => !knownUnreachableClasses.Contains(name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            string[] staleEntries = knownUnreachableClasses
+                .Where(name => !unreachable.Any(type => string.Equals(type.FullName, name, StringComparison.Ordinal)))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            if (unexpected.Length > 0)
+            {
+                Assert.Fail(
+                    $"Assembly '{assembly}' has test classes that no leg selects, because they neither declare a '{traitName}' trait nor carry the fixture argument sets " +
+                    $"the framework expands into one variant per store. Nothing skips or errors for these: every leg filters them out, runs without them, and passes. " +
+                    $"Give each one argument sets or an explicit '{traitName}' trait, or add it to the known list with a reason.{Environment.NewLine}" +
+                    string.Join(Environment.NewLine, unexpected));
+            }
+
+            if (staleEntries.Length > 0)
+            {
+                Assert.Fail(
+                    $"Assembly '{assembly}' names classes as unreachable that a leg now selects. Remove them from the known list so it keeps describing what is " +
+                    $"actually unrun.{Environment.NewLine}{string.Join(Environment.NewLine, staleEntries)}");
+            }
+        }
+
         private static void AssertTestClasses(Assembly currentAssembly, string traitName, IEnumerable<Type> types)
         {
             if (types == null || !types.Any())

@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -32,6 +35,28 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Common
     {
         private static Assembly _currentAssembly = Assembly.GetAssembly(typeof(AssemblyValidationsTests));
 
+        private static readonly HashSet<string> KnownUnreachableTestClasses = new HashSet<string>(StringComparer.Ordinal)
+        {
+            // Untraited on purpose. This copy is also compiled into the integration assemblies, whose
+            // legs filter by excluding a store rather than naming one, and an exclusion drops a class
+            // that names both. Traiting it here would silence it there, so the E2E copy above carries
+            // the traits instead and this one runs in the integration legs only.
+            "Microsoft.Health.Fhir.Shared.Tests.AssemblyValidationsTests",
+
+            // Pre-existing, and unrun before this PR as well: the legs used to select by name
+            // substring, which these matched no better than they match the trait filters. They need a
+            // container registry and a convert-data configuration that no leg sets up, so traiting
+            // them would move them from never running to reliably failing.
+            "Microsoft.Health.Fhir.Tests.E2E.Rest.ContainerRegistryTemplateUploaderTests",
+            "Microsoft.Health.Fhir.Tests.E2E.Rest.ConvertDataTestModeTests",
+
+            // Takes its data store as an [InlineData] argument, which is a value and not a trait, so
+            // no filter can see it. Traiting the class would run every row in both legs, including
+            // the row written for the other store, so this needs per-row traits rather than a
+            // one-line fix.
+            "Microsoft.Health.Fhir.Tests.E2E.Rest.Search.SearchParameterInitializationTests",
+        };
+
         [Fact]
         public void GivenCurrentAssembly_WhenScanned_EnsureAllTestsHaveCategoryTrait()
         {
@@ -48,6 +73,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Common
         public void GivenCurrentAssembly_WhenScanned_EnsureNoSharedCollectionDefinitionCarriesTraits()
         {
             AssemblyValidationsTester.EnsureNoSharedCollectionDefinitionCarriesTraits(_currentAssembly);
+        }
+
+        /// <summary>
+        /// Every leg selects positively on <see cref="DataStore"/>, so a class that carries no such
+        /// trait runs nowhere while every leg stays green. The classes below are in that state
+        /// already, from before the legs filtered on traits at all; they are listed so the situation
+        /// is visible and cannot quietly grow.
+        /// </summary>
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureEveryTestClassIsSelectedBySomeLeg()
+        {
+            AssemblyValidationsTester.EnsureEveryTestClassIsSelectedBySomeLeg(
+                _currentAssembly,
+                nameof(DataStore),
+                typeof(FixtureArgumentSetsAttribute),
+                KnownUnreachableTestClasses);
         }
     }
 }
