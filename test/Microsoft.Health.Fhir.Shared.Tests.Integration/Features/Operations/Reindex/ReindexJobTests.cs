@@ -509,7 +509,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task GivenOrphanCustomSearchParam_AfterReindex_ThenStatusIsDeleted()
+        public async Task GivenOrphanSearchParam_AfterReindex_ThenStatusIsDeleted()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             var customSearchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
