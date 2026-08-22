@@ -129,7 +129,10 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     // Always wrap the bus so the failure details are available for the CI log, but only
                     // defer (hide) a failure while a further attempt could still supersede it.
-                    interceptingBus = new FailureInterceptingMessageBus(messageBus, deferFailures: !isLastAttempt);
+                    interceptingBus = new FailureInterceptingMessageBus(
+                        messageBus,
+                        deferFailures: !isLastAttempt,
+                        deferAbstentions: pendingFailureBus?.HasDeferredFailure ?? false);
 
                     var summary = await XunitRunnerHelper.RunXunitTestCase(
                         this,
@@ -196,6 +199,29 @@ namespace Microsoft.Health.Extensions.Xunit
                         RunSummary noResultSummary = CreateNoResultSummary(outcome);
                         noResultSummary.Time = runSummary.Time;
                         return noResultSummary;
+                    }
+
+                    // A skip is not a pass. An attempt that abstains has not shown the test to be
+                    // sound, so it must not erase a failure an earlier attempt already demonstrated:
+                    // that failure is real, and discarding it here reports the test as skipped or
+                    // not run, which no CI leg treats as a failure.
+                    if (summary.Failed == 0 &&
+                        (summary.Skipped > 0 || summary.NotRun > 0) &&
+                        (pendingFailureBus?.HasDeferredFailure ?? false))
+                    {
+                        Console.WriteLine(
+                            $"[RetryFact] Test '{TestMethod.TestClass.TestClassName}.{TestMethod.MethodName}' skipped itself on attempt {attempt}/{_maxRetries} after failing earlier. Reporting the failure rather than the skip.");
+
+                        // The abstention was held rather than published, so dropping it now leaves
+                        // the replayed failure as the test's only result.
+                        interceptingBus.DiscardDeferredMessages();
+
+                        bool replayed = pendingFailureBus.ReplayDeferredMessages();
+                        pendingFailureBus = null;
+                        StopRunIfRequested(replayed, cancellationTokenSource);
+
+                        runSummary.Failed = 1;
+                        return runSummary;
                     }
 
                     // This attempt reported a real result, so a failure held over from an earlier
@@ -537,13 +563,15 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             private readonly IMessageBus _innerBus;
             private readonly bool _deferFailures;
+            private readonly bool _deferAbstentions;
             private readonly List<IMessageSinkMessage> _deferredMessages = new List<IMessageSinkMessage>();
             private bool _deferring;
 
-            public FailureInterceptingMessageBus(IMessageBus innerBus, bool deferFailures)
+            public FailureInterceptingMessageBus(IMessageBus innerBus, bool deferFailures, bool deferAbstentions = false)
             {
                 _innerBus = innerBus;
                 _deferFailures = deferFailures;
+                _deferAbstentions = deferAbstentions;
             }
 
             public string LastFailureMessage { get; private set; }
@@ -577,6 +605,17 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 if (_deferring)
                 {
+                    _deferredMessages.Add(message);
+                    return true;
+                }
+
+                if (_deferAbstentions && (message is ITestSkipped || message is ITestNotRun))
+                {
+                    // An attempt that skips itself has abstained rather than shown the test to be
+                    // sound, and this attempt follows one that failed. Hold the abstention so the
+                    // caller can choose between it and that earlier failure; publishing it here
+                    // would leave the failure no way to be reported without a second result.
+                    _deferring = true;
                     _deferredMessages.Add(message);
                     return true;
                 }
