@@ -188,6 +188,10 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     "The TestAssetsAssembly metadata attribute is missing. It is injected by the project file and identifies the assembly holding the scenarios.");
             }
 
+            // The project file writes this path with the separator MSBuild used on the machine that
+            // built it, and a backslash is an ordinary filename character everywhere except Windows.
+            path = Path.GetFullPath(path.Replace('\\', Path.DirectorySeparatorChar));
+
             if (!File.Exists(path))
             {
                 throw new InvalidOperationException(

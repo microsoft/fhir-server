@@ -973,14 +973,16 @@ namespace Microsoft.Health.Extensions.Xunit
 
             if (testCase is not XunitTestCase xunitTestCase)
             {
-                // Without the suffix every variant of this method reports under the same name, so
-                // a failure cannot be attributed to a fixture argument set. Every test case type
+                // Without the suffix every variant of this method reports under the same name, so a
+                // failure cannot be attributed to a fixture argument set. Every test case type
                 // xunit.v3 produces derives from XunitTestCase, so this only happens if a custom
-                // discoverer introduces its own type -- say so rather than silently mis-naming.
-                Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not {nameof(XunitTestCase)}. " +
-                    "Its fixture argument set will NOT be appended to the display name, so variants of this test will be indistinguishable in test results.");
-                return;
+                // discoverer introduces its own type. Fail rather than carry on: the per-method
+                // handler turns this into a reported failure per fixture argument set, which is
+                // visible to a filtering leg, whereas a warning on stdout is not.
+                throw new InvalidOperationException(
+                    $"Test case '{testCase.TestCaseDisplayName}' is {testCase.GetType().Name}, not {nameof(XunitTestCase)}, " +
+                    "so its fixture argument set can be applied to neither its display name nor its traits. " +
+                    "Variants of this test would be indistinguishable in results and invisible to any CI leg selecting on a trait.");
             }
 
             if (TestCaseDisplayNameField == null)
@@ -1024,13 +1026,14 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             if (testCase is not XunitTestCase xunitTestCase)
             {
-                // ApplyVariantDisplayName has already reported the type, so this only adds what else
-                // is lost by it: nothing here can reach a case type this class does not know how to
-                // write to, and a case with no traits is one a filtering leg cannot see.
-                Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: the fixture argument set traits of '{testCase.TestCaseDisplayName}' could NOT be applied, " +
-                    "so a CI leg selecting on them will not run it.");
-                return;
+                // A case whose traits cannot be written is one a filtering leg cannot see, which is
+                // the failure this class exists to prevent -- so fail discovery rather than let it
+                // through untagged. ApplyVariantDisplayName rejects the same case types, so in the
+                // current call order this is unreachable; it is kept because this method needs the
+                // guarantee on its own account, not because of the order it happens to be called in.
+                throw new InvalidOperationException(
+                    $"The fixture argument set traits of '{testCase.TestCaseDisplayName}' could not be applied because it is " +
+                    $"{testCase.GetType().Name}, not {nameof(XunitTestCase)}. A CI leg selecting on those traits would not run it.");
             }
 
             foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in variantMethod.Traits)
