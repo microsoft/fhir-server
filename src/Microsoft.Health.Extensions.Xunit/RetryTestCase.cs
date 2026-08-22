@@ -596,10 +596,20 @@ namespace Microsoft.Health.Extensions.Xunit
                     // than spending one: an assertion failure is taken to be deterministic, so it is
                     // not retried. The failure is still reported red either way, so the cost is a
                     // flaky test going unretried, never a failure going unseen.
-                    IsAssertionFailure = failed.ExceptionTypes != null &&
-                        failed.ExceptionTypes.Length > 0 &&
-                        (failed.ExceptionTypes[0].Contains("Xunit", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("Assert", StringComparison.Ordinal));
+                    //
+                    // A timeout is excluded because it is the one failure that trade cannot be made
+                    // for. Xunit.Sdk.TestTimeoutException contains "Xunit" and so matched here, but a
+                    // test that ran long because a dependency was slow once is the definition of the
+                    // flakiness these attributes exist to absorb -- and unlike the cases above, it is
+                    // not an assertion at all. It derives from System.Exception rather than
+                    // XunitException, so it is only ever mistaken for one by way of this match.
+                    string failedExceptionType = failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
+                        ? failed.ExceptionTypes[0]
+                        : string.Empty;
+
+                    IsAssertionFailure = !failedExceptionType.Contains("Timeout", StringComparison.Ordinal) &&
+                        (failedExceptionType.Contains("Xunit", StringComparison.Ordinal) ||
+                         failedExceptionType.Contains("Assert", StringComparison.Ordinal));
 
                     if (_deferFailures)
                     {
