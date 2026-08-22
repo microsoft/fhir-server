@@ -116,8 +116,23 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         private static bool JoinsCollection(Type candidate, string collectionName, Type definition)
         {
-            foreach (CustomAttributeData attribute in candidate.CustomAttributes.Where(a => a.AttributeType == typeof(CollectionAttribute)))
+            foreach (CustomAttributeData attribute in candidate.CustomAttributes
+                .Where(a => typeof(ICollectionAttribute).IsAssignableFrom(a.AttributeType)))
             {
+                // A class joins a collection by name, by naming the definition type, or - the v3
+                // spelling this repository is moving to - as [Collection<TDefinition>], which carries
+                // the definition in its generic argument and takes no constructor argument at all.
+                if (attribute.AttributeType.IsGenericType &&
+                    attribute.AttributeType.GetGenericTypeDefinition() == typeof(CollectionAttribute<>))
+                {
+                    if (attribute.AttributeType.GetGenericArguments()[0] == definition)
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
                 if (attribute.ConstructorArguments.Count == 0)
                 {
                     continue;
