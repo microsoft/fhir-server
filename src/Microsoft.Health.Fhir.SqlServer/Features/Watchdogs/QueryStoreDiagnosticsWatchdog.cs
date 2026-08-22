@@ -205,6 +205,13 @@ ORDER BY
         // than against configuration, so a rejected value cannot also be reported as overridden by the stored row.
         private readonly double _configuredPeriodSec;
 
+        // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
+        // first observation, so that the state a process starts in is always reported once and an operator never has
+        // to infer "the window has not opened yet" from the absence of collection logs. Ticks of a given watchdog
+        // instance are sequential — FhirTimer awaits each RunWorkAsync before the next tick — so this needs no
+        // synchronization.
+        private RunWindowState? _lastRunWindowState;
+
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
@@ -247,6 +254,23 @@ ORDER BY
             // this is used to get param names for testing
         }
 
+        /// <summary>
+        /// Where the current time sits relative to the configured run window. Tracked between ticks so that the
+        /// skip is reported when it starts and stops rather than on every tick: at the default hourly period, a
+        /// window that opens in a month would otherwise produce around 720 identical lines before collecting anything.
+        /// </summary>
+        private enum RunWindowState
+        {
+            /// <summary>The window has a start and the current time has not reached it yet.</summary>
+            BeforeWindow,
+
+            /// <summary>The current time is inside the window, so collection proceeds.</summary>
+            InWindow,
+
+            /// <summary>The window has an end and the current time has reached or passed it.</summary>
+            AfterWindow,
+        }
+
         internal string IsEnabledId => $"{Name}.IsEnabled";
 
         // Ten minutes allows the lease to recover promptly without expiring during a diagnostics collection.
@@ -276,6 +300,46 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             // the configured period on an existing database gets no effect and no error. Surface the divergence rather
             // than leaving it to be inferred from collection timestamps.
             WarnIfStoredPeriodSecOverridesConfiguration();
+
+            // A run window that was mistyped produces no collection and no error, which is indistinguishable from a
+            // window that simply has not opened yet. Report it at startup instead of at the moment it fails to take
+            // effect, which may be weeks away or never.
+            ReportConfiguredRunWindow();
+        }
+
+        /// <summary>
+        /// Reports the configured run window at initialization: a window that can never open as a warning, and any
+        /// configured window as its effective UTC bounds. Separated from <see cref="InitAdditionalParamsAsync"/>,
+        /// which cannot run without a live database, so the branches are reachable from unit tests.
+        /// </summary>
+        internal void ReportConfiguredRunWindow()
+        {
+            DateTimeOffset? runStartDate = _configuration.RunStartDate;
+            DateTimeOffset? runEndDate = _configuration.RunEndDate;
+
+            if (runStartDate.HasValue && runEndDate.HasValue && runStartDate.Value >= runEndDate.Value)
+            {
+                // The end bound is exclusive, so a start equal to the end is as empty as a start after it, and neither
+                // is reachable by any clock value. Nothing downstream will ever complain, so this is the only place
+                // the mistake can surface.
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: the configured run window is empty because RunStartDate {RunStartDate} is not before RunEndDate {RunEndDate}, so no diagnostics will ever be collected. Set RunStartDate earlier than RunEndDate, or clear one of them.",
+                    runStartDate.Value,
+                    runEndDate.Value);
+            }
+
+            if (runStartDate.HasValue || runEndDate.HasValue)
+            {
+                // Echoed in UTC on purpose: a value configured without an explicit offset is bound in the host's local
+                // timezone, and the configured text looks identical either way. Resolving it to a UTC instant here
+                // lets an operator who meant UTC catch the mistake immediately, rather than discovering it when the
+                // window silently opens hours late or, for a short window, not visibly at all.
+                _logger.LogInformation(
+                    "QueryStoreDiagnosticsWatchdog: diagnostics collection is limited to a run window. In UTC it starts at {RunStartDateUtc} inclusive and ends at {RunEndDateUtc} exclusive, where an unset bound is unbounded. Current UTC time is {UtcNow}.",
+                    runStartDate?.ToUniversalTime(),
+                    runEndDate?.ToUniversalTime(),
+                    DateTimeOffset.UtcNow);
+            }
         }
 
         /// <summary>
@@ -333,6 +397,89 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
             return lookbackPeriodSec;
         }
 
+        /// <summary>
+        /// Determines whether the supplied instant falls inside the configured run window, reporting the state only
+        /// when it changes. The instant is a parameter rather than read from the clock inside, for the same reason
+        /// <see cref="GetLookbackPeriodSec(double)"/> takes the stored period as one: it is the only way to reach
+        /// every branch from a unit test without introducing a mockable clock abstraction for a single comparison.
+        /// Exposed as internal only for unit testing.
+        /// </summary>
+        /// <param name="utcNow">The current time, supplied by the caller.</param>
+        /// <returns>True when collection should proceed; false when the window has not opened or has closed.</returns>
+        internal bool IsWithinRunWindow(DateTimeOffset utcNow)
+        {
+            DateTimeOffset? runStartDate = _configuration.RunStartDate;
+            DateTimeOffset? runEndDate = _configuration.RunEndDate;
+
+            // DateTimeOffset comparisons are made on the underlying UTC instant, so a bound configured with any offset
+            // — including one implied by the host's local timezone — compares correctly against a UTC clock reading
+            // without converting anything first.
+            RunWindowState state;
+            if (runStartDate.HasValue && utcNow < runStartDate.Value)
+            {
+                state = RunWindowState.BeforeWindow;
+            }
+            else if (runEndDate.HasValue && utcNow >= runEndDate.Value)
+            {
+                // The end bound is exclusive, so the instant that equals it is already outside. That also makes
+                // adjacent windows tile without overlapping.
+                state = RunWindowState.AfterWindow;
+            }
+            else
+            {
+                state = RunWindowState.InWindow;
+            }
+
+            if (_lastRunWindowState != state)
+            {
+                _lastRunWindowState = state;
+                LogRunWindowState(state, runStartDate, runEndDate, utcNow);
+            }
+
+            return state == RunWindowState.InWindow;
+        }
+
+        /// <summary>
+        /// Emits the one line that explains why collection is or is not happening, on the tick where the run-window
+        /// state changed.
+        /// </summary>
+        /// <param name="state">The state that has just been entered.</param>
+        /// <param name="runStartDate">The configured start bound, or null when unbounded.</param>
+        /// <param name="runEndDate">The configured end bound, or null when unbounded.</param>
+        /// <param name="utcNow">The instant the state was observed at.</param>
+        private void LogRunWindowState(RunWindowState state, DateTimeOffset? runStartDate, DateTimeOffset? runEndDate, DateTimeOffset utcNow)
+        {
+            // Information rather than warning throughout: a closed window is the feature working as configured, not a
+            // misconfiguration. Bounds are echoed in UTC so they can be compared against the current time at a glance
+            // without mentally applying whatever offset they were configured with.
+            switch (state)
+            {
+                case RunWindowState.BeforeWindow:
+                    _logger.LogInformation(
+                        "QueryStoreDiagnosticsWatchdog: the configured run window has not opened yet, so collection is skipped. It opens at {RunStartDateUtc} and the current UTC time is {UtcNow}.",
+                        runStartDate?.ToUniversalTime(),
+                        utcNow);
+                    break;
+
+                case RunWindowState.AfterWindow:
+                    // Says explicitly that ticking continues, because the obvious reading of "the window has closed"
+                    // is that the watchdog stopped, and someone would otherwise go looking for a process that died.
+                    _logger.LogInformation(
+                        "QueryStoreDiagnosticsWatchdog: the configured run window closed at {RunEndDateUtc} and the current UTC time is {UtcNow}, so collection is skipped. The watchdog keeps ticking and will collect again if the window is widened and the host restarted.",
+                        runEndDate?.ToUniversalTime(),
+                        utcNow);
+                    break;
+
+                default:
+                    _logger.LogInformation(
+                        "QueryStoreDiagnosticsWatchdog: collection is within the configured run window, which starts at {RunStartDateUtc} inclusive and ends at {RunEndDateUtc} exclusive in UTC, where an unset bound is unbounded. The current UTC time is {UtcNow}.",
+                        runStartDate?.ToUniversalTime(),
+                        runEndDate?.ToUniversalTime(),
+                        utcNow);
+                    break;
+            }
+        }
+
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             try
@@ -355,8 +502,21 @@ INSERT INTO dbo.Parameters (Id, Number) SELECT @IsEnabledId, 0");
                     return;
                 }
 
-                var lookbackPeriodSec = GetLookbackPeriodSec(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken));
+                // One clock reading serves both the window decision and the collection window, so a tick that is
+                // admitted cannot then collect for an instant on the other side of its own boundary.
                 var collectionTime = DateTimeOffset.UtcNow;
+                if (!IsWithinRunWindow(collectionTime))
+                {
+                    // Deliberately a skipped tick rather than a shutdown, even once the end date has passed. Stopping
+                    // would mean faulting or completing this watchdog's task, and WatchdogsBackgroundService cancels
+                    // the token shared by EVERY watchdog as soon as one task completes — so self-terminating an
+                    // off-by-default diagnostics feature would take the transaction and cleanup watchdogs down with
+                    // it. PeriodSec and timer faults propagate through the same shared framework for the same reason.
+                    // A clock comparison once an hour costs nothing; the alternative costs the host.
+                    return;
+                }
+
+                var lookbackPeriodSec = GetLookbackPeriodSec(await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken));
                 var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
                 var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
                 if (queryStoreState == null)

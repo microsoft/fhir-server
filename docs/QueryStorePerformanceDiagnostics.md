@@ -84,6 +84,8 @@ Until that row is `1` the watchdog logs, at **warning** level, `QueryStoreDiagno
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
 | `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
 | `StatisticsHealthCount` | `20` | Number of statistics rows to report per tick. |
+| `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
+| `RunEndDate` | `null` (unset) | **Exclusive** end of the optional run window. Ticks at or after it collect nothing. `null` means no upper bound. |
 
 The lookback window is the live `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
 
@@ -97,7 +99,38 @@ UPDATE dbo.Parameters SET Number = 900 WHERE Id = 'QueryStoreDiagnosticsWatchdog
 
 The watchdog also warns on every tick where the stored period had to be clamped into the supported lookback range of `[60, 86400]` seconds, naming the effective window and what the clamp costs, because in that case the interval and the lookback are permanently decoupled — the initialization warning below cannot see it, since the configured and stored values agree.
 
-Because this override is silent, the watchdog logs a warning at initialization whenever the stored period differs from the configured one, so a deployment that believes it changed the interval is not left to discover otherwise from collection timestamps. The other six settings are read from configuration on every tick and have no `dbo.Parameters` equivalent, so they take effect on restart. All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so no setting reloads in place.
+Because this override is silent, the watchdog logs a warning at initialization whenever the stored period differs from the configured one, so a deployment that believes it changed the interval is not left to discover otherwise from collection timestamps. The other eight settings are read from configuration on every tick and have no `dbo.Parameters` equivalent, so they take effect on restart. All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so no setting reloads in place.
+
+### Run window
+
+`RunStartDate` and `RunEndDate` bound the period during which collection happens. Both are `DateTimeOffset?` and both default to `null`; the feature behaves exactly as before when neither is set. A tick collects when:
+
+```
+(RunStartDate == null || now >= RunStartDate) && (RunEndDate == null || now < RunEndDate)
+```
+
+- **`RunStartDate` is inclusive, `RunEndDate` is exclusive.** The instant that equals the end is already outside the window, so adjacent windows tile without overlapping.
+- **`null` means unbounded**, not "now": an unset start collects from the first tick, an unset end collects indefinitely.
+- **A start that is not before the end is an empty window** — including a start exactly equal to the end — and nothing will ever be collected. That configuration is logged as a warning at initialization naming both values, because nothing downstream will ever complain about it.
+
+The window is evaluated **after** both enablement gates, so a deployment that is outside its window still gets the warning telling it that the `dbo.Parameters` runtime gate was never armed.
+
+**Set the offset explicitly.** A value without one — `2026-03-01T00:00:00` — is bound in the **host's local timezone**, which is invisible in the configured text and is rarely what was intended. Use ISO-8601 with a `Z` suffix, `2026-03-01T00:00:00Z`. As an environment variable:
+
+```
+FhirServer__Watchdog__QueryStoreDiagnostics__RunStartDate=2026-03-01T00:00:00Z
+FhirServer__Watchdog__QueryStoreDiagnostics__RunEndDate=2026-03-08T00:00:00Z
+```
+
+Whenever either bound is set, the watchdog logs the effective window **converted to UTC** at initialization, so an operator who typed a local time without an offset sees the resolved instant immediately rather than waiting for a window that silently opens hours late — or, for a short window, never visibly opens at all.
+
+A **malformed** value is not silently ignored and does not silently disable the window: configuration binding throws `InvalidOperationException` naming the offending key. This matches every other typed setting in this section — `PeriodSec`, `SlowQueryCount` and `Enabled` all reject an unparseable value the same way — so a date bound introduces no failure mode the existing settings do not already have. An empty value binds as `null`, which is how a bound is removed rather than mistyped.
+
+**The watchdog keeps ticking after `RunEndDate`; it does not shut itself down.** Outside the window it evaluates one clock comparison and returns. Self-termination is not an option available to it: completing or faulting a watchdog task makes `WatchdogsBackgroundService` cancel the token that **every** watchdog shares, so an off-by-default diagnostics feature ending its own timer would take the transaction and cleanup watchdogs with it. An hourly comparison costs nothing by contrast.
+
+The window state is logged **only when it changes** — not open yet, open, closed — at information level. At the default hourly period a window that opens in a month would otherwise produce roughly 720 identical skip lines before collecting anything. The state a process starts in is always logged once, so the reason for silence is available immediately after a restart.
+
+**The window boundaries take effect without a restart, but the configured values do not.** These settings bind through `IOptions<T>`, so the *values* are read once at process start and editing configuration afterwards has no effect until the host restarts — the same as the other non-`PeriodSec` settings. What changes without a restart is the *clock*: a window configured before the host started will open and close on schedule while the process keeps running, because each tick re-evaluates the fixed boundaries against the current time. Changing a boundary on a running host still requires a restart.
 
 ## Emitted contracts
 
