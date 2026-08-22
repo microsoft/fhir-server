@@ -319,6 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
+                Array.Empty<ISearchParameterQueryParameterExpander>(),
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
