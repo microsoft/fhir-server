@@ -133,6 +133,57 @@ namespace Microsoft.Health.Fhir.Tests.Common
             }
         }
 
+        /// <summary>
+        /// Fails when a test method is invisible to every leg that selects on a data store, in a
+        /// class the class level check exempts.
+        /// </summary>
+        /// <param name="assembly">Assembly under analysis.</param>
+        /// <param name="traitName">The trait the legs select on.</param>
+        /// <param name="argumentSetAttributeType">The attribute the framework expands into per-store variants.</param>
+        /// <param name="knownUnreachableMethods">
+        /// Methods already known to run in no leg, named as <c>Namespace.Class.Method</c>.
+        /// </param>
+        /// <remarks>
+        /// One decorated method exempts its whole class from the class level check, so without this
+        /// its undecorated siblings are hidden twice over: they carry no trait, so no leg selects
+        /// them, and the check that would have said so passes.
+        /// </remarks>
+        public static void EnsureEveryTestMethodIsSelectedBySomeLeg(
+            Assembly assembly,
+            string traitName,
+            Type argumentSetAttributeType,
+            IReadOnlyCollection<string> knownUnreachableMethods)
+        {
+            IReadOnlyList<string> unreachable = AssemblyChecker.ScanForTestMethodsNoStoreFilteredLegSelects(assembly, traitName, argumentSetAttributeType);
+
+            string[] unexpected = unreachable
+                .Where(name => !knownUnreachableMethods.Contains(name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            string[] staleEntries = knownUnreachableMethods
+                .Where(name => !unreachable.Contains(name, StringComparer.Ordinal))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            if (unexpected.Length > 0)
+            {
+                Assert.Fail(
+                    $"Assembly '{assembly}' has test methods that no leg selects. Their class carries neither a '{traitName}' trait nor fixture argument sets, and " +
+                    $"neither do they - but a sibling method does, which is enough to exempt the class from the class-level check. Nothing skips or errors for these: " +
+                    $"every leg filters them out, runs without them, and passes. Give the class argument sets, or give each method its own, or add it to the known list " +
+                    $"with a reason.{Environment.NewLine}" +
+                    string.Join(Environment.NewLine, unexpected));
+            }
+
+            if (staleEntries.Length > 0)
+            {
+                Assert.Fail(
+                    $"Assembly '{assembly}' names methods as unreachable that a leg now selects. Remove them from the known list so it keeps describing what is " +
+                    $"actually unrun.{Environment.NewLine}{string.Join(Environment.NewLine, staleEntries)}");
+            }
+        }
+
         private static void AssertTestClasses(Assembly currentAssembly, string traitName, IEnumerable<Type> types)
         {
             if (types == null || !types.Any())

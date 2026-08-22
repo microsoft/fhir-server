@@ -186,6 +186,46 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 .ToList();
         }
 
+        /// <summary>
+        /// Looks for test methods that no data-store-filtered leg can select, in classes the class
+        /// level check exempts.
+        /// </summary>
+        /// <remarks>
+        /// A class is exempt from <see cref="ScanForTestClassesNoStoreFilteredLegSelects"/> when any
+        /// one of its methods carries argument sets, because that is enough for the framework to
+        /// expand that class. It expands only that method, though: a method carrying nothing of its
+        /// own, in a class declaring nothing of its own, is discovered as an ordinary test case with
+        /// no <c>DataStore</c> trait, so every leg filters it out. One decorated method is therefore
+        /// enough to hide all of its siblings from the class level check while they run nowhere and
+        /// every leg reports success.
+        /// </remarks>
+        /// <param name="assembly">Assembly under analysis.</param>
+        /// <param name="traitName">The trait the legs select on.</param>
+        /// <param name="argumentSetAttributeType">
+        /// The attribute the framework expands into per-store variants.
+        /// </param>
+        /// <returns>
+        /// The unreachable methods, named as <c>Namespace.Class.Method</c>. Classes no leg selects at
+        /// all are left to the class level check rather than reported a method at a time.
+        /// </returns>
+        public static IReadOnlyList<string> ScanForTestMethodsNoStoreFilteredLegSelects(Assembly assembly, string traitName, Type argumentSetAttributeType)
+        {
+            EnsureArg.IsNotNull(assembly, nameof(assembly));
+            EnsureArg.IsNotNullOrWhiteSpace(traitName, nameof(traitName));
+            EnsureArg.IsNotNull(argumentSetAttributeType, nameof(argumentSetAttributeType));
+
+            return assembly.GetTypes()
+                .Where(t => t.IsClass && IsTestClass(t))
+                .Where(t => !CarriesArgumentSets(t.CustomAttributes, argumentSetAttributeType) && !DeclaresTrait(t.CustomAttributes, traitName))
+                .Where(t => t.GetMethods().Any(m => CarriesArgumentSets(m.CustomAttributes, argumentSetAttributeType)))
+                .SelectMany(t => t.GetMethods()
+                    .Where(IsTestMethod)
+                    .Where(m => !CarriesArgumentSets(m.CustomAttributes, argumentSetAttributeType) && !DeclaresTrait(m.CustomAttributes, traitName))
+                    .Select(m => $"{t.FullName}.{m.Name}"))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
         private static bool IsExpandedIntoStoreVariants(Type type, Type argumentSetAttributeType)
         {
             // The attribute is declared on the class or on individual methods, and either is enough
@@ -199,9 +239,19 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return attributes.Any(a => argumentSetAttributeType.IsAssignableFrom(a.AttributeType));
         }
 
+        private static bool IsTestMethod(MethodInfo method)
+        {
+            return method.GetCustomAttributes().Any(a => a is FactAttribute || a is TheoryAttribute);
+        }
+
         private static bool DeclaresTrait(Type type, string traitName)
         {
-            return type.CustomAttributes
+            return DeclaresTrait(type.CustomAttributes, traitName);
+        }
+
+        private static bool DeclaresTrait(IEnumerable<CustomAttributeData> attributes, string traitName)
+        {
+            return attributes
                 .Where(a => a.AttributeType == typeof(TraitAttribute) && a.ConstructorArguments.Count > 0)
                 .Any(a => string.Equals(a.ConstructorArguments[0].Value as string, traitName, StringComparison.Ordinal));
         }

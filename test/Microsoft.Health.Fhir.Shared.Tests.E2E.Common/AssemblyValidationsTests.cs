@@ -57,6 +57,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Common
             "Microsoft.Health.Fhir.Tests.E2E.Rest.Search.SearchParameterInitializationTests",
         };
 
+        /// <summary>
+        /// Methods in a class that only a sibling's argument sets make visible to the class-level
+        /// check. Empty, and meant to stay so: an entry here is a test nobody runs.
+        /// </summary>
+        private static readonly HashSet<string> KnownUnreachableTestMethods = new HashSet<string>(StringComparer.Ordinal);
+
         [Fact]
         public void GivenCurrentAssembly_WhenScanned_EnsureAllTestsHaveCategoryTrait()
         {
@@ -89,6 +95,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Common
                 nameof(DataStore),
                 typeof(FixtureArgumentSetsAttribute),
                 KnownUnreachableTestClasses);
+        }
+
+        /// <summary>
+        /// A single decorated method exempts its whole class from the check above, so its
+        /// undecorated siblings would be selected by no leg and reported by nothing.
+        /// </summary>
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureEveryTestMethodIsSelectedBySomeLeg()
+        {
+            AssemblyValidationsTester.EnsureEveryTestMethodIsSelectedBySomeLeg(
+                _currentAssembly,
+                nameof(DataStore),
+                typeof(FixtureArgumentSetsAttribute),
+                KnownUnreachableTestMethods);
         }
     }
 }
