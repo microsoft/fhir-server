@@ -648,7 +648,9 @@ namespace Microsoft.Health.Extensions.Xunit
             catch (Exception ex)
             {
                 Console.WriteLine(
-                    $"[FixtureArgumentSets] WARNING: the ordinary traits of '{anchor.TestClass.TestClassName}.{anchor.MethodName}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    $"[FixtureArgumentSets] WARNING: the ordinary traits of '{anchor.TestClass.TestClassName}.{anchor.MethodName}' could not be read in one go, so they are being read one attribute at a time. {ex}");
+
+                AddFaultTraitsPerAttribute(anchor, Add);
             }
 
             foreach (SingleFlag flag in argumentSetCombination)
@@ -657,6 +659,66 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             return traits;
+        }
+
+        /// <summary>
+        /// Reads the ordinary traits of the method a discovery failure stands for one attribute at a
+        /// time, so that a single attribute refusing to produce its traits costs only its own.
+        /// </summary>
+        /// <remarks>
+        /// xUnit computes a test method's traits on demand and returns them as one dictionary, so
+        /// asking for them runs every trait attribute the method and its class declare. One that
+        /// throws - a trait computed from configuration that is not present, say - therefore takes
+        /// the whole dictionary with it, leaving the failure carrying none of the traits its other
+        /// attributes named. That is the same silence this fault path exists to break: the export
+        /// leg selects positively with <c>(DataStore=X)&amp;(Category=Y)</c>, and a filter cannot
+        /// match a trait that is absent, so the leg would report success with the method missing.
+        /// <para>
+        /// This is only the fallback. The ordinary read is tried first and is what runs for a
+        /// healthy class, because it is xUnit's own and needs no agreement with it about how traits
+        /// are gathered.
+        /// </para>
+        /// </remarks>
+        /// <param name="anchor">The method the failure is reported against.</param>
+        /// <param name="add">Records one trait name and value.</param>
+        private static void AddFaultTraitsPerAttribute(XunitTestMethod anchor, Action<string, string> add)
+        {
+            foreach (MemberInfo declaration in new MemberInfo[] { anchor.TestClass?.Class, anchor.Method })
+            {
+                if (declaration == null)
+                {
+                    continue;
+                }
+
+                ITraitAttribute[] traitAttributes;
+
+                try
+                {
+                    traitAttributes = declaration.GetCustomAttributes(inherit: true).OfType<ITraitAttribute>().ToArray();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[FixtureArgumentSets] WARNING: the trait attributes of '{declaration.Name}' could not be read, so a trait filter may not select the failure standing in for its tests. {ex}");
+                    continue;
+                }
+
+                foreach (ITraitAttribute traitAttribute in traitAttributes)
+                {
+                    try
+                    {
+                        foreach (KeyValuePair<string, string> trait in traitAttribute.GetTraits())
+                        {
+                            add(trait.Key, trait.Value);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"[FixtureArgumentSets] WARNING: the trait attribute '{traitAttribute.GetType().Name}' of '{declaration.Name}' could not produce its traits, so a filter naming those traits may not select the failure standing in for its tests. {ex}");
+                    }
+                }
+            }
         }
 
         /// <summary>
