@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
+        private readonly QueryStoreDiagnosticsWatchdog _queryStoreDiagnosticsWatchdog;
         private readonly JobMonitorWatchdog _jobMonitorWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            QueryStoreDiagnosticsWatchdog queryStoreDiagnosticsWatchdog,
             JobMonitorWatchdog jobMonitorWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _queryStoreDiagnosticsWatchdog = EnsureArg.IsNotNull(queryStoreDiagnosticsWatchdog, nameof(queryStoreDiagnosticsWatchdog));
             _jobMonitorWatchdog = EnsureArg.IsNotNull(jobMonitorWatchdog, nameof(jobMonitorWatchdog));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
@@ -88,6 +91,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (_watchdogConfiguration.ExpiredResource.Enabled)
             {
                 tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token));
+            }
+
+            if (_watchdogConfiguration.QueryStoreDiagnostics.Enabled)
+            {
+                tasks.Add(_queryStoreDiagnosticsWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);
