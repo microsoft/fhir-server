@@ -720,7 +720,13 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <param name="add">Records one trait name and value.</param>
         private static void AddFaultTraitsPerAttribute(XunitTestMethod anchor, Action<string, string> add)
         {
-            foreach (MemberInfo declaration in new MemberInfo[] { anchor.TestClass?.Class, anchor.Method })
+            // The collection definition is read first, and for the same reason it is read at all:
+            // xunit v3 gives every member of a collection the traits its definition declares, so a
+            // class can carry a trait that appears nowhere on the class itself. Leaving it out here
+            // would make the fallback quieter than the ordinary read it stands in for - the failure
+            // would lose exactly those traits, and a leg selecting on one would not see it. The order
+            // matches xunit's own: collection, then class, then method.
+            foreach (MemberInfo declaration in new MemberInfo[] { ReadCollectionDefinition(anchor), anchor.TestClass?.Class, anchor.Method })
             {
                 if (declaration == null)
                 {
@@ -755,6 +761,30 @@ namespace Microsoft.Health.Extensions.Xunit
                             $"[FixtureArgumentSets] WARNING: the trait attribute '{traitAttribute.GetType().Name}' of '{declaration.Name}' could not produce its traits, so a filter naming those traits may not select the failure standing in for its tests. {ex}");
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Reads the collection definition class the method's collection was declared by, if any.
+        /// </summary>
+        /// <remarks>
+        /// A collection assembled without a definition class has none, which is the ordinary case for
+        /// a class that never joined one. Read defensively because this runs while handling a failure
+        /// that may itself have come from a type that cannot be loaded.
+        /// </remarks>
+        /// <param name="anchor">The method the failure is reported against.</param>
+        /// <returns>The collection definition class, or <c>null</c> if there is not one.</returns>
+        private static Type ReadCollectionDefinition(XunitTestMethod anchor)
+        {
+            try
+            {
+                return anchor.TestClass?.TestCollection?.CollectionDefinition;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[FixtureArgumentSets] WARNING: the collection definition of '{anchor.TestClass?.TestClassName}' could not be read, so a filter naming a trait it declares may not select the failure standing in for its tests. {ex}");
+                return null;
             }
         }
 
