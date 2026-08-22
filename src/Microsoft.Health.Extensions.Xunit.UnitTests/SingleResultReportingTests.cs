@@ -102,6 +102,50 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             Assert.False(RetryTestCase.ReportSingleResult(NoResultOutcome.ReplayEarlierAttempt, currentAttempt: null, earlierAttempt: earlier));
         }
 
+        [Fact]
+        public void GivenADeliberateHandoffToDisposal_WhenTheBusIsDisposed_ThenItPublishesWithoutClaimingAnInternalError()
+        {
+            var inner = new RecordingMessageBus();
+            RetryTestCase.FailureInterceptingMessageBus current = DeferAbstention(inner);
+
+            RetryTestCase.ReportSingleResult(NoResultOutcome.ReportNothing, current, earlierAttempt: null);
+
+            string console = CaptureConsole(current.Dispose);
+
+            Assert.Equal(new[] { nameof(ITestSkipped) }, inner.PublishedKinds);
+            Assert.DoesNotContain("Internal error", console, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenMessagesNobodyResolved_WhenTheBusIsDisposed_ThenItStillPublishesAndSaysSo()
+        {
+            var inner = new RecordingMessageBus();
+            RetryTestCase.FailureInterceptingMessageBus orphaned = DeferFailure(inner);
+
+            string console = CaptureConsole(orphaned.Dispose);
+
+            Assert.Equal(new[] { nameof(ITestFailed) }, inner.PublishedKinds);
+            Assert.Contains("Internal error", console, StringComparison.Ordinal);
+        }
+
+        private static string CaptureConsole(Action action)
+        {
+            System.IO.TextWriter original = Console.Out;
+            var captured = new System.IO.StringWriter();
+
+            try
+            {
+                Console.SetOut(captured);
+                action();
+            }
+            finally
+            {
+                Console.SetOut(original);
+            }
+
+            return captured.ToString();
+        }
+
         private static RetryTestCase.FailureInterceptingMessageBus DeferFailure(RecordingMessageBus inner)
         {
             var bus = new RetryTestCase.FailureInterceptingMessageBus(inner, deferFailures: true);

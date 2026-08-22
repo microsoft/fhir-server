@@ -474,6 +474,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     // current attempt is still holding - an abstention, typically - is the only
                     // result the test has, and is left for its disposal to publish.
                     earlierAttempt?.DiscardDeferredMessages();
+                    currentAttempt?.PublishDeferredMessagesOnDispose();
                     return true;
             }
         }
@@ -651,6 +652,7 @@ namespace Microsoft.Health.Extensions.Xunit
             private readonly bool _deferAbstentions;
             private readonly List<IMessageSinkMessage> _deferredMessages = new List<IMessageSinkMessage>();
             private bool _deferring;
+            private bool _replayOnDisposeIsIntended;
 
             public FailureInterceptingMessageBus(IMessageBus innerBus, bool deferFailures, bool deferAbstentions = false)
             {
@@ -808,14 +810,33 @@ namespace Microsoft.Health.Extensions.Xunit
                 _deferring = false;
             }
 
+            /// <summary>
+            /// Records that whatever is still held is meant to be published by disposal rather than
+            /// by an explicit replay, so that disposal does not report it as a leak.
+            /// </summary>
+            /// <remarks>
+            /// Disposal replaying held messages is both the fail-safe for a caller that forgot them
+            /// and the ordinary way the last surviving result reaches the bus. Without a way to tell
+            /// those apart, the fail-safe announces an internal error on a routine path, and a reader
+            /// who sees that line on every run has no reason to believe it the one time it means
+            /// something. This marks the deliberate case so the warning stays rare enough to trust.
+            /// </remarks>
+            public void PublishDeferredMessagesOnDispose()
+            {
+                _replayOnDisposeIsIntended = true;
+            }
+
             public void Dispose()
             {
                 // Don't dispose the inner bus - it's owned by the caller.
-                // Anything still deferred was never explicitly replayed or discarded. Dropping it
-                // would remove the test from the run, so fail safe by reporting it.
+                // Anything still deferred is reported either way, because dropping it would remove
+                // the test from the run. Only an unannounced one is a defect worth saying so about.
                 if (_deferredMessages.Count > 0)
                 {
-                    Console.WriteLine($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
+                    if (!_replayOnDisposeIsIntended)
+                    {
+                        Console.WriteLine($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
+                    }
 
                     try
                     {
