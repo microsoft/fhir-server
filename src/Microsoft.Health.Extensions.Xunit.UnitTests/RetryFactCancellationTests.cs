@@ -14,17 +14,29 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
     /// cancelled part way through, which is where a retrying test can either lose a real failure
     /// or invent one that never happened.
     /// </summary>
+    /// <remarks>
+    /// Both scenarios need their two collections to make progress at the same time: one cancels the
+    /// run while the other is mid-attempt. The scenarios arrange that themselves by waiting
+    /// asynchronously for each other, so it holds however many threads the runner uses. Pinning a
+    /// thread count from here was measured to make it worse rather than better: with two threads and
+    /// a blocking wait, the collection being waited for did not get a thread until the waiter had
+    /// already given up.
+    /// </remarks>
     public class RetryFactCancellationTests
     {
         private const string RetryDelayPrefix = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuringRetryDelay.";
         private const string PassingAttemptPrefix = "Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuringPassingAttempt.";
 
         /// <summary>
-        /// Comfortably above what a cancelled run needs, and comfortably below the 30s retry delay
-        /// the scenario would otherwise sit through, so the assertion distinguishes the two without
-        /// being sensitive to how quickly the run starts up.
+        /// What this budget has to separate is a cancelled run from one that sat through its retry
+        /// delays instead. Those are 30s apart and there are three of them, so a run that was not
+        /// cancelled cannot finish in less than 30s and in practice takes about 90s. A cancelled run
+        /// takes seconds. Setting the line at 60s therefore still distinguishes the two, while
+        /// leaving room for a loaded agent to be slow at starting a child process without turning a
+        /// correct run red: this assertion is a backstop, and the scenario's own handshake is what
+        /// makes the cancellation land where it should.
         /// </summary>
-        private static readonly TimeSpan CancellationBudget = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan CancellationBudget = TimeSpan.FromSeconds(60);
 
         /// <summary>
         /// A failing attempt's result is held back in case a later attempt supersedes it. If the

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuringPassingAttempt
@@ -27,20 +28,26 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuring
         /// the sibling collection to cancel the run, and passes anyway.
         /// </summary>
         [RetryFact(MaxRetries = 2, DelayBetweenRetriesMs = 50, RetryOnAssertionFailure = true)]
-        public void PassingAttemptIsNotOverriddenByEarlierFailure()
+        public async Task PassingAttemptIsNotOverriddenByEarlierFailure()
         {
             if (Interlocked.Increment(ref _attempts) == 1)
             {
                 Assert.Fail("ASSET: first attempt fails so a failure is deferred");
             }
 
-            // Stay in the second attempt while the sibling collection cancels the run, then prove
-            // that is really what happened. Without this the attempt simply passes on its own and
-            // the scenario would report the expected result while exercising nothing.
-            Thread.Sleep(3000);
+            // Tell the sibling collection it may now cancel the run. Until this point cancelling
+            // would land before the attempt that has to survive it had started.
+            PassingAttemptHandshake.AnnounceSecondAttempt();
+
+            // Stay in the second attempt until the sibling collection actually cancels the run, then
+            // prove that is really what happened. Without this the attempt simply passes on its own
+            // and the scenario would report the expected result while exercising nothing. Waiting for
+            // the cancellation rather than sleeping for a fixed period keeps that true on a machine
+            // slow enough that a fixed window would close first.
+            bool cancelled = await PassingAttemptHandshake.WaitForCancellationAsync(TestContext.Current.CancellationToken);
 
             Assert.True(
-                TestContext.Current.CancellationToken.IsCancellationRequested,
+                cancelled,
                 "ASSET: the run was not cancelled while this attempt was running, so this scenario did not exercise a pass during cancellation.");
         }
     }

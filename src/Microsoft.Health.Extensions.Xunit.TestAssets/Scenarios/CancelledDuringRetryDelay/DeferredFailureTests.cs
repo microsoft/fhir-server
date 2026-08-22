@@ -28,6 +28,10 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.CancelledDuring
         [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public void FailureSurvivesCancellationDuringRetryDelay()
         {
+            // Tell the sibling collection it may now cancel the run: the retry delay this scenario
+            // needs it cancelled during begins the moment this attempt fails.
+            RetryDelayHandshake.AnnounceAttemptFailing();
+
             Assert.Fail("ASSET: failure that must survive cancellation");
         }
     }
