@@ -183,22 +183,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         // At most one bus is replayed. A failure this attempt saw supersedes anything held
                         // over from an earlier one, and replaying both would publish two results for a
                         // single test.
-                        bool continueRunning = true;
-
-                        switch (outcome)
-                        {
-                            case NoResultOutcome.ReplayCurrentAttempt:
-                                pendingFailureBus?.DiscardDeferredMessages();
-                                continueRunning = interceptingBus.ReplayDeferredMessages();
-                                break;
-
-                            case NoResultOutcome.ReplayEarlierAttempt:
-                                continueRunning = pendingFailureBus.ReplayDeferredMessages();
-                                break;
-
-                            default:
-                                break;
-                        }
+                        bool continueRunning = ReportSingleResult(outcome, interceptingBus, pendingFailureBus);
 
                         StopRunIfRequested(continueRunning, cancellationTokenSource);
 
@@ -387,22 +372,15 @@ namespace Microsoft.Health.Extensions.Xunit
                     Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestDescription}': {ex.GetType().FullName}: {ex.Message}");
 
                     // A crash must not swallow a failure an earlier attempt already produced, but at
-                    // most one attempt's failure may reach the bus: replaying both would publish two
+                    // most one attempt's result may reach the bus: replaying both would publish two
                     // results for a single test. That is the same supersession rule the no-result
-                    // path applies, so it is decided the same way here. Disposing replays whatever
-                    // is still deferred, and the finally below does that for the current attempt.
+                    // path applies, so it is decided - and carried out - the same way here.
                     NoResultOutcome disposition = DecideNoResultOutcome(
                         currentAttemptObservedFailure: interceptingBus?.HasObservedFailure ?? false,
                         earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
 
-                    if (disposition == NoResultOutcome.ReplayEarlierAttempt)
-                    {
-                        pendingFailureBus?.Dispose();
-                    }
-                    else
-                    {
-                        pendingFailureBus?.DiscardDeferredMessages();
-                    }
+                    // The run is already unwinding, so a request to stop has nothing left to stop.
+                    ReportSingleResult(disposition, interceptingBus, pendingFailureBus);
 
                     throw;
                 }
@@ -458,6 +436,46 @@ namespace Microsoft.Health.Extensions.Xunit
             return earlierAttemptObservedFailure
                 ? NoResultOutcome.ReplayEarlierAttempt
                 : NoResultOutcome.ReportNothing;
+        }
+
+        /// <summary>
+        /// Publishes at most one attempt's held-back messages, and drops the other attempt's.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <param name="currentAttempt">The bus this attempt ran on, or <c>null</c> once its ownership has moved.</param>
+        /// <param name="earlierAttempt">The bus carrying a failure held over from an earlier attempt, if any.</param>
+        /// <returns><c>false</c> when the underlying bus asked for the run to stop.</returns>
+        /// <remarks>
+        /// Deciding which attempt wins is not enough on its own: the loser's messages have to be
+        /// dropped as well, because a bus still holding messages replays them when it is disposed.
+        /// That fail-safe exists so a failure can never be lost, but it makes silence the one thing
+        /// a caller cannot express by omission - leaving the loser alone publishes it anyway, a
+        /// moment after the winner. An abstention held by an attempt that then crashed would arrive
+        /// as a second result on top of the earlier attempt's failure, and a skip landing after a
+        /// failure is exactly the reordering that turns a red test green.
+        /// </remarks>
+        internal static bool ReportSingleResult(
+            NoResultOutcome outcome,
+            FailureInterceptingMessageBus currentAttempt,
+            FailureInterceptingMessageBus earlierAttempt)
+        {
+            switch (outcome)
+            {
+                case NoResultOutcome.ReplayCurrentAttempt:
+                    earlierAttempt?.DiscardDeferredMessages();
+                    return currentAttempt?.ReplayDeferredMessages() ?? true;
+
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    currentAttempt?.DiscardDeferredMessages();
+                    return earlierAttempt?.ReplayDeferredMessages() ?? true;
+
+                default:
+                    // Nothing observed a failure, so there is no competition to resolve. Whatever the
+                    // current attempt is still holding - an abstention, typically - is the only
+                    // result the test has, and is left for its disposal to publish.
+                    earlierAttempt?.DiscardDeferredMessages();
+                    return true;
+            }
         }
 
         /// <summary>
@@ -626,7 +644,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// attempt keeps the messages in their original order, so the caller can either discard
         /// them (retrying) or replay them intact (reporting the failure).
         /// </remarks>
-        private class FailureInterceptingMessageBus : IMessageBus
+        internal class FailureInterceptingMessageBus : IMessageBus
         {
             private readonly IMessageBus _innerBus;
             private readonly bool _deferFailures;
