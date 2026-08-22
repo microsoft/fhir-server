@@ -39,11 +39,15 @@ steps:
 
         # xUnit v3 MTP filter-query: match DataStore trait for this app service type and any extra trait filters
         $categoryFilter = '${{ parameters.categoryFilter }}'
-        $parts = $categoryFilter -split '&'
+        $parts = @($categoryFilter -split '&' | Where-Object { $_.Trim() -ne '' })
         $allParts = @("DataStore=${{ parameters.appServiceType }}") + $parts
         $traitFilter = "[" + (($allParts | ForEach-Object { "($_)" }) -join '&') + "]"
         $filterQuery = "/$traitFilter"
-        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx')
+
+        # This filter is positive on DataStore, so a test case that reaches the runner without that
+        # trait is invisible to it rather than failing. Assert a floor on the count so a filter or
+        # trait regression that silently empties this leg cannot report success.
+        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
         & dotnet $dll.FullName @args

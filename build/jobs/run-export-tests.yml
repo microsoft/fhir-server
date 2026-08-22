@@ -103,7 +103,9 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx')
+        # Positive on DataStore, so a case missing that trait is invisible here rather than failing.
+        # The floor makes a filter or trait regression that empties this leg fail instead of pass.
+        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=CosmosDb)&(Category=ExportLongRunning)]"
         & dotnet $dll.FullName @args
@@ -255,7 +257,9 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx')
+        # Positive on DataStore, so a case missing that trait is invisible here rather than failing.
+        # The floor makes a filter or trait regression that empties this leg fail instead of pass.
+        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=SqlServer)&(Category=ExportLongRunning)]"
         & dotnet $dll.FullName @args
