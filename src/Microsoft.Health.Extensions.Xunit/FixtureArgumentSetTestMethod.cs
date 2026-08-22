@@ -88,6 +88,18 @@ namespace Microsoft.Health.Extensions.Xunit
             return result;
         }
 
+        /// <summary>
+        /// Adds a trait naming each fixture argument set value this variant stands for, so a CI leg
+        /// selecting on those traits can see it.
+        /// </summary>
+        /// <remarks>
+        /// A value here is never null: the only producer builds every <see cref="SingleFlag"/> through
+        /// its constructor, and a degenerate combination is rejected before reaching this point. It is
+        /// deliberately not guarded against anyway. Skipping a value that somehow was null would drop
+        /// the trait and leave this variant unselectable by the E2E and export legs, which each require
+        /// a positive match - the test would vanish from them silently. Throwing instead surfaces as a
+        /// discovery fault, which this assembly turns into a reported failure per argument set.
+        /// </remarks>
         internal void ApplyArgumentSetTraits()
         {
             if (_fixtureArguments.Count == 0)

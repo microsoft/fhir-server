@@ -6,12 +6,13 @@
 using System;
 using System.Threading;
 using Xunit;
+using Xunit.Sdk;
 
 namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryPolicy
 {
     /// <summary>
     /// Tests that tell the two <c>RetryOnAssertionFailure</c> policies apart.
-    /// Expected: 2 results, 1 failed and 1 passed.
+    /// Expected: 3 results, 2 failed and 1 passed.
     /// </summary>
     /// <remarks>
     /// A test that fails on every attempt is reported failed whether or not it was retried, and one
@@ -23,6 +24,7 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryPolicy
     {
         private static int _assertionAttempts;
         private static int _exceptionAttempts;
+        private static int _wrappedAssertionAttempts;
 
         /// <summary>
         /// An assertion failure is taken to be deterministic, so with the default policy the
@@ -49,6 +51,22 @@ namespace Microsoft.Health.Extensions.Xunit.TestAssets.Scenarios.RetryPolicy
             if (Interlocked.Increment(ref _exceptionAttempts) == 1)
             {
                 throw new InvalidOperationException("ASSET: first attempt throws, a second attempt would pass");
+            }
+        }
+
+        /// <summary>
+        /// An assertion failure that reaches the policy wrapped in an <see cref="AggregateException"/>
+        /// is the same deterministic failure and must be treated as one: reported failed, not retried.
+        /// Were the wrapper taken at face value it would look like an ordinary exception, be retried,
+        /// and pass - so the outcome states whether the wrapper was seen through.
+        /// </summary>
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 10, RetryOnAssertionFailure = false)]
+        public void WrappedAssertionFailureUnderTheDefaultPolicy_IsNotRetried()
+        {
+            if (Interlocked.Increment(ref _wrappedAssertionAttempts) == 1)
+            {
+                throw new AggregateException(
+                    new XunitException("ASSET: first attempt fails a wrapped assertion, a second attempt would pass"));
             }
         }
     }

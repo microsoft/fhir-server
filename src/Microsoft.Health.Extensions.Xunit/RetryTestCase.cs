@@ -649,13 +649,23 @@ namespace Microsoft.Health.Extensions.Xunit
                     // flakiness these attributes exist to absorb -- and unlike the cases above, it is
                     // not an assertion at all. It derives from System.Exception rather than
                     // XunitException, so it is only ever mistaken for one by way of this match.
-                    string failedExceptionType = failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
-                        ? failed.ExceptionTypes[0]
-                        : string.Empty;
+                    // A wrapped assertion failure is still an assertion failure. Xunit reports the
+                    // whole exception chain here, outer type first, so reading only the first entry
+                    // classifies AggregateException(XunitException) -- what an assertion failing
+                    // inside Task.WhenAll or a parallel helper produces -- as an ordinary exception
+                    // and retries it, which is exactly what the policy was set to prevent.
+                    string[] failedExceptionTypes = failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
+                        ? failed.ExceptionTypes
+                        : new[] { string.Empty };
 
-                    IsAssertionFailure = !failedExceptionType.Contains("Timeout", StringComparison.Ordinal) &&
-                        (failedExceptionType.Contains("Xunit", StringComparison.Ordinal) ||
-                         failedExceptionType.Contains("Assert", StringComparison.Ordinal));
+                    // The timeout carve-out is applied to the whole chain rather than one entry: a
+                    // timeout wrapped in anything is still a timeout, and still the failure that most
+                    // deserves another attempt.
+                    IsAssertionFailure =
+                        !failedExceptionTypes.Any(type => type != null && type.Contains("Timeout", StringComparison.Ordinal)) &&
+                        failedExceptionTypes.Any(type => type != null &&
+                            (type.Contains("Xunit", StringComparison.Ordinal) ||
+                             type.Contains("Assert", StringComparison.Ordinal)));
 
                     if (_deferFailures)
                     {

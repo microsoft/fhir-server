@@ -38,6 +38,7 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                 {
                     [ClassName + "AssertionFailureUnderTheDefaultPolicy_IsNotRetried"] = "Failed",
                     [ClassName + "NonAssertionExceptionUnderTheDefaultPolicy_IsRetried"] = "Passed",
+                    [ClassName + "WrappedAssertionFailureUnderTheDefaultPolicy_IsNotRetried"] = "Failed",
                 });
         }
     }
