@@ -17,10 +17,11 @@ parameters:
 # pass rather than passed to the run as --minimum-expected-tests, because that option is applied
 # again to the much smaller pass --retry-failed-tests starts: a floor above the size of a retry
 # pass turns a flake that recovered into a failed leg (exit 9). Set well below the real counts so
-# version differences and legitimately removed tests do not fail a leg that is working.
+# version differences and legitimately removed tests do not fail a leg that is working. There is
+# deliberately no default: a new leg has to state its own floor, because the only value that would
+# be safe to inherit is one too low to ever fire.
 - name: minimumExpectedTests
   type: string
-  default: '1'
 
 steps:
   - template: e2e-tests-extract.yml

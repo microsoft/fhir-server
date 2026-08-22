@@ -64,7 +64,7 @@ jobs:
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
   - task: PowerShell@2
-    displayName: 'Verify xUnit config'
+    displayName: 'Verify xUnit config and test counts'
     inputs:
       targetType: inline
       pwsh: true
@@ -75,6 +75,15 @@ jobs:
           throw "No integration test projects found under $(Pipeline.Workspace)/source/test."
         }
 
+        # Around 441 tests select here. This leg filters by excluding the other store, and an
+        # exclusion drops a case that names either value, so a class that starts carrying both -
+        # by inheriting traits from a shared collection definition, for instance - disappears from
+        # this leg and from the other one at the same time, leaving both green and much smaller.
+        # Counting discovery is the only thing that notices. The floor is checked here rather than
+        # passed as --minimum-expected-tests because that option is applied again to the smaller
+        # pass --retry-failed-tests starts, where any real floor would fail a recovered flake.
+        $minimumExpectedTests = 250
+
         foreach ($project in $projects) {
           $outputDir = [System.IO.Path]::Combine($project.Directory.FullName, "bin", "$(buildConfiguration)", "$(defaultBuildFramework)")
           $configPath = Join-Path $outputDir "xunit.runner.json"
@@ -84,6 +93,27 @@ jobs:
 
           Write-Host "xUnit config for $($project.BaseName): $configPath"
           Get-Content -Path $configPath | ForEach-Object { Write-Host $_ }
+
+          $assemblyPath = Join-Path $outputDir "$($project.BaseName).dll"
+          if (-not (Test-Path $assemblyPath)) {
+            throw "Test assembly not found for $($project.FullName) at $assemblyPath"
+          }
+
+          $listOutput = & dotnet $assemblyPath --list-tests --filter-not-class "*CosmosDb*" --filter-not-trait "DataStore=CosmosDb"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Listing tests for $($project.BaseName) failed with exit code $LASTEXITCODE"
+          }
+
+          $found = $listOutput | Select-String -Pattern 'found\s+(\d+)\s+test' | Select-Object -First 1
+          if (-not $found) {
+            throw "Could not read a discovered test count for $($project.BaseName) from the runner's output."
+          }
+
+          $discovered = [int]$found.Matches[0].Groups[1].Value
+          Write-Host "Discovered $discovered test(s) for $($project.BaseName) (floor $minimumExpectedTests)"
+          if ($discovered -lt $minimumExpectedTests) {
+            throw "$($project.BaseName) selected $discovered test(s), below this leg's floor of $minimumExpectedTests. The leg would have run a fraction of its tests and reported success."
+          }
         }
 
   - task: DotNetCoreCLI@2
