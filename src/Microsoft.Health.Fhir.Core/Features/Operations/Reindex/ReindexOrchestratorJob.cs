@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
-        private readonly Dictionary<string, (HashSet<long> JobIds, FailedJobs FailedJobs)> _transientResourceTypeJobs = [];
+        private readonly Dictionary<string, HashSet<long>> _transientResourceTypeJobs = [];
         private readonly Dictionary<string, (HashSet<string> ResourceTypes, SearchParameterStatus Status)> _transientSearchParamResouceTypes = [];
         //// populated with holds enqueued job ids. job is removed after it is finished (terminal state, completed or failed).
         private readonly SortedSet<long> _transientProcessingJobIds = [];
@@ -429,13 +429,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             if (!_transientResourceTypeJobs.TryGetValue(resourceType, out var jobs))
             {
-                _transientResourceTypeJobs.Add(resourceType, (new HashSet<long>(jobIds), new FailedJobs()));
+                _transientResourceTypeJobs.Add(resourceType, new HashSet<long>(jobIds));
             }
             else
             {
                 foreach (var jobId in jobIds)
                 {
-                    jobs.JobIds.Add(jobId);
+                    jobs.Add(jobId);
                 }
             }
 
@@ -658,9 +658,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // remove processed jobs from _transientResourceTypeJobs and update counts
             foreach (var job in finishedJobs)
             {
-                foreach (var resourceTypeJobs in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count > 0))
+                foreach (var resourceTypeJobs in _transientResourceTypeJobs.Where(_ => _.Value.Count > 0))
                 {
-                    if (!resourceTypeJobs.Value.JobIds.Remove(job.Id))
+                    if (!resourceTypeJobs.Value.Remove(job.Id))
                     {
                         continue;
                     }
@@ -696,7 +696,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _result.CompletedJobs += finishedJobs.Count(j => j.Status == JobStatus.Completed);
 
             // remove processed resource types from _transientSearchParamResouceTypes
-            foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.FailedJobs.Count == 0).Select(_ => _.Key))
+            foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.Count == 0).Select(_ => _.Key))
             {
                 foreach (var searchParamResourceType in _transientSearchParamResouceTypes.Values)
                 {
@@ -712,7 +712,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // update counts when all done
-            var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
+            var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.Count == 0);
             if (allJobsComplete)
             {
                 _logger.LogJobInformation(_jobInfo, $"Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}");
@@ -722,11 +722,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)
         {
             await _searchParameterStatusManager.TryLogEvent(process, status, text, startDate, _cancellationToken);
-        }
-
-        private class FailedJobs
-        {
-            public int Count { get; set; }
         }
     }
 }
