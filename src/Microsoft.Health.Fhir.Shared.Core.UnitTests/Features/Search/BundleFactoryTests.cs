@@ -156,7 +156,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new Uri("https://example.org/fhir/SearchParameter/semantic-text"),
                 "Observation/123/_history/4",
                 "Observation.note.text",
-                rank: 2);
+                rank: 2,
+                witnessReference: "DocumentReference/document/_history/3");
             var searchResult = new SearchResult(
                 new[] { new SearchResultEntry(CreateResourceWrapper(observation, HttpMethod.Post), score: 0.91m, evidence: evidence) },
                 continuationToken: null,
@@ -175,6 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(evidence.Score, ((FhirDecimal)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.ScoreExtensionUrl).Value).Value);
             Assert.Equal(evidence.SearchParameterCanonical.OriginalString, ((FhirUri)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SearchParameterExtensionUrl).Value).Value);
             Assert.Equal(evidence.SourceReference, ((ResourceReference)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourceExtensionUrl).Value).Reference);
+            Assert.Equal(evidence.WitnessReference, ((ResourceReference)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.WitnessExtensionUrl).Value).Reference);
             Assert.Equal(evidence.SourcePath, ((FhirString)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourcePathExtensionUrl).Value).Value);
         }
 

@@ -84,6 +84,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SearchParameterExtensionUrl, new FhirUri(evidence.SearchParameterCanonical)));
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SourceExtensionUrl, new ResourceReference(evidence.SourceReference)));
+            if (evidence.WitnessReference != null)
+            {
+                extension.Extension.Add(new Extension(SemanticSearchEvidence.WitnessExtensionUrl, new ResourceReference(evidence.WitnessReference)));
+            }
+
             extension.Extension.Add(new Extension(SemanticSearchEvidence.SourcePathExtensionUrl, new FhirString(evidence.SourcePath)));
 
             return extension;

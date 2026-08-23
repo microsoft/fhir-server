@@ -49,6 +49,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         public const string SourceExtensionUrl = "source";
 
         /// <summary>
+        /// Gets the nested extension URL for the related resource whose vector produced the root match.
+        /// </summary>
+        public const string WitnessExtensionUrl = "witness";
+
+        /// <summary>
         /// Gets the nested extension URL for the source element path.
         /// </summary>
         public const string SourcePathExtensionUrl = "sourcePath";
@@ -81,6 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// <param name="sourceReference">The FHIR reference to the resource containing the source text.</param>
         /// <param name="sourcePath">The path of the source element within the referenced resource.</param>
         /// <param name="rank">The optional one-based relevance rank across evidence on the current response page.</param>
+        /// <param name="witnessReference">The optional FHIR reference to the related resource whose vector produced the root match.</param>
         public SemanticSearchEvidence(
             string text,
             int chunkOrdinal,
@@ -88,13 +94,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             Uri searchParameterCanonical,
             string sourceReference,
             string sourcePath,
-            int? rank = null)
+            int? rank = null,
+            string witnessReference = null)
         {
             EnsureArg.IsNotNullOrWhiteSpace(text, nameof(text));
             EnsureArg.IsGte(chunkOrdinal, 0, nameof(chunkOrdinal));
             EnsureArg.IsNotNull(searchParameterCanonical, nameof(searchParameterCanonical));
             EnsureArg.IsNotNullOrWhiteSpace(sourceReference, nameof(sourceReference));
             EnsureArg.IsNotNullOrWhiteSpace(sourcePath, nameof(sourcePath));
+            if (witnessReference != null)
+            {
+                EnsureArg.IsNotNullOrWhiteSpace(witnessReference, nameof(witnessReference));
+            }
 
             if (score is < 0 or > 1)
             {
@@ -118,6 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             SearchParameterCanonical = searchParameterCanonical;
             SourceReference = sourceReference;
             SourcePath = sourcePath;
+            WitnessReference = witnessReference;
         }
 
         /// <summary>
@@ -151,6 +163,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         public string SourceReference { get; }
 
         /// <summary>
+        /// Gets the optional FHIR reference to the related resource whose vector produced the root match.
+        /// </summary>
+        public string WitnessReference { get; }
+
+        /// <summary>
         /// Gets the path of the source element within the referenced resource.
         /// </summary>
         public string SourcePath { get; }
@@ -169,7 +186,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 SearchParameterCanonical,
                 SourceReference,
                 SourcePath,
-                rank);
+                rank,
+                WitnessReference);
         }
     }
 }

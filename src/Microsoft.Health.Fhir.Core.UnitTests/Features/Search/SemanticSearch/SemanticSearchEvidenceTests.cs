@@ -69,6 +69,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         }
 
         [Fact]
+        public void GivenWitnessEvidence_WhenAssigningRank_ThenWitnessIsPreserved()
+        {
+            var evidence = new SemanticSearchEvidence(
+                "Matched Binary passage",
+                chunkOrdinal: 0,
+                score: 0.9m,
+                new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+                "Binary/source/_history/2",
+                "Binary.data",
+                witnessReference: "DocumentReference/document/_history/3");
+
+            SemanticSearchEvidence ranked = Assert.Single(Assert.Single(
+                SemanticSearchEvidenceRanker.AssignRanks(new[] { new[] { evidence } })));
+
+            Assert.Equal("DocumentReference/document/_history/3", ranked.WitnessReference);
+            Assert.Equal(1, ranked.Rank);
+        }
+
+        [Fact]
         public void GivenRelativeSearchParameterCanonical_WhenCreatingEvidence_ThenArgumentExceptionIsThrown()
         {
             // Arrange
