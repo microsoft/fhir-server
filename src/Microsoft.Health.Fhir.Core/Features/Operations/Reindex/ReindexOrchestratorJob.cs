@@ -1411,8 +1411,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .Where(j =>
                 {
                     var jobDefinition = ParseJobDefinition(j);
-                    return jobDefinition != null &&
-                           jobDefinition.SearchParameterUrls.Contains(searchParamUrl);
+                    return jobDefinition?.SearchParameterUrls?.Contains(searchParamUrl) == true;
                 })
                 .ToList();
         }
