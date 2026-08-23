@@ -98,6 +98,9 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
             IReadOnlyList<KeyValuePair<string, int?>> environment =
                 CustomXunitTestFrameworkExecutor.BuildAssertionFormattingEnvironment(new RecordingExecutionOptions());
 
+            // Asserting only that every value is null would hold just as well for a list that named no
+            // variables at all, which is the one result that would mean the options are never read.
+            Assert.NotEmpty(environment);
             Assert.All(environment, pair => Assert.Null(pair.Value));
         }
 

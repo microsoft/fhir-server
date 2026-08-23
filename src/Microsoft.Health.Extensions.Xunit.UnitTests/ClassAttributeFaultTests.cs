@@ -112,6 +112,14 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
         /// failures are carrying traits pooled across methods - which is what makes a leg excluding
         /// one method's trait drop the failures standing in for all the others.
         /// </summary>
+        /// <remarks>
+        /// A query selecting nothing would prove nothing if the runner had not understood the query
+        /// at all. What rules that out is
+        /// <see cref="GivenAClassLevelFault_WhenTestsAreSelectedByACompoundQuery_ThenTheMatchingFailureIsReported"/>,
+        /// which selects a failure with this same query shape. Anchoring it again here would mean a
+        /// second whole-assembly run - query filtering is not scoped to one scenario's namespace -
+        /// and that added load makes the sibling query runs flaky.
+        /// </remarks>
         [Fact]
         public void GivenAClassLevelFault_WhenAQuerySelectsACombinationNoMethodDeclared_ThenNothingMatches()
         {
@@ -227,6 +235,10 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
                     result.Name.Contains("OverloadedFaultTests.NeverRuns", StringComparison.Ordinal)));
 
             Assert.NotEqual(0, run.ExitCode);
+
+            // The class holds nothing but the two lost overloads, so any passing result would mean a
+            // fault was reported as a test that ran - which counting only failures cannot see.
+            Assert.DoesNotContain(run.Results, result => string.Equals(result.Outcome, "Passed", StringComparison.Ordinal));
         }
     }
 }
