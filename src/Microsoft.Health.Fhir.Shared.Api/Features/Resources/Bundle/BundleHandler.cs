@@ -49,6 +49,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -91,6 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver;
         private readonly IMediator _mediator;
         private readonly IRouter _router;
         private readonly ILogger<BundleHandler> _logger;
@@ -145,7 +147,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IMediator mediator,
             IRouter router,
             IBundleMetricHandler metricHandler,
-            ILogger<BundleHandler> logger)
+            ILogger<BundleHandler> logger,
+            IVectorSearchParameterResolver vectorSearchParameterResolver = null)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -167,6 +170,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _vectorSearchParameterResolver = vectorSearchParameterResolver;
             _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -259,6 +263,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger.LogInformation("Sequential transaction bundle contains a search parameter, execution is forced to be parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
                         }
+                        else if (_vectorSearchParameterResolver != null && ContainsLocalReferenceVectorOwner(bundleResource, _vectorSearchParameterResolver))
+                        {
+                            _logger.LogInformation("Sequential transaction bundle contains a local-reference vector owner, execution is forced to be parallel.");
+                            bundleProcessingLogic = BundleProcessingLogic.Parallel;
+                        }
                     }
 
                     var responseBundle = new Hl7.Fhir.Model.Bundle { Type = BundleType.TransactionResponse };
@@ -284,6 +293,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
+        }
+
+        private static bool ContainsLocalReferenceVectorOwner(
+            Hl7.Fhir.Model.Bundle bundle,
+            IVectorSearchParameterResolver vectorSearchParameterResolver)
+        {
+            return bundle.Entry
+                .Select(entry => entry.Resource?.TypeName)
+                .Where(resourceType => resourceType != null)
+                .Distinct(StringComparer.Ordinal)
+                .SelectMany(vectorSearchParameterResolver.GetIndexingSearchParameters)
+                .Any(searchParameter => searchParameter.VectorConfig.SourceStrategy == VectorTextSourceStrategy.LocalBinaryReference);
         }
 
         private async Task CheckSearchParamInputConflictsAndUpdateCache(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
