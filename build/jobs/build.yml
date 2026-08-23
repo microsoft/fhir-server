@@ -35,7 +35,7 @@ steps:
     inputs:
       pwsh: true
       filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
-      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -MinimumExpectedProjects 20'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -ManifestPath "$(Build.SourcesDirectory)/build/jobs/scripts/UnitTestProjects.txt"'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
     inputs:
@@ -81,7 +81,7 @@ steps:
     inputs:
       pwsh: true
       filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
-      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -MinimumExpectedProjects 20'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -ManifestPath "$(Build.SourcesDirectory)/build/jobs/scripts/UnitTestProjects.txt"'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test with coverage'
     inputs:
