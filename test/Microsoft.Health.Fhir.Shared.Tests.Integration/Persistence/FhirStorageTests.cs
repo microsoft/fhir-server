@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
-            await _fixture.TestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
             await CleanupSearchParametersAsync(CancellationToken.None);
         }
 
