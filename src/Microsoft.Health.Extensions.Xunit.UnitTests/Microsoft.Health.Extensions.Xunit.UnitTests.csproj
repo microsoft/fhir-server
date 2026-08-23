@@ -8,6 +8,18 @@
       once per scenario, with the runner flags that scenario needs.
     -->
     <TestAssetsAssembly>$(MSBuildThisFileDirectory)..\Microsoft.Health.Extensions.Xunit.TestAssets\bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Extensions.Xunit.TestAssets.dll</TestAssetsAssembly>
+    <!--
+      The CI legs decide whether a retried failure really cleared by reading the reports the runner
+      wrote, in this script. It is the only thing standing between a failure that turns into a skip
+      and a green leg, so it is tested here rather than only in the pipeline that runs it.
+    -->
+    <RetryReconciliationScript>$(MSBuildThisFileDirectory)..\..\build\jobs\scripts\Assert-RetriedFailuresPassed.ps1</RetryReconciliationScript>
+    <!--
+      The unit test leg runs whatever its project glob matches, so a project leaving the glob is
+      never run and nothing says so. This script and the list beside it are what notices.
+    -->
+    <UnitTestProjectsScript>$(MSBuildThisFileDirectory)..\..\build\jobs\scripts\Assert-UnitTestProjectsDiscovered.ps1</UnitTestProjectsScript>
+    <UnitTestProjectManifest>$(MSBuildThisFileDirectory)..\..\build\jobs\scripts\UnitTestProjects.txt</UnitTestProjectManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +46,18 @@
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>TestAssetsAssembly</_Parameter1>
       <_Parameter2>$(TestAssetsAssembly)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RetryReconciliationScript</_Parameter1>
+      <_Parameter2>$(RetryReconciliationScript)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>UnitTestProjectsScript</_Parameter1>
+      <_Parameter2>$(UnitTestProjectsScript)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>UnitTestProjectManifest</_Parameter1>
+      <_Parameter2>$(UnitTestProjectManifest)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 
