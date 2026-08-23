@@ -1403,17 +1403,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Unified method to filter jobs by resource type and search parameter.
         /// Replaces multiple similar LINQ queries throughout the class.
         /// </summary>
-        private List<JobInfo> GetJobsForSearchParameter(
-            IReadOnlyList<JobInfo> allJobs,
-            string searchParamUrl)
-                {
-            return allJobs
-                .Where(j =>
-                {
-                    var jobDefinition = ParseJobDefinition(j);
-                    return jobDefinition?.SearchParameterUrls?.Contains(searchParamUrl) == true;
-                })
-                .ToList();
+        private List<JobInfo> GetJobsForSearchParameter(IReadOnlyList<JobInfo> allJobs, string searchParamUrl)
+        {
+            return allJobs.Where(_ => ParseJobDefinition(_)?.SearchParameterUrls?.Contains(searchParamUrl) == true).ToList();
         }
 
         /// <summary>
