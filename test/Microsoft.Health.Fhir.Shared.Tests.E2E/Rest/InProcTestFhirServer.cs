@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var testConfigPath = Path.GetFullPath("testconfiguration.json");
+            var testConfigPath = Path.Combine(AppContext.BaseDirectory, "testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
-            configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
+            configuration["TestAuthEnvironment:FilePath"] = Path.Combine(AppContext.BaseDirectory, "testauthenvironment.json");
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";
 
@@ -88,6 +88,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
             configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
             configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
+
+            if (dataStore == DataStore.SqlServer)
+            {
+                string sqlConnectionString = Environment.GetEnvironmentVariable("SqlServer__ConnectionString");
+                if (!string.IsNullOrWhiteSpace(sqlConnectionString))
+                {
+                    configuration["SqlServer:ConnectionString"] = sqlConnectionString;
+                }
+            }
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {

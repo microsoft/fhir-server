@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [RequiresIsolatedDatabase]
     public sealed class StartupForSemanticSearchTests : StartupBaseForCustomProviders
     {
         public StartupForSemanticSearchTests(IConfiguration configuration)
